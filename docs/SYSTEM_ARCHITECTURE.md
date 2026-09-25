@@ -1,0 +1,498 @@
+# Plonk & Play™ System Architecture
+
+**Status:** Draft v0.1  
+**Purpose:** Record the architecture agreed so far. This document defines responsibilities and boundaries, not software classes, files, processors, protocols or detailed product implementation.
+
+This document is subordinate to the Design Constitution and System Requirements.
+
+## 1. Architectural approach
+
+Plonk & Play™ separates responsibilities so that hardware, transport, race rules, presentation and storage can evolve independently.
+
+Working principles:
+
+- **Design broadly. Implement narrowly.**
+- Hardware describes what it **is** and what it **can do**.
+- Configuration describes what it is **being used for**.
+- Race Control decides what an event **means in the current session**.
+- Replace locally. Fail locally.
+- New functionality should predominantly require new code, not changes to unrelated existing code.
+
+The architecture must not assume that today's known sensors, outputs, race modes, lane count or optional features are exhaustive.
+
+## 2. High-level responsibilities
+
+The system currently comprises these responsibility areas:
+
+1. Hardware / Device Abstraction
+2. Event Mapping
+3. Race Control
+4. Output Mapping and Hardware Output
+5. Presentation and User Interaction
+6. Supporting Services:
+   - Registry / Discovery
+   - Configuration
+   - P&P System Time
+   - Persistent / History Storage
+   - Test / Diagnostics
+   - Update / Recovery
+
+These are architectural responsibilities, not a proposed source-code directory structure.
+
+## 3. Devices, capabilities and physical mounting
+
+A **device** is something intelligent/addressable that P&P can discover or communicate with.
+
+A device may expose one or more **capabilities**, for example detector inputs, controllable outputs, local timestamping or other future capabilities.
+
+A **detector** is one particular input capability that can report physical state changes.
+
+Example:
+
+```text
+Device ABC123
+├── Detector 1
+├── Detector 2
+├── Detector 3
+└── Detector 4
+```
+
+A gantry, bridge, bracket or enclosure is normally a physical/mechanical concept, not an architectural module. One physical gantry might contain one detector or eight.
+
+However, physical grouping and location are useful to the person configuring the system. Configuration may therefore retain human-friendly metadata such as **"Main gantry"**, **"Back straight"** or **"Pit box"**.
+
+Race logic must not depend on that physical description.
+
+## 4. Input architecture
+
+### 4.1 Hardware abstraction
+
+Sensor-specific behaviour belongs in the hardware abstraction/adapter layer.
+
+A particular ToF sensor, IR detector or future technology is translated into a standard P&P event without Race Control knowing how the physical detection was performed.
+
+An intelligent remote device may perform this translation locally before transmitting the event.
+
+### 4.2 Detector events
+
+The current provisional detector contract is a state transition with a stable detector identity and timestamp, conceptually:
+
+```text
+DETECTOR ID : STATE : TIMESTAMP
+```
+
+Typical states are:
+
+- `ACTIVE` — the configured physical detection condition became true.
+- `INACTIVE` — the configured physical detection condition became false/re-armed.
+
+The timestamp represents when the physical event was detected as closely as practical, not when a communications packet happened to arrive at Race Control.
+
+Signal conditioning, hysteresis and re-arming belong close to the detector. Race meaning does not.
+
+### 4.3 Extensible events
+
+The higher-level event boundary must not assume that every future input is necessarily a detector state or lane event.
+
+Conceptually an event can carry:
+
+```text
+source
+event type
+timestamp
+event data
+```
+
+This allows future event types to be added without redefining unrelated existing components.
+
+### 4.4 Event mapping
+
+Event Mapping translates a stable hardware capability into its configured purpose.
+
+Example:
+
+```text
+ABC123:1 : ACTIVE : 123.456
+        ↓
+Lane 1 : START_FINISH : ACTIVE : 123.456
+```
+
+Event Mapping knows the installation/configuration assignment. It does not decide whether the event constitutes a lap, false start, sector time or anything else in the race.
+
+The same physical detector can be reassigned to a different role without becoming a different kind of sensor.
+
+### 4.5 Separation of knowledge
+
+The intended separation is:
+
+> **Hardware knows itself.**  
+> **Event Mapping knows what it is being used for.**  
+> **Race Control knows what that means.**
+
+## 5. Device failure and replacement
+
+The hardware/device layer reports availability. It does not decide the race consequence of losing a device.
+
+For example:
+
+- loss of an optional sector detector need not stop lap timing;
+- loss of a speed trap need not stop a race;
+- loss of the only Start/Finish detector may make accurate lap racing impossible.
+
+Race Control decides the consequence according to the active session and available capabilities.
+
+A replacement device identifies itself and its capabilities, not its assumed physical role. Configuration/Discovery may transfer remembered assignments automatically where replacement is unambiguous. Where there is a genuine choice, the user is asked.
+
+## 6. Registry / Discovery
+
+Registry / Discovery answers:
+
+> **What equipment actually exists?**
+
+It is responsible for concepts including stable device identity, advertised capabilities, software/firmware version and current availability.
+
+Its detailed design has not yet been completed.
+
+## 7. Configuration
+
+Configuration answers:
+
+> **What have we decided to use this equipment and system for?**
+
+It is distinct from Registry / Discovery and from live Race Control state.
+
+### 7.1 Installation configuration
+
+Persistent installation information includes assignments such as:
+
+```text
+Device ABC123 = "Main gantry"
+ABC123:1 → Lane 1 : Start/Finish
+ABC123:2 → Lane 2 : Start/Finish
+
+Device DEF456 = "Back straight"
+DEF456:1 → Lane 1 : Sector 1
+DEF456:2 → Lane 2 : Sector 1
+```
+
+This survives between races and power cycles.
+
+### 7.2 Session configuration
+
+Session configuration describes how a particular race/session should operate, for example:
+
+```text
+Mode = Lap race
+Length = 20 laps
+Fuel = On
+```
+
+Saved race setups may simply be persistent presets of session configuration.
+
+### 7.3 User / presentation preferences
+
+Preferences such as display choices, units, sounds and similar user choices are distinct from both installation configuration and live race state.
+
+### 7.4 Configuration versus live state
+
+Configuration describes **how P&P should behave**.
+
+Live Race Control state describes **what is happening or has happened as a result**.
+
+For example, current lap, current fuel level, race running/paused state and current position are not Configuration.
+
+### 7.5 Startup reconciliation
+
+At startup P&P compares remembered configuration with currently discovered hardware:
+
+- **known + present** — restore and continue;
+- **known + missing** — retain its assignments/configuration but mark it unavailable;
+- **new + unambiguous** — infer/restore an appropriate assignment where safe;
+- **new + ambiguous** — ask the user.
+
+Principle:
+
+> **Restore what is known. Infer what is unambiguous. Ask only when there is a genuine choice.**
+
+A startup summary may show the interpreted current configuration briefly so the user can verify it or choose to change setup. Exact UI behaviour is not yet specified.
+
+### 7.6 Configuration changes during operation
+
+Configuration changes must be controlled according to their effect on the live system.
+
+Some changes may be safe at any time, some only while idle and some must not change underneath an active race.
+
+Race Control should operate from a defined session configuration rather than repeatedly reading mutable configuration and discovering that its rules have silently changed.
+
+### 7.7 Optional driver/car data
+
+A small persistent list of drivers and/or cars is a possible product feature, particularly for more competitors than available lanes. It is not currently considered a fundamental architectural issue and is not committed as a feature.
+
+## 8. P&P System Time
+
+The controller is the authority for the common P&P time domain.
+
+Intelligent devices may use local high-resolution clocks, but timestamps from different devices must be relatable to P&P System Time where cross-device timing matters.
+
+Important input events should be timestamped at or near their source so communications latency does not determine official timing.
+
+Clock offset/drift correction must be possible. The specific synchronisation algorithm is deliberately not chosen yet.
+
+The same common timebase also supports scheduled time-critical outputs and presentation.
+
+## 9. Race Control
+
+Race Control is the **single authoritative owner** of live race/session state.
+
+It receives abstract mapped events, session configuration, relevant capability/availability changes and P&P time. It does not depend on sensor models, GPIOs, wireless addresses, physical gantries, browser implementation or storage media.
+
+Its responsibilities currently include:
+
+- session lifecycle/state;
+- interpretation of mapped events according to the active rules;
+- authoritative race state;
+- race-domain calculations;
+- decisions about logical race actions;
+- generation of race facts/events for consumers;
+- production of a deliberately limited result record for history.
+
+### 9.1 Race modes
+
+Different race forms are treated as replaceable rule sets within the common Race Control framework rather than separate hardware/timing systems.
+
+Known modes include:
+
+- lap race;
+- timed race;
+- rally;
+- drag racing;
+- future modes.
+
+A new mode should ideally add its rules without altering unrelated existing modes.
+
+### 9.2 Optional race features
+
+Features that can operate across multiple race modes should not be buried inside one mode.
+
+Fuel is the current example:
+
+```text
+Lap race + fuel
+Lap race without fuel
+Timed race + fuel
+Timed race without fuel
+```
+
+Future optional race features may be added where justified without pre-building speculative functionality.
+
+### 9.3 Race state and calculations
+
+Race Control owns authoritative live information such as:
+
+- session state;
+- current lap;
+- lap/sector times;
+- positions;
+- elapsed time;
+- active optional-feature state such as fuel.
+
+An incoming event changes authoritative race state once. Displays, sound and other consumers must not maintain competing calculations of the race.
+
+Derived calculations such as lap time, sector time, reaction time and speed may remain race-domain calculations unless a future requirement demonstrates a genuine need for a separate measurement-processing responsibility.
+
+### 9.4 Race facts versus actions
+
+Race Control reports **facts/events** independently of how they are presented.
+
+Example:
+
+```text
+FASTEST_LAP
+lane = 3
+time = 5.21
+```
+
+A sound system might announce it, a browser might highlight it and history storage might retain it.
+
+Separately, Race Control can request **logical actions**, such as scheduled start lights or track power changes. Output hardware details remain outside Race Control.
+
+## 10. Output architecture
+
+The output path mirrors the input separation:
+
+```text
+Race Control
+     ↓
+Logical action
+     ↓
+Output Mapping
+     ↓
+Hardware Abstraction
+     ↓
+Physical hardware
+```
+
+Race Control requests logical outcomes and does not know GPIOs, addresses or device-specific command protocols.
+
+### 10.1 Time-critical outputs
+
+Where timing matters, outputs should be scheduled against P&P System Time rather than relying on command-arrival time.
+
+A start sequence may therefore be transmitted ahead of time with authoritative execution times. A capable local output device can queue and execute those actions against its synchronised clock.
+
+### 10.2 Failure behaviour
+
+Every output that materially affects racing requires a defined behaviour if its controlling device fails.
+
+The precise failure behaviour of particular products, including track-power hardware, is a later hardware/product decision.
+
+### 10.3 Track power
+
+Track power is architecturally supported as a logical output capability.
+
+It only qualifies as a Plonk & Play™ product feature where the physical installation can itself be made genuinely simple, for example through a suitable plug-in power-control accessory rather than requiring the customer to cut and splice track wiring.
+
+## 11. Sound
+
+Sound is an output/presentation capability, not part of Race Control.
+
+Race Control may report a fact such as `FASTEST_LAP`; the sound capability decides how that fact is rendered as speech/audio.
+
+The likely product direction includes pre-recorded audio files on removable storage and sufficiently capable audio hardware for decent trackside sound. Exact hardware and audio format are not yet fixed.
+
+Sound hardware and persistent storage may eventually share physical storage if suitable hardware permits it, but the architecture must not depend on that physical arrangement.
+
+## 12. Presentation and user interaction
+
+Presentation observes authoritative P&P state. It does not create or maintain a competing race state.
+
+A newly connected or reconnected display must be able to obtain the complete current state required to present the session rather than replaying every event it missed.
+
+Multiple clients may simultaneously present different views of the same race, for example:
+
+- full Race Director view;
+- individual lane/driver view;
+- spectator display;
+- future trackside display.
+
+Loss, sleep or disconnection of a browser must not stop the race.
+
+### 12.1 Context-sensitive controls
+
+Race Control determines which commands are valid in its current state. Presentation exposes only controls appropriate to those valid commands.
+
+For example, **Pause** is relevant only once a race is running, while **Resume** is relevant only when paused.
+
+Hiding an invalid control is a usability measure, not the security/validity mechanism: Race Control must still reject commands that are invalid for its current state.
+
+### 12.2 One Master / Race Director
+
+There is one Master control authority at a time: the **Race Director**.
+
+Only the Master may issue authoritative race-control and race-configuration commands such as:
+
+- start;
+- pause;
+- resume;
+- end/abort;
+- configure race length/rules.
+
+Connecting another browser must never accidentally create another Race Director.
+
+The mechanism by which a client becomes, transfers or recovers Master status is not yet specified.
+
+### 12.3 Non-Master clients
+
+Other clients may observe the same or different presentation views but cannot take authoritative race control.
+
+They may submit specifically permitted race inputs/requests. An example is a driver's **CAR OFF / re-call** button.
+
+A lane-associated client can report that its car is off the track without becoming a controller. Race Control then decides the consequence according to the current rules: for example flagging the condition, requesting a track call, pausing, controlling power or awaiting Race Director action.
+
+The exact behaviour is a later rules/product decision.
+
+### 12.4 Logical commands
+
+User interfaces send logical commands/requests, not direct mutations of Race Control variables.
+
+This allows browser controls, future physical buttons and other interfaces to use the same command boundary.
+
+## 13. Persistent / History Storage
+
+Persistent / History Storage is a supporting responsibility distinct from Configuration and live Race Control state.
+
+It provides somewhere to retain useful race/session information without requiring Race Control to know whether the implementation is SD card, flash, database, files or something else.
+
+The initial product should retain a deliberately modest useful result/history record rather than logging everything simply because storage is available.
+
+Possible basic retained information includes:
+
+- date/time;
+- race type/length;
+- competitors or lanes where applicable;
+- result/finishing order;
+- lap count;
+- fastest lap;
+- potentially individual lap times if later judged worthwhile.
+
+The exact initial record is not yet fixed.
+
+The storage model must be extensible so that substantially richer information can be retained later without redesigning Race Control or making older records unusable.
+
+## 14. Test and diagnostics
+
+Testability is a permanent architectural responsibility.
+
+Real wired detectors, wireless devices, future devices and simulated inputs should feed the same standard interfaces.
+
+Testing should support, as appropriate:
+
+- manual event generation;
+- scripted races;
+- synthetic devices/capabilities/events;
+- delayed or out-of-order communication;
+- clock drift;
+- missing/disconnected devices;
+- replacement devices;
+- unknown capabilities/events.
+
+Test paths must not create a separate version of Race Control.
+
+A key extensibility test is:
+
+> **When something new is introduced, how far does the required change propagate?**
+
+Unknown or unsupported optional capabilities should fail locally and must not prevent unaffected functions from operating.
+
+## 15. Open architectural work
+
+The following areas remain deliberately incomplete:
+
+- detailed Registry / Discovery boundary and behaviour;
+- Master/Race Director acquisition, transfer and recovery;
+- detailed command/request model;
+- detailed persistence/history record;
+- exact interactions between optional race features and race modes;
+- detailed failure/recovery policies;
+- update/compatibility/recovery architecture;
+- final naming of several responsibility boundaries.
+
+Implementation choices deliberately remain outside this document at this stage, including:
+
+- ESP32 model;
+- sensor model;
+- connectors and pinouts;
+- transport/protocol details;
+- clock-synchronisation algorithm;
+- storage technology;
+- web framework;
+- packet formats;
+- C++ classes;
+- source-tree structure;
+- detailed UI;
+- exact audio hardware.
+
+---
+
+**Governing question:**  
+**Does this make the system more Plonk & Play™ for the customer, or less?**
