@@ -149,9 +149,174 @@ Registry / Discovery answers:
 
 > **What equipment actually exists?**
 
-It is responsible for concepts including stable device identity, advertised capabilities, software/firmware version and current availability.
+Discovery and Registry are related but distinct responsibilities:
 
-Its detailed design has not yet been completed.
+- **Discovery** finds equipment and learns what it claims to provide.
+- **Registry** maintains P&P's current knowledge of that equipment: identity, capabilities, version and availability.
+
+Conceptually:
+
+```text
+Physical / remote devices
+          ↓
+      Discovery
+          ↓
+       Registry
+          ↕
+    Configuration
+```
+
+Registry describes what exists. Configuration describes what P&P has decided to use it for. Neither should absorb the other's responsibility.
+
+### 6.1 Stable identity
+
+Every intelligent device must have a stable identity that does not change merely because it is unplugged, moved, given a different network address or communicates through a different transport.
+
+Individual capabilities also require stable identities within the device.
+
+For example:
+
+```text
+Device ABC123
+ ├─ Detector 1
+ ├─ Detector 2
+ ├─ Detector 3
+ └─ Detector 4
+```
+
+Configuration can therefore remember an assignment such as:
+
+```text
+ABC123:1 → Lane 1 Start/Finish
+```
+
+If ABC123 disappears and later returns, its remembered assignments remain available without requiring the customer to configure it again.
+
+Physical movement of the same device does not change its identity. Where P&P cannot determine that the customer has physically repurposed a device, the customer must change the assignment.
+
+### 6.2 Replacement devices
+
+A newly discovered device with similar capabilities to a missing known device must not silently inherit that device's identity.
+
+Where replacement is strongly suggested and unambiguous, P&P may ask a simple human question such as whether the new unit replaces the missing one. Confirmation can then transfer the existing assignments.
+
+Where there is a genuine choice, P&P asks rather than guesses.
+
+### 6.3 Simple directly connected hardware
+
+Not every physical sensor needs its own intelligent identity.
+
+For simple hardware connected directly to a stable controller capability, the connection/capability itself may provide the persistent identity.
+
+For example:
+
+```text
+Main Controller
+ ├─ Detector Port 1
+ └─ Detector Port 2
+```
+
+Configuration may remember:
+
+```text
+Controller:Detector1 → Lane 1 Start/Finish
+Controller:Detector2 → Lane 2 Start/Finish
+```
+
+Replacing a simple sensor connected to Detector Port 1 with another compatible sensor therefore need not require reconfiguration.
+
+Principle:
+
+> **Intelligent devices identify themselves. Simple devices are identified by the stable capability/connection through which P&P sees them.**
+
+This distinction must not leak into Race Control; after hardware abstraction and event mapping, both sources produce the same logical mapped events.
+
+### 6.4 Capability-level availability
+
+Availability is not necessarily only a whole-device PRESENT/MISSING property.
+
+Where hardware permits it, Registry can represent availability at capability level. A multi-input device may remain present while one detector/input is unavailable.
+
+For example:
+
+```text
+ABC123
+  Device: PRESENT
+  Detector 1: AVAILABLE
+  Detector 2: AVAILABLE
+  Detector 3: UNAVAILABLE
+  Detector 4: AVAILABLE
+```
+
+Registry reports availability. It does not decide the racing consequence.
+
+> **Availability belongs to devices and capabilities. The significance of unavailability belongs to the function currently using them.**
+
+Thus loss of a speed-trap capability need not prevent an otherwise valid race, while loss of a required Start/Finish capability may prevent a particular race configuration from operating normally.
+
+### 6.5 Transport-independent discovery
+
+Different physical/communications transports may require different discovery mechanisms, but they must feed the same logical Registry.
+
+Conceptually:
+
+```text
+        WIRED                         WIRELESS
+          ↓                              ↓
+   transport-specific             transport-specific
+      discovery                      discovery
+          └──────────────┬───────────────┘
+                         ↓
+                      REGISTRY
+```
+
+A discovered intelligent device should provide, where applicable:
+
+- stable identity;
+- available capabilities/resources;
+- relevant supported features;
+- software/firmware version;
+- current availability/status.
+
+The exact discovery protocol is deliberately not specified.
+
+> **Transport discovers a device. Transport does not define the device.**
+
+A device may eventually support more than one transport without becoming two different logical devices.
+
+### 6.6 Power-on reconciliation and readiness
+
+At power-on P&P discovers currently available equipment and reconciles it with remembered Registry/Configuration information.
+
+Normal unchanged installation:
+
+```text
+Power on
+   ↓
+Discover equipment
+   ↓
+Recognise known devices/capabilities
+   ↓
+Restore remembered configuration
+   ↓
+Ready
+```
+
+The customer should not be required to reconfirm information P&P already knows.
+
+If an optional capability is absent, P&P should report the reduced capability without unnecessarily preventing unrelated functions.
+
+If a capability required by the requested session is absent, that session cannot truthfully be considered ready, but this does not necessarily make the entire P&P system unusable for other session types.
+
+Therefore:
+
+> **Readiness is capability- and activity-based, not one global READY / NOT READY state.**
+
+When new equipment appears, P&P should infer its use only where the answer is genuinely unambiguous. Where its physical purpose cannot be discovered, the customer is asked only for the missing information.
+
+Overall startup principle:
+
+> **Don't make the customer confirm things P&P already knows. Don't hide things the customer actually needs to know. Ask only about things the machine cannot determine.**
 
 ## 7. Configuration
 
@@ -468,7 +633,6 @@ Unknown or unsupported optional capabilities should fail locally and must not pr
 
 The following areas remain deliberately incomplete:
 
-- detailed Registry / Discovery boundary and behaviour;
 - Master/Race Director acquisition, transfer and recovery;
 - detailed command/request model;
 - detailed persistence/history record;
