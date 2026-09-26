@@ -537,6 +537,8 @@ Sound is an output/presentation capability, not part of Race Control.
 
 Race Control may report a fact such as `FASTEST_LAP`; the sound capability decides how that fact is rendered as speech/audio.
 
+Sound may also be requested as a scheduled logical action where timing matters, such as start-sequence beeps. Such actions use P&P System Time in the same way as other time-critical outputs rather than depending on message-arrival time.
+
 The likely product direction includes pre-recorded audio files on removable storage and sufficiently capable audio hardware for decent trackside sound. Exact hardware and audio format are not yet fixed.
 
 Sound hardware and persistent storage may eventually share physical storage if suitable hardware permits it, but the architecture must not depend on that physical arrangement.
