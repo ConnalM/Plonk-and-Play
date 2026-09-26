@@ -469,7 +469,9 @@ Race Control owns authoritative live information such as:
 - elapsed time;
 - active optional-feature state such as fuel.
 
-An incoming event changes authoritative race state once. Displays, sound and other consumers must not maintain competing calculations of the race.
+An incoming event changes authoritative race state once. Where the relative timing of events affects the authoritative race result, Race Control must use their P&P System Time timestamps rather than communication arrival order. The architecture must permit delayed or out-of-order events to be correctly sequenced where necessary. The detailed buffering or sequencing mechanism is a later subsystem-design decision.
+
+Displays, sound and other consumers must not maintain competing calculations of the race.
 
 Derived calculations such as lap time, sector time, reaction time and speed may remain race-domain calculations unless a future requirement demonstrates a genuine need for a separate measurement-processing responsibility.
 
