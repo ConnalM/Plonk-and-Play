@@ -70,7 +70,7 @@ Race logic must not depend on that physical description.
 
 Sensor-specific behaviour belongs in the hardware abstraction/adapter layer.
 
-A particular ToF sensor, IR detector or future technology is translated into a standard P&P event without Race Control knowing how the physical detection was performed.
+A particular ToF sensor, IR detector or future detection technology is translated into the standard detector event contract without Race Control knowing how the physical detection was performed.
 
 An intelligent remote device may perform this translation locally before transmitting the event.
 
