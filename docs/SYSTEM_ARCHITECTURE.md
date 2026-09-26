@@ -1,6 +1,6 @@
 # Plonk & Play™ System Architecture
 
-**Status:** Draft v0.1  
+**Status:** Version 1.0  
 **Purpose:** Record the architecture agreed so far. This document defines responsibilities and boundaries, not software classes, files, processors, protocols or detailed product implementation.
 
 This document is subordinate to the Design Constitution and System Requirements.
