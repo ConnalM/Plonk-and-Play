@@ -66,7 +66,7 @@ Configuration, module identities and assignments should persist across normal po
 
 Known modules should reconnect automatically wherever practical.
 
-Controller and intelligent-module firmware should be capable of being updated without requiring the customer to use development tools or reprogram devices manually.
+Controller firmware, and intelligent-module firmware where appropriate, should be capable of being updated without requiring the customer to use development tools or reprogram devices manually.
 
 OTA updating, version compatibility and recovery from interrupted or failed updates must therefore be considered in the architecture from the outset.
 
