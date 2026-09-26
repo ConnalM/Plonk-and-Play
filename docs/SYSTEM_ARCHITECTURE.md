@@ -687,7 +687,7 @@ An incompatible or outdated optional component should be identified clearly with
 
 ## 17. Open architectural work
 
-The remaining architectural work is limited to final review and, where useful, refinement of responsibility-boundary terminology.
+The architecture intentionally leaves detailed subsystem and implementation decisions for later design. One responsibility-boundary question remains deliberately open for detailed design.
 
 One terminology/responsibility question is deliberately unresolved: whether **Race Control** and the **Race Engine** should remain two names for the same architectural authority or describe two meaningful responsibilities within that authority. A possible distinction is that Race Control owns session lifecycle and operational commands such as start, pause, resume, stop and reset, while the Race Engine owns competition mechanics such as race rules, lap interpretation, timing, positions, calculations and results. This distinction must not be introduced merely because two convenient terms exist. It should be made only if detailed design demonstrates a useful responsibility boundary, while preserving one authoritative race state and avoiding duplicate interpretation or calculation.
 
