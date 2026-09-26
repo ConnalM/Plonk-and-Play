@@ -134,7 +134,7 @@ The intended separation is:
 
 ## 5. Device failure and replacement
 
-The hardware/device layer reports availability. It does not decide the race consequence of losing a device.
+The hardware/device layer detects and reports device/capability status to Registry. Registry maintains P&P's current availability information. Neither decides the race consequence of losing a device or capability.
 
 For example:
 
