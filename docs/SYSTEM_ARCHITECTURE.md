@@ -120,6 +120,8 @@ Lane 1 : START_FINISH : ACTIVE : 123.456
 
 Event Mapping knows the installation/configuration assignment. It does not decide whether the event constitutes a lap, false start, sector time or anything else in the race.
 
+Mapped events may be associated with a lane, another configured context, or the system as a whole; lane identity is not mandatory. For example, a shared physical control could map to `TRACK_CALL : ACTIVE : TIME` without a lane.
+
 The same physical detector can be reassigned to a different role without becoming a different kind of sensor.
 
 ### 4.5 Separation of knowledge
