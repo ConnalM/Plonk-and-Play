@@ -343,6 +343,8 @@ DEF456:2 → Lane 2 : Sector 1
 
 This survives between races and power cycles.
 
+Installation configuration may also contain physical parameters required to interpret configured functions, such as the distance between detection points forming a speed trap.
+
 ### 7.2 Session configuration
 
 Session configuration describes how a particular race/session should operate, for example:
