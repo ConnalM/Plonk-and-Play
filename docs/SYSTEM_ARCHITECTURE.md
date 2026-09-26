@@ -12,6 +12,7 @@ Plonk & Play™ separates responsibilities so that hardware, transport, race rul
 Working principles:
 
 - **Design broadly. Implement narrowly.**
+- Engineer in proportion to the product: P&P is a consumer slot-car system, not a safety-critical control system.
 - Hardware describes what it **is** and what it **can do**.
 - Configuration describes what it is **being used for**.
 - Race Control decides what an event **means in the current session**.
@@ -450,6 +451,10 @@ Timed race without fuel
 
 Future optional race features may be added where justified without pre-building speculative functionality.
 
+Optional features maintain their own feature state and respond to relevant race events. Where a feature affects the competition, its consequence is applied through Race Control rather than the feature directly controlling hardware or redefining the Race Mode.
+
+P&P is analogue-first. Optional features must not assume that a physical effect can be imposed on a lane or car. For example, simulated fuel can provide display, sound and procedural race behaviour without any physical intervention. Physical enforcement such as removing power from one lane is available only where installed hardware exposes an appropriate capability. A future lane-power or other control module may add that capability without changing the Fuel feature's fundamental role.
+
 ### 9.3 Race state and calculations
 
 Race Control owns authoritative live information such as:
@@ -564,7 +569,13 @@ Only the Master may issue authoritative race-control and race-configuration comm
 
 Connecting another browser must never accidentally create another Race Director.
 
-The mechanism by which a client becomes, transfers or recovers Master status is not yet specified.
+Master authority belongs to a client/browser session, not to the human identity of the Race Director. The first suitable control client may become Race Director automatically.
+
+A second control client may view the control screen but remains non-Master. It may deliberately choose **Take Control**. If another Race Director is still active, takeover should require an explicit confirmation. Authority then transfers and the former client immediately loses its Master privilege.
+
+This is deliberately a trust model rather than an account/security system. P&P enforces exactly one Master but does not require user accounts, passwords or PINs merely to arbitrate control around a home slot-car track.
+
+Loss, sleep or disconnection of the Race Director client does not affect Race Control or the running race. Another client can deliberately recover Master authority. Changing Race Director changes who may issue control commands; Race Control itself never moves into the browser.
 
 ### 12.3 Non-Master clients
 
@@ -572,15 +583,19 @@ Other clients may observe the same or different presentation views but cannot ta
 
 They may submit specifically permitted race inputs/requests. An example is a driver's **CAR OFF / re-call** button.
 
-A lane-associated client can report that its car is off the track without becoming a controller. Race Control then decides the consequence according to the current rules: for example flagging the condition, requesting a track call, pausing, controlling power or awaiting Race Director action.
+A lane-associated client can report that its car is off the track without becoming a controller.
 
-The exact behaviour is a later rules/product decision.
+The Race Director/session configuration can determine what a **CAR OFF** input means. It may, for example, be disabled, notify/request action from the Race Director or automatically invoke the configured track-call behaviour.
+
+The client always reports the same semantic event — **CAR OFF** — rather than directly commanding a pause or power change. Race Control interprets the event according to the active session configuration.
 
 ### 12.4 Logical commands
 
 User interfaces send logical commands/requests, not direct mutations of Race Control variables.
 
 This allows browser controls, future physical buttons and other interfaces to use the same command boundary.
+
+Interfaces express intent rather than directly changing authoritative state. Race Director commands such as START, PAUSE and RESUME are validated by Race Control against current state. Other permitted inputs, such as CAR OFF, are interpreted according to session rules/configuration and may result in an authoritative action.
 
 ## 13. Persistent / History Storage
 
@@ -629,16 +644,38 @@ A key extensibility test is:
 
 Unknown or unsupported optional capabilities should fail locally and must not prevent unaffected functions from operating.
 
-## 15. Open architectural work
+## 15. Failure and recovery
+
+Failure handling is based on the **function/capability lost**, not merely the component that failed.
+
+A fault should propagate only as far as the functions that depend upon it. Loss of an optional sector detector, display or sound capability should not unnecessarily stop unaffected racing functions. Loss of a capability essential to the active session may require the session to pause, stop or otherwise be treated as degraded.
+
+Registry reports availability; Race Control determines the consequence for the current session.
+
+When a failed component returns, technical reconnection does not imply that information missed during its absence can be reconstructed. A returning component rejoins from authoritative current P&P state rather than blindly resuming stale pre-failure state.
+
+Recovery engineering must remain proportionate to the product. P&P is not required to reconstruct a live race after every conceivable controller crash or power failure. Persistent configuration should survive and the system should restart cleanly; detailed live-race crash recovery is a later product decision and should only be implemented where its benefit justifies the complexity.
+
+## 16. Updates and compatibility
+
+The P&P Controller is the customer-facing update authority.
+
+Controller firmware should support customer-initiated OTA updating through the normal P&P interface when the customer chooses to provide Internet access. Ordinary racing must remain independent of Internet availability.
+
+The intended controller update model is recoverable OTA: a new firmware image is downloaded into an inactive firmware area/partition, validated and activated on reboot without first destroying the known-working image. The previous working firmware remains available for recovery where the chosen platform supports this.
+
+Intelligent modules expose sufficient version and capability information for P&P to determine compatibility.
+
+The architecture permits intelligent modules to be updated through the P&P controller where appropriate, without requiring the customer to connect each module to development tools or separately configure it for Internet access. **Remote updating is optional for a module**; simple or inexpensive modules are not required to implement OTA merely to qualify as P&P-compatible.
+
+An incompatible or outdated optional component should be identified clearly without unnecessarily preventing compatible functions from operating.
+
+## 17. Open architectural work
 
 The following areas remain deliberately incomplete:
 
-- Master/Race Director acquisition, transfer and recovery;
-- detailed command/request model;
 - detailed persistence/history record;
-- exact interactions between optional race features and race modes;
-- detailed failure/recovery policies;
-- update/compatibility/recovery architecture;
+- detailed product/race-rule behaviour within the architectural boundaries above;
 - final naming of several responsibility boundaries.
 
 Implementation choices deliberately remain outside this document at this stage, including:
