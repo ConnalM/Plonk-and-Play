@@ -566,6 +566,10 @@ Hiding an invalid control is a usability measure, not the security/validity mech
 
 There is one Master control authority at a time: the **Race Director**.
 
+The controller-side Presentation / User Interaction responsibility owns client/session identity, which client currently holds Race Director authority, and deliberate transfer or recovery of that authority. It determines whether a particular client is permitted to submit Race Director commands.
+
+Race Control does not need to know browser, connection or transport details. It receives authorised logical commands and separately determines whether each command is valid in the current race/session state and what consequence it has.
+
 Only the Master may issue authoritative race-control and race-configuration commands such as:
 
 - start;
