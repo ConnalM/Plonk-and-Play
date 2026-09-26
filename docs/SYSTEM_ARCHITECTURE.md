@@ -410,6 +410,8 @@ The same common timebase also supports scheduled time-critical outputs and prese
 
 Race Control is the **single authoritative owner** of live race/session state.
 
+Race Control is an architectural authority, not necessarily one monolithic implementation component. Its internal responsibilities may be separated during detailed design provided they continue to present one authoritative race state and preserve the boundaries defined here.
+
 It receives abstract mapped events, session configuration, relevant capability/availability changes and P&P time. It does not depend on sensor models, GPIOs, wireless addresses, physical gantries, browser implementation or storage media.
 
 Its responsibilities currently include:
@@ -430,6 +432,7 @@ Known modes include:
 
 - lap race;
 - timed race;
+- practice;
 - rally;
 - drag racing;
 - future modes.
@@ -662,7 +665,7 @@ The P&P Controller is the customer-facing update authority.
 
 Controller firmware should support customer-initiated OTA updating through the normal P&P interface when the customer chooses to provide Internet access. Ordinary racing must remain independent of Internet availability.
 
-The intended controller update model is recoverable OTA: a new firmware image is downloaded into an inactive firmware area/partition, validated and activated on reboot without first destroying the known-working image. The previous working firmware remains available for recovery where the chosen platform supports this.
+The controller update mechanism must be recoverable: installing a replacement must not deliberately destroy the only known-working firmware before the new firmware has been successfully installed and validated. The exact mechanism is an implementation decision.
 
 Intelligent modules expose sufficient version and capability information for P&P to determine compatibility.
 
@@ -672,11 +675,9 @@ An incompatible or outdated optional component should be identified clearly with
 
 ## 17. Open architectural work
 
-The following areas remain deliberately incomplete:
+The remaining architectural work is limited to final review and, where useful, refinement of responsibility-boundary terminology.
 
-- detailed persistence/history record;
-- detailed product/race-rule behaviour within the architectural boundaries above;
-- final naming of several responsibility boundaries.
+Detailed persistence/history records and detailed race-rule/product behaviour belong to later subsystem and product design rather than being prerequisites for architectural completion.
 
 Implementation choices deliberately remain outside this document at this stage, including:
 
