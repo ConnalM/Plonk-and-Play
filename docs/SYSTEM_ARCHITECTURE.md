@@ -598,9 +598,9 @@ The client always reports the same semantic event — **CAR OFF** — rather tha
 
 User interfaces send logical commands/requests, not direct mutations of Race Control variables.
 
-This allows browser controls, future physical buttons and other interfaces to use the same command boundary.
+Physical controls enter through the appropriate hardware/input path. Depending on the device, that path may map a simple physical detector state into a semantic race input, or an intelligent device may report an appropriate standard semantic input directly.
 
-Interfaces express intent rather than directly changing authoritative state. Race Director commands such as START, PAUSE and RESUME are validated by Race Control against current state. Other permitted inputs, such as CAR OFF, are interpreted according to session rules/configuration and may result in an authoritative action.
+Both physical controls and user interfaces ultimately present Race Control with defined semantic events, commands or requests which Race Control validates and interprets according to the current session. Race Director commands such as START, PAUSE and RESUME are validated against current state. Other permitted inputs, such as CAR OFF or TRACK_CALL_REQUEST, are interpreted according to session rules/configuration and may result in an authoritative action.
 
 ## 13. Persistent / History Storage
 
