@@ -54,7 +54,8 @@ The conceptual information/operations crossing the boundary are:
 
 4. **COMPETITION INPUT**
    - mapped semantic events relevant to competition;
-   - original P&P timestamps are preserved.
+   - original P&P timestamps are preserved;
+   - these events are delivered to the Race Engine through its defined boundary and need not be mechanically relayed through Race Control merely because Race Control owns session lifecycle.
 
 ### Race Engine to Race Control
 
@@ -77,6 +78,8 @@ These categories are conceptual contracts, not final packet formats, APIs or C++
 An active session uses a fixed session definition.
 
 Ordinary configuration changes must not silently alter a session already in progress. When Race Control prepares a session, the definition supplied to the Race Engine remains the definition for that session unless a particular runtime change is explicitly supported by later design.
+
+For the initial product, race-affecting configuration is not changed while an individual race is active. The Race Director changes it after that race has ended. This is a deliberate product simplification, not an architectural prohibition on harmless live presentation preferences or a future explicitly designed runtime feature.
 
 This does not prescribe whether the implementation copies, references, serialises or otherwise represents the definition.
 
@@ -104,9 +107,13 @@ Normal completion originates from the Race Engine because it owns the competitio
 
 Race Control then performs the appropriate session-lifecycle transition and operational consequences.
 
-Manual STOP originates from Race Control and is distinct from normal competition completion.
+Manual STOP originates from Race Control and is distinct from normal competition completion. Stopping a race must not manufacture a normal competition-completion event or result. The later product design may decide how a partial stopped race is displayed, retained, discarded or restarted.
 
-RESET is requested operationally by Race Control, but Race Control must not reach into Race Engine state and directly zero lap counts, timers or other competition variables. The Race Engine owns the creation and clearing of its own competition state.
+RESET of an individual race is requested operationally by Race Control, but Race Control must not reach into Race Engine state and directly zero lap counts, timers or other competition variables. The Race Engine owns the creation and clearing of its own competition state.
+
+An individual-race reset/restart, abandonment/reset of a larger competition and a factory/system reset are distinct operations owned at their appropriate boundaries. They must not be collapsed into a universal `resetEverything()` operation.
+
+Starting a new individual race creates fresh individual-race state within the already-running P&P system. It does not normally reinitialise unrelated services, devices, installation configuration, retained results or longer-lived competition state.
 
 ## 7. Race modes
 
