@@ -103,6 +103,7 @@ Adding an optional capability must not require unrelated parts of the system to 
 - Support wireless P&P modules as a first-class system capability.
 - Wired and wireless versions of the same logical function must be capable of presenting the same standard interface to the rest of the system.
 - Transport mechanism must not define module identity or race behaviour.
+- Intelligent devices must have stable, unambiguous P&P identity independent of temporary addresses or transport. Simple non-identifying devices may instead be identified by the stable controller capability/connection through which P&P sees them. Human-readable labels are not machine identity.
 
 ### 11. Discovery and configuration
 
@@ -111,14 +112,17 @@ Adding an optional capability must not require unrelated parts of the system to 
 - Ask the customer only for information that cannot reasonably be discovered, such as the physical role or location of otherwise identical sensors.
 - Remember known modules, assignments and configuration across power cycles.
 - Reconnect known modules automatically where practical.
+- Race-affecting configuration need not be changeable while an individual race is active; the initial product may defer such changes until the race has ended.
 - Normal setup must not require customers to enter IP addresses, MAC addresses, edit configuration files or manually flash devices.
 
 ### 12. Common system time
 
-- The controller is the authority for the P&P system time domain.
-- Intelligent distributed modules may use local high-resolution clocks but must be capable of relating their timestamps to P&P system time where required.
+- The System Controller is the authority for the P&P system time domain.
+- P&P System Time defines common instants; distributed devices do not have to maintain numerically identical local clock readings.
+- Intelligent distributed modules may use local high-resolution clocks but, where information must be compared across devices, their timestamps must be reliably relatable or convertible to P&P System Time with sufficient accuracy for the function.
 - Events should be timestamped at or close to detection where practical.
-- The design must permit periodic correction for clock offset and drift.
+- The design must permit measurement/correction of clock offset and drift where required.
+- Straightforward clock synchronisation is preferred where practical; a known and maintained clock relationship is also acceptable. Communication latency must not become the timing reference.
 - The exact synchronisation algorithm is an implementation decision, not a requirement at this stage.
 
 ### 13. Persistent state
@@ -141,6 +145,7 @@ Adding an optional capability must not require unrelated parts of the system to 
 
 - The controller must be capable of software/firmware updates without development tools or manual reprogramming.
 - Intelligent P&P modules must be capable of an appropriate update mechanism where required.
+- A capability must not be declared available for a function unless P&P has established that it is sufficiently compatible and operational to provide that function correctly.
 - Compatibility and recovery from interrupted or failed updates must be considered in the architecture.
 - Updating one component should not unnecessarily require replacement or reprogramming of unrelated components.
 
