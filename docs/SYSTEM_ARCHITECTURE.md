@@ -685,11 +685,11 @@ The architecture permits intelligent modules to be updated through the P&P contr
 
 An incompatible or outdated optional component should be identified clearly without unnecessarily preventing compatible functions from operating.
 
-## 17. Open architectural work
+## 17. Detailed design status
 
-The architecture intentionally leaves detailed subsystem and implementation decisions for later design. One responsibility-boundary question remains deliberately open for detailed design.
+The Race Control / Race Engine responsibility question has been resolved in `RACE_CONTROL_ENGINE_DESIGN.md`: Race Control owns session operation/lifecycle, while Race Engine owns competition interpretation, state, rules and calculations. Together they preserve one authoritative P&P race/session authority without duplicate ownership.
 
-One terminology/responsibility question is deliberately unresolved: whether **Race Control** and the **Race Engine** should remain two names for the same architectural authority or describe two meaningful responsibilities within that authority. A possible distinction is that Race Control owns session lifecycle and operational commands such as start, pause, resume, stop and reset, while the Race Engine owns competition mechanics such as race rules, lap interpretation, timing, positions, calculations and results. This distinction must not be introduced merely because two convenient terms exist. It should be made only if detailed design demonstrates a useful responsibility boundary, while preserving one authoritative race state and avoiding duplicate interpretation or calculation.
+The final architecture review also confirmed that components exchange information only through their defined boundaries, authoritative facts can be consumed independently without making consumers authoritative, Presentation never owns authoritative P&P data, and current-state consumers can resynchronise from authoritative state rather than reconstructing it from missed live events.
 
 Detailed persistence/history records and detailed race-rule/product behaviour belong to later subsystem and product design rather than being prerequisites for architectural completion.
 
