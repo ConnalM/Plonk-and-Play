@@ -379,6 +379,21 @@ Example false start:
 
 `RED LIGHT | REACTION -0.08 | ET 6.71`
 
+### 6.9 Base Drag staging-screen behaviour
+
+The base staging interaction is deliberately simple:
+
+1. **Waiting** — full tree visible; REU-only PRE-STAGE remains greyed/dormant; STAGE is unlit. Display prompts **MOVE FORWARD TO STAGE**.
+2. **Start beam blocked** — STAGE illuminates and the prompt becomes **ROLL BACK**.
+3. **Beam clears** — STAGE extinguishes because the car is now physically just behind the single beam. A prominent **READY** indication confirms that staging has succeeded and the tree is armed.
+4. **Start sequence** — staging instructions disappear and the Christmas Tree becomes visually dominant. The selected Sportsman or Pro sequence runs to GREEN.
+5. **Start crossing** — reaction time appears as soon as the car crosses the Start beam and ET begins.
+6. **Finish** — the run result takes over, showing reaction, ET, false-start status and whole-run average speed where available. **RACE AGAIN** is the primary post-run action.
+
+If the car rolls forward and blocks the Start beam again after reaching READY but **before the start procedure begins**, P&P simply returns to the **ROLL BACK** staging state. This is not a false start.
+
+Once the start procedure has begun, a Start-sensor crossing before GREEN is a **RED LIGHT / false start** according to the agreed Drag rules.
+
 Further Drag display details remain open for continued product design.
 
 ## 7. General principle
