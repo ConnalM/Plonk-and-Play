@@ -170,7 +170,7 @@ If a required capability is unavailable, START is unavailable and P&P explains w
 
 Missing optional equipment may be reported without preventing START.
 
-Immediately after START is requested, P&P performs a final readiness evaluation so that a capability lost since the screen was displayed cannot silently invalidate the race.
+Immediately after START is requested, Race Control performs the final readiness decision using the Registry's authoritative current capability availability, so that a capability lost since the screen was displayed cannot silently invalidate the race. Presentation may display whether START appears available, but it is not the authority that permits the session to start.
 
 No unnecessary confirmation screen is required.
 
@@ -265,4 +265,4 @@ Before the first implementation specification is treated as settled for coding, 
 
 Any conflicts must be resolved so that implementation is working from one consistent set of instructions.
 
-In particular, the startup/reconciliation ordering in SYSTEM_LIFECYCLE.md must be reviewed against the behaviour defined in this document.
+The startup/reconciliation ordering is governed by SYSTEM_LIFECYCLE.md: load remembered persistent state first, then discover and reconcile actual equipment, initialise/synchronise it as required, establish current capability availability, and finally present the effective forthcoming session configuration. FIRST_IMPLEMENTATION_BEHAVIOUR.md defines the customer-visible behaviour produced by that lifecycle and does not introduce a competing startup sequence.
