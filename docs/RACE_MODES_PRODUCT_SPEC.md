@@ -394,7 +394,31 @@ If the car rolls forward and blocks the Start beam again after reaching READY bu
 
 Once the start procedure has begun, a Start-sensor crossing before GREEN is a **RED LIGHT / false start** according to the agreed Drag rules.
 
-Further Drag display details remain open for continued product design.
+### 6.10 Base Drag result screen
+
+The base Drag result screen prioritises the run result and avoids unnecessary controls.
+
+For a valid run, **ET is the dominant figure**, with reaction time and whole-run average speed beneath it where track length is known.
+
+Example: `ET 6.84 | REACTION 0.23 | AVG SPEED 42.7 mph`
+
+For a false start, **RED LIGHT** becomes dominant while reaction and ET remain visible.
+
+Runs are stored automatically; there is no routine SAVE button.
+
+The primary post-run action is **RACE AGAIN**, with **NEW SETUP** secondary.
+
+Achievements such as **NEW BEST ET** or **BEST REACTION** may be shown briefly without another results screen.
+
+The result screen deliberately exposes useful REU-only statistics in a greyed/locked state, including:
+
+`TRAP SPEED — REU required`
+
+Selecting the locked statistic may explain that the REU Drag Sensor Pack adds the additional finish beam required to measure speed through the final speed trap.
+
+This follows the same principle as greyed PRE-STAGE: never fake an unavailable measurement, but show the MUG what additional hardware would provide.
+
+**Base Drag display product design is complete at this level.** Further REU/two-lane competitive Drag display behaviour is deferred until that hardware is designed.
 
 ## 7. General principle
 
