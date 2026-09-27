@@ -400,15 +400,17 @@ A small persistent list of drivers and/or cars is a possible product feature, pa
 
 ## 8. P&P System Time
 
-The controller is the authority for the common P&P time domain.
+The System Controller is the authority for the common P&P time domain. P&P System Time defines common instants; it does not require every distributed local clock to display the same numerical value.
 
-Intelligent devices may use local high-resolution clocks, but timestamps from different devices must be relatable to P&P System Time where cross-device timing matters.
+Intelligent devices may use local high-resolution clocks. Where timing information must be compared across devices, local timestamps must be reliably relatable or convertible to P&P System Time with sufficient accuracy for the function.
 
-Important input events should be timestamped at or near their source so communications latency does not determine official timing.
+Important input events should be timestamped at or near their source so communications latency does not determine official timing. Local intervals may be measured using a device's own stable clock.
 
-Clock offset/drift correction must be possible. The specific synchronisation algorithm is deliberately not chosen yet.
+Straightforward synchronisation is preferred where practical. A known clock relationship is also acceptable, including measured offset and drift correction or rechecking where required. Approximate clocks whose effective timing reference is packet arrival are not acceptable.
 
-The same common timebase also supports scheduled time-critical outputs and presentation.
+The specific synchronisation algorithm is deliberately not chosen. This requirement is not justification for unnecessarily elaborate clock-synchronisation machinery.
+
+The same common time domain supports scheduled time-critical outputs. A scheduled action such as GO at a specified P&P time denotes one common instant; a remote module may convert that instant to its local clock and execute locally.
 
 ## 9. Race Control
 
