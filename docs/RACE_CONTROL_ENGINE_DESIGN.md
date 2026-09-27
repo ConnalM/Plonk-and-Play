@@ -92,6 +92,8 @@ For example, if PAUSE is effective at P&P time 250.000:
 
 Detailed buffering and sequencing mechanisms remain implementation/subsystem decisions.
 
+If two relevant events have the same effective P&P timestamp, the responsibility interpreting those events defines the consequence of equality. P&P does not require a universal tie-breaking mechanism merely to force an artificial order.
+
 START and GO are distinct concepts:
 - START begins the operational start procedure;
 - GO is the authoritative P&P timestamp at which competition becomes active.
@@ -138,6 +140,16 @@ but not `Detector 5` or a particular sensor API.
 
 Physical enforcement of a feature is possible only where installed hardware exposes the required capability.
 
+## 8.1 Start/Finish first-crossing behaviour
+
+Lap-race behaviour must support the user's physical starting arrangement relative to the Start/Finish detector.
+
+Where cars start before the detector, the first post-GO Start/Finish crossing establishes/completes Lap 0 and begins Lap 1; the second crossing completes Lap 1.
+
+Where cars start after the detector, the first post-GO Start/Finish crossing completes Lap 1.
+
+This is a configurable lap-race rule, not something to be inferred by the detector, Event Mapping or implementation. The detector reports the same physical event in either arrangement; the Race Engine interprets it according to the fixed session/configuration setting.
+
 ## 9. Hardware, availability and outputs
 
 Race Engine does not discover hardware failures.
@@ -154,7 +166,9 @@ Detailed false-start behaviour remains a later design decision and depends upon 
 
 ## 10. Information boundaries
 
-Each subsystem receives the information necessary to perform its responsibility, not implementation details that produced that information.
+Each component publishes and receives information only through its defined boundaries. It may publish information for which it is the authoritative owner and consume information made available through its defined interfaces. It must not bypass those boundaries to read, alter or reproduce another component's internal state.
+
+A source reports what happened at its own boundary; it does not need to know or control the eventual consequence. For example, a physical control can report that a button was activated just as a detector reports a state transition. The responsibility receiving that information decides what it means in its own context. Where an interface deliberately defines a genuine operation such as PREPARE, GO or RESET between Race Control and Race Engine, that operation remains part of that defined boundary.
 
 Race Engine consumes mapped semantic competition events. It does not require knowledge of:
 - sensor model;
@@ -165,7 +179,31 @@ Race Engine consumes mapped semantic competition events. It does not require kno
 
 Similarly, Race Control should receive capability/function availability rather than unnecessary low-level failure details.
 
+Operational consumers receive information in the form appropriate to their boundary and do not depend on upstream implementation or transport. Diagnostics may trace information across boundaries without becoming part of the operational dependency chain.
+
 This boundary should be enforceable structurally during implementation wherever practical.
+
+## 10.1 Authoritative facts, current state and persistence
+
+P&P distinguishes between three information behaviours:
+
+- **facts/events** describe something that happened;
+- **current state** describes what is true now;
+- **persistent information/configuration** describes information that must remain available across the relevant lifecycle.
+
+Authoritative race facts/events are published once through a common logical interface. Interested consumers may consume them independently. The producer does not require knowledge of those consumers, and consumers must not independently recreate or alter authoritative race state.
+
+Current-state snapshots may combine information from several authoritative owners for consumption, but the snapshot does not become another owner of that information. Presentation never owns authoritative P&P data; it displays or derives views from information supplied through defined boundaries by the components that own it.
+
+A newly connected or recovering current-state consumer obtains the authoritative current state it needs and then consumes new relevant facts/events. It need not replay every event that occurred before it connected.
+
+Continuous values must not generate streams of authoritative events merely because their displayed value changes with time. Significant transitions may be published as facts/events, while consumers obtain or derive the current value from authoritative state and P&P System Time where appropriate.
+
+The authoritative fact/state exists independently of whether a particular consumer successfully receives a live notification. Current-state consumers can resynchronise; obsolete transient notifications may simply be missed; information that P&P has decided must persist is retained by the appropriate persistent-storage responsibility rather than depending on a live consumer receiving a notification.
+
+Consumers may derive information for their own presentation or local use, but this does not create new authoritative P&P state or facts. If derived information must itself be authoritative or shared, it is produced by the responsibility that owns that meaning and exposed through its defined boundary.
+
+Retained history may preserve earlier facts for later retrieval without requiring those facts to remain live current-state information.
 
 ## 11. Testability
 
