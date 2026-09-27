@@ -149,13 +149,15 @@ Physical enforcement of a feature is possible only where installed hardware expo
 
 ## 8.1 Start/Finish first-crossing behaviour
 
-Lap-race behaviour must support the user's physical starting arrangement relative to the Start/Finish detector.
+Lap-race behaviour must support the physical starting-grid arrangement relative to the Start/Finish detector.
 
-Where cars start before the detector, the first post-GO Start/Finish crossing establishes/completes Lap 0 and begins Lap 1; the second crossing completes Lap 1.
+The grid/Start-Finish relationship is installation configuration because it describes the physical track arrangement. When a Lap Race is prepared, the effective first-crossing behaviour derived from that installation configuration becomes part of the fixed session definition for that race.
 
-Where cars start after the detector, the first post-GO Start/Finish crossing completes Lap 1.
+Where cars start **after** the Start/Finish detector in the direction of travel, they cross the detector shortly after GO. That first post-GO crossing does not complete a lap; it establishes the timing origin for Lap 1. The next Start/Finish crossing completes Lap 1.
 
-This is a configurable lap-race rule, not something to be inferred by the detector, Event Mapping or implementation. The detector reports the same physical event in either arrangement; the Race Engine interprets it according to the fixed session/configuration setting.
+Where cars start **before** the Start/Finish detector in the direction of travel, they travel almost a complete circuit before their first post-GO crossing. That first Start/Finish crossing completes Lap 1, timed from GO.
+
+This behaviour is not inferred by the detector or Event Mapping. The detector reports the same physical event in either arrangement; the Lap Race rule set interprets it according to the fixed session definition. Other race modes may interpret the same mapped Start/Finish event differently according to their own rules.
 
 ## 9. Hardware, availability and outputs
 
