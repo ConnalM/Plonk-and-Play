@@ -634,6 +634,62 @@ The exact initial record is not yet fixed.
 
 The storage model must be extensible so that substantially richer information can be retained later without redesigning Race Control or making older records unusable.
 
+## 13.1 Information ownership and delivery
+
+P&P may distribute information widely, but it must not distribute ownership. For each authoritative fact or state there is one owner and one truth. Other components may hold views, snapshots or derived presentation data without becoming another authority.
+
+A component publishes and receives information only through its defined boundaries. Publication means information has been made available; it does not prove every consumer received it and does not by itself imply persistence.
+
+Facts/events describe what happened. Current state describes what is true now. Persistent information describes what must remain available across the relevant lifecycle. A recovering consumer resynchronises from the authoritative current state it needs and then consumes new relevant facts/events; it does not require replay of every earlier transient event.
+
+Where another component's resulting state matters, message delivery alone is not proof that the requested action occurred. The resulting state/status must be available through that component's boundary where the function requires it.
+
+A physical output has one authoritative owner of commanded state. Other functions provide information or request action through boundaries; they do not independently drive it.
+
+A component receives only the information required for its responsibility. The existence of complete authoritative P&P state does not justify a universal mutable state object shared across unrelated components.
+
+## 13.2 Event ordering, duplication and availability
+
+Where authoritative timestamps establish order, P&P uses those timestamps rather than communication arrival order. Where timestamps genuinely do not establish an order, arrival order must not manufacture one; the relevant race/mode rules determine how simultaneous events are treated.
+
+A single source event must not affect authoritative state more than once. The mechanism is an implementation decision and should be placed at the lowest sensible boundary rather than forcing Race Engine to compensate for avoidable transport duplication.
+
+There is no universal age at which a delayed event becomes invalid. Its timestamp is preserved and the responsibility owning its meaning decides whether it remains relevant. Where capability availability changes affect event interpretation, those changes are related to P&P System Time so that an event is interpreted against the state applicable at its event time rather than merely the state when it arrived.
+
+Capability availability is authoritative at the boundary of the responsibility that owns or monitors that capability. That responsibility may use acknowledgements, heartbeat, timeout, self-test, connection state or another suitable mechanism internally. Race Control consumes the functional status needed for race decisions, not routine low-level communications or detailed diagnostics.
+
+Communication status, capability status, event publication/delivery and authoritative processing are distinct. Successful communication is not proof of downstream physical operation or successful event processing unless the relevant boundary explicitly provides that information.
+
+Loss of a capability invalidates any stale claim that its last reported physical state is still current. On recovery it establishes current state afresh and is not operationally available until required initialisation, compatibility and timing conditions are satisfied.
+
+## 13.3 Identity and low-level addressing
+
+Anything P&P needs to distinguish must have unambiguous stable identity within P&P. Human-readable names are labels, not identities.
+
+Intelligent devices use stable identity independent of transport or temporary communications addresses. Simple devices that cannot identify themselves may instead be represented by the stable System Controller capability/connection through which they are used.
+
+Low-level addresses assigned during hardware initialisation are hardware/device-adapter details and must not become P&P identity. Identical I2C sensors, for example, may receive temporary per-boot bus addresses while their stable P&P meaning remains attached to controller detector ports/capabilities.
+
+Assignments belong to configuration, not to a temporary address. A confirmed replacement intelligent device retains its own identity while configuration may transfer the previous assignment to it.
+
+P&P restores and discovers what the hardware can actually establish. It must not pretend to detect an otherwise unobservable physical swap of indistinguishable simple devices.
+
+## 13.4 System Controller and communication topology
+
+The **System Controller (SC)** is the central P&P controller platform and authority for system decisions, permissions and coordination. Race Control is a distinct responsibility within the SC, not another name for the SC.
+
+Mapped information should be delivered to the responsibility that owns its meaning. Routine mapped competition events need not be mechanically forwarded through Race Control merely because Race Control owns session lifecycle.
+
+Direct module-to-module communication is an allowed future design option, not the default pattern. It may be used where it provides genuine technical benefit, provided it does not create a second source of authority, bypass required decision-making or make authoritative P&P state unknowable to the System Controller.
+
+## 13.5 Manual User Gateway (MUG)
+
+A **Manual User Gateway (MUG)** is a phone, tablet, computer or other browser host acting as a human-facing P&P interface.
+
+Multiple MUGs may be connected simultaneously. One MUG may hold Race Director authority while others operate as permitted driver, display or spectator clients. A MUG does not own race state and its disconnection must not stop the race.
+
+MUG is internal/technical vocabulary; customer-facing interfaces may use ordinary terms such as Race Director, driver or display.
+
 ## 14. Test and diagnostics
 
 Testability is a permanent architectural responsibility.
