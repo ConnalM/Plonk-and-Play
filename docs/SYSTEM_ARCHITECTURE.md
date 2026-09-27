@@ -91,6 +91,8 @@ The timestamp represents when the physical event was detected as closely as prac
 
 Signal conditioning, hysteresis and re-arming belong close to the detector. Race meaning does not.
 
+Detector-specific conditioning parameters are owned by the detector/adapter. They need only become P&P installation configuration if the product requires them to be user- or installation-configurable; otherwise they may remain implementation details of that detector/adapter.
+
 ### 4.3 Extensible events
 
 The higher-level event boundary must not assume that every future input is necessarily a detector state or lane event.
@@ -409,6 +411,8 @@ Important input events should be timestamped at or near their source so communic
 Straightforward synchronisation is preferred where practical. A known clock relationship is also acceptable, including measured offset and drift correction or rechecking where required. Approximate clocks whose effective timing reference is packet arrival are not acceptable.
 
 The specific synchronisation algorithm is deliberately not chosen. This requirement is not justification for unnecessarily elaborate clock-synchronisation machinery.
+
+Across defined P&P boundaries, timestamps must use one defined P&P representation with sufficient resolution for the supported timing functions and sufficient range that representation rollover cannot occur during any supported session. Local hardware clocks may use different native units, widths or rollover behaviour; conversion into or out of the P&P representation belongs at the appropriate boundary. The exact P&P unit and integer representation are selected during implementation design, but must be common at those boundaries.
 
 The same common time domain supports scheduled time-critical outputs. A scheduled action such as GO at a specified P&P time denotes one common instant; a remote module may convert that instant to its local clock and execute locally.
 
