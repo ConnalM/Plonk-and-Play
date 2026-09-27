@@ -346,13 +346,40 @@ This future option must not derail or complicate the base Drag implementation.
 
 ### 6.8 Drag display
 
-Drag deliberately does not use the common Lap/Endurance/Rally scoreboard hierarchy.
+Drag deliberately does not use the common Lap/Endurance/Rally scoreboard hierarchy and gets its own recognisably drag-racing visual identity.
 
-Its display revolves around:
+The display progression is:
 
-**PRE-STAGE / STAGE → TREE → REACTION → ET → RESULT**
+**STAGING → TREE → RUN → RESULT**
 
-Detailed Drag screen design remains the next product-design task.
+The start display uses a proper drag-racing **Christmas Tree** rather than reusing the common five-light Race Control Pod.
+
+The full tree layout remains visible with hardware-dependent elements shown in place. On the base single-beam system, **PRE-STAGE is not falsely simulated**: the PRE-STAGE lamp/line remains visible but greyed/dormant because that measurement requires the future dual-beam REU. The normal STAGE indication remains active for the base staging procedure.
+
+This follows the wider P&P product rule that expansion capabilities should normally remain visible but locked/dormant rather than disappear.
+
+During staging and the start sequence, the tree becomes visually dominant and large enough to read while the MUG is concentrating on the car.
+
+The three amber lamps operate according to the selected **Sportsman** or **Pro** sequence. Green indicates a valid GO; red indicates a false start.
+
+After GO, the tree remains visible with the relevant green/red state while reaction time appears as soon as the Start sensor is crossed and ET runs prominently.
+
+At Finish, the display transitions immediately to the run result, including:
+
+- reaction time;
+- ET;
+- false-start/red-light status where applicable;
+- whole-run average speed where track length is known.
+
+Example valid result:
+
+`REACTION 0.23 | ET 6.84 | AVG 42.7 mph`
+
+Example false start:
+
+`RED LIGHT | REACTION -0.08 | ET 6.71`
+
+Further Drag display details remain open for continued product design.
 
 ## 7. General principle
 
