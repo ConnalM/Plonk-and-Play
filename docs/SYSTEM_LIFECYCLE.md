@@ -106,6 +106,10 @@ Initial time synchronisation is followed by whatever ongoing resynchronisation i
 
 A device that reconnects must not be treated as timing-ready until any required reinitialisation and resynchronisation have occurred.
 
+Initialisation may include low-level hardware procedures that are not P&P identity. For example, several identical I2C sensors may power up at the same default bus address and be woken/assigned temporary addresses one at a time. Such addresses remain internal to the hardware/device adapter; stable P&P identity or capability identity is established separately.
+
+A capability does not contribute operational events until the initialisation required for that function is complete and it has been declared available.
+
 ## 7. System assembly and availability
 
 Once equipment has been reconciled and initialised, P&P determines which configured capabilities are currently available, establishes required safe/default output states and makes the system's current state available to Presentation/User Interaction.
@@ -263,6 +267,10 @@ An uncontrolled shutdown must not be treated as a reason to add continuous race 
 The architecture supports devices becoming unavailable and subsequently available again where the underlying hardware and transport naturally support it.
 
 A returning intelligent device may require reinitialisation and resynchronisation before its capabilities become available again.
+
+When a capability becomes unavailable, its last reported physical state must not continue to be treated as trustworthy current physical state. On recovery, the capability establishes its current state afresh before becoming operationally available.
+
+Availability transitions whose timing affects interpretation of events are related to P&P System Time. A delayed event is therefore interpreted against the relevant availability/session state at its event timestamp rather than merely the state at packet arrival.
 
 This does **not** create a general requirement for powered physical hot-plugging.
 
