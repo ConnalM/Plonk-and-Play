@@ -32,11 +32,13 @@ The customer should only be asked for information that cannot reasonably be disc
 
 The communication method — wired, ESP-NOW or a future transport — should not define the identity of the module.
 
-## 4. One Authoritative Race Engine
+## 4. One Authoritative Race Authority
 
-The P&P controller owns the race.
+The P&P System Controller owns the race.
 
-It is the sole authority for official timing, race state, positions and results. Sensors and modules report events. Displays and control devices observe the race and issue commands. They do not independently calculate or maintain official race state.
+Within it, Race Control owns operation and lifecycle of a session, while the Race Engine owns interpretation, state and calculations of competition within that session. Together they form the single authoritative race authority for official timing, race state, positions and results.
+
+Sensors and modules report events. Displays and control devices observe the race and provide authorised inputs. They do not independently calculate or maintain official race state.
 
 Closing a browser, losing Wi-Fi or disconnecting a display must not stop or corrupt an active race.
 
@@ -93,3 +95,5 @@ When competing designs are technically viable, the first question is:
 **Does this make the system more Plonk & Play™ for the customer, or less?**
 
 Customer simplicity is the governing principle, supported by modularity, automatic discovery, authoritative timing, built-in testability, graceful recovery and disciplined architecture.
+
+Across P&P, information may be distributed widely, but authoritative ownership is not: for each authoritative fact or state there is one defined owner and one truth.
