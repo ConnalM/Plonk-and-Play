@@ -639,6 +639,12 @@ P&P's authoritative live state should be treated conceptually as a shared **noti
 
 Whether a browser literally requests selected noticeboard values, receives broader state changes and selects the values it needs locally, or uses another equivalent mechanism is a transport/protocol implementation decision. The noticeboard model defines information ownership and browser/P&P responsibility without prematurely choosing that mechanism.
 
+For time-critical coordinated actions, current State alone is not sufficient. Once a START Request has been accepted, P&P determines the authoritative future **GO instant** using its own high-resolution timing clock. Connected presentation/output devices are given sufficient advance information to schedule their local start-sequence presentation against that same authoritative GO instant rather than waiting for a network message sent at GO.
+
+This allows browser lights, local displays, sounds and other outputs to appear to reach GO together despite ordinary communication latency. P&P itself judges detector events, reaction timing and false starts against the same authoritative GO instant. Presentation latency must therefore not redefine when GO actually occurred.
+
+The mechanism used to relate a browser or output device's local scheduling to P&P's authoritative timing clock is an implementation/prototyping decision. The architectural requirement is common scheduling against a P&P-dictated future instant, not a particular clock-synchronisation protocol.
+
 ### 12.5 Browser clock/display updates
 
 P&P remains authoritative for race timing. Timing calculations use the required high-resolution P&P timing representation independently of the coarser resolution chosen for normal display.
