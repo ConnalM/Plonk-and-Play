@@ -18,6 +18,7 @@ This file identifies where agreed P&P decisions live so later design work does n
 - `RACE_MODES_PRODUCT_SPEC.md` — agreed Lap, Practice, Endurance, Rally and Drag behaviour.
 - `COMMON_DISPLAY_SPEC.md` — common Lap/Endurance/Rally display, personal MUG displays, Results and Yellow/Red display principles.
 - `PRODUCT_FACILITIES_SPEC.md` — Power Module, audio/SD, track setup, speed calculations, browser/SC split, solo/multi-user behaviour and option philosophy.
+- `CONFIGURATION_AND_IDENTITY_SPEC.md` — v1 MUG identity, Guest promotion, optional independent cars, lane assignment, Swap Lanes and remembered setup.
 
 ## Deliberately deferred
 
