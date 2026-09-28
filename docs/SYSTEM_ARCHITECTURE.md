@@ -635,6 +635,10 @@ While synchronised, absence of a state update means the browser may retain its l
 
 A missed Event/Fact must therefore never leave a browser permanently wrong. Events/Facts may enhance presentation, but authoritative current state remains recoverable independently.
 
+P&P's authoritative live state should be treated conceptually as a shared **noticeboard**. P&P owns and maintains the noticeboard; browsers decide which authoritative items they need for the view they are presenting. P&P does not need knowledge of individual browser screens or to construct a screen-specific authoritative state model for each connected browser. Changing browser view therefore does not change ownership or meaning of the underlying P&P state.
+
+Whether a browser literally requests selected noticeboard values, receives broader state changes and selects the values it needs locally, or uses another equivalent mechanism is a transport/protocol implementation decision. The noticeboard model defines information ownership and browser/P&P responsibility without prematurely choosing that mechanism.
+
 ### 12.5 Browser clock/display updates
 
 P&P remains authoritative for race timing. Timing calculations use the required high-resolution P&P timing representation independently of the coarser resolution chosen for normal display.
