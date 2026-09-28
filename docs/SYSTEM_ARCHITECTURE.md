@@ -620,24 +620,25 @@ Physical controls enter through the appropriate hardware/input path. Depending o
 
 Both physical controls and user interfaces ultimately present the appropriate P&P responsibility with defined semantic inputs or requests which are validated and interpreted according to current state and configuration. Race Director requests such as START, PAUSE and RESUME are validated against current state. Other permitted inputs, such as CAR OFF or TRACK_CALL_REQUEST, are interpreted according to session rules/configuration and may result in an authoritative action.
 
-Browser-facing communication distinguishes four semantic kinds of information:
+Browser-facing communication distinguishes five semantic kinds of information:
 
 - **Request** — browser to P&P: asks P&P to do something.
 - **Request Result** — P&P to the requesting browser: reports whether that request was accepted or rejected, with a reason where useful.
-- **State** — P&P to browser: authoritative information describing what is true now.
+- **State** — authoritative information maintained by P&P describing what is true now.
+- **State-change notification** — P&P to browser: indicates that the authoritative noticeboard has changed and the browser should refresh the State items needed by its current view.
 - **Event/Fact** — P&P to browser: notification that something has happened, useful for presentation such as animation, sound or temporary messages.
 
-On initial connection or reconnection, a browser receives a **full authoritative state snapshot** containing sufficient current information to construct the correct display from nothing. It need not replay every event that occurred before or while it was disconnected.
+P&P's authoritative live State should be treated conceptually as a shared **noticeboard**. P&P owns and maintains the noticeboard; browsers decide which authoritative items they need for the view they are presenting. P&P does not need knowledge of individual browser screens or to construct a screen-specific authoritative state model for each connected browser. Changing browser view therefore does not change ownership or meaning of the underlying P&P State.
 
-While a browser remains connected and synchronised, P&P may send **state deltas** rather than repeatedly sending the complete snapshot. Each delta must contain sufficient authoritative changed state to keep an already-synchronised display correct. The browser must not be required to reconstruct authoritative race state by interpreting transient events/facts.
+On initial connection or reconnection, a browser obtains a **full authoritative state snapshot** sufficient to construct the correct display from nothing. It need not replay every event that occurred before or while it was disconnected.
 
-While synchronised, absence of a state update means the browser may retain its last authoritative state. If connection/synchronisation is lost, it must no longer assume that cached state is current. Recovery is by obtaining a new full snapshot.
+While a browser remains connected and synchronised, P&P notifies it when the authoritative noticeboard changes. The browser then obtains the State items needed by its current view. A notification need not itself contain the changed authoritative values and must not require P&P to know which values that browser's screen needs.
 
-A missed Event/Fact must therefore never leave a browser permanently wrong. Events/Facts may enhance presentation, but authoritative current state remains recoverable independently.
+A browser may retain previously obtained State while it remains synchronised and no State-change notification has been received. If connection/synchronisation is lost, it must no longer assume that cached State is current. Recovery is by obtaining a new full authoritative snapshot.
 
-P&P's authoritative live state should be treated conceptually as a shared **noticeboard**. P&P owns and maintains the noticeboard; browsers decide which authoritative items they need for the view they are presenting. P&P does not need knowledge of individual browser screens or to construct a screen-specific authoritative state model for each connected browser. Changing browser view therefore does not change ownership or meaning of the underlying P&P state.
+A missed Event/Fact must never leave a browser permanently wrong. Events/Facts may enhance presentation, but authoritative current State remains independently recoverable from the noticeboard. Likewise, an Event/Fact such as LAP_COMPLETED is not the mechanism by which a browser maintains authoritative State.
 
-Whether a browser literally requests selected noticeboard values, receives broader state changes and selects the values it needs locally, or uses another equivalent mechanism is a transport/protocol implementation decision. The noticeboard model defines information ownership and browser/P&P responsibility without prematurely choosing that mechanism.
+The exact mechanism by which a browser reads selected noticeboard State, receives State-change notifications, or optimises repeated reads remains a transport/protocol implementation decision. The noticeboard model defines information ownership and browser/P&P responsibility without prematurely choosing that mechanism.
 
 For time-critical coordinated actions, current State alone is not sufficient. Once a START Request has been accepted, P&P determines the authoritative future **GO instant** using its own high-resolution timing clock. Connected presentation/output devices are given sufficient advance information to schedule their local start-sequence presentation against that same authoritative GO instant rather than waiting for a network message sent at GO.
 
