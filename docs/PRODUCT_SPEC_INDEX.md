@@ -40,3 +40,5 @@ When one of these areas is designed, update the appropriate specification or add
 A settled product decision should be written into GitHub before the design conversation moves far beyond it.
 
 > **GitHub, not chat memory, is the durable source of truth.**
+
+- `PP_TASTER_SPEC.md` — built-in two-sensor/two-lane standalone Taster, SMUG configuration, MINIMUG operation and browser boundary.
