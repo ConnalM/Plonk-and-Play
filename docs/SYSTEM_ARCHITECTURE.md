@@ -638,6 +638,10 @@ A browser may retain previously obtained State while it remains synchronised and
 
 A missed Event/Fact must never leave a browser permanently wrong. Events/Facts may enhance presentation, but authoritative current State remains independently recoverable from the noticeboard. Likewise, an Event/Fact such as LAP_COMPLETED is not the mechanism by which a browser maintains authoritative State.
 
+Rapid authoritative State changes do not require a browser to observe or render every intermediate State. State-change notifications may effectively coalesce: after one or several rapid changes, a browser reads the latest authoritative noticeboard State and renders what is true then. Where individual occurrences themselves matter for presentation, their Events/Facts remain individually identifiable even if the resulting State notifications coalesce.
+
+Timing-critical physical event capture, ordering, race interpretation and authoritative State maintenance must never wait for browser reads, browser rendering, network delivery or other presentation activity. Slow or disconnected clients must not delay or compromise race timing or authoritative race processing.
+
 The exact mechanism by which a browser reads selected noticeboard State, receives State-change notifications, or optimises repeated reads remains a transport/protocol implementation decision. The noticeboard model defines information ownership and browser/P&P responsibility without prematurely choosing that mechanism.
 
 For time-critical coordinated actions, current State alone is not sufficient. Once a START Request has been accepted, P&P determines the authoritative future **GO instant** using its own high-resolution timing clock. Connected presentation/output devices are given sufficient advance information to schedule their local start-sequence presentation against that same authoritative GO instant rather than waiting for a network message sent at GO.
