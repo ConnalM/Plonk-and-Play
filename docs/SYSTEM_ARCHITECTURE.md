@@ -625,24 +625,26 @@ Browser-facing communication distinguishes five semantic kinds of information:
 - **Request** — browser to P&P: asks P&P to do something.
 - **Request Result** — P&P to the requesting browser: reports whether that request was accepted or rejected, with a reason where useful.
 - **State** — authoritative information maintained by P&P describing what is true now.
-- **State-change notification** — P&P to browser: indicates that the authoritative noticeboard has changed and the browser should refresh the State items needed by its current view.
+- **State-change notification** — P&P to browser: indicates that authoritative State has changed and the browser's previously obtained State may now be stale.
 - **Event/Fact** — P&P to browser: notification that something has happened, useful for presentation such as animation, sound or temporary messages.
 
-P&P's authoritative live State should be treated conceptually as a shared **noticeboard**. P&P owns and maintains the noticeboard; browsers decide which authoritative items they need for the view they are presenting. P&P does not need knowledge of individual browser screens or to construct a screen-specific authoritative state model for each connected browser. Changing browser view therefore does not change ownership or meaning of the underlying P&P State.
+P&P owns and maintains authoritative live State. Browsers decide which State they need for the view they are presenting; P&P does not need knowledge of individual browser screens or to construct a screen-specific authoritative State model for each connected browser.
 
-On initial connection or reconnection, a browser obtains a **full authoritative state snapshot** sufficient to construct the correct display from nothing. It need not replay every event that occurred before or while it was disconnected.
+On initial connection or reconnection, a browser obtains authoritative State sufficient to construct the correct display from nothing. It need not replay every event that occurred before or while it was disconnected.
 
-While a browser remains connected and synchronised, P&P notifies it when the authoritative noticeboard changes. The browser then obtains the State items needed by its current view. A notification need not itself contain the changed authoritative values and must not require P&P to know which values that browser's screen needs.
+Every meaningful authoritative State change causes a State-change notification. A notification need not identify the fields that changed or contain their new values; its purpose is to tell a browser that State it previously obtained may now be stale.
 
-A browser may retain previously obtained State while it remains synchronised and no State-change notification has been received. If connection/synchronisation is lost, it must no longer assume that cached State is current. Recovery is by obtaining a new full authoritative snapshot.
+On receiving such a notification, a browser refreshes the authoritative State needed by its current view. Further State-change notifications received while that refresh is already in progress do not require parallel refreshes. The refresh process must leave the browser with an internally consistent current version of the relevant authoritative State, including any further changes that occurred while an earlier refresh was being initiated or completed.
 
-A missed Event/Fact must never leave a browser permanently wrong. Events/Facts may enhance presentation, but authoritative current State remains independently recoverable from the noticeboard. Likewise, an Event/Fact such as LAP_COMPLETED is not the mechanism by which a browser maintains authoritative State.
+Rapid authoritative State changes therefore do not require a browser to observe or render every intermediate State. Superseded intermediate State may be skipped; the browser ultimately renders what is currently true. Where individual occurrences themselves matter for presentation, their Events/Facts remain distinct from current State.
 
-Rapid authoritative State changes do not require a browser to observe or render every intermediate State. State-change notifications may effectively coalesce: after one or several rapid changes, a browser reads the latest authoritative noticeboard State and renders what is true then. Where individual occurrences themselves matter for presentation, their Events/Facts remain individually identifiable even if the resulting State notifications coalesce.
+A browser may retain previously obtained State while it remains synchronised and no State-change notification has been received. If connection/synchronisation is lost, it must no longer assume that cached State is current. Recovery requires obtaining current authoritative State again.
+
+A missed Event/Fact must never leave a browser permanently wrong. Events/Facts may enhance presentation, but authoritative current State remains independently recoverable. Likewise, an Event/Fact such as LAP_COMPLETED is not the mechanism by which a browser maintains authoritative State.
 
 Timing-critical physical event capture, ordering, race interpretation and authoritative State maintenance must never wait for browser reads, browser rendering, network delivery or other presentation activity. Slow or disconnected clients must not delay or compromise race timing or authoritative race processing.
 
-The exact mechanism by which a browser reads selected noticeboard State, receives State-change notifications, or optimises repeated reads remains a transport/protocol implementation decision. The noticeboard model defines information ownership and browser/P&P responsibility without prematurely choosing that mechanism.
+The implementation used to identify consistent State versions, determine what must be refreshed, combine rapid changes, and transport notifications or State remains an implementation/prototyping decision. Possible mechanisms such as revisions, dirty flags, logical State blocks, deltas or broader snapshots are not prescribed by this architecture.
 
 For time-critical coordinated actions, current State alone is not sufficient. Once a START Request has been accepted, P&P determines the authoritative future **GO instant** using its own high-resolution timing clock. Connected presentation/output devices are given sufficient advance information to schedule their local start-sequence presentation against that same authoritative GO instant rather than waiting for a network message sent at GO.
 
