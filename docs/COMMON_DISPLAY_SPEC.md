@@ -240,3 +240,30 @@ The precise timing/power behaviour and every possible transition are RMS impleme
 ---
 
 **Product principle:** Easy to start. Deeply configurable when you want it.
+
+
+## Browser UI rules
+
+### Numeric stability
+Numeric fields and live numeric display regions must have fixed dimensions appropriate to their expected values. Changing digits must not resize controls or move adjacent UI.
+
+Use tabular numerals where appropriate for clocks, lap times, gaps, counters and similar changing race data.
+
+General rule:
+
+> **No UI jitter caused by changing race data.**
+
+### Numeric adjustment
+Where a numeric value is commonly adjusted, use decrement / editable value / increment controls. Direct editing must remain available so large changes do not require repeated button presses.
+
+### Contextual help
+Use a consistent information control for terminology or consequences that may not be obvious.
+
+- Desktop: hover may reveal the help.
+- Touch: tap reveals the same help.
+- Keep help concise, normally one or two sentences.
+- Do not add help icons to self-evident controls merely for consistency.
+
+Typical candidates include Drag Course Length, Timed Stage, Loop, Point-to-Point, finish behaviour, scale speed and false-start behaviour.
+
+If a control requires a paragraph before a MUG can choose it, reconsider the control design rather than relying on a tooltip.
