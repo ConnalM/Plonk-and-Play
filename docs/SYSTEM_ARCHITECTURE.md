@@ -89,7 +89,9 @@ Typical states are:
 
 The timestamp represents when the physical event was detected as closely as practical, not when a communications packet happened to arrive at Race Control.
 
-Signal conditioning, hysteresis and re-arming belong close to the detector. Race meaning does not.
+Signal conditioning, debounce, hysteresis and re-arming belong close to the detector. The detector/adapter must expose clean `ACTIVE` / `INACTIVE` transitions rather than raw sensor fluctuations. Race meaning does not.
+
+A race-domain plausibility rule such as rejecting an impossibly short lap is not detector debounce or signal conditioning; it belongs to the race/timing logic interpreting otherwise valid clean detector events.
 
 Detector-specific conditioning parameters are owned by the detector/adapter. They need only become P&P installation configuration if the product requires them to be user- or installation-configurable; otherwise they may remain implementation details of that detector/adapter.
 
