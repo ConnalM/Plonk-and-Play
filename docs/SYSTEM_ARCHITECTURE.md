@@ -612,13 +612,40 @@ The Race Director/session configuration can determine what a **CAR OFF** input m
 
 The client always reports the same semantic event — **CAR OFF** — rather than directly commanding a pause or power change. Race Control interprets the event according to the active session configuration.
 
-### 12.4 Logical commands
+### 12.4 Requests and browser synchronisation
 
-User interfaces send logical commands/requests, not direct mutations of Race Control variables.
+User interfaces send logical **requests**, not direct mutations of authoritative P&P variables. A request asks the appropriate authoritative responsibility to perform an action or change configuration. The request is accepted or rejected, with a reason where useful; the browser must not assume that submitting a request means the requested change occurred.
 
 Physical controls enter through the appropriate hardware/input path. Depending on the device, that path may map a simple physical detector state into a semantic race input, or an intelligent device may report an appropriate standard semantic input directly.
 
-Both physical controls and user interfaces ultimately present Race Control with defined semantic events, commands or requests which Race Control validates and interprets according to the current session. Race Director commands such as START, PAUSE and RESUME are validated against current state. Other permitted inputs, such as CAR OFF or TRACK_CALL_REQUEST, are interpreted according to session rules/configuration and may result in an authoritative action.
+Both physical controls and user interfaces ultimately present the appropriate P&P responsibility with defined semantic inputs or requests which are validated and interpreted according to current state and configuration. Race Director requests such as START, PAUSE and RESUME are validated against current state. Other permitted inputs, such as CAR OFF or TRACK_CALL_REQUEST, are interpreted according to session rules/configuration and may result in an authoritative action.
+
+Browser-facing communication distinguishes four semantic kinds of information:
+
+- **Request** — browser to P&P: asks P&P to do something.
+- **Request Result** — P&P to the requesting browser: reports whether that request was accepted or rejected, with a reason where useful.
+- **State** — P&P to browser: authoritative information describing what is true now.
+- **Event/Fact** — P&P to browser: notification that something has happened, useful for presentation such as animation, sound or temporary messages.
+
+On initial connection or reconnection, a browser receives a **full authoritative state snapshot** containing sufficient current information to construct the correct display from nothing. It need not replay every event that occurred before or while it was disconnected.
+
+While a browser remains connected and synchronised, P&P may send **state deltas** rather than repeatedly sending the complete snapshot. Each delta must contain sufficient authoritative changed state to keep an already-synchronised display correct. The browser must not be required to reconstruct authoritative race state by interpreting transient events/facts.
+
+While synchronised, absence of a state update means the browser may retain its last authoritative state. If connection/synchronisation is lost, it must no longer assume that cached state is current. Recovery is by obtaining a new full snapshot.
+
+A missed Event/Fact must therefore never leave a browser permanently wrong. Events/Facts may enhance presentation, but authoritative current state remains recoverable independently.
+
+### 12.5 Browser clock/display updates
+
+P&P remains authoritative for race timing. Timing calculations use the required high-resolution P&P timing representation independently of the coarser resolution chosen for normal display.
+
+Where a normal running clock or countdown is displayed in whole seconds, P&P sends the browser an authoritative time/state update once per displayed second while that value is changing. A meaningful state change or event between those regular ticks causes an immediate appropriate update rather than waiting for the next one-second tick.
+
+Thus display update cadence does not determine timing accuracy: a detector event may be timestamped and processed at high resolution even though the ordinary running clock changes only once per second.
+
+The browser need not run an independent authoritative race clock. This keeps multiple displays tied to P&P's authoritative timing while avoiding unnecessary continuous browser updates.
+
+The transport, protocol and payload representation used to carry Requests, Request Results, State and Events/Facts remain implementation decisions.
 
 ## 13. Persistent / History Storage
 
