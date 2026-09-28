@@ -138,6 +138,7 @@ Adding an optional capability must not require unrelated parts of the system to 
 - Support manual generation of test events.
 - Support scripted race/session scenarios.
 - Permit useful fault simulation, including delayed or missing events/modules, duplicate events, clock drift, out-of-order events and communication loss.
+- The first implementation need only build the test and fault-injection facilities required for the capabilities it actually implements. Future transport- or module-specific fault cases are added when those capabilities are implemented; this requirement does not mandate a complete future-system simulator in v1.
 - Customer-facing diagnostics may reuse the same underlying test facilities.
 - Test infrastructure must not become a separate alternative Race Engine or bypass the normal production interfaces.
 
