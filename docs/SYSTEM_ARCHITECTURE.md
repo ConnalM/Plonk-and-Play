@@ -15,7 +15,7 @@ Working principles:
 - Engineer in proportion to the product: P&P is a consumer slot-car system, not a safety-critical control system.
 - Hardware describes what it **is** and what it **can do**.
 - Configuration describes what it is **being used for**.
-- Race Control decides what an event **means in the current session**.
+- Race Control owns session operation/lifecycle; the Race Engine interprets competition events and owns competition state, rules and calculations.
 - Replace locally. Fail locally.
 - New functionality should predominantly require new code, not changes to unrelated existing code.
 
@@ -134,7 +134,7 @@ The intended separation is:
 
 > **Hardware knows itself.**  
 > **Event Mapping knows what it is being used for.**  
-> **Race Control knows what that means.**
+> **Race Control owns session operation; the Race Engine owns competition interpretation.**
 
 ## 5. Device failure and replacement
 
@@ -371,7 +371,7 @@ Preferences such as display choices, units, sounds and similar user choices are 
 
 Configuration describes **how P&P should behave**.
 
-Live Race Control state describes **what is happening or has happened as a result**.
+Live race/session state describes **what is happening or has happened as a result**, with ownership divided between Race Control session state and Race Engine competition state as defined in `RACE_CONTROL_ENGINE_DESIGN.md`.
 
 For example, current lap, current fuel level, race running/paused state and current position are not Configuration.
 
@@ -396,7 +396,7 @@ Configuration changes must be controlled according to their effect on the live s
 
 Some changes may be safe at any time, some only while idle and some must not change underneath an active race.
 
-Race Control should operate from a defined session configuration rather than repeatedly reading mutable configuration and discovering that its rules have silently changed.
+Race Control and the Race Engine should operate from the fixed session definition prepared for the active session rather than repeatedly reading mutable configuration and discovering that operation or rules have silently changed.
 
 ### 7.7 Optional driver/car data
 
@@ -420,32 +420,22 @@ The same common time domain supports scheduled time-critical outputs. A schedule
 
 ## 9. Race Control
 
-Race Control is the **single authoritative owner** of live race/session state.
+Race Control and the Race Engine together form the **single authoritative race/session authority**, with non-overlapping ownership defined in `RACE_CONTROL_ENGINE_DESIGN.md`.
 
-Race Control is an architectural authority, not necessarily one monolithic implementation component. Its internal responsibilities may be separated during detailed design provided they continue to present one authoritative race state and preserve the boundaries defined here.
+Race Control owns session operation and lifecycle, including preparation, start procedure, authoritative GO, Pause/Resume/Stop and coordination of operational logical actions. The Race Engine owns competition interpretation, competition state, rules, calculations, results and competition-completion conditions.
 
-It receives abstract mapped events, session configuration, relevant capability/availability changes and P&P time. It does not depend on sensor models, GPIOs, wireless addresses, physical gantries, browser implementation or storage media.
-
-Its responsibilities currently include:
-
-- session lifecycle/state;
-- interpretation of mapped events according to the active rules;
-- authoritative race state;
-- race-domain calculations;
-- decisions about logical race actions;
-- generation of race facts/events for consumers;
-- production of a deliberately limited result record for history.
+They operate through defined boundaries and do not depend on sensor models, GPIOs, wireless addresses, physical gantries, browser implementation or storage media.
 
 ### 9.1 Race modes
 
-Different race forms are treated as replaceable rule sets within the common Race Control framework rather than separate hardware/timing systems.
+Different race forms are treated as replaceable Race Engine rule sets within the common Race Control / Race Engine framework rather than separate hardware/timing systems.
 
 Known modes include:
 
 - lap race;
 - timed race;
 - practice;
-- rally;
+- timed stage;
 - drag racing;
 - future modes.
 
@@ -466,22 +456,18 @@ Timed race without fuel
 
 Future optional race features may be added where justified without pre-building speculative functionality.
 
-Optional features maintain their own feature state and respond to relevant race events. Where a feature affects the competition, its consequence is applied through Race Control rather than the feature directly controlling hardware or redefining the Race Mode.
+Optional features maintain their own feature state and respond to relevant race events. Where a feature affects competition state or scoring, its consequence is applied through the Race Engine's defined competition boundary; where it requires an operational action, Race Control coordinates that action. The feature does not directly control hardware or redefine the Race Mode.
 
 P&P is analogue-first. Optional features must not assume that a physical effect can be imposed on a lane or car. For example, simulated fuel can provide display, sound and procedural race behaviour without any physical intervention. Physical enforcement such as removing power from one lane is available only where installed hardware exposes an appropriate capability. A future lane-power or other control module may add that capability without changing the Fuel feature's fundamental role.
 
-### 9.3 Race state and calculations
+### 9.3 Race/session state and calculations
 
-Race Control owns authoritative live information such as:
+Authoritative live information has one owner according to meaning:
 
-- session state;
-- current lap;
-- lap/sector times;
-- positions;
-- elapsed time;
-- active optional-feature state such as fuel.
+- Race Control owns session lifecycle/operational state such as preparing, starting, running, paused or stopped;
+- the Race Engine owns competition state such as current lap, lap/sector times, positions, competition elapsed time, results and competition-affecting feature state.
 
-An incoming event changes authoritative race state once. Where the relative timing of events affects the authoritative race result, Race Control must use their P&P System Time timestamps rather than communication arrival order. The architecture must permit delayed or out-of-order events to be correctly sequenced where necessary. The detailed buffering or sequencing mechanism is a later subsystem-design decision.
+An incoming competition event changes authoritative competition state once. Where the relative timing of events affects the authoritative competition result, the Race Engine uses their P&P System Time timestamps rather than communication arrival order. The architecture must permit delayed or out-of-order events to be correctly sequenced where necessary. The detailed buffering or sequencing mechanism is an implementation/subsystem-design decision.
 
 Displays, sound and other consumers must not maintain competing calculations of the race.
 
@@ -543,7 +529,7 @@ It only qualifies as a Plonk & Play™ product feature where the physical instal
 
 Sound is an output/presentation capability, not part of Race Control.
 
-Race Control may report a fact such as `FASTEST_LAP`; the sound capability decides how that fact is rendered as speech/audio.
+The authoritative race responsibility may publish a fact such as `FASTEST_LAP`; the sound capability decides how that fact is rendered as speech/audio.
 
 Sound may also be requested as a scheduled logical action where timing matters, such as start-sequence beeps. Such actions use P&P System Time in the same way as other time-critical outputs rather than depending on message-arrival time.
 
@@ -686,15 +672,13 @@ The initial product should retain a deliberately modest useful result/history re
 
 Possible basic retained information includes:
 
-- date/time;
-- race type/length;
+- race/session type and defining parameters;
 - competitors or lanes where applicable;
 - result/finishing order;
-- lap count;
-- fastest lap;
-- potentially individual lap times if later judged worthwhile.
+- lap-by-lap data where applicable;
+- personal best and overall track-record summaries.
 
-The exact initial record is not yet fixed.
+The product-level retained-history behaviour is defined in `BROWSER_FLOW_RESULTS_HISTORY_SPEC.md`; the detailed persistence schema and storage technology remain implementation decisions. Wall-clock date/time is not required for retained race history.
 
 The storage model must be extensible so that substantially richer information can be retained later without redesigning Race Control or making older records unusable.
 
@@ -811,7 +795,7 @@ The Race Control / Race Engine responsibility question has been resolved in `RAC
 
 The final architecture review also confirmed that components exchange information only through their defined boundaries, authoritative facts can be consumed independently without making consumers authoritative, Presentation never owns authoritative P&P data, and current-state consumers can resynchronise from authoritative state rather than reconstructing it from missed live events.
 
-Detailed persistence/history records and detailed race-rule/product behaviour belong to later subsystem and product design rather than being prerequisites for architectural completion.
+Product-level persistence/history behaviour and race-mode behaviour are now defined in the relevant product specifications. Detailed persistence schema, storage technology and implementation structures remain implementation decisions rather than architectural prerequisites.
 
 Implementation choices deliberately remain outside this document at this stage, including:
 
