@@ -240,3 +240,43 @@ Installation settings are stored when changed/confirmed.
 Confirmation is reserved for actions that are destructive, disruptive or genuinely ambiguous, such as deleting persistent information, materially reassigning hardware or performing a factory reset.
 
 > **Save automatically where intention is unambiguous. Confirm where an action is destructive, disruptive or ambiguous.**
+
+
+## 14. Out-of-box base configuration
+
+The base product should require **zero software configuration** when installed according to the recommended quick-start arrangement.
+
+Factory/default base assignments are:
+
+- Sensor 1 → Lane 1 Start/Finish;
+- Sensor 2 → Lane 2 Start/Finish;
+- recommended/default physical sensor arrangement → sensor before the Start/Finish line.
+
+The Quick Setup documentation must show the matching physical arrangement clearly.
+
+With this default physical arrangement, straightforward lap counting works immediately. Capabilities that require a different sensor relationship, including applicable false-start detection and reaction timing, are not available merely by pretending the default installation can measure them.
+
+Those unavailable capabilities may remain visible but greyed/locked with an explanation of the physical/configuration change required to enable them.
+
+A MUG who installs the sensors differently can change the remembered arrangement later under Track Setup. A clear diagram should be used rather than relying only on technical wording.
+
+Optional information such as track length, track scale and MUG names must not become first-boot requirements.
+
+## 15. MUGGLE quick-setup guide
+
+The base product requires a short, highly visual **MUGGLE Guide** for first use.
+
+Its purpose is not to replace the full manual. Its job is to get an ordinary MUG from unopened/unconfigured product to a working basic race with the fewest possible decisions.
+
+The intended flow is approximately:
+
+1. **PLONK** — position the two sensors exactly as illustrated in the recommended/default arrangement.
+2. **PLUG** — connect Sensor 1/Lane 1 and Sensor 2/Lane 2 and power P&P.
+3. **CONNECT** — connect a phone/tablet/computer to P&P and open its browser interface.
+4. **PLAY** — choose the basic race setting such as laps and press START.
+
+A small **Want more?** section may point towards optional MUG names, track length/scale, alternative sensor arrangements, enhanced start/false-start functions, Rally, Drag and other capabilities.
+
+Product requirement:
+
+> **If the MUG follows the MUGGLE Guide's recommended physical installation, the software defaults must match it and no Setup step should be required before basic racing.**
