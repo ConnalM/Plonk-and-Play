@@ -1,7 +1,7 @@
 # Plonk & Play™ — Race Modes Product Specification
 
 **Status:** Committed product-design specification  
-**Scope:** Agreed behaviour for Lap, Practice, Endurance, Rally and Drag.  
+**Scope:** Agreed behaviour for Lap, Practice, Endurance, Timed Stage and Drag.  
 **Relationship:** Complements the architecture and first-implementation documents. Detailed RMS implementation remains deferred.
 
 ## 1. Mode hierarchy
@@ -12,7 +12,7 @@ The customer-facing mode hierarchy is:
   - Race
   - Practice
 - **ENDURANCE**
-- **RALLY**
+- **TIMED STAGE**
 - **DRAG**
 
 Normal circuit racing is called **Lap**, not Circuit.
@@ -169,11 +169,11 @@ At zero:
 - **Stop at Zero:** announce/display race over.
 - **Finish Current Lap:** announce/display time expired/final lap and continue until each competitor finishes.
 
-## 5. Rally
+## 5. Timed Stage
 
 ### 5.1 Normal loop stage
 
-For a normal loop/circuit Rally stage:
+For a normal loop/circuit Timed Stage stage:
 
 1. Car is positioned behind the Start/Finish sensor.
 2. Start sequence runs.
@@ -191,11 +191,11 @@ A stage may be one or multiple laps: 1, 2, 3 or Custom.
 
 Individual lap times are recorded automatically as splits, while the official stage result is the total stage time.
 
-### 5.2 Single and multi-stage Rally
+### 5.2 Single and multi-stage Timed Stage
 
 **Single Stage:** one timed stage/run; fastest adjusted time wins.
 
-**Multi-stage Rally:** several stages/runs; lowest cumulative adjusted total wins.
+**Multi-stage Timed Stage:** several stages/runs; lowest cumulative adjusted total wins.
 
 The same physical track may be reused as nominally different stages.
 
@@ -216,7 +216,7 @@ P&P also supports an A-to-B timing engine:
 
 Sensor roles can be reversed for another stage, allowing A→B and B→A without moving sensors.
 
-This underlying timing behaviour can support point-to-point Rally, Hill Climb, Sprint and similar A-to-B uses.
+This underlying timing behaviour can support point-to-point Timed Stage, Hill Climb, Sprint and similar A-to-B uses.
 
 Hill Climb is not currently specified as a fake technically distinct timing mode merely for marketing. Presentation/naming may later provide discipline-specific presets where useful.
 
@@ -233,9 +233,9 @@ A DNF does not automatically prevent the MUG from taking part in later stages.
 
 ### 5.5 Event organisation
 
-A Rally can contain:
+A Timed Stage can contain:
 
-- Rally name;
+- Timed Stage name;
 - MUGs;
 - number of stages;
 - per-stage settings.
@@ -249,11 +249,11 @@ Supported running orders:
 - **Stage order** — all MUGs complete Stage 1, then Stage 2 etc. This is the normal/default organisation.
 - **MUG order** — MUG 1 completes all stages, then MUG 2 etc. This is an Advanced option useful where the physical track remains unchanged.
 
-### 5.6 Rally results
+### 5.6 Timed Stage results
 
 The main live/default result information is:
 
-**Position | MUG | Stage time | Penalty | Rally total | Gap**
+**Position | MUG | Stage time | Penalty | Timed Stage total | Gap**
 
 After each stage P&P can show the stage winner/fastest and updated overall classification.
 
@@ -346,7 +346,7 @@ This future option must not derail or complicate the base Drag implementation.
 
 ### 6.8 Drag display
 
-Drag deliberately does not use the common Lap/Endurance/Rally scoreboard hierarchy and gets its own recognisably drag-racing visual identity.
+Drag deliberately does not use the common Lap/Endurance/Timed Stage scoreboard hierarchy and gets its own recognisably drag-racing visual identity.
 
 The display progression is:
 
@@ -425,3 +425,30 @@ This follows the same principle as greyed PRE-STAGE: never fake an unavailable m
 Where an additional software option costs essentially nothing and does not make the normal experience confusing, P&P should avoid artificial restriction. Less-common choices can live under **Advanced**.
 
 > **Easy to start. Deeply configurable when you want it.**
+
+
+## Browser setup flow refinements
+
+### Timed Stage
+Timed Stage is the generic top-level mode for timed runs such as rally stages, hill climbs and sprints.
+
+Initial stage geometry is:
+- **Loop** — same Start/Finish point; first crossing starts timing and the final crossing after the configured lap count finishes it.
+- **Point-to-Point** — separate Start and Finish sensors; direction may be A→B or B→A.
+
+Timed Stage may be a **Single Stage** or **Multi-Stage Event**. A Multi-Stage Event layers stage sequencing and cumulative results on the same timing engine.
+
+Use **Runs**, not Attempts, in the user interface.
+
+P&P does not need the MUG to declare whether a point-to-point run is technically a rally stage, hill climb or sprint merely to time it.
+
+### Drag setup
+Drag must work even when course length and scale are unknown. Reaction and ET remain valid.
+
+Optional Drag Course Length and Track Scale add derived information such as actual average speed and scale-equivalent distance/speed.
+
+If useful optional values are missing, SMUG may enter them directly in Drag setup rather than leaving the mode to visit Track Setup. Values entered contextually update the same underlying configuration rather than creating duplicates.
+
+Drag Course Length is distinct from ordinary circuit lap length: it is the physical Start-sensor-to-Finish-sensor distance.
+
+Sportsman and Pro tree choices should remain visibly selectable; Sportsman is the understandable default.
