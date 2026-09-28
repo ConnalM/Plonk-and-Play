@@ -165,6 +165,8 @@ Race Engine does not discover hardware failures.
 
 The Registry owns current device/capability availability information. Race Control receives or obtains availability information relevant to the current session and decides its operational consequence.
 
+When a START request is made, Race Control performs the final authoritative readiness check against the Registry's current capability availability before accepting the start. Presentation may indicate apparent readiness, but it does not authorise a session to start.
+
 Loss of an optional capability need not stop a session. Loss of a capability essential to meaningful continuation may require the session to be stopped or restarted.
 
 Race Engine does not manipulate physical outputs.
