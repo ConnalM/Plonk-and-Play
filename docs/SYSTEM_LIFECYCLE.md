@@ -198,9 +198,9 @@ A controller crash or uncontrolled power loss may therefore lose the active indi
 
 ### Completed race data
 
-When an individual race finishes, the race/result data selected for history is written to persistent storage.
+When an individual race finishes, the race/result data selected for History is written to persistent storage.
 
-The exact retained history and storage format remain later design decisions.
+The product-level retained-History behaviour is defined in `BROWSER_FLOW_RESULTS_HISTORY_SPEC.md`. The detailed persistence schema, factory capacity selected from realistic storage testing and storage format remain implementation decisions.
 
 ## 12. Multi-race competition progress
 
