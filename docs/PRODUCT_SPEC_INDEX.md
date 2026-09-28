@@ -42,3 +42,5 @@ A settled product decision should be written into GitHub before the design conve
 > **GitHub, not chat memory, is the durable source of truth.**
 
 - `PP_TASTER_SPEC.md` — built-in two-sensor/two-lane standalone Taster, SMUG configuration, MINIMUG operation and browser boundary.
+
+- `BROWSER_FLOW_RESULTS_HISTORY_SPEC.md` — browser Home/mode setup flows, immediate results, rolling History and minimal v1 records.
