@@ -149,3 +149,94 @@ The design must not assume that:
 - a race must always be completely standalone.
 
 > **Design broadly. Implement narrowly.**
+
+
+## 11. Track configuration
+
+The v1 product assumes one remembered physical Track Configuration rather than requiring a named multi-track database.
+
+Normal use must not require the MUG to create or name a track before racing.
+
+The Track Configuration contains information P&P actually uses, including:
+
+- configured lane count;
+- sensor assignments/roles;
+- Start/Finish arrangement;
+- optional track length;
+- optional track scale.
+
+Track length enables appropriate speed calculations. Track scale enables scale-equivalent speed calculations.
+
+The underlying design must not unnecessarily prevent multiple saved physical Track Configurations being added later.
+
+### 11.1 Rally stages are not tracks
+
+A Rally Stage is an event/run definition layered on top of the current physical Track Configuration; it is not another physical track record.
+
+Stages may differ in how the installation is used, for example:
+
+- loop, 2 laps;
+- loop, 3 laps;
+- A→B;
+- B→A.
+
+Stages may optionally be given user-visible names.
+
+## 12. Configuration presentation
+
+P&P separates **what are we doing now?** from **what is this installation?**
+
+### 12.1 Normal race screen
+
+The ordinary race screen contains the small number of settings commonly needed for the imminent race.
+
+For Lap Race this may include:
+
+- MUG/lane assignments;
+- target laps;
+- finish behaviour;
+- Swap Lanes;
+- START.
+
+It also provides unobtrusive access to **More Race Options** and **Setup**.
+
+### 12.2 More Race Options
+
+More Race Options contains settings that may genuinely vary from race to race but need not clutter the normal screen.
+
+Examples include:
+
+- start-light count;
+- GO style;
+- final-delay style;
+- false-start response;
+- audio choice.
+
+An **Advanced** area may contain less-common detailed parameters such as exact random-delay limits or red-light interval.
+
+### 12.3 Setup
+
+Setup describes the P&P installation rather than today's race.
+
+Logical areas include:
+
+- **Track** — length, scale, Start/Finish arrangement;
+- **Hardware** — detected sensors/modules, assignments and optional hardware;
+- **MUGs** — management of saved identities;
+- **Cars** — only where optional car recording is enabled;
+- **Sound & Display**;
+- **System** — networking, update, backup/restore, diagnostics and similar system functions.
+
+Normal MUG creation/selection remains available directly from the race screen; a MUG-management area must not become a prerequisite to racing.
+
+## 13. Save and confirmation behaviour
+
+P&P should not require routine SAVE/APPLY interaction when the user's intention is already unambiguous.
+
+Race settings become the current/remembered race configuration as they are changed.
+
+Installation settings are stored when changed/confirmed.
+
+Confirmation is reserved for actions that are destructive, disruptive or genuinely ambiguous, such as deleting persistent information, materially reassigning hardware or performing a factory reset.
+
+> **Save automatically where intention is unambiguous. Confirm where an action is destructive, disruptive or ambiguous.**
