@@ -640,7 +640,9 @@ Rapid authoritative State changes therefore do not require a browser to observe 
 
 A browser may retain previously obtained State while it remains synchronised and no State-change notification has been received. If connection/synchronisation is lost, it must no longer assume that cached State is current. Recovery requires obtaining current authoritative State again.
 
-A missed Event/Fact must never leave a browser permanently wrong. Events/Facts may enhance presentation, but authoritative current State remains independently recoverable. Likewise, an Event/Fact such as LAP_COMPLETED is not the mechanism by which a browser maintains authoritative State.
+A missed Event/Fact must never leave a browser permanently wrong. Events/Facts are transient aids for timely presentation such as sounds, flashes, animations or temporary messages; ordinary live Events/Facts do not require guaranteed delivery, acknowledgement, queuing or replay to a browser. If information must remain valid after the moment has passed, it must be represented in authoritative State independently of any Event/Fact. Thus an Event/Fact such as LAP_COMPLETED or NEW_FASTEST_LAP may enhance immediate presentation, while the resulting lap count, last/best lap or current overall fastest lap remain authoritative State.
+
+Persistent results/history are separate from browser Event/Fact delivery. Information that P&P must retain as a lasting record is stored by P&P according to the results/history model and does not depend on any browser having received a live Event/Fact.
 
 Timing-critical physical event capture, ordering, race interpretation and authoritative State maintenance must never wait for browser reads, browser rendering, network delivery or other presentation activity. Slow or disconnected clients must not delay or compromise race timing or authoritative race processing.
 
