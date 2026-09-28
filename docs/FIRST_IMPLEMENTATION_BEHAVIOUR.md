@@ -247,7 +247,7 @@ The selected finish rule is fixed as part of the race configuration when START i
 
 When a race completes normally, P&P presents the authoritative final results appropriate to that race.
 
-The detailed contents and layout of the results screen, retained race history and post-race options are later product-design decisions.
+The product-level results screen, retained History behaviour and post-race options are defined in `BROWSER_FLOW_RESULTS_HISTORY_SPEC.md` and the relevant display/mode specifications. Detailed storage schema and implementation remain implementation decisions.
 
 ## 16. Implementation discipline
 
