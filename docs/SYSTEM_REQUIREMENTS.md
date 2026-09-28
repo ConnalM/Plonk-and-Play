@@ -42,7 +42,7 @@ The platform must be capable of supporting:
 - Lap races
 - Timed races
 - Practice
-- Rally
+- Timed Stage
 - Drag racing
 
 Modes may have substantially different concepts of starts, finishes, competitors and timing. The architecture must not assume that every session is a conventional simultaneous-start circuit race.
@@ -152,7 +152,7 @@ Adding an optional capability must not require unrelated parts of the system to 
 
 ### 16. Outputs and accessories
 
-The platform must permit the Race Engine to cause physical or presentation actions including, where appropriate:
+The platform must permit the authoritative race/session responsibilities to cause physical or presentation actions including, where appropriate:
 
 - Start lights
 - Track power enable/disable
@@ -163,7 +163,7 @@ The platform must permit the Race Engine to cause physical or presentation actio
 - Displays
 - Sound
 
-The Race Engine should request logical actions; it should not need to know the physical implementation of the device carrying them out.
+Race Control coordinates operational logical actions through the output architecture. The Race Engine reports competition facts, state and completion conditions through its defined boundary and does not directly control physical hardware. Neither responsibility needs to know the physical implementation of the device carrying an action out.
 
 ## Explicitly not fixed by this document
 
