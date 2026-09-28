@@ -1,7 +1,7 @@
 # Plonk & Play™ — Common Display Specification
 
 **Status:** Committed product-design specification  
-**Applies to:** Lap, Endurance and Rally  
+**Applies to:** Lap, Endurance and Timed Stage  
 **Exception:** Drag uses its own display design.
 
 ## 1. Design principle
@@ -72,7 +72,7 @@ Race progress for a 25-lap race might display `17 / 25`.
 
 A thin graphical progress indicator may also show race completion visually. This should be prototyped rather than considered mandatory at this stage.
 
-Endurance and Rally use the same visual architecture with mode-appropriate information.
+Endurance and Timed Stage use the same visual architecture with mode-appropriate information.
 
 ## 5. Temporary Row States
 
@@ -146,7 +146,7 @@ The primary action is contextual:
 
 - **RACE AGAIN** — standalone race; same setup again.
 - **CONTINUE** — competition/event; advance to next scheduled race/heat/round.
-- **NEXT STAGE** — Rally.
+- **NEXT STAGE** — Timed Stage multi-stage event.
 - **EVENT RESULTS** — event has reached its conclusion.
 
 Secondary actions such as **NEW RACE** and **HOME** are available where appropriate.
