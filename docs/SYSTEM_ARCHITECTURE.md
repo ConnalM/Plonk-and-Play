@@ -645,6 +645,14 @@ Thus display update cadence does not determine timing accuracy: a detector event
 
 The browser need not run an independent authoritative race clock. This keeps multiple displays tied to P&P's authoritative timing while avoiding unnecessary continuous browser updates.
 
+Separately from race timing, P&P may maintain a low-stakes human-readable clock for browser display and connection indication. P&P does not require an RTC, Internet time or manually entered wall-clock time for racing. When a browser connects, it may supply its own approximate local time to initialise this display clock. Accuracy to real-world time is not important to race operation.
+
+Once initialised, P&P maintains this display clock and sends its current value to connected browsers once per second. Browsers display the P&P-supplied value rather than independently advancing their own copy. These regular clock updates therefore also provide a simple connection/health indication without requiring a separate routine heartbeat.
+
+A single missed update need not imply failure. If updates cease beyond an implementation-defined tolerance, the browser treats itself as unsynchronised, freezes rather than locally advancing the P&P display clock, and indicates connection loss. Recovery requires a fresh full authoritative state snapshot before normal delta processing resumes.
+
+The display clock is not an authoritative source for lap times, elapsed/remaining race timing, reaction times, scheduled race actions or other competition timing. Those remain based on P&P's high-resolution monotonic/system timing. History need not retain wall-clock/date information merely because the display clock exists; retained race timing concerns durations and results.
+
 The transport, protocol and payload representation used to carry Requests, Request Results, State and Events/Facts remain implementation decisions.
 
 ## 13. Persistent / History Storage
