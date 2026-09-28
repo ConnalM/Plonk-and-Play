@@ -24,7 +24,7 @@ This file identifies where agreed P&P decisions live so later design work does n
 
 The following are not yet fully specified and should not be silently invented during implementation:
 
-- detailed Drag screen design;
+- remaining Drag/REU detail beyond the committed base Drag staging, tree, timing and results behaviour;
 - detailed RMS Yellow/Red state machine and resume sequencing;
 - exact Power Module electrical behaviour;
 - exact audio/SD hardware implementation;
