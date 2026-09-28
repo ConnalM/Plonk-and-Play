@@ -63,7 +63,10 @@ The initial base configuration is:
 - two lanes;
 - Lap Race;
 - 10 laps;
-- optional race features off.
+- optional race features off;
+- the recommended base physical arrangement places each lane's Start/Finish sensor before the Start/Finish line in the direction of travel.
+
+With that recommended arrangement, a car starts before its Start/Finish detector. After GO, the first Start/Finish crossing completes Lap 1, timed from GO. This is the default first-implementation behaviour; alternative physical arrangements remain supported through installation/session configuration as defined by `RACE_CONTROL_ENGINE_DESIGN.md`.
 
 Where the base product or remembered installation makes an assignment unambiguous, P&P may make it automatically. Where more than one valid assignment is possible, P&P must not guess.
 
