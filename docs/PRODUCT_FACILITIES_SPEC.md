@@ -43,7 +43,7 @@ Persistent removable storage may retain:
 
 - race/session results;
 - lap-by-lap data;
-- Rally stage results;
+- Timed Stage results;
 - personal bests and records;
 - track records;
 - MUG profiles;
