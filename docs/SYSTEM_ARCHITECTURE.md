@@ -67,7 +67,7 @@ Race logic must not depend on that physical description.
 
 ### 4.1 Input Module and Input Devices
 
-The **Input Module** is the P&P subsystem boundary through which physical, simulated or test competition input becomes clean standard P&P physical Input Events. It may contain any number of **Input Devices**. It owns the hardware/source-facing work required to identify which stable input capability changed, what clean state/event it produced, and when. It does **not** assign lane, Start/Finish, sector, drag, speed-trap or other competition meaning to that input. The resulting physical Input Events are published onto the common P&P communications bus; the Race Engine interprets the events relevant to the active session using the fixed Session Definition.
+The **Input Module** is the P&P subsystem boundary through which physical, simulated or test competition input becomes clean standard P&P physical Input Events. It may contain any number of **Input Devices**. It owns the hardware/source-facing work required to identify which stable input capability produced a clean trigger and when. It does **not** assign lane, Start/Finish, sector, drag, speed-trap or other competition meaning to that input. The resulting physical Input Events are published onto the common P&P communications bus; the Race Engine interprets the events relevant to the active session using the fixed Session Definition.
 
 An **Input Device** is one complete working source of physical input. It owns everything specific to that source that is required to produce a clean standard physical Input Event. For a ToF detector this can include sensor reading, thresholds, filtering, debounce/hysteresis, re-arming and device-specific protocol handling. A keyboard or test-harness Input Device performs its own equivalent source-specific handling.
 
@@ -79,20 +79,17 @@ The Input Module publishes the clean physical Input Event with the stable input/
 
 ### 4.2 Detector events
 
-The current provisional detector contract is a state transition with a stable detector identity and timestamp, conceptually:
+For the first detector-style input contract, the standard P&P event is a clean trigger with a stable input/capability identity and timestamp, conceptually:
 
 ```text
-DETECTOR ID : STATE : TIMESTAMP
+INPUT ID : TIMESTAMP
 ```
 
-Typical states are:
+The timestamp represents when the clean physical trigger occurred as closely as practical, not when a communications packet happened to arrive at Race Control.
 
-- `ACTIVE` — the configured physical detection condition became true.
-- `INACTIVE` — the configured physical detection condition became false/re-armed.
+Signal conditioning, debounce, hysteresis, clearing and re-arming belong close to the detector. The Input Device may need to observe both detection and clearing internally, but the first P&P detector contract does not publish a subsequent INACTIVE/clear event merely to report that re-arming has occurred. Once the meaningful trigger has been published, that event's work is done. Race meaning remains outside the Input Module.
 
-The timestamp represents when the physical event was detected as closely as practical, not when a communications packet happened to arrive at Race Control.
-
-Signal conditioning, debounce, hysteresis and re-arming belong close to the detector. The detector/adapter must expose clean `ACTIVE` / `INACTIVE` transitions rather than raw sensor fluctuations. Race meaning does not.
+A future input type may define different event/state semantics where they are genuinely required.
 
 A race-domain plausibility rule such as rejecting an impossibly short lap is not detector debounce or signal conditioning; it belongs to the race/timing logic interpreting otherwise valid clean detector events.
 
@@ -124,12 +121,12 @@ The Session Definition therefore translates a stable input capability into its r
 Example:
 
 ```text
-ABC123:1 : ACTIVE : 123.456
+ABC123:1 : 123.456
         ↓
-Lane 1 : START_FINISH : ACTIVE : 123.456
+Lane 1 : START_FINISH : 123.456
 ```
 
-The Input Module does not know this assignment. For example, `ABC123:1 : ACTIVE : 123.456` remains the same physical Input Event whether the active Session Definition assigns `ABC123:1` as Lane 1 Start/Finish, a sector detector, a drag finish or a speed-trap input.
+The Input Module does not know this assignment. For example, `ABC123:1 : 123.456` remains the same physical Input Event whether the active Session Definition assigns `ABC123:1` as Lane 1 Start/Finish, a sector detector, a drag finish or a speed-trap input.
 
 The Race Engine combines the physical Input Event with the active Session Definition and current competition state to determine its racing significance. Lane identity is therefore not required in the Input Module event.
 
@@ -428,6 +425,8 @@ Some changes may be safe at any time, some only while idle and some must not cha
 
 When START is accepted, P&P validates the proposed Race Setup against the applicable installation/capability information and creates the fixed **Session Definition** in working RAM. The Session Definition is immutable working data for that session, not a module or Pavlov participant and not something the SMUG edits directly.
 
+For the first Lap Race, the Session Definition contains only what is required to interpret and execute that session: session identity; race rules; Race Entries; the required input-role and output-role assignments; and any physical/rule parameters needed by those rules. A Race Entry has its own stable ID for the session and retains the stable MUG ID plus the MUG display name frozen when START was accepted; optional Car identity follows the same principle when Cars are enabled. Installed capabilities unused by the session need not be copied into the Session Definition. Hardware implementation details such as GPIOs, transport addresses and detector thresholds do not belong in it.
+
 The Session Definition contains the Race Setup **and the session-specific roles assigned to every input, output and other capability required to interpret and execute that session**. Only relevant capabilities need a session role. For example, the same physical detector may be Lane 2 Start/Finish in one session and a Drag finish or speed-trap input in another. Its hardware identity and Input Module behaviour do not change.
 
 Race Control and the Race Engine operate from that fixed Session Definition rather than repeatedly reading mutable configuration and discovering that operation, device roles or rules have silently changed.
@@ -435,6 +434,18 @@ Race Control and the Race Engine operate from that fixed Session Definition rath
 ### 7.7 Optional driver/car data
 
 A small persistent list of drivers and/or cars is a possible product feature, particularly for more competitors than available lanes. It is not currently considered a fundamental architectural issue and is not committed as a feature.
+
+## 8. Authoritative Noticeboard
+
+The **Noticeboard** is the current authoritative state of every relevant thing needed to understand P&P/session state now. It is information/state assembled from the responsibilities that own that truth; it is not another operational module and does not become another owner of the underlying information.
+
+A material change to the Noticeboard can cause a standard Pavlov **NOTICEBOARD_CHANGED** notification — informally, a **ding**. The ding does not carry a replacement copy of State; interested consumers look again at the current authoritative information they need.
+
+The Noticeboard does not conceptually require a public version number. Revision counters, dirty flags or sequence numbers may be used internally if useful, but are implementation mechanisms unless a later concrete requirement says otherwise.
+
+The passage of time alone does not require repeated Noticeboard changes. For example, a display can derive a counting race clock from authoritative start/GO time, duration and P&P System Time without generating a ding every second.
+
+Facts/Events describe things that happened. The Noticeboard describes what is true now as a result. A current fact such as the fastest lap remains represented as current State until it is superseded or ceases to be relevant.
 
 ## 8. P&P System Time
 
