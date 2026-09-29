@@ -317,10 +317,10 @@ The prototype should be built in small proving stages so that each stage leaves 
 4. **Session role assignment** — create a minimal accepted Session Definition that assigns that stable input as Lane 1 Start/Finish, and prove the assignment is frozen for the session while the Input Module remains unchanged.
 5. **Race Engine** — bus-delivered physical Input Events interpreted through the Session Definition produce authoritative lap counts and lap times without requiring a browser.
 6. **Race Control** — prove READY → STARTING → scheduled GO → RACING → FINISHED, with Race Control and Race Engine communicating through the common bus and retaining their separate ownership boundaries.
-7. **Browser connection** — prove authoritative State, State-change notifications and Events/Facts can be presented without the browser owning race operation.
+7. **Browser connection** — prove authoritative Noticeboard State, NOTICEBOARD_CHANGED dings and Events/Facts can be presented without the browser owning race operation.
 8. **Browser Requests** — START is the first operational Request, including Accepted/Rejected Request Results, creation of the fixed Session Definition in RAM after acceptance and authoritative State change after acceptance.
 9. **Two lanes and rapid-event testing** — add a second simulated detector and deliberately exercise closely spaced and rapid inputs; browser/network speed must not compromise authoritative timing.
-10. **Multiple browsers and recovery** — exercise several clients, disconnection, reconnection and a new browser joining mid-race; each must reconstruct current authoritative State without affecting the race.
+10. **Multiple browsers and recovery** — exercise several clients, disconnection, reconnection and a new browser joining mid-race; each must obtain the current authoritative Noticeboard State it needs without affecting the race.
 
 **Stages 1–10 are the first prototype checkpoint.** At that checkpoint the communication and architectural approach must be assessed before additional product behaviour is piled on top.
 
