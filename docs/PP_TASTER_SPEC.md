@@ -14,12 +14,12 @@ The factory/default Taster assumes the standard base hardware:
 
 - two sensors;
 - two lanes;
-- Sensor 1 = Lane 1 Start/Finish;
-- Sensor 2 = Lane 2 Start/Finish;
+- default session role proposal: Sensor 1 = Lane 1 Start/Finish;
+- default session role proposal: Sensor 2 = Lane 2 Start/Finish;
 - recommended sensors-before-Start/Finish physical arrangement;
 - 10-lap Lap Race.
 
-No sensor-role, lane-count or race-mode configuration is required before using the Factory Taster.
+No sensor-role, lane-count or race-mode configuration is required before using the Factory Taster. These factory role proposals become fixed session roles when START is accepted; they do not make the Input Module aware of lane or Start/Finish meaning.
 
 The default physical arrangement does not pretend to provide capabilities it cannot measure. In particular, reaction timing and applicable false-start detection are not available merely from the standard sensors-before-S/F arrangement.
 
