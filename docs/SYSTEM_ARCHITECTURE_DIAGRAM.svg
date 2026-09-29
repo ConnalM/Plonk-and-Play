@@ -1,31 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050">
 <style>
-text{font-family:Arial,Helvetica,sans-serif;fill:#17202a}.title{font-size:30px;font-weight:700}.sub{font-size:16px;fill:#566573}.h{font-size:19px;font-weight:700}.b{font-size:15px}.small{font-size:13px}.box{fill:#fff;stroke:#34495e;stroke-width:2}.core{fill:#eef5fb}.data{fill:#f7f7f7;stroke:#7f8c8d}.bus{fill:#263746}.busText{fill:#fff;font-size:22px;font-weight:700}.solid{stroke:#34495e;stroke-width:3;fill:none;marker-end:url(#arrow)}.dash{stroke:#7f8c8d;stroke-width:2.5;stroke-dasharray:9 7;fill:none;marker-end:url(#arrowGrey)}.thin{stroke:#34495e;stroke-width:2;fill:none;marker-end:url(#arrow)}.note{font-size:13px;fill:#566573}
+text{font-family:Arial,Helvetica,sans-serif;fill:#111827}.title{font-size:30px;font-weight:700}.sub{font-size:16px;fill:#475569}.h{font-size:19px;font-weight:700}.b{font-size:15px}.small{font-size:13px}.box{fill:#fff;stroke:#334155;stroke-width:2}.core{fill:#eef6ff}.data{fill:#f1f5f9;stroke:#64748b}.bus{fill:#243447}.busText{fill:#fff;font-size:22px;font-weight:700}.solid{stroke:#1f2937;stroke-width:3;fill:none;marker-end:url(#arrow)}.dash{stroke:#64748b;stroke-width:2.5;stroke-dasharray:9 7;fill:none;marker-end:url(#arrowGrey)}.note{font-size:13px;fill:#475569}
 </style>
 <defs>
-<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#34495e"/></marker>
-<marker id="arrowGrey" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#7f8c8d"/></marker>
+<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#1f2937"/></marker>
+<marker id="arrowGrey" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker>
 </defs>
-<rect width="1600" height="1050" fill="white"/>
+<rect width="1600" height="1050" fill="#fff"/>
 <text x="60" y="55" class="title">Plonk &amp; Play™ — System Architecture</text>
 <text x="60" y="82" class="sub">Logical architecture — solid arrows are Pavlov messages; dashed arrows are local data/load/use, not bus traffic.</text>
 
-<!-- Pavlov -->
-<rect x="80" y="465" width="1440" height="86" rx="14" class="bus"/>
-<text x="800" y="500" text-anchor="middle" class="busText">PAVLOV BUS — COMMON P&amp;P COMMUNICATIONS BACKBONE</text>
-<text x="800" y="527" text-anchor="middle" style="fill:#d5dce1;font-family:Arial;font-size:14px">Requests • Request Results • Input Events • Actions • Facts/Events • NOTICEBOARD_CHANGED</text>
-
-<!-- Input -->
+<text x="60" y="120" class="note" font-weight="700">ACTIVE COMPONENTS</text>
 <rect x="60" y="145" width="300" height="230" rx="12" class="box"/>
 <text x="210" y="178" text-anchor="middle" class="h">INPUT MODULE</text>
 <text x="210" y="203" text-anchor="middle" class="small">Owns device identity and operation</text>
 <rect x="85" y="225" width="250" height="48" rx="7" class="data"/><text x="210" y="255" text-anchor="middle" class="b">Input Device A — stable Input ID</text>
 <rect x="85" y="285" width="250" height="48" rx="7" class="data"/><text x="210" y="315" text-anchor="middle" class="b">Input Device B — stable Input ID</text>
 <text x="210" y="355" text-anchor="middle" class="note">No lane / S/F / sector / drag meaning</text>
-<path d="M210 375 L210 465" class="solid"/>
-<text x="220" y="420" class="note">INPUT_EVENT</text>
 
-<!-- System Controller -->
 <rect x="445" y="115" width="710" height="290" rx="14" class="box core"/>
 <text x="800" y="150" text-anchor="middle" class="h">SYSTEM CONTROLLER — AUTHORITATIVE RACE/SESSION BOUNDARY</text>
 <rect x="485" y="185" width="285" height="155" rx="10" class="box"/>
@@ -38,82 +30,90 @@ text{font-family:Arial,Helvetica,sans-serif;fill:#17202a}.title{font-size:30px;f
 <text x="973" y="249" text-anchor="middle" class="b">Competition interpretation &amp; rules</text>
 <text x="973" y="274" text-anchor="middle" class="b">Laps • sectors • speed • positions</text>
 <text x="973" y="299" text-anchor="middle" class="b">Results • competition completion</text>
-<path d="M628 340 L628 465" class="solid"/><path d="M973 340 L973 465" class="solid"/>
 <text x="800" y="380" text-anchor="middle" class="note">RC and RE communicate through Pavlov — no privileged private path</text>
 
-<!-- Output -->
 <rect x="1240" y="145" width="300" height="230" rx="12" class="box"/>
 <text x="1390" y="178" text-anchor="middle" class="h">OUTPUT MODULE</text>
 <text x="1390" y="203" text-anchor="middle" class="small">Owns device identity and operation</text>
 <rect x="1265" y="225" width="250" height="48" rx="7" class="data"/><text x="1390" y="255" text-anchor="middle" class="b">Output Device A — stable Output ID</text>
 <rect x="1265" y="285" width="250" height="48" rx="7" class="data"/><text x="1390" y="315" text-anchor="middle" class="b">Output Device B — stable Output ID</text>
 <text x="1390" y="355" text-anchor="middle" class="note">No lane / race-mode / MUG meaning</text>
+
+<rect x="80" y="465" width="1440" height="86" rx="14" class="bus"/>
+<text x="800" y="500" text-anchor="middle" class="busText">PAVLOV BUS — COMMON P&amp;P COMMUNICATIONS BACKBONE</text>
+<text x="800" y="527" text-anchor="middle" style="fill:#fff;font-family:Arial;font-size:14px">Requests • Request Results • Input Events • Actions • Facts/Events • NOTICEBOARD_CHANGED</text>
+<path d="M210 375 L210 465" class="solid"/><text x="220" y="420" class="note">INPUT_EVENT</text>
+<path d="M628 340 L628 465" class="solid"/><path d="M973 340 L973 465" class="solid"/>
 <path d="M1390 465 L1390 375" class="solid"/><text x="1400" y="420" class="note">ACTION</text>
 
-<!-- Working data -->
-<rect x="80" y="650" width="270" height="150" rx="10" class="box data"/>
-<text x="215" y="682" text-anchor="middle" class="h">MEMORY</text>
-<text x="215" y="710" text-anchor="middle" class="b">Persistent master copy</text>
-<text x="215" y="736" text-anchor="middle" class="small">Installation/config • identities</text>
-<text x="215" y="758" text-anchor="middle" class="small">preferences • history • records</text>
+<text x="60" y="595" class="note" font-weight="700">ACTIVE SERVICES / INTERFACES</text>
+<rect x="80" y="615" width="245" height="92" rx="10" class="box"/>
+<text x="203" y="648" text-anchor="middle" class="h">DISCOVERY</text>
+<text x="203" y="674" text-anchor="middle" class="small">Finds / reconciles equipment</text>
+<text x="203" y="696" text-anchor="middle" class="note">updates Registry</text>
+<path d="M203 615 L203 551" class="solid"/>
 
-<rect x="420" y="650" width="270" height="150" rx="10" class="box data"/>
-<text x="555" y="682" text-anchor="middle" class="h">WORKING RAM</text>
-<text x="555" y="710" text-anchor="middle" class="b">Current working configuration/state</text>
-<text x="555" y="736" text-anchor="middle" class="small">Race Setup before START</text>
-<text x="555" y="758" text-anchor="middle" class="small">Normal operation does not query</text>
-<text x="555" y="778" text-anchor="middle" class="small">persistent Memory every event</text>
-<path d="M350 725 L420 725" class="dash"/><text x="385" y="714" text-anchor="middle" class="note">load/save</text>
+<rect x="375" y="615" width="245" height="92" rx="10" class="box"/>
+<text x="498" y="648" text-anchor="middle" class="h">SYSTEM TIME</text>
+<text x="498" y="674" text-anchor="middle" class="small">Common authoritative time domain</text>
+<text x="498" y="696" text-anchor="middle" class="note">GO • timestamps • sync</text>
+<path d="M498 615 L498 551" class="solid"/>
 
-<rect x="760" y="625" width="315" height="200" rx="10" class="box data"/>
-<text x="918" y="658" text-anchor="middle" class="h">SESSION DEFINITION</text>
-<text x="918" y="685" text-anchor="middle" class="b">Immutable snapshot at accepted START</text>
-<text x="918" y="713" text-anchor="middle" class="small">Race rules • Race Entries</text>
-<text x="918" y="736" text-anchor="middle" class="small">Input roles → stable Input IDs</text>
-<text x="918" y="759" text-anchor="middle" class="small">Output roles → stable Output IDs</text>
-<text x="918" y="782" text-anchor="middle" class="small">Relevant physical/rule parameters</text>
-<path d="M690 725 L760 725" class="dash"/><text x="725" y="714" text-anchor="middle" class="note">START accepted</text>
-<path d="M918 625 L918 405" class="dash"/><text x="928" y="600" class="note">RC/RE use frozen meaning</text>
+<rect x="965" y="615" width="245" height="92" rx="10" class="box"/>
+<text x="1088" y="648" text-anchor="middle" class="h">TEST HARNESS</text>
+<text x="1088" y="674" text-anchor="middle" class="small">Injects / observes standard messages</text>
+<text x="1088" y="696" text-anchor="middle" class="note">test-mode authority controls</text>
+<path d="M1088 615 L1088 551" class="solid"/>
 
-<rect x="1145" y="650" width="315" height="150" rx="10" class="box data"/>
-<text x="1303" y="682" text-anchor="middle" class="h">REGISTRY + DISCOVERY</text>
-<text x="1303" y="710" text-anchor="middle" class="b">What equipment exists now?</text>
-<text x="1303" y="736" text-anchor="middle" class="small">Identity • capabilities • version</text>
-<text x="1303" y="758" text-anchor="middle" class="small">availability • reconciliation</text>
-<path d="M1303 650 L1303 551" class="solid"/>
+<rect x="1260" y="615" width="280" height="92" rx="10" class="box"/>
+<text x="1400" y="648" text-anchor="middle" class="h">HUMAN INTERFACES</text>
+<text x="1400" y="674" text-anchor="middle" class="small">Browser Interface • Taster</text>
+<text x="1400" y="696" text-anchor="middle" class="note">authorised Requests / presentation</text>
+<path d="M1400 615 L1400 551" class="solid"/>
 
-<!-- Noticeboard -->
-<rect x="420" y="875" width="655" height="125" rx="12" class="box core"/>
-<text x="748" y="908" text-anchor="middle" class="h">AUTHORITATIVE NOTICEBOARD</text>
-<text x="748" y="934" text-anchor="middle" class="b">P&amp;P's current externally presentable view of itself</text>
-<text x="748" y="958" text-anchor="middle" class="small">Everything relevant/current + current Browser/Taster-facing information</text>
-<text x="748" y="981" text-anchor="middle" class="small">Does not own the truth • not History • not private hardware guts</text>
+<line x1="60" y1="745" x2="1540" y2="745" stroke="#94a3b8"/>
+<text x="60" y="775" class="note" font-weight="700">INFORMATION / STATE — NOT EXTRA BUS PARTICIPANTS</text>
 
-<!-- Interfaces -->
-<rect x="1135" y="860" width="365" height="150" rx="12" class="box"/>
-<text x="1318" y="893" text-anchor="middle" class="h">HUMAN INTERFACES</text>
-<text x="1318" y="922" text-anchor="middle" class="b">Browser Interface • Taster</text>
-<text x="1318" y="947" text-anchor="middle" class="small">Read current presentation data from Noticeboard</text>
-<text x="1318" y="970" text-anchor="middle" class="small">Send authorised Requests through Pavlov</text>
-<path d="M1318 860 L1318 551" class="solid"/>
-<path d="M1135 935 L1075 935" class="dash"/><text x="1105" y="923" text-anchor="middle" class="note">scoop</text>
+<rect x="60" y="805" width="250" height="150" rx="10" class="box data"/>
+<text x="185" y="838" text-anchor="middle" class="h">MEMORY</text>
+<text x="185" y="865" text-anchor="middle" class="b">Persistent master copy</text>
+<text x="185" y="891" text-anchor="middle" class="small">config • identities • history</text>
+<text x="185" y="914" text-anchor="middle" class="small">preferences • records</text>
 
-<!-- Noticeboard ding -->
-<path d="M748 875 L748 551" class="solid"/>
-<text x="758" y="850" class="note">NOTICEBOARD_CHANGED (ding)</text>
+<rect x="350" y="805" width="250" height="150" rx="10" class="box data"/>
+<text x="475" y="838" text-anchor="middle" class="h">WORKING RAM</text>
+<text x="475" y="865" text-anchor="middle" class="b">Working config / Race Setup</text>
+<text x="475" y="891" text-anchor="middle" class="small">live RC / RE state</text>
+<text x="475" y="914" text-anchor="middle" class="small">normal runtime working data</text>
+<path d="M310 880 L350 880" class="dash"/><text x="330" y="868" text-anchor="middle" class="note">load</text>
 
-<!-- Services -->
-<rect x="80" y="875" width="270" height="125" rx="10" class="box data"/>
-<text x="215" y="908" text-anchor="middle" class="h">SYSTEM TIME</text>
-<text x="215" y="936" text-anchor="middle" class="b">Common authoritative time domain</text>
-<text x="215" y="962" text-anchor="middle" class="small">Scheduled GO • event timestamps</text>
-<path d="M215 875 L215 551" class="solid"/>
+<rect x="640" y="785" width="300" height="190" rx="10" class="box core"/>
+<text x="790" y="818" text-anchor="middle" class="h">SESSION DEFINITION</text>
+<text x="790" y="845" text-anchor="middle" class="b">Immutable snapshot at accepted START</text>
+<text x="790" y="873" text-anchor="middle" class="small">race rules • Race Entries</text>
+<text x="790" y="896" text-anchor="middle" class="small">input roles → stable Input IDs</text>
+<text x="790" y="919" text-anchor="middle" class="small">output roles → stable Output IDs</text>
+<text x="790" y="942" text-anchor="middle" class="small">relevant physical/rule parameters</text>
+<path d="M600 880 L640 880" class="dash"/><text x="620" y="868" text-anchor="middle" class="note">START</text>
+<path d="M790 785 L790 405" class="dash"/><text x="800" y="768" class="note">RC / RE use frozen meaning</text>
 
-<!-- Test -->
-<rect x="1175" y="585" width="285" height="45" rx="8" class="box"/>
-<text x="1318" y="613" text-anchor="middle" class="b">TEST HARNESS / DIAGNOSTICS</text>
-<path d="M1318 585 L1318 551" class="solid"/>
+<rect x="980" y="805" width="250" height="150" rx="10" class="box data"/>
+<text x="1105" y="838" text-anchor="middle" class="h">REGISTRY</text>
+<text x="1105" y="865" text-anchor="middle" class="b">Equipment truth now</text>
+<text x="1105" y="891" text-anchor="middle" class="small">identity • capability • version</text>
+<text x="1105" y="914" text-anchor="middle" class="small">availability</text>
+<path d="M203 707 L203 730 L1105 730 L1105 805" class="dash"/>
+<text x="650" y="724" text-anchor="middle" class="note">Discovery updates Registry</text>
 
-<!-- explanatory -->
-<text x="80" y="1030" class="note">Key boundary: Modules own hardware identity/operation. Session Definition owns the meaning assigned to devices for the active session.</text>
+<rect x="1270" y="785" width="270" height="190" rx="10" class="box core"/>
+<text x="1405" y="818" text-anchor="middle" class="h">NOTICEBOARD</text>
+<text x="1405" y="845" text-anchor="middle" class="b">Authoritative current</text>
+<text x="1405" y="868" text-anchor="middle" class="b">externally presentable view</text>
+<text x="1405" y="898" text-anchor="middle" class="small">everything relevant/current</text>
+<text x="1405" y="921" text-anchor="middle" class="small">+ current Browser/Taster information</text>
+<text x="1405" y="947" text-anchor="middle" class="note">does not own truth • not History</text>
+<path d="M1405 785 L1405 707" class="dash"/>
+<text x="1392" y="758" text-anchor="end" class="note">Browser/Taster read current view</text>
+
+<text x="60" y="1025" class="note">Key boundary: Modules own hardware identity/operation. Session Definition owns the meaning assigned to devices for the active session.</text>
 </svg>
