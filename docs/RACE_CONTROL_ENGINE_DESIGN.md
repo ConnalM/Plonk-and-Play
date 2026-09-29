@@ -24,7 +24,7 @@ This includes:
 **Race Engine owns the interpretation, state, rules and calculations of the competition within that session.**
 
 This includes:
-- interpreting mapped competition events;
+- interpreting physical Input Events through the active Session Definition;
 - lap, sector and other competition timing;
 - lap counts, positions and other competition state;
 - race-mode rules;
@@ -53,9 +53,9 @@ The conceptual information/operations crossing the boundary are:
    - RESET is an operational request; the Race Engine remains responsible for creating, clearing or reinitialising its own competition state.
 
 4. **COMPETITION INPUT**
-   - mapped semantic events relevant to competition;
-   - original P&P timestamps are preserved;
-   - these events are delivered to the Race Engine through its defined boundary and need not be mechanically relayed through Race Control merely because Race Control owns session lifecycle.
+   - clean physical Input Events identify the stable input/capability and original P&P event time;
+   - the Race Engine interprets each relevant Input ID through the fixed Session Definition to obtain its session role;
+   - these events are delivered to the Race Engine through the common P&P communications architecture and need not be mechanically relayed through Race Control merely because Race Control owns session lifecycle.
 
 ### Race Engine to Race Control
 
@@ -77,7 +77,20 @@ These categories are conceptual contracts, not final packet formats, APIs or C++
 
 An active session uses a fixed **Session Definition held in working RAM**. It is immutable working data for the session, not a module or bus participant and not something the SMUG edits directly.
 
-Before START, the SMUG edits the proposed **Race Setup**. When START is accepted, P&P validates that setup against the applicable working installation/capability information and creates the Session Definition. The Session Definition also freezes the session-specific roles assigned to every input, output and other capability required to interpret and execute that session.
+Before START, the SMUG edits the proposed **Race Setup**. When START is accepted, P&P validates that setup against the applicable working installation/capability information and creates the Session Definition. The Session Definition freezes only the information required to interpret and execute that session, including the session-specific roles assigned to every required input, output and other capability.
+
+For the first two-lane Lap Race it contains:
+- Session ID;
+- mode, lap/distance target, finish behaviour, enabled race features and relevant start/first-crossing behaviour;
+- one stable Race Entry ID for each competitor;
+- for each Race Entry, its lane, stable MUG ID and frozen MUG display name, plus optional stable Car ID and frozen Car display name where Cars are enabled;
+- required semantic input roles mapped to stable Input IDs/capabilities;
+- required semantic output roles mapped to stable Output IDs/capabilities;
+- only the physical/rule parameters required to interpret or execute the session.
+
+Installed capabilities unused by the session do not need session roles merely because they exist. Hardware implementation details such as GPIOs, transport addresses, detector thresholds and Browser connections do not belong in the Session Definition.
+
+Stable record IDs preserve permanent links. Display values whose later alteration would change the historical meaning of the race are frozen. Thus a MUG renamed after the race does not retrospectively rename that Race Entry in the completed session/result.
 
 Ordinary configuration changes must not silently alter a session already in progress. The definition used by Race Control and the Race Engine remains the definition for that session unless a particular runtime change is explicitly supported by later design.
 
@@ -183,7 +196,7 @@ Each component publishes and receives information only through its defined bound
 
 A source reports what happened at its own boundary; it does not need to know or control the eventual consequence. For example, a physical control can report that a button was activated just as a detector reports a state transition. The responsibility receiving that information decides what it means in its own context. Where an interface deliberately defines a genuine operation such as PREPARE, GO or RESET between Race Control and Race Engine, that operation remains part of that defined boundary.
 
-Race Engine consumes mapped semantic competition events. It does not require knowledge of:
+Race Engine consumes physical Input Events and interprets their stable Input IDs through the active Session Definition. It does not require knowledge of:
 - sensor model;
 - detector transport;
 - I2C/GPIO details;
@@ -196,7 +209,7 @@ Operational consumers receive information in the form appropriate to their bound
 
 This boundary should be enforceable structurally during implementation wherever practical.
 
-## 10.1 Authoritative facts, current state and persistence
+## 10.1 Authoritative facts, current state, Noticeboard and persistence
 
 P&P distinguishes between three information behaviours:
 
@@ -206,11 +219,15 @@ P&P distinguishes between three information behaviours:
 
 Authoritative race facts/events are published once through a common logical interface. Interested consumers may consume them independently. The producer does not require knowledge of those consumers, and consumers must not independently recreate or alter authoritative race state.
 
-Current-state snapshots may combine information from several authoritative owners for consumption, but the snapshot does not become another owner of that information. Presentation never owns authoritative P&P data; it displays or derives views from information supplied through defined boundaries by the components that own it.
+The **Noticeboard** is the current authoritative state of every relevant thing needed to understand the session now. It may combine information from several authoritative owners for consumption, but the Noticeboard does not become another owner of that information. Presentation never owns authoritative P&P data; it displays or derives views from information supplied through defined boundaries by the components that own it.
 
-A newly connected or recovering current-state consumer obtains the authoritative current state it needs and then consumes new relevant facts/events. It need not replay every event that occurred before it connected.
+Current fastest lap is an example of Noticeboard State: once established it remains the current fastest lap until superseded or until it ceases to be relevant. It does not disappear merely because later unrelated state changes occur.
 
-Continuous values must not generate streams of authoritative events merely because their displayed value changes with time. Significant transitions may be published as facts/events, while consumers obtain or derive the current value from authoritative state and P&P System Time where appropriate.
+A material Noticeboard change may publish the standard NOTICEBOARD_CHANGED notification — informally, a **ding**. The ding says only that something material has changed; it does not carry a replacement copy of State. A newly connected or recovering current-state consumer obtains the current authoritative information it needs without replaying every intermediate state change.
+
+The Noticeboard itself does not conceptually require an exposed version number. An implementation may use revision counters, dirty flags, sequence numbers or another internal mechanism where useful without making that mechanism part of the architectural State contract.
+
+Continuous values must not generate streams of authoritative events or dings merely because their displayed value changes with time. Significant transitions may be published as facts/events, while consumers obtain or derive the current value from authoritative state and P&P System Time where appropriate. A race clock can therefore count locally from authoritative timing information without changing the Noticeboard every second.
 
 The authoritative fact/state exists independently of whether a particular consumer successfully receives a live notification. Current-state consumers can resynchronise; obsolete transient notifications may simply be missed; information that P&P has decided must persist is retained by the Memory Module rather than depending on a live consumer receiving a notification.
 
