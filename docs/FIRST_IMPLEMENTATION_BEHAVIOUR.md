@@ -181,7 +181,7 @@ No unnecessary confirmation screen is required.
 
 Before START, the SMUG changes the proposed **Race Setup**. The SMUG does not edit a Session Definition.
 
-When START is accepted, P&P validates the Race Setup against the applicable working installation/capability information and creates the fixed **Session Definition in RAM** for that race.
+When START is accepted, P&P validates the Race Setup against the applicable working installation/capability information and creates the fixed **Session Definition in RAM** for that race. It freezes both the race choices and the session-specific roles of every input, output and other capability required for that race.
 
 Normal race operation may change race state, but ordinary configuration changes must not silently alter the active Session Definition.
 
@@ -292,7 +292,7 @@ Wokwi is **not part of the P&P architecture or product contract**. No architectu
 
 The prototype should prove the architectural path and boundaries, including:
 
-- physical/simulated input through Input Devices and the Input Module, including configured input mapping;
+- physical/simulated input through Input Devices and the Input Module, producing stable device/capability events without race meaning;
 - the common P&P communications bus as the normal inter-component path;
 - separate Race Control and Race Engine responsibilities;
 - authoritative timing, State and Events/Facts;
@@ -312,10 +312,10 @@ Product features should then be added through these same boundaries rather than 
 The prototype should be built in small proving stages so that each stage leaves a testable system and validates the next architectural boundary:
 
 1. **ESP32 skeleton** — boot, P&P System Time, Memory access, working configuration in RAM, the common P&P communications bus and module boundaries exist; no race behaviour is required.
-2. **One simulated Input Device** — prove a physical/simulated event is cleaned by its Input Device and produces the standard physical detector contract.
-3. **Input Module mapping** — load the detector assignment into working configuration, assign it as Lane 1 Start/Finish and prove the Input Module produces the correct meaningful competition Input Event.
-4. **Pavlov Bus delivery** — publish that competition Input Event on the common bus and prove an authorised subscriber receives it without a private point-to-point path.
-5. **Race Engine** — bus-delivered mapped crossings produce authoritative lap counts and lap times without requiring a browser.
+2. **One simulated Input Device** — prove a physical/simulated event is cleaned by its Input Device and the Input Module produces the standard physical event identifying the stable input/capability and event time, with no lane or race-role meaning attached.
+3. **Pavlov Bus delivery** — publish that physical Input Event on the common bus and prove an authorised subscriber receives it without a private point-to-point path.
+4. **Session role assignment** — create a minimal accepted Session Definition that assigns that stable input as Lane 1 Start/Finish, and prove the assignment is frozen for the session while the Input Module remains unchanged.
+5. **Race Engine** — bus-delivered physical Input Events interpreted through the Session Definition produce authoritative lap counts and lap times without requiring a browser.
 6. **Race Control** — prove READY → STARTING → scheduled GO → RACING → FINISHED, with Race Control and Race Engine communicating through the common bus and retaining their separate ownership boundaries.
 7. **Browser connection** — prove authoritative State, State-change notifications and Events/Facts can be presented without the browser owning race operation.
 8. **Browser Requests** — START is the first operational Request, including Accepted/Rejected Request Results, creation of the fixed Session Definition in RAM after acceptance and authoritative State change after acceptance.
@@ -328,7 +328,7 @@ After that checkpoint, continue through the same established boundaries:
 
 11. **PAUSE / RESUME** — Honour restart first, then Grid Restart.
 12. **Results and persistence** — completed race, Results, History, Race Again and appropriate reboot persistence.
-13. **Outputs** — simulated lights, audio and other logical outputs consume defined actions/facts without Race Control or Race Engine acquiring device-specific knowledge.
+13. **Outputs** — assign required output roles in the Session Definition, resolve them to stable output capabilities, and prove simulated Output Devices execute device-level actions without the Output Module acquiring lane, MUG or race-mode knowledge.
 
 Practice, Endurance, Timed Stage, Drag and other product features can then be added through the proven architecture rather than being required to prove the architecture itself.
 
