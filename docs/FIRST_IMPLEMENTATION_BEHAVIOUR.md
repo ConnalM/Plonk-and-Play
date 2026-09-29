@@ -22,6 +22,30 @@ The behaviour described here should use general P&P mechanisms rather than speci
 
 **Design broadly. Implement narrowly.**
 
+### 16.1 First software implementation milestone
+
+The first implementation milestone is a **software/architecture prototype**, not a declaration that the complete first saleable hardware product is finished.
+
+Wokwi may be used as the development test bench for the ESP32-side software, with simulated sensors, buttons and other suitable devices standing in for physical hardware while real browser clients exercise the P&P user/presentation boundary.
+
+Wokwi is **not part of the P&P architecture or product contract**. No architectural responsibility, interface or behaviour may depend on Wokwi-specific facilities. A simulated device must be replaceable by real hardware implementing the same P&P boundary without requiring race/session logic to be redesigned.
+
+The prototype should prove the architectural path and boundaries, including:
+
+- physical/simulated input through Hardware / Device Abstraction and Event Mapping;
+- separate Race Control and Race Engine responsibilities;
+- authoritative timing, State and Events/Facts;
+- Requests and Request Results;
+- scheduled GO coordination;
+- browser initial synchronisation and current-State refresh;
+- multiple browser clients;
+- disconnect/reconnect and recovery to current authoritative State;
+- rapid input/state changes without browser/network activity delaying timing-critical race processing;
+- configuration and persistence behaviour required by the implemented features;
+- logical output boundaries using simulated outputs where real output hardware is not yet present.
+
+Product features should then be added through these same boundaries rather than bypassing them for convenience.
+
 ## 2. General startup behaviour
 
 P&P uses the same general startup approach regardless of the amount of equipment installed.
