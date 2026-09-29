@@ -68,7 +68,7 @@ Race logic must not depend on that physical description.
 
 ### 4.1 Input Module and Input Devices
 
-The **Input Module** is the P&P subsystem boundary through which physical, simulated or test input reaches the System Controller. It may contain any number of **Input Devices**.
+The **Input Module** is the P&P subsystem boundary through which physical, simulated or test competition input reaches the Race Engine. It may contain any number of **Input Devices**.
 
 An **Input Device** is one complete working source of input. It owns everything specific to that source that is required to produce a clean standard P&P Input Event. For a ToF detector this can include sensor reading, thresholds, filtering, debounce/hysteresis, re-arming and device-specific protocol handling. A keyboard or test-harness Input Device performs its own equivalent source-specific handling.
 
@@ -76,7 +76,7 @@ Each Input Device translates its own native behaviour into the standard P&P inpu
 
 An intelligent remote device may perform some or all of this source-specific interpretation locally before transmitting the standard event.
 
-The Input Module output has the same format and meaning irrespective of which Input Device produced it. The System Controller therefore does not need to know whether a standard event originated from ToF hardware, a keyboard, a test harness or another future source.
+The Input Module output has the same format and meaning irrespective of which Input Device produced it. The Race Engine therefore does not need to know whether a standard event originated from ToF hardware, a keyboard, a test harness or another future source.
 
 ### 4.2 Detector events
 
@@ -427,6 +427,28 @@ The same common time domain supports scheduled time-critical outputs. A schedule
 ## 9. Race Control
 
 Race Control and the Race Engine together form the **single authoritative race/session authority**, with non-overlapping ownership defined in `RACE_CONTROL_ENGINE_DESIGN.md`.
+
+### 9.0 Normal live module paths
+
+The architecture does **not** require a universal System Controller dispatcher or receptionist through which every message must pass.
+
+For the normal live paths currently defined:
+
+- Presentation clients such as the browser or Taster submit authorised operational **Requests** to Race Control.
+- The Input Module supplies clean standard competition Input Events to the Race Engine.
+- Race Control and the Race Engine exchange defined information across their own boundary where one responsibility needs an outcome or state owned by the other.
+
+Conceptually:
+
+```text
+Browser / Taster ── Requests ──► Race Control
+                                     ⇅
+                                  Race Engine ◄── Input Module
+```
+
+This routing is a consequence of responsibility ownership, not a rule that all future traffic must follow the same shape. A new module should communicate through the smallest appropriate defined boundary rather than being forced through a universal dispatcher or through Race Control merely for routing.
+
+The System Controller is the central P&P controller platform containing and coordinating authoritative modules; it is not itself required to be an extra message-routing hop between them.
 
 Race Control owns session operation and lifecycle, including preparation, start procedure, authoritative GO, Pause/Resume/Stop and coordination of operational logical actions. The Race Engine owns competition interpretation, competition state, rules, calculations, results and competition-completion conditions.
 
