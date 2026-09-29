@@ -34,7 +34,7 @@ This includes:
 
 Together Race Control and Race Engine remain the single authoritative source of P&P race/session state, with each responsibility having one owner.
 
-Race Control may command the Race Engine through defined operations but must not manipulate its internal competition state. The Race Engine reports competition facts and completion conditions but does not control session lifecycle or physical hardware.
+Race Control may request/announce defined operations to the Race Engine through standard P&P messages on the common bus but must not manipulate its internal competition state. The Race Engine reports competition facts and completion conditions through the same communications architecture but does not control session lifecycle or physical hardware.
 
 ## 3. Conceptual boundary
 
@@ -159,7 +159,7 @@ Where cars start **after** the Start/Finish detector in the direction of travel,
 
 Where cars start **before** the Start/Finish detector in the direction of travel, they travel almost a complete circuit before their first post-GO crossing. That first Start/Finish crossing completes Lap 1, timed from GO.
 
-This behaviour is not inferred by the detector or Event Mapping. The detector reports the same physical event in either arrangement; the Lap Race rule set interprets it according to the fixed session definition. Other race modes may interpret the same mapped Start/Finish event differently according to their own rules.
+This behaviour is not inferred by the detector or by the Input Module's configured mapping. The detector reports the same physical event in either arrangement; the Input Module maps it to the same semantic Start/Finish event, and the Lap Race rule set interprets that event according to the fixed Session Definition. Other race modes may interpret the same mapped Start/Finish event differently according to their own rules.
 
 ## 9. Hardware, availability and outputs
 
