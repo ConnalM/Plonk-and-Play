@@ -75,9 +75,11 @@ These categories are conceptual contracts, not final packet formats, APIs or C++
 
 ## 4. Session definition
 
-An active session uses a fixed session definition.
+An active session uses a fixed **Session Definition held in working RAM**. It is immutable working data for the session, not a module or bus participant and not something the SMUG edits directly.
 
-Ordinary configuration changes must not silently alter a session already in progress. When Race Control prepares a session, the definition supplied to the Race Engine remains the definition for that session unless a particular runtime change is explicitly supported by later design.
+Before START, the SMUG edits the proposed **Race Setup**. When START is accepted, P&P validates that setup against the applicable working installation/capability information and creates the Session Definition.
+
+Ordinary configuration changes must not silently alter a session already in progress. The definition used by Race Control and the Race Engine remains the definition for that session unless a particular runtime change is explicitly supported by later design.
 
 For the initial product, race-affecting configuration is not changed while an individual race is active. The Race Director changes it after that race has ended. This is a deliberate product simplification, not an architectural prohibition on harmless live presentation preferences or a future explicitly designed runtime feature.
 
@@ -171,7 +173,7 @@ Loss of an optional capability need not stop a session. Loss of a capability ess
 
 Race Engine does not manipulate physical outputs.
 
-Race Control requests logical operational actions through the established output architecture. For example, track power is coordinated by Race Control through Output Mapping; neither Race Control nor Race Engine manipulates GPIO or transport-specific hardware directly.
+Race Control publishes logical operational actions through the established common P&P communications bus. The output side applies its configured working mapping and the appropriate Output Device performs the hardware-specific action. For example, track power is coordinated by Race Control without either Race Control or Race Engine manipulating GPIO or transport-specific hardware directly. Output mapping is configuration data, not a separate module.
 
 Detailed false-start behaviour remains a later design decision and depends upon the physical/start arrangement. In particular, a system in which lane power is held off until GO cannot use pre-GO vehicle movement in the same way as a continuously powered arrangement.
 
@@ -222,7 +224,7 @@ The Race Control / Race Engine boundary must support controlled test implementat
 
 Examples:
 - Race Control can be tested with a stub Race Engine returning predetermined competition facts, state, completion and status.
-- Race Engine can be tested with predetermined mapped events and session definitions without real sensors, Event Mapping or browser clients.
+- Race Engine can be tested with predetermined mapped competition Input Events and Session Definitions without real sensors, the Input Module or browser clients.
 
 Production and test implementations must use the same defined interfaces; testing must not rely on special shortcuts through the production architecture.
 
