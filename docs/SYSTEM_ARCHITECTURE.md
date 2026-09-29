@@ -705,21 +705,23 @@ The display clock is not an authoritative source for lap times, elapsed/remainin
 
 The transport, protocol and payload representation used to carry Requests, Request Results, State and Events/Facts remain implementation decisions.
 
-## 13. Persistent / History Storage
+## 13. Memory Module
 
-Persistent / History Storage is a supporting responsibility distinct from Configuration and live Race Control state.
+The **Memory Module** owns information that P&P deliberately retains across power cycles. Its internal storage technology may be flash, SD card, files, a database or another suitable implementation; other modules do not depend on that choice.
 
-It provides somewhere to retain useful race/session information without requiring Race Control to know whether the implementation is SD card, flash, database, files or something else.
+Persistent information may include installation/configuration data, remembered setup and preferences, MUG/car records where supported, race/session history, lap data, personal-best summaries and overall track-record summaries.
+
+Memory has three distinct relationships with the rest of P&P:
+
+1. **Ordinary persistent information and configuration** — outside a race, authorised human interfaces and other appropriate responsibilities may read or change persistent configuration, history, records, preferences and similar remembered information directly through defined P&P messages. A Session Definition is not required merely to inspect or maintain Memory.
+2. **Session preparation** — relevant remembered configuration and setup contribute to creation of a fixed **Session Definition** for a particular session. Once created, Race Control and the Race Engine operate from that Session Definition rather than repeatedly reading mutable persistent configuration from Memory.
+3. **Persistent recording** — authoritative race/session information worth retaining is written to Memory as appropriate during or after a session. Live race operation does not subsequently depend on reading that information back from Memory to reconstruct what is already known in authoritative live state.
+
+The Session Definition is therefore not a gateway to Memory. It is the frozen working definition that isolates an active session from later changes to persistent configuration.
+
+Memory must not become a shadow Race Engine by reconstructing competition state from every live event. The Race Engine remains authoritative for competition interpretation and live competition state; Memory retains the authoritative results/history information provided for persistence.
 
 The initial product should retain a deliberately modest useful result/history record rather than logging everything simply because storage is available.
-
-Possible basic retained information includes:
-
-- race/session type and defining parameters;
-- competitors or lanes where applicable;
-- result/finishing order;
-- lap-by-lap data where applicable;
-- personal best and overall track-record summaries.
 
 The product-level retained-history behaviour is defined in `BROWSER_FLOW_RESULTS_HISTORY_SPEC.md`; the detailed persistence schema and storage technology remain implementation decisions. Wall-clock date/time is not required for retained race history.
 
