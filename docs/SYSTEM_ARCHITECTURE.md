@@ -259,7 +259,7 @@ Principle:
 
 > **Intelligent devices identify themselves. Simple devices are identified by the stable capability/connection through which P&P sees them.**
 
-This distinction must not leak into Race Control; after hardware abstraction and event mapping, both sources produce the same logical mapped events.
+This distinction must not leak into Race Control or the Race Engine; after Input Device abstraction and application of the configured mapping by the Input Module, both sources produce the same meaningful competition Input Events.
 
 ### 6.4 Capability-level availability
 
@@ -610,13 +610,13 @@ Race Control determines which session-operation Requests are valid in its curren
 
 For example, **Pause** is relevant only once a race is running, while **Resume** is relevant only when paused.
 
-Hiding an invalid control is a usability measure, not the security/validity mechanism: Race Control must still reject commands that are invalid for its current state.
+Hiding an invalid control is a usability measure, not the security/validity mechanism: Race Control must still reject session-operation Requests that are invalid for its current state.
 
 ### 12.2 One Master / Race Director
 
 There is one Master control authority at a time: the **Race Director**.
 
-The controller-side Presentation / User Interaction responsibility owns client/session identity, which client currently holds Race Director authority, and deliberate transfer or recovery of that authority. It determines whether a particular client is permitted to submit Race Director commands.
+The controller-side Presentation / User Interaction responsibility owns client/session identity, which client currently holds Race Director authority, and deliberate transfer or recovery of that authority. It determines whether a particular client is permitted to submit Race Director Requests.
 
 Race Control does not need to know browser, connection or transport details. It receives authorised logical session-operation Requests and separately determines whether each Request is valid in the current race/session state and what consequence it has.
 
@@ -636,7 +636,7 @@ A second control client may view the control screen but remains non-Master. It m
 
 This is deliberately a trust model rather than an account/security system. P&P enforces exactly one Master but does not require user accounts, passwords or PINs merely to arbitrate control around a home slot-car track.
 
-Loss, sleep or disconnection of the Race Director client does not affect Race Control or the running race. Another client can deliberately recover Master authority. Changing Race Director changes who may issue control commands; Race Control itself never moves into the browser.
+Loss, sleep or disconnection of the Race Director client does not affect Race Control or the running race. Another client can deliberately recover Master authority. Changing Race Director changes who may issue Race Director Requests; Race Control itself never moves into the browser.
 
 ### 12.3 Non-Master clients
 
