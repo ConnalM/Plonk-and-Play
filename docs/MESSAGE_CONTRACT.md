@@ -130,9 +130,11 @@ The Taster is another Human Interface using the same common P&P Message Contract
 
 ## 10. The Noticeboard and the ding
 
-The **Noticeboard** is the current authoritative state of every relevant thing needed to understand P&P/session state now. It is information/state, not another operational module and not another owner of the underlying information.
+The **Noticeboard** is P&P's authoritative current externally presentable view of itself. It contains everything relevant and current needed to understand P&P or an active session, plus any current information that P&P makes available to a Browser, Taster or other presentation interface. It is information/state, not another operational module and not another owner of the underlying information.
 
-Examples include current session lifecycle state, current lap counts, positions and the current fastest lap. If a fastest lap was established several events ago and is still the fastest lap, that remains the current authoritative fastest-lap state on the Noticeboard.
+Examples include current session lifecycle state, relevant Session Definition information, current lap counts, positions and the current fastest lap. Outside an active race it can also expose current Race Setup, available modes/options, current capability/availability information, saved identities offered for selection and user-facing status/fault information where a presentation interface needs them. If a fastest lap was established several events ago and is still the fastest lap, that remains the current authoritative fastest-lap state on the Noticeboard.
+
+The Noticeboard is not History and does not contain every past event merely because it happened. Nor does it expose private hardware or implementation detail merely because that detail exists. The practical test is: **if a Browser or Taster needs to know something about P&P now, it obtains that current externally presentable information through the Noticeboard rather than rummaging inside owning modules.**
 
 A **ding** is the informal design term for the Pavlov notification that something material on the Noticeboard has changed. The concrete Message Type is **NOTICEBOARD_CHANGED**.
 
