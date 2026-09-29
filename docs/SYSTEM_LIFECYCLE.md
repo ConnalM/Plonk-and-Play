@@ -183,7 +183,7 @@ Information required to restore P&P itself is persisted when it changes or at an
 
 ### Live individual-race state
 
-Detailed live race state remains in working RAM while the race is active. The fixed Session Definition for an accepted race is also working RAM data; it is not a persistent configuration object or a separate module.
+Detailed live race state remains in working RAM while the race is active. The fixed Session Definition for an accepted race is also working RAM data; it is not a persistent configuration object or a separate module. It freezes the Race Setup together with the session-specific roles assigned to the input, output and other capabilities required by that session. Later configuration changes cannot silently change those roles during the active race.
 
 Examples include:
 - current lap counts;
