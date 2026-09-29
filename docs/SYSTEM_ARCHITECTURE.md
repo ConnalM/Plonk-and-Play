@@ -435,7 +435,7 @@ Race Control and the Race Engine operate from that fixed Session Definition rath
 
 A small persistent list of drivers and/or cars is a possible product feature, particularly for more competitors than available lanes. It is not currently considered a fundamental architectural issue and is not committed as a feature.
 
-## 8. Authoritative Noticeboard
+## 7.7 Authoritative Noticeboard
 
 The **Noticeboard** is the current authoritative state of every relevant thing needed to understand P&P/session state now. It is information/state assembled from the responsibilities that own that truth; it is not another operational module and does not become another owner of the underlying information.
 
@@ -679,20 +679,20 @@ Browser-facing communication distinguishes five semantic kinds of information:
 - **Request** — browser to P&P: asks P&P to do something.
 - **Request Result** — P&P to the requesting browser: reports whether that request was accepted or rejected, with a reason where useful.
 - **State** — authoritative information maintained by P&P describing what is true now.
-- **State-change notification** — P&P to browser: indicates that authoritative State has changed and the browser's previously obtained State may now be stale.
+- **NOTICEBOARD_CHANGED** — P&P to browser: a ding indicating that something material on the authoritative Noticeboard has changed.
 - **Event/Fact** — P&P to browser: notification that something has happened, useful for presentation such as animation, sound or temporary messages.
 
 P&P owns and maintains authoritative live State. Browsers decide which State they need for the view they are presenting; P&P does not need knowledge of individual browser screens or to construct a screen-specific authoritative State model for each connected browser.
 
 On initial connection or reconnection, a browser obtains authoritative State sufficient to construct the correct display from nothing. It need not replay every event that occurred before or while it was disconnected.
 
-Every meaningful authoritative State change causes a State-change notification. A notification need not identify the fields that changed or contain their new values; its purpose is to tell a browser that State it previously obtained may now be stale.
+Every material change to the authoritative Noticeboard can cause a NOTICEBOARD_CHANGED ding. The ding need not identify the fields that changed or contain their new values; its purpose is to tell a browser to look again at the current authoritative information it needs.
 
-On receiving such a notification, a browser refreshes the authoritative State needed by its current view. Further State-change notifications received while that refresh is already in progress do not require parallel refreshes. The refresh process must leave the browser with an internally consistent current version of the relevant authoritative State, including any further changes that occurred while an earlier refresh was being initiated or completed.
+On receiving such a notification, a browser refreshes the authoritative State needed by its current view. Further dings received while that refresh is already in progress do not require parallel refreshes. The refresh process must leave the browser with internally consistent current authoritative State, including any further changes that occurred while an earlier refresh was being initiated or completed.
 
 Rapid authoritative State changes therefore do not require a browser to observe or render every intermediate State. Superseded intermediate State may be skipped; the browser ultimately renders what is currently true. Where individual occurrences themselves matter for presentation, their Events/Facts remain distinct from current State.
 
-A browser may retain previously obtained State while it remains synchronised and no State-change notification has been received. If connection/synchronisation is lost, it must no longer assume that cached State is current. Recovery requires obtaining current authoritative State again.
+A browser may retain previously obtained State while it remains synchronised and no NOTICEBOARD_CHANGED ding has been received. If connection/synchronisation is lost, it must no longer assume that cached State is current. Recovery requires obtaining current authoritative State again.
 
 A browser may issue operational or configuration Requests only while it is synchronised with current authoritative P&P State. If synchronisation is lost, browser controls that would issue such Requests remain unavailable until full synchronisation has completed again. This client-side restriction does not replace P&P validation: P&P remains responsible for validating every Request against current authoritative State and control authority before accepting it.
 
@@ -702,7 +702,7 @@ Persistent results/history are separate from browser Event/Fact delivery. Inform
 
 Timing-critical physical event capture, ordering, race interpretation and authoritative State maintenance must never wait for browser reads, browser rendering, network delivery or other presentation activity. Slow or disconnected clients must not delay or compromise race timing or authoritative race processing.
 
-The implementation used to identify consistent State versions, determine what must be refreshed, combine rapid changes, and transport notifications or State remains an implementation/prototyping decision. Possible mechanisms such as revisions, dirty flags, logical State blocks, deltas or broader snapshots are not prescribed by this architecture.
+The implementation used to determine what must be refreshed, combine rapid changes, and transport notifications or State remains an implementation/prototyping decision. Possible mechanisms such as internal revisions, dirty flags, logical State blocks, deltas or broader snapshots are not prescribed by this architecture and do not make a Noticeboard version part of the conceptual contract.
 
 For time-critical coordinated actions, current State alone is not sufficient. Once a START Request has been accepted, P&P determines the authoritative future **GO instant** using its own high-resolution timing clock. Connected presentation/output devices are given sufficient advance information to schedule their local start-sequence presentation against that same authoritative GO instant rather than waiting for a network message sent at GO.
 
@@ -814,7 +814,7 @@ The default architectural rule is:
 
 Modules, devices and human interfaces attach to the common bus and exchange standard P&P messages without requiring direct knowledge of each other's implementation. Local software participants may attach in-process; remote participants reach the same logical bus through appropriate Transport Adapters.
 
-The bus may carry Requests, Request Results, standard Input Events, Actions, Events/Facts, State-change notifications and other defined P&P messages.
+The bus may carry Requests, Request Results, standard Input Events, Actions, Events/Facts, NOTICEBOARD_CHANGED dings and other defined P&P messages.
 
 ### 13.5.1 Authority and message policing
 
@@ -844,9 +844,9 @@ Race Control and the Race Engine use this same bus for their own defined communi
 
 The Pavlov Bus does not replace authoritative P&P State.
 
-Authoritative State remains owned by the relevant P&P responsibilities. A State-change notification on the bus acts as the notification that previously obtained State may now be stale. A browser or other current-state consumer then refreshes the authoritative State it needs.
+Authoritative State remains owned by the relevant P&P responsibilities. A NOTICEBOARD_CHANGED ding on the bus says that something material on the authoritative Noticeboard has changed. A browser or other current-state consumer then refreshes the current authoritative State it needs.
 
-Rapid successive changes may therefore collapse naturally from the consumer's point of view. A browser that last obtained State revision 1042 may receive a notification and refresh directly to revision 1045 without reconstructing revisions 1043 and 1044. Events/Facts that matter individually remain separate bus messages where their individual occurrence is relevant.
+Rapid successive changes may therefore collapse naturally from the consumer's point of view. A browser may receive one or more dings and simply refresh to what is true now rather than reconstructing every intermediate State. Events/Facts that matter individually remain separate bus messages where their individual occurrence is relevant.
 
 In design discussion this is the **ding-and-scoop** model: the bus carries the ding; authoritative State is the noticeboard from which the consumer scoops the latest truth.
 
