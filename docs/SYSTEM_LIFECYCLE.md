@@ -48,25 +48,25 @@ Conceptually this includes:
 
 The exact boot sequence and implementation mechanisms are later decisions.
 
-## 4. Persistent state loaded at startup
+## 4. Persistent state loaded into working RAM at startup
 
 P&P must not rediscover the installation from a blank sheet at every power-on.
 
-It loads the last-known-good persistent information required to restore the system, including as applicable:
+Memory owns the persistent copy of information that must survive power loss. At startup P&P loads the last-known-good information required for operation into working RAM, including as applicable:
 - Registry information;
 - installation configuration;
 - device/capability assignments;
-- last-used session/race configuration;
-- saved session presets;
+- last-used Race Setup;
+- saved Race Setup presets where supported;
 - user/presentation preferences;
 - persistent competition progress;
 - other persistent system settings.
 
 The storage mechanism may later use controller flash/NVS, SD card or another technology. The lifecycle design refers only to **persistent storage**.
 
-The last-used session configuration is restored as the proposed/default setup for the next session. Live state from an interrupted individual race is not restored.
+The last-used Race Setup is restored as the proposed/default setup for the next session. Modules use the applicable working configuration in RAM during normal operation rather than repeatedly consulting persistent storage. Live state from an interrupted individual race is not restored.
 
-**Restore the race configuration, not the race.**
+**Restore the Race Setup, not the race.**
 
 ## 5. Discovery and reconciliation
 
@@ -75,7 +75,7 @@ After loading remembered state, P&P discovers the equipment actually present and
 The normal case should require no user interaction:
 
 ```text
-Load remembered configuration
+Load remembered configuration into working RAM
         ↓
 Discover expected equipment
         ↓
@@ -183,7 +183,7 @@ Information required to restore P&P itself is persisted when it changes or at an
 
 ### Live individual-race state
 
-Detailed live race state may remain in RAM while the race is active.
+Detailed live race state remains in working RAM while the race is active. The fixed Session Definition for an accepted race is also working RAM data; it is not a persistent configuration object or a separate module.
 
 Examples include:
 - current lap counts;
