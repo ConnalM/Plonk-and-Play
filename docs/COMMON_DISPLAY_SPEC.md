@@ -219,11 +219,15 @@ Detailed RMS logic is deliberately deferred until software design.
 
 The principles already agreed are:
 
-A MUG's Yellow button can be configured as **Request** or **Direct**.
+Yellow / Track Call is a session option with three settings:
 
-**Request:** Race continues; requesting MUG and RD are notified; the Race Control Pod surround can pulse yellow. RD accepts or dismisses.
+- **Off** — Yellow / Track Call is disabled for that session.
+- **Request** — a MUG may request Yellow; the race continues while the requesting MUG and RD are notified and the RD accepts or dismisses the request.
+- **Direct** — a permitted MUG Yellow input immediately calls Yellow / Track Call.
 
-**Direct:** immediately calls a Yellow / Track Call.
+**Yellow Off does not disable the Race Director's basic PAUSE control.** PAUSE remains a core race-control intervention independently of whether the session uses a Yellow / Track Call procedure.
+
+In Request mode, the Race Control Pod surround can pulse yellow while the five lights remain in their normal state.
 
 **Yellow active:** five lights flash yellow. This represents the normal temporary track-call/interruption state and normally leads to **RESUME**.
 
