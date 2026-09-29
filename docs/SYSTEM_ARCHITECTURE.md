@@ -646,9 +646,9 @@ They may submit specifically permitted race inputs/requests. An example is a dri
 
 A lane-associated client can report that its car is off the track without becoming a controller.
 
-The Race Director/session configuration can determine what a **CAR OFF** input means. It may, for example, be disabled, notify/request action from the Race Director or automatically invoke the configured track-call behaviour.
+The active Session Definition can determine what a **CAR OFF** input means. It may, for example, be disabled, notify/request action from the Race Director or automatically invoke the configured track-call behaviour.
 
-The client always reports the same semantic event — **CAR OFF** — rather than directly commanding a pause or power change. Race Control interprets the event according to the active session configuration.
+The client always reports the same semantic event — **CAR OFF** — rather than directly commanding a pause or power change. Race Control interprets the event according to the active Session Definition.
 
 ### 12.4 Requests and browser synchronisation
 
