@@ -114,6 +114,7 @@ Adding an optional capability must not require unrelated parts of the system to 
 - Reconnect known modules automatically where practical.
 - Race-affecting configuration need not be changeable while an individual race is active; the initial product may defer such changes until the race has ended.
 - Before START, the user changes a proposed Race Setup. When START is accepted, P&P creates a fixed Session Definition for the race; the user does not directly edit that Session Definition.
+- The Session Definition must freeze the session-specific roles of the input, output and other capabilities required for that session. A hardware module must not acquire race-mode, lane or MUG knowledge merely to operate its devices.
 - Normal setup must not require customers to enter IP addresses, MAC addresses, edit configuration files or manually flash devices.
 
 ### 12. Common system time
@@ -130,7 +131,7 @@ Adding an optional capability must not require unrelated parts of the system to 
 
 - Configuration, module identities, module assignments and relevant user preferences must survive power loss and restart.
 - Persistent configuration must be loaded into suitable working RAM/state for normal operation; timing-critical input, output and race processing must not depend on repeated persistent-storage lookups for configuration already available to the running system.
-- Input and output mappings are configuration data, not requirements for separate operational modules.
+- Remembered/default device-role assignments are configuration data. The roles actually used by an accepted session are frozen into its Session Definition; Input and Output Modules remain responsible for device operation rather than race meaning.
 - Local use of a module's working configuration/state is not inter-component communication and does not require a message-bus transaction.
 - Persistence technology is not specified at requirements stage.
 
@@ -167,7 +168,7 @@ The platform must permit the authoritative race/session responsibilities to caus
 - Displays
 - Sound
 
-Race Control coordinates operational logical actions through the common P&P communications architecture. The output side applies configured working mappings and Output Devices own hardware-specific implementation. The Race Engine reports competition facts, state and completion conditions through its defined boundary and does not directly control physical hardware. Neither responsibility needs to know the physical implementation of the device carrying an action out.
+Race Control coordinates operational logical actions through the common P&P communications architecture. For an active session, the appropriate race/session responsibility resolves semantic output roles through the fixed Session Definition and addresses a stable output capability; the Output Module/Output Device owns the hardware-specific implementation and does not need to know the racing role being served. The Race Engine reports competition facts, state and completion conditions through its defined boundary and does not directly control physical hardware. Neither Race Control nor Race Engine needs to know GPIOs, addresses or transport-specific implementation details.
 
 ## Explicitly not fixed by this document
 
