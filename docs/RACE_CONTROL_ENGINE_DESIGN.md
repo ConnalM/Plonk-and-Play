@@ -150,7 +150,7 @@ Practice demonstrates that a mode need not have a normal competition finishing c
 
 Optional race features are separate from race modes.
 
-For example, simulated fuel may operate across more than one mode and maintains its own competition-feature state while consuming relevant mapped semantic events.
+For example, simulated fuel may operate across more than one mode and maintains its own competition-feature state while consuming relevant competition facts/events interpreted through the active Session Definition.
 
 **Race Mode defines the fundamental form and completion rules of the competition. Optional Race Features add behaviours that can operate across more than one race mode.**
 
