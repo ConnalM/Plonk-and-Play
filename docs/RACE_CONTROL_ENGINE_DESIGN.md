@@ -77,7 +77,7 @@ These categories are conceptual contracts, not final packet formats, APIs or C++
 
 An active session uses a fixed **Session Definition held in working RAM**. It is immutable working data for the session, not a module or bus participant and not something the SMUG edits directly.
 
-Before START, the SMUG edits the proposed **Race Setup**. When START is accepted, P&P validates that setup against the applicable working installation/capability information and creates the Session Definition.
+Before START, the SMUG edits the proposed **Race Setup**. When START is accepted, P&P validates that setup against the applicable working installation/capability information and creates the Session Definition. The Session Definition also freezes the session-specific roles assigned to every input, output and other capability required to interpret and execute that session.
 
 Ordinary configuration changes must not silently alter a session already in progress. The definition used by Race Control and the Race Engine remains the definition for that session unless a particular runtime change is explicitly supported by later design.
 
@@ -159,7 +159,7 @@ Where cars start **after** the Start/Finish detector in the direction of travel,
 
 Where cars start **before** the Start/Finish detector in the direction of travel, they travel almost a complete circuit before their first post-GO crossing. That first Start/Finish crossing completes Lap 1, timed from GO.
 
-This behaviour is not inferred by the detector or by the Input Module's configured mapping. The detector reports the same physical event in either arrangement; the Input Module maps it to the same semantic Start/Finish event, and the Lap Race rule set interprets that event according to the fixed Session Definition. Other race modes may interpret the same mapped Start/Finish event differently according to their own rules.
+This behaviour is not inferred by the detector or Input Module. The Input Module reports the same stable input identity and physical event in either arrangement. The active Session Definition assigns that input its session-specific Start/Finish role, and the Lap Race rule set interprets the event according to that fixed definition. Another session may assign the same physical input a different role without changing the Input Module.
 
 ## 9. Hardware, availability and outputs
 
@@ -173,7 +173,7 @@ Loss of an optional capability need not stop a session. Loss of a capability ess
 
 Race Engine does not manipulate physical outputs.
 
-Race Control publishes logical operational actions through the established common P&P communications bus. The output side applies its configured working mapping and the appropriate Output Device performs the hardware-specific action. For example, track power is coordinated by Race Control without either Race Control or Race Engine manipulating GPIO or transport-specific hardware directly. Output mapping is configuration data, not a separate module.
+Race Control resolves required session roles through the active Session Definition and publishes device-level logical operational actions through the established common P&P communications bus. The Output Module/appropriate Output Device performs the hardware-specific action without needing to know the racing role of that output. For example, Race Control may resolve `Lane 2 Track Power` to the stable output capability assigned to that role for this session, while neither Race Control nor Race Engine manipulates GPIO or transport-specific hardware directly.
 
 Detailed false-start behaviour remains a later design decision and depends upon the physical/start arrangement. In particular, a system in which lane power is held off until GO cannot use pre-GO vehicle movement in the same way as a continuously powered arrangement.
 
@@ -224,7 +224,8 @@ The Race Control / Race Engine boundary must support controlled test implementat
 
 Examples:
 - Race Control can be tested with a stub Race Engine returning predetermined competition facts, state, completion and status.
-- Race Engine can be tested with predetermined mapped competition Input Events and Session Definitions without real sensors, the Input Module or browser clients.
+- Race Engine can be tested with predetermined physical Input Events plus Session Definitions that assign those stable input identities to session roles, without real sensors, the Input Module or browser clients.
+- Input and Output Modules can be tested independently of lanes, MUGs and race modes: stimulate a known input and verify the standard device event, or issue a device-level output action and verify the correct physical output behaviour.
 
 Production and test implementations must use the same defined interfaces; testing must not rely on special shortcuts through the production architecture.
 
