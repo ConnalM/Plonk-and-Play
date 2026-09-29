@@ -414,6 +414,10 @@ A small persistent list of drivers and/or cars is a possible product feature, pa
 
 ## 8. P&P System Time
 
+P&P System Time is a **shared service**, not an operational module. It provides the common authoritative time domain used by modules and devices that need to describe, compare or schedule instants.
+
+The common P&P communications bus transports messages that may contain timestamps or scheduled instants; System Time gives those values their common meaning. The bus does not itself establish timing authority.
+
 The System Controller is the authority for the common P&P time domain. P&P System Time defines common instants; it does not require every distributed local clock to display the same numerical value.
 
 Intelligent devices may use local high-resolution clocks. Where timing information must be compared across devices, local timestamps must be reliably relatable or convertible to P&P System Time with sufficient accuracy for the function.
