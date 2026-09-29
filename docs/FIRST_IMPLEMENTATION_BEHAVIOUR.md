@@ -319,16 +319,16 @@ The prototype should be built in small proving stages so that each stage leaves 
 6. **Race Control** — prove READY → STARTING → scheduled GO → RACING → FINISHED, with Race Control and Race Engine communicating through the common bus and retaining their separate ownership boundaries.
 7. **Browser connection** — prove authoritative State, State-change notifications and Events/Facts can be presented without the browser owning race operation.
 8. **Browser Requests** — START is the first operational Request, including Accepted/Rejected Request Results, creation of the fixed Session Definition in RAM after acceptance and authoritative State change after acceptance.
-8. **Two lanes and rapid-event testing** — add a second simulated detector and deliberately exercise closely spaced and rapid inputs; browser/network speed must not compromise authoritative timing.
-9. **Multiple browsers and recovery** — exercise several clients, disconnection, reconnection and a new browser joining mid-race; each must reconstruct current authoritative State without affecting the race.
+9. **Two lanes and rapid-event testing** — add a second simulated detector and deliberately exercise closely spaced and rapid inputs; browser/network speed must not compromise authoritative timing.
+10. **Multiple browsers and recovery** — exercise several clients, disconnection, reconnection and a new browser joining mid-race; each must reconstruct current authoritative State without affecting the race.
 
-**Stages 1–9 are the first prototype checkpoint.** At that checkpoint the communication and architectural approach must be assessed before additional product behaviour is piled on top.
+**Stages 1–10 are the first prototype checkpoint.** At that checkpoint the communication and architectural approach must be assessed before additional product behaviour is piled on top.
 
 After that checkpoint, continue through the same established boundaries:
 
-10. **PAUSE / RESUME** — Honour restart first, then Grid Restart.
-11. **Results and persistence** — completed race, Results, History, Race Again and appropriate reboot persistence.
-12. **Outputs** — simulated lights, audio and other logical outputs consume defined actions/facts without Race Control or Race Engine acquiring device-specific knowledge.
+11. **PAUSE / RESUME** — Honour restart first, then Grid Restart.
+12. **Results and persistence** — completed race, Results, History, Race Again and appropriate reboot persistence.
+13. **Outputs** — simulated lights, audio and other logical outputs consume defined actions/facts without Race Control or Race Engine acquiring device-specific knowledge.
 
 Practice, Endurance, Timed Stage, Drag and other product features can then be added through the proven architecture rather than being required to prove the architecture itself.
 
