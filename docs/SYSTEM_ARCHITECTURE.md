@@ -25,8 +25,8 @@ The architecture must not assume that today's known sensors, outputs, race modes
 
 The system currently comprises these responsibility areas:
 
-1. Hardware / Device Abstraction
-2. Event Mapping
+1. Input Module / Input Devices
+2. Configured Event Mapping
 3. Race Control
 4. Output Mapping and Hardware Output
 5. Presentation and User Interaction
@@ -66,13 +66,17 @@ Race logic must not depend on that physical description.
 
 ## 4. Input architecture
 
-### 4.1 Hardware abstraction
+### 4.1 Input Module and Input Devices
 
-Sensor-specific behaviour belongs in the hardware abstraction/adapter layer.
+The **Input Module** is the P&P subsystem boundary through which physical, simulated or test input reaches the System Controller. It may contain any number of **Input Devices**.
 
-A particular ToF sensor, IR detector or future detection technology is translated into the standard detector event contract without Race Control knowing how the physical detection was performed.
+An **Input Device** is one complete working source of input. It owns everything specific to that source that is required to produce a clean standard P&P Input Event. For a ToF detector this can include sensor reading, thresholds, filtering, debounce/hysteresis, re-arming and device-specific protocol handling. A keyboard or test-harness Input Device performs its own equivalent source-specific handling.
 
-An intelligent remote device may perform this translation locally before transmitting the event.
+Each Input Device translates its own native behaviour into the standard P&P input contract before crossing the Input Module boundary. Adding a new Input Device type must not require a central translator to be modified merely to understand that device's native output.
+
+An intelligent remote device may perform some or all of this source-specific interpretation locally before transmitting the standard event.
+
+The Input Module output has the same format and meaning irrespective of which Input Device produced it. The System Controller therefore does not need to know whether a standard event originated from ToF hardware, a keyboard, a test harness or another future source.
 
 ### 4.2 Detector events
 
@@ -110,9 +114,11 @@ event data
 
 This allows future event types to be added without redefining unrelated existing components.
 
-### 4.4 Event mapping
+### 4.4 Configured event mapping
 
-Event Mapping translates a stable hardware capability into its configured purpose.
+Source-specific translation is already complete inside the Input Device. **Configured Event Mapping** is a separate P&P responsibility that assigns the resulting stable Input Device/capability identity to its installation or racing purpose; it does not translate native device protocols.
+
+Configured Event Mapping translates a stable input capability into its configured purpose.
 
 Example:
 
@@ -122,7 +128,7 @@ ABC123:1 : ACTIVE : 123.456
 Lane 1 : START_FINISH : ACTIVE : 123.456
 ```
 
-Event Mapping knows the installation/configuration assignment. It does not decide whether the event constitutes a lap, false start, sector time or anything else in the race.
+Configured Event Mapping knows the installation/configuration assignment. It does not decide whether the event constitutes a lap, false start, sector time or anything else in the race.
 
 Mapped events may be associated with a lane, another configured context, or the system as a whole; lane identity is not mandatory. For example, a shared physical control could map to `TRACK_CALL : ACTIVE : TIME` without a lane.
 
@@ -132,8 +138,8 @@ The same physical detector can be reassigned to a different role without becomin
 
 The intended separation is:
 
-> **Hardware knows itself.**  
-> **Event Mapping knows what it is being used for.**  
+> **Each Input Device knows how to produce a clean standard P&P Input Event.**  
+> **Configured Event Mapping knows what that source is being used for.**  
 > **Race Control owns session operation; the Race Engine owns competition interpretation.**
 
 ## 5. Device failure and replacement
