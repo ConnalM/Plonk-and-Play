@@ -73,7 +73,7 @@ Drag setup includes:
 - optional contextual course length and scale information;
 - STAGE as the primary action.
 
-Selecting Drag assigns the standard two-sensor base hardware contextually: Sensor 1 Start, Sensor 2 Finish. Do not ask SMUG to reassign those sensors unnecessarily.
+Selecting Drag proposes the standard two-sensor base roles contextually: Sensor 1 Start, Sensor 2 Finish. Do not ask SMUG to reassign those sensors unnecessarily. When START is accepted, those Drag roles are frozen into the Session Definition for that session; the Input Module itself does not acquire Start/Finish meaning.
 
 Drag remains usable with no length or scale configured. Missing optional values may be added directly from Drag setup.
 
