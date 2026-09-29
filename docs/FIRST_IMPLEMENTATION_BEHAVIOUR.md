@@ -227,7 +227,32 @@ RESTART RACE abandons the current attempt and begins the same fixed race configu
 
 END RACE abandons the current race and returns the user to the pre-race state.
 
-The detailed race, timing, detector and output behaviour while paused remains to be defined.
+### 13.1 Basic PAUSE behaviour
+
+PAUSE suspends competition timing and competition progress without ending the race.
+
+The default restart method is **Honour restart**:
+
+- MUGs stop their cars as soon as reasonably possible when PAUSE/Yellow is called.
+- Cars should remain where they stopped. If a car must be handled, it should be returned as close as reasonably possible to that position.
+- P&P freezes competition timing while paused. Detector activity during the paused interval does not advance competition progress.
+- The interrupted lap is preserved. Time spent paused is excluded from that lap time.
+- RESUME uses a short restart countdown and one authoritative scheduled restart instant so all MUGs receive a predictable common restart rather than racing becoming live at the instant the RESUME Request is pressed.
+
+This is deliberately an honour-system behaviour for the base product. P&P does not claim to know a car's physical position between configured detection points.
+
+An alternative **Grid Restart** may be selected where a more controlled restart is wanted:
+
+- cars are returned to defined Start/Finish grid positions;
+- incomplete lap progress at PAUSE is discarded;
+- completed laps and other completed competition results remain;
+- the race resumes from the defined grid through the restart sequence.
+
+The exact physical grid placement relative to the Start/Finish detectors must be defined by track/setup guidance so placing cars on the grid does not create an unintended competition crossing.
+
+Future optional hardware such as an REU may provide sufficient authoritative position/progress information for a more accurate position-aware restart. The detailed REU mechanism is not defined here and must not be assumed by the base implementation.
+
+Detailed RMS Yellow/Red state transitions, track-power behaviour and other hardware-dependent pause effects remain deliberately deferred.
 
 ## 14. Normal race completion
 
