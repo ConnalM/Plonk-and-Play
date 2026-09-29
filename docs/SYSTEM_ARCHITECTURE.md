@@ -68,7 +68,7 @@ Race logic must not depend on that physical description.
 
 ### 4.1 Input Module and Input Devices
 
-The **Input Module** is the P&P subsystem boundary through which physical, simulated or test competition input reaches the Race Engine. It may contain any number of **Input Devices**.
+The **Input Module** is the P&P subsystem boundary through which physical, simulated or test competition input becomes clean standard P&P Input Events. It may contain any number of **Input Devices**. Those standard events are published onto the common P&P communications bus; the Race Engine consumes the competition Input Events relevant to its responsibility.
 
 An **Input Device** is one complete working source of input. It owns everything specific to that source that is required to produce a clean standard P&P Input Event. For a ToF detector this can include sensor reading, thresholds, filtering, debounce/hysteresis, re-arming and device-specific protocol handling. A keyboard or test-harness Input Device performs its own equivalent source-specific handling.
 
@@ -76,7 +76,7 @@ Each Input Device translates its own native behaviour into the standard P&P inpu
 
 An intelligent remote device may perform some or all of this source-specific interpretation locally before transmitting the standard event.
 
-The Input Module output has the same format and meaning irrespective of which Input Device produced it. The Race Engine therefore does not need to know whether a standard event originated from ToF hardware, a keyboard, a test harness or another future source.
+The Input Module output has the same format and meaning irrespective of which Input Device produced it. The Race Engine therefore does not need to know whether a standard event originated from ToF hardware, a keyboard, a test harness or another future source, nor which physical transport carried it to the P&P bus.
 
 ### 4.2 Detector events
 
@@ -134,7 +134,19 @@ Mapped events may be associated with a lane, another configured context, or the 
 
 The same physical detector can be reassigned to a different role without becoming a different kind of sensor.
 
-### 4.5 Separation of knowledge
+### 4.5 Transport independence and Transport Adapters
+
+An Input Device is defined by the standard P&P Input Events it produces, not by whether it is local, wired or wireless.
+
+A local detector, a wired remote detector and a wireless intelligent detector may therefore all publish the same standard detector event. Their different communications mechanisms are handled by **Transport Adapters** at the edge of the common P&P communications bus.
+
+A Transport Adapter bridges a physical or software communications mechanism to the logical P&P bus. It may support, for example, an in-process connection, GPIO/I2C-connected hardware, ESP-NOW, Wi-Fi/WebSocket or a future wired remote transport. It has no race meaning and must not reinterpret an Input Event as a lap, false start or other competition fact.
+
+Transport Adapters may be bidirectional where required for discovery, configuration, status, time synchronisation or updates. Remote timestamping must remain reliably related to P&P System Time, and remote-device availability is represented through the normal Discovery/Registry responsibilities.
+
+> **Transport changes how a P&P message travels, not what the message means.**
+
+### 4.6 Separation of knowledge
 
 The intended separation is:
 
@@ -436,46 +448,26 @@ The same common time domain supports scheduled time-critical outputs. A schedule
 
 Race Control and the Race Engine together form the **single authoritative race/session authority**, with non-overlapping ownership defined in `RACE_CONTROL_ENGINE_DESIGN.md`.
 
-### 9.0 Normal live module paths
+### 9.0 Normal live communication
 
-The architecture does **not** require a universal System Controller dispatcher or receptionist through which every message must pass.
+The common P&P communications bus is the normal route for communication between P&P components, including communication between Race Control and the Race Engine.
 
-For the normal live paths currently defined:
+This does **not** create a universal decision-making dispatcher or receptionist. The bus transports standard P&P messages; responsibility and authority remain with the component that owns the meaning.
 
-- Presentation clients such as the browser or Taster submit authorised operational **Requests** to Race Control.
-- The Input Module supplies clean standard competition Input Events to the Race Engine.
-- Race Control and the Race Engine exchange defined information across their own boundary where one responsibility needs an outcome or state owned by the other.
+Examples:
 
-Conceptually:
+- Presentation clients such as the browser or Taster publish authorised operational **Requests**; Race Control consumes the Requests for which it is responsible.
+- Input Devices publish clean standard competition Input Events; the Race Engine consumes the competition events relevant to it.
+- Race Control may publish an authoritative scheduled GO; the Race Engine and relevant presentation/output consumers may consume the same publication.
+- The Race Engine may publish competition completion; Race Control consumes that fact and applies the session-lifecycle consequence.
 
-```text
-Browser / Taster
-       │ Requests
-       ▼
-┌──────────── SYSTEM CONTROLLER (SC) ────────────┐
-│                                               │
-│   ┌──────────────┐       ┌──────────────┐     │
-│   │ Race Control │  ⇄    │ Race Engine  │     │
-│   │     (RC)     │       │     (RE)     │     │
-│   └──────────────┘       └──────▲───────┘     │
-│                                 │             │
-└─────────────────────────────────┼─────────────┘
-                                  │ Input Events
-                                  │
-                           ┌──────┴───────┐
-                           │ Input Module │
-                           └──────────────┘
-```
+Race Control and the Race Engine therefore do not require a privileged private communications path merely because both are contained within the System Controller. Their ownership boundaries remain distinct while their defined inter-component communication uses the same common bus as the rest of P&P.
 
-The **System Controller (SC)** is the enclosing authoritative race-controller boundary containing Race Control and the Race Engine. It is not an additional functional module and does not imply an extra routing layer between those modules and their defined interfaces.
-
-This routing is a consequence of responsibility ownership, not a rule that all future traffic must follow the same shape. A new module should communicate through the smallest appropriate defined boundary rather than being forced through a universal dispatcher or through Race Control merely for routing.
-
-The System Controller is the central P&P controller platform containing and coordinating authoritative modules; it is not itself required to be an extra message-routing hop between them.
+The **System Controller (SC)** is the enclosing authoritative race-controller platform containing Race Control and the Race Engine. It is not an additional functional module and is not an extra message-routing hop.
 
 Race Control owns session operation and lifecycle, including preparation, start procedure, authoritative GO, Pause/Resume/Stop and coordination of operational logical actions. The Race Engine owns competition interpretation, competition state, rules, calculations, results and competition-completion conditions.
 
-They operate through defined boundaries and do not depend on sensor models, GPIOs, wireless addresses, physical gantries, browser implementation or storage media.
+They do not depend on sensor models, GPIOs, wireless addresses, physical gantries, browser implementation or storage media.
 
 ### 9.1 Race modes
 
@@ -779,31 +771,71 @@ P&P restores and discovers what the hardware can actually establish. It must not
 
 ## 13.4 System Controller and communication topology
 
-The **System Controller (SC)** is the central P&P controller platform and authority for system decisions, permissions and coordination. Race Control is a distinct responsibility within the SC, not another name for the SC.
+The **System Controller (SC)** is the central P&P controller platform containing the authoritative Race Control and Race Engine responsibilities. Race Control is a distinct responsibility within the SC, not another name for the SC.
 
-Mapped information should be delivered to the responsibility that owns its meaning. Routine mapped competition events need not be mechanically forwarded through Race Control merely because Race Control owns session lifecycle.
+P&P uses the common communications bus as the normal path for inter-component communication. Mapped information and other messages are consumed by the responsibility that owns their meaning; they are not mechanically forwarded through Race Control or through the SC merely for routing.
 
-Direct module-to-module communication is an allowed future design option, not the default pattern. It may be used where it provides genuine technical benefit, provided it does not create a second source of authority, bypass required decision-making or make authoritative P&P state unknowable to the System Controller.
+A private point-to-point inter-component path is therefore not part of the normal architecture. If implementation later demonstrates a genuine technical need for one, it is an explicit exception and must preserve the same message meaning, authority and observable system state rather than becoming a hidden alternative architecture.
 
 ## 13.5 P&P communications bus
 
 P&P components communicate through a common logical message backbone, referred to in design discussion as the **Pavlov Bus**. This is an architectural and programming concept, not necessarily one physical electrical bus or one transport protocol.
 
-Modules and devices attach to the common bus and exchange standard P&P messages without requiring direct knowledge of each other's implementation. Different transports may provide access to the same logical bus through appropriate adapters.
+The default architectural rule is:
 
-The bus may carry Requests, standard Input Events, Actions, Events/Facts, and State or state-change information.
+> **If P&P components need to communicate with one another, they do so through the Pavlov Bus.**
 
-A message may have one intended consumer or several. A START Request is handled by Race Control. A competition detector event is handled by the Race Engine. A START_SEQUENCE publication may be consumed by lights, browser presentation, Taster, audio and test equipment. Components ignore message types that are not relevant to their responsibility.
+Modules, devices and human interfaces attach to the common bus and exchange standard P&P messages without requiring direct knowledge of each other's implementation. Local software participants may attach in-process; remote participants reach the same logical bus through appropriate Transport Adapters.
+
+The bus may carry Requests, Request Results, standard Input Events, Actions, Events/Facts, State-change notifications and other defined P&P messages.
+
+### 13.5.1 Authority and message policing
+
+Connection to the bus grants **connectivity, not authority**.
+
+Each standard P&P message contract defines:
+
+- what the message means and the data it carries;
+- which participant or responsibility is permitted to publish/originate it;
+- which participant(s) or responsibilities are permitted or expected to consume it.
+
+A component must not acquire authority merely because it can technically place a message on the bus. For example, an Input Device may originate a valid detector event but cannot authoritatively declare that a lap has been completed; that interpretation belongs to the Race Engine. A browser may originate an authorised START Request but cannot publish an authoritative GO or mutate competition state.
+
+Consumers subscribe to or receive only the message types appropriate to their responsibilities. This replaces architectural policing by dedicated point-to-point pathways while preserving the same responsibility boundaries.
+
+The bus itself does not decide whether a message is true, valid or operationally permitted. Validation and consequence remain with the authoritative responsibility defined for that message.
+
+### 13.5.2 One message, one or many consumers
+
+A message may have one intended consumer or several. A START Request is handled by Race Control. A competition detector event is handled by the Race Engine. An authoritative scheduled start publication may be consumed by the Race Engine, lights, browser presentation, Taster, audio and test equipment.
 
 This allows a new consumer, such as a future scoreboard, to subscribe to existing standard P&P information without requiring Race Control or the Race Engine to be modified merely to know that the new consumer exists.
 
-The bus does not change information ownership or authority. Race Control and the Race Engine retain their defined responsibilities, and receiving a message does not make another component authoritative for that information.
+Race Control and the Race Engine use this same bus for their own defined communication. They do not require a special private link.
 
-The logical topology may therefore be pictured similarly to a shared Ethernet backbone: the Input Module, SC responsibilities, human interfaces, physical outputs, test tooling and future devices are participants attached to a common communications system. Direction is a property of individual messages and responsibilities, not of the bus itself.
+### 13.5.3 State notification and resynchronisation
 
-Human-interface participants such as the Browser and Taster are two-way: they consume P&P information for presentation and may also originate authorised Requests to Race Control. One-way output participants such as start lights may simply consume the message types they require.
+The Pavlov Bus does not replace authoritative P&P State.
 
-## 13.5 Manual User Gateway (MUG)
+Authoritative State remains owned by the relevant P&P responsibilities. A State-change notification on the bus acts as the notification that previously obtained State may now be stale. A browser or other current-state consumer then refreshes the authoritative State it needs.
+
+Rapid successive changes may therefore collapse naturally from the consumer's point of view. A browser that last obtained State revision 1042 may receive a notification and refresh directly to revision 1045 without reconstructing revisions 1043 and 1044. Events/Facts that matter individually remain separate bus messages where their individual occurrence is relevant.
+
+In design discussion this is the **ding-and-scoop** model: the bus carries the ding; authoritative State is the noticeboard from which the consumer scoops the latest truth.
+
+### 13.5.4 Transport Adapters
+
+The Pavlov Bus is a logical topology. It need not be one physical network and does not require every message to be physically broadcast to every participant.
+
+A **Transport Adapter** connects a particular communications mechanism to the logical bus while preserving standard P&P message meaning and authority. Examples may include local in-process delivery, wired remote communication, ESP-NOW and Wi-Fi/WebSocket. The exact transports and software mechanisms remain implementation decisions.
+
+A Transport Adapter may filter/deliver only messages relevant to participants reachable through it. A slow or disconnected remote participant must not block timing-critical local processing.
+
+The logical topology may therefore be pictured similarly to a shared Ethernet backbone: Input Devices, SC responsibilities, Memory, human interfaces, physical outputs, test tooling and future devices are participants attached to a common communications system. Direction and authority are properties of individual messages and responsibilities, not of the bus itself.
+
+Human-interface participants such as the Browser and Taster are two-way: they consume P&P information for presentation and may originate authorised Requests. One-way output participants such as start lights may simply consume the message types they require.
+
+## 13.6 Manual User Gateway (MUG)
 
 A **Manual User Gateway (MUG)** is a phone, tablet, computer or other browser host acting as a human-facing P&P interface.
 
@@ -815,7 +847,7 @@ MUG is internal/technical vocabulary; customer-facing interfaces may use ordinar
 
 Testability is a permanent architectural responsibility.
 
-Real wired detectors, wireless devices, future devices and simulated inputs should feed the same standard interfaces.
+Real wired detectors, wireless devices, future devices and simulated inputs should use the same standard P&P message contracts and common communications bus. Test tooling may publish permitted synthetic/test messages and subscribe to relevant outputs at the same architectural boundaries used by real components.
 
 Testing should support, as appropriate:
 
