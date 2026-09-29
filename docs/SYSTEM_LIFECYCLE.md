@@ -55,7 +55,7 @@ P&P must not rediscover the installation from a blank sheet at every power-on.
 Memory owns the persistent copy of information that must survive power loss. At startup P&P loads the last-known-good information required for operation into working RAM, including as applicable:
 - Registry information;
 - installation configuration;
-- device/capability assignments;
+- remembered/default device-role assignments/proposals;
 - last-used Race Setup;
 - saved Race Setup presets where supported;
 - user/presentation preferences;
@@ -79,12 +79,12 @@ Load remembered configuration into working RAM
         ↓
 Discover expected equipment
         ↓
-Restore known assignments
+Restore known remembered/default role proposals
         ↓
 Continue startup
 ```
 
-Expected but missing equipment retains its remembered identity/assignment but is marked unavailable.
+Expected but missing equipment retains its remembered identity and remembered/default role proposal but is marked unavailable. These remembered proposals are installation/configuration data; the roles actually used by an accepted race are frozen separately into its Session Definition.
 
 Unexpected equipment is identified and processed without unnecessarily preventing the rest of P&P from becoming operational.
 
@@ -142,7 +142,7 @@ The objective is that a standard new base system can reach a useful two-lane 10-
 
 ### Expected equipment missing
 
-Missing equipment does not erase its remembered assignment.
+Missing equipment does not erase its remembered/default role proposal.
 
 Unaffected capabilities continue to be available. A session that does not require the missing capability may still be usable.
 
@@ -158,7 +158,7 @@ Optional unassigned equipment does not prevent unaffected functions from operati
 
 A new device with a different stable identity does not silently become a missing known device.
 
-Where a replacement is unambiguous, P&P may offer a simple confirmation and then transfer the previous assignments and persist the new relationship.
+Where a replacement is unambiguous, P&P may offer a simple confirmation and then transfer the previous remembered/default role proposals and persist the new relationship.
 
 ## 10. Missing or unusable stored configuration
 
