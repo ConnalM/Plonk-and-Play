@@ -775,6 +775,24 @@ Mapped information should be delivered to the responsibility that owns its meani
 
 Direct module-to-module communication is an allowed future design option, not the default pattern. It may be used where it provides genuine technical benefit, provided it does not create a second source of authority, bypass required decision-making or make authoritative P&P state unknowable to the System Controller.
 
+## 13.5 P&P communications bus
+
+P&P components communicate through a common logical message backbone, referred to in design discussion as the **Pavlov Bus**. This is an architectural and programming concept, not necessarily one physical electrical bus or one transport protocol.
+
+Modules and devices attach to the common bus and exchange standard P&P messages without requiring direct knowledge of each other's implementation. Different transports may provide access to the same logical bus through appropriate adapters.
+
+The bus may carry Requests, standard Input Events, Actions, Events/Facts, and State or state-change information.
+
+A message may have one intended consumer or several. A START Request is handled by Race Control. A competition detector event is handled by the Race Engine. A START_SEQUENCE publication may be consumed by lights, browser presentation, Taster, audio and test equipment. Components ignore message types that are not relevant to their responsibility.
+
+This allows a new consumer, such as a future scoreboard, to subscribe to existing standard P&P information without requiring Race Control or the Race Engine to be modified merely to know that the new consumer exists.
+
+The bus does not change information ownership or authority. Race Control and the Race Engine retain their defined responsibilities, and receiving a message does not make another component authoritative for that information.
+
+The logical topology may therefore be pictured similarly to a shared Ethernet backbone: the Input Module, SC responsibilities, human interfaces, physical outputs, test tooling and future devices are participants attached to a common communications system. Direction is a property of individual messages and responsibilities, not of the bus itself.
+
+Human-interface participants such as the Browser and Taster are two-way: they consume P&P information for presentation and may also originate authorised Requests to Race Control. One-way output participants such as start lights may simply consume the message types they require.
+
 ## 13.5 Manual User Gateway (MUG)
 
 A **Manual User Gateway (MUG)** is a phone, tablet, computer or other browser host acting as a human-facing P&P interface.
