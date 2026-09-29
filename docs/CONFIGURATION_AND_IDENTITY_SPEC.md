@@ -233,7 +233,7 @@ Normal MUG creation/selection remains available directly from the race screen; a
 
 P&P should not require routine SAVE/APPLY interaction when the user's intention is already unambiguous.
 
-Race settings become the current/remembered race configuration as they are changed.
+Race settings become the current/remembered **Race Setup** as they are changed. The SMUG edits Race Setup; P&P creates the fixed internal Session Definition only when START is accepted.
 
 Installation settings are stored when changed/confirmed.
 
