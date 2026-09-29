@@ -160,7 +160,7 @@ Normal use must not require the MUG to create or name a track before racing.
 The Track Configuration contains information P&P actually uses, including:
 
 - configured lane count;
-- sensor assignments/roles;
+- remembered/default device-role proposals used when forming a Race Setup and, on accepted START, the Session Definition;
 - Start/Finish arrangement;
 - optional track length;
 - optional track scale.
@@ -221,7 +221,7 @@ Setup describes the P&P installation rather than today's race.
 Logical areas include:
 
 - **Track** — length, scale, Start/Finish arrangement;
-- **Hardware** — detected sensors/modules, assignments and optional hardware;
+- **Hardware** — detected sensors/modules, remembered/default role proposals and optional hardware;
 - **MUGs** — management of saved identities;
 - **Cars** — only where optional car recording is enabled;
 - **Sound & Display**;
@@ -246,10 +246,12 @@ Confirmation is reserved for actions that are destructive, disruptive or genuine
 
 The base product should require **zero software configuration** when installed according to the recommended quick-start arrangement.
 
-Factory/default base assignments are:
+Factory/default base role proposals are:
 
 - Sensor 1 → Lane 1 Start/Finish;
 - Sensor 2 → Lane 2 Start/Finish;
+
+These are remembered/default installation proposals, not racing meaning owned by the Input Module. When START is accepted, the roles actually required for that race are frozen into the Session Definition. The same physical input may therefore serve a different role in another session without changing the Input Module.
 - recommended/default physical sensor arrangement → sensor before the Start/Finish line.
 
 The Quick Setup documentation must show the matching physical arrangement clearly.
