@@ -151,7 +151,7 @@ This is a general compatibility/reassignment mechanism, not a collection of indi
 
 The main pre-race screen is primarily a summary of what will happen if the user presses START.
 
-It shows the effective forthcoming race configuration rather than the machinery used to create that configuration.
+It shows the effective forthcoming **Race Setup** rather than the machinery used to create it.
 
 Frequently changed race settings should be directly accessible where practical.
 
@@ -225,7 +225,7 @@ RESUME / RESTART RACE / END RACE
 
 RESUME continues the existing race.
 
-RESTART RACE abandons the current attempt and begins the same fixed race configuration again through its normal start procedure.
+RESTART RACE abandons the current attempt and begins the same fixed Session Definition again through its normal start procedure.
 
 END RACE abandons the current race and returns the user to the pre-race state.
 
@@ -268,7 +268,7 @@ For a Lap Race, the initial design supports three configurable finish behaviours
 
 More sophisticated finish behaviour may be added later without changing the general Race Control/Race Engine responsibility split.
 
-The selected finish rule is fixed as part of the race configuration when START is accepted.
+The selected finish rule becomes part of the fixed Session Definition when START is accepted.
 
 ## 15. Results
 
