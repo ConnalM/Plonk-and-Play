@@ -70,7 +70,7 @@ The last-used Race Setup is restored as the proposed/default setup for the next 
 
 ## 5. Discovery and reconciliation
 
-After loading remembered state, P&P discovers the equipment actually present and compares reality with the Registry and stored configuration.
+After loading remembered persistent information into working RAM, P&P discovers the equipment actually present and reconciles reality with remembered Registry information and the working configuration.
 
 The normal case should require no user interaction:
 
