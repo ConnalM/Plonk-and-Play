@@ -25,10 +25,10 @@ The architecture must not assume that today's known sensors, outputs, race modes
 
 The system currently comprises these responsibility areas:
 
-1. Input Module / Input Devices, including application of configured input mapping
+1. Input Module / Input Devices
 2. Race Control
 3. Race Engine
-4. Output Devices, including application of configured output mapping
+4. Output Module / Output Devices
 5. Presentation and User Interaction
 6. Supporting responsibilities/services:
    - Registry / Discovery
@@ -67,15 +67,15 @@ Race logic must not depend on that physical description.
 
 ### 4.1 Input Module and Input Devices
 
-The **Input Module** is the P&P subsystem boundary through which physical, simulated or test competition input becomes clean, meaningful standard P&P competition Input Events. It may contain any number of **Input Devices** and owns the responsibility for applying the configured installation mapping before events leave the Input Module for race use. The resulting competition Input Events are published onto the common P&P communications bus; the Race Engine consumes the events relevant to its responsibility.
+The **Input Module** is the P&P subsystem boundary through which physical, simulated or test competition input becomes clean standard P&P physical Input Events. It may contain any number of **Input Devices**. It owns the hardware/source-facing work required to identify which stable input capability changed, what clean state/event it produced, and when. It does **not** assign lane, Start/Finish, sector, drag, speed-trap or other competition meaning to that input. The resulting physical Input Events are published onto the common P&P communications bus; the Race Engine interprets the events relevant to the active session using the fixed Session Definition.
 
 An **Input Device** is one complete working source of physical input. It owns everything specific to that source that is required to produce a clean standard physical Input Event. For a ToF detector this can include sensor reading, thresholds, filtering, debounce/hysteresis, re-arming and device-specific protocol handling. A keyboard or test-harness Input Device performs its own equivalent source-specific handling.
 
 Each Input Device translates its own native behaviour into the standard physical P&P input contract. Adding a new Input Device type must not require a central translator to be modified merely to understand that device's native output.
 
-An intelligent remote device may perform some or all of this source-specific interpretation locally before transmitting the standard physical event. Where an Input Device and the mapping responsibility are separate P&P components, that physical event is communicated through the common bus/appropriate Transport Adapter like other inter-component communication.
+An intelligent remote device may perform some or all of this source-specific interpretation locally before the Input Module publishes the standard physical event. Physical distribution does not change the logical ownership: Input Devices are components of the Input Module, and their internal communication is not a separate Pavlov message merely because a particular implementation uses a remote or wireless device.
 
-The Input Module consumes the relevant clean physical Input Events, applies the current configured mapping held in working RAM, and publishes the resulting meaningful competition Input Events back onto the common bus for race use. The Race Engine therefore does not need to know whether a competition event originated from ToF hardware, a keyboard, a test harness or another future source, which detector identity produced it, or which physical transport carried it.
+The Input Module publishes the clean physical Input Event with the stable input/capability identity and original event time. It does not convert that identity into a racing role. The Race Engine uses the active Session Definition to interpret the input identity for the current session. It therefore does not need to know whether the event originated from ToF hardware, a keyboard, a test harness or another future source, nor which physical transport carried it.
 
 ### 4.2 Detector events
 
@@ -113,13 +113,13 @@ event data
 
 This allows future event types to be added without redefining unrelated existing components.
 
-### 4.4 Configured event mapping
+### 4.4 Device roles and session interpretation
 
-Source-specific translation is already complete inside the Input Device. The **configured event mapping is configuration data**, not a separate module or bus participant. It assigns the resulting stable Input Device/capability identity to its installation or racing purpose; it does not translate native device protocols.
+Source-specific translation is already complete inside the Input Device. Assignment of a stable Input Device/capability identity to a racing purpose is **session-role information**, not an Input Module responsibility and not a separate module or bus participant.
 
-The persistent mapping is owned by Memory and loaded into working RAM. The Input Module applies the current working mapping locally; it does not consult persistent Memory or send a Pavlov message for every detector crossing.
+Before START, working configuration and Race Setup may propose how available capabilities will be used. When START is accepted, the roles required for that session are frozen into the Session Definition. During the session the Input Module continues to publish the same device/capability event regardless of its assigned racing role; the Race Engine interprets that identity using the active Session Definition.
 
-The mapping translates a stable input capability into its configured purpose.
+The Session Definition therefore translates a stable input capability into its role for this particular session.
 
 Example:
 
@@ -129,11 +129,11 @@ ABC123:1 : ACTIVE : 123.456
 Lane 1 : START_FINISH : ACTIVE : 123.456
 ```
 
-The Input Module knows the current installation/configuration assignment through its working mapping. Applying that mapping does not decide whether the resulting event constitutes a lap, false start, sector time or anything else in the race.
+The Input Module does not know this assignment. For example, `ABC123:1 : ACTIVE : 123.456` remains the same physical Input Event whether the active Session Definition assigns `ABC123:1` as Lane 1 Start/Finish, a sector detector, a drag finish or a speed-trap input.
 
-Mapped events may be associated with a lane, another configured context, or the system as a whole; lane identity is not mandatory. For example, a shared physical control could map to `TRACK_CALL : ACTIVE : TIME` without a lane.
+The Race Engine combines the physical Input Event with the active Session Definition and current competition state to determine its racing significance. Lane identity is therefore not required in the Input Module event.
 
-The same physical detector can be reassigned to a different role without becoming a different kind of sensor.
+The same physical detector can be reassigned to a different role for a later session without becoming a different kind of sensor or changing the Input Module contract.
 
 ### 4.5 Transport independence and Transport Adapters
 
@@ -152,7 +152,8 @@ Transport Adapters may be bidirectional where required for discovery, configurat
 The intended separation is:
 
 > **Each Input Device knows how to produce a clean standard physical P&P Input Event.**  
-> **The Input Module applies the configured working mapping and publishes the resulting meaningful competition Input Event.**  
+> **The Input Module publishes which stable input/capability produced the clean event, and when; it does not assign race meaning.**  
+> **The active Session Definition assigns session-specific roles; the Race Engine interprets input events against those frozen roles.**  
 > **Race Control owns session operation; the Race Engine owns competition interpretation.**
 
 ## 5. Device failure and replacement
@@ -259,7 +260,7 @@ Principle:
 
 > **Intelligent devices identify themselves. Simple devices are identified by the stable capability/connection through which P&P sees them.**
 
-This distinction must not leak into Race Control or the Race Engine; after Input Device abstraction and application of the configured mapping by the Input Module, both sources produce the same meaningful competition Input Events.
+This distinction must not affect race rules. After Input Device abstraction, both sources produce the same standard physical Input Events identified by stable input/capability identity. The active Session Definition, not the Input Module, assigns their session-specific racing roles.
 
 ### 6.4 Capability-level availability
 
@@ -362,12 +363,14 @@ Configuration is distinct from Registry / Discovery and from live Race Control s
 
 ### 7.1 Installation configuration
 
-Persistent installation information includes assignments such as:
+Persistent installation information includes device identities, capabilities, remembered/default role proposals and physical information such as:
 
 ```text
 Device ABC123 = "Main gantry"
-ABC123:1 → Lane 1 : Start/Finish
-ABC123:2 → Lane 2 : Start/Finish
+ABC123:1 = available detector capability
+ABC123:2 = available detector capability
+Remembered/default proposal: ABC123:1 → Lane 1 : Start/Finish
+Remembered/default proposal: ABC123:2 → Lane 2 : Start/Finish
 
 Device DEF456 = "Back straight"
 DEF456:1 → Lane 1 : Sector 1
@@ -425,7 +428,9 @@ Some changes may be safe at any time, some only while idle and some must not cha
 
 When START is accepted, P&P validates the proposed Race Setup against the applicable installation/capability information and creates the fixed **Session Definition** in working RAM. The Session Definition is immutable working data for that session, not a module or Pavlov participant and not something the SMUG edits directly.
 
-Race Control and the Race Engine operate from that fixed Session Definition rather than repeatedly reading mutable configuration and discovering that operation or rules have silently changed.
+The Session Definition contains the Race Setup **and the session-specific roles assigned to every input, output and other capability required to interpret and execute that session**. Only relevant capabilities need a session role. For example, the same physical detector may be Lane 2 Start/Finish in one session and a Drag finish or speed-trap input in another. Its hardware identity and Input Module behaviour do not change.
+
+Race Control and the Race Engine operate from that fixed Session Definition rather than repeatedly reading mutable configuration and discovering that operation, device roles or rules have silently changed.
 
 ### 7.7 Optional driver/car data
 
@@ -464,7 +469,7 @@ This does **not** create a universal decision-making dispatcher or receptionist.
 Examples:
 
 - Presentation clients such as the browser or Taster publish authorised operational **Requests**; the P&P responsibility that owns the requested change consumes the Request. Race Control consumes session-operation Requests such as START, PAUSE and RESUME.
-- Input Devices publish clean standard physical Input Events; the Input Module consumes them, applies the configured working mapping and publishes meaningful competition Input Events; the Race Engine consumes the competition events relevant to it.
+- The Input Module publishes clean standard physical Input Events identifying the stable input/capability and event time; the Race Engine interprets relevant events using the device roles frozen in the active Session Definition.
 - Race Control may publish an authoritative scheduled GO; the Race Engine and relevant presentation/output consumers may consume the same publication.
 - The Race Engine may publish competition completion; Race Control consumes that fact and applies the session-lifecycle consequence.
 
@@ -546,18 +551,18 @@ The output path mirrors the input separation:
 ```text
 Race Control / other authorised producer
      ↓
-Logical P&P action on the Pavlov Bus
+Session/race responsibility resolves required role using Session Definition
      ↓
-Output side applies configured working mapping
+Logical action addressed to stable Output Device/capability on the Pavlov Bus
      ↓
-Output Device hardware abstraction
+Output Module / Output Device hardware abstraction
      ↓
 Physical hardware
 ```
 
-**Output mapping is configuration data, not a separate module.** Its persistent form is owned by Memory and the applicable working mapping is held in RAM. The output side applies that working mapping locally to select/drive the appropriate Output Device; it does not query persistent Memory for every action.
+**Output role assignment is session data, not a separate module.** When START is accepted, the relevant output roles are frozen into the Session Definition. A race/session responsibility can therefore resolve a semantic need such as `Lane 2 Track Power` to the stable output capability assigned to that role for this session, then publish the resulting device-level logical action. The Output Module does not need to know what racing role that output is serving.
 
-Each Output Device owns the hardware-specific implementation required to carry out its standard P&P action. Race Control and the Race Engine therefore do not know GPIOs, addresses or device-specific command protocols.
+Each Output Device owns the hardware-specific implementation required to carry out its standard P&P device action. Race Control and the Race Engine may know the stable output identity selected by the Session Definition, but they do not know GPIOs, addresses or device-specific command protocols.
 
 ### 10.1 Time-critical outputs
 
@@ -724,7 +729,7 @@ Memory has three distinct relationships with the rest of P&P:
 
 1. **Persistent information** — Memory owns the persistent copy of installation configuration, preferences, remembered Race Setup, identities, history, records and similar information that must survive power loss.
 2. **Working information** — at startup, and when an authorised persistent change is accepted, the applicable information is made available in working RAM to the modules/responsibilities that need it. Normal operation then uses that working data locally. A sensor crossing, output action or race calculation must not require a fresh persistent-storage lookup merely to obtain configuration already loaded for operation.
-3. **Session preparation and recording** — the proposed Race Setup plus relevant working installation/capability information contribute to creation of a fixed **Session Definition in RAM** when START is accepted. Authoritative race/session information worth retaining is written to Memory as appropriate during or after a session.
+3. **Session preparation and recording** — the proposed Race Setup plus relevant working installation/capability information contribute to creation of a fixed **Session Definition in RAM** when START is accepted. The Session Definition freezes the roles of every input, output and other capability required by that session, so those meanings cannot change underneath the race. Authoritative race/session information worth retaining is written to Memory as appropriate during or after a session.
 
 The Session Definition is therefore not a gateway to Memory and is not a module. It is frozen working data that isolates an active session from later changes to persistent configuration.
 
