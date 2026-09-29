@@ -25,20 +25,19 @@ The architecture must not assume that today's known sensors, outputs, race modes
 
 The system currently comprises these responsibility areas:
 
-1. Input Module / Input Devices
-2. Configured Event Mapping
-3. Race Control
-4. Output Mapping and Hardware Output
+1. Input Module / Input Devices, including application of configured input mapping
+2. Race Control
+3. Race Engine
+4. Output Devices, including application of configured output mapping
 5. Presentation and User Interaction
-6. Supporting Services:
+6. Supporting responsibilities/services:
    - Registry / Discovery
-   - Configuration
    - P&P System Time
-   - Persistent / History Storage
+   - Memory / Persistence
    - Test / Diagnostics
    - Update / Recovery
 
-These are architectural responsibilities, not a proposed source-code directory structure.
+Configuration, Race Setup, Session Definition, Registry and authoritative State are information/state rather than extra operational modules merely because other parts of P&P use them. These are architectural responsibilities and information relationships, not a proposed source-code directory structure.
 
 ## 3. Devices, capabilities and physical mounting
 
@@ -68,15 +67,15 @@ Race logic must not depend on that physical description.
 
 ### 4.1 Input Module and Input Devices
 
-The **Input Module** is the P&P subsystem boundary through which physical, simulated or test competition input becomes clean standard P&P Input Events. It may contain any number of **Input Devices**. Those standard events are published onto the common P&P communications bus; the Race Engine consumes the competition Input Events relevant to its responsibility.
+The **Input Module** is the P&P subsystem boundary through which physical, simulated or test competition input becomes clean, meaningful standard P&P competition Input Events. It may contain any number of **Input Devices** and owns the responsibility for applying the configured installation mapping before events leave the Input Module for race use. The resulting competition Input Events are published onto the common P&P communications bus; the Race Engine consumes the events relevant to its responsibility.
 
-An **Input Device** is one complete working source of input. It owns everything specific to that source that is required to produce a clean standard P&P Input Event. For a ToF detector this can include sensor reading, thresholds, filtering, debounce/hysteresis, re-arming and device-specific protocol handling. A keyboard or test-harness Input Device performs its own equivalent source-specific handling.
+An **Input Device** is one complete working source of physical input. It owns everything specific to that source that is required to produce a clean standard physical Input Event. For a ToF detector this can include sensor reading, thresholds, filtering, debounce/hysteresis, re-arming and device-specific protocol handling. A keyboard or test-harness Input Device performs its own equivalent source-specific handling.
 
-Each Input Device translates its own native behaviour into the standard P&P input contract before crossing the Input Module boundary. Adding a new Input Device type must not require a central translator to be modified merely to understand that device's native output.
+Each Input Device translates its own native behaviour into the standard physical P&P input contract. Adding a new Input Device type must not require a central translator to be modified merely to understand that device's native output.
 
-An intelligent remote device may perform some or all of this source-specific interpretation locally before transmitting the standard event.
+An intelligent remote device may perform some or all of this source-specific interpretation locally before transmitting the standard physical event.
 
-The Input Module output has the same format and meaning irrespective of which Input Device produced it. The Race Engine therefore does not need to know whether a standard event originated from ToF hardware, a keyboard, a test harness or another future source, nor which physical transport carried it to the P&P bus.
+The Input Module then applies the current configured mapping held in working RAM, converting the clean physical fact into its configured P&P meaning before publication for race use. The Race Engine therefore does not need to know whether a competition event originated from ToF hardware, a keyboard, a test harness or another future source, which detector identity produced it, or which physical transport carried it.
 
 ### 4.2 Detector events
 
@@ -116,9 +115,11 @@ This allows future event types to be added without redefining unrelated existing
 
 ### 4.4 Configured event mapping
 
-Source-specific translation is already complete inside the Input Device. **Configured Event Mapping** is a separate P&P responsibility that assigns the resulting stable Input Device/capability identity to its installation or racing purpose; it does not translate native device protocols.
+Source-specific translation is already complete inside the Input Device. The **configured event mapping is configuration data**, not a separate module or bus participant. It assigns the resulting stable Input Device/capability identity to its installation or racing purpose; it does not translate native device protocols.
 
-Configured Event Mapping translates a stable input capability into its configured purpose.
+The persistent mapping is owned by Memory and loaded into working RAM. The Input Module applies the current working mapping locally; it does not consult persistent Memory or send a Pavlov message for every detector crossing.
+
+The mapping translates a stable input capability into its configured purpose.
 
 Example:
 
@@ -128,7 +129,7 @@ ABC123:1 : ACTIVE : 123.456
 Lane 1 : START_FINISH : ACTIVE : 123.456
 ```
 
-Configured Event Mapping knows the installation/configuration assignment. It does not decide whether the event constitutes a lap, false start, sector time or anything else in the race.
+The Input Module knows the current installation/configuration assignment through its working mapping. Applying that mapping does not decide whether the resulting event constitutes a lap, false start, sector time or anything else in the race.
 
 Mapped events may be associated with a lane, another configured context, or the system as a whole; lane identity is not mandatory. For example, a shared physical control could map to `TRACK_CALL : ACTIVE : TIME` without a lane.
 
@@ -150,8 +151,8 @@ Transport Adapters may be bidirectional where required for discovery, configurat
 
 The intended separation is:
 
-> **Each Input Device knows how to produce a clean standard P&P Input Event.**  
-> **Configured Event Mapping knows what that source is being used for.**  
+> **Each Input Device knows how to produce a clean standard physical P&P Input Event.**  
+> **The Input Module applies the configured working mapping and publishes the resulting meaningful competition Input Event.**  
 > **Race Control owns session operation; the Race Engine owns competition interpretation.**
 
 ## 5. Device failure and replacement
@@ -347,13 +348,17 @@ Overall startup principle:
 
 > **Don't make the customer confirm things P&P already knows. Don't hide things the customer actually needs to know. Ask only about things the machine cannot determine.**
 
-## 7. Configuration
+## 7. Configuration, Race Setup and working RAM
 
 Configuration answers:
 
 > **What have we decided to use this equipment and system for?**
 
-It is distinct from Registry / Discovery and from live Race Control state.
+Configuration is information, not a standalone operational module. Persistent configuration is owned by Memory. At startup, P&P loads the configuration needed for operation into working RAM; the appropriate modules then use their working configuration locally. They do not turn ordinary local configuration lookups into Pavlov messages or repeatedly consult persistent storage for timing-critical work.
+
+The Pavlov Bus remains the normal route when one P&P component needs to communicate with another. Local access by a module to configuration/state already available to that module in working RAM is not inter-component communication and does not require the bus.
+
+Configuration is distinct from Registry / Discovery and from live Race Control state.
 
 ### 7.1 Installation configuration
 
@@ -373,9 +378,9 @@ This survives between races and power cycles.
 
 Installation configuration may also contain physical parameters required to interpret configured functions, such as the distance between detection points forming a speed trap.
 
-### 7.2 Session configuration
+### 7.2 Race Setup
 
-Session configuration describes how a particular race/session should operate, for example:
+Before START, the SMUG edits **Race Setup**: the mutable working choices for the proposed race/session, for example:
 
 ```text
 Mode = Lap race
@@ -383,7 +388,7 @@ Length = 20 laps
 Fuel = On
 ```
 
-Saved race setups may simply be persistent presets of session configuration.
+Race Setup is working data, not a module. P&P may remember the last useful Race Setup or future named presets in Memory, but the SMUG does not edit a Session Definition directly.
 
 ### 7.3 User / presentation preferences
 
@@ -418,7 +423,9 @@ Configuration changes must be controlled according to their effect on the live s
 
 Some changes may be safe at any time, some only while idle and some must not change underneath an active race.
 
-Race Control and the Race Engine should operate from the fixed session definition prepared for the active session rather than repeatedly reading mutable configuration and discovering that operation or rules have silently changed.
+When START is accepted, P&P validates the proposed Race Setup against the applicable installation/capability information and creates the fixed **Session Definition** in working RAM. The Session Definition is immutable working data for that session, not a module or Pavlov participant and not something the SMUG edits directly.
+
+Race Control and the Race Engine operate from that fixed Session Definition rather than repeatedly reading mutable configuration and discovering that operation or rules have silently changed.
 
 ### 7.7 Optional driver/car data
 
@@ -537,18 +544,20 @@ Separately, Race Control can request **logical actions**, such as scheduled star
 The output path mirrors the input separation:
 
 ```text
-Race Control
+Race Control / other authorised producer
      ↓
-Logical action
+Logical P&P action on the Pavlov Bus
      ↓
-Output Mapping
+Output side applies configured working mapping
      ↓
-Hardware Abstraction
+Output Device hardware abstraction
      ↓
 Physical hardware
 ```
 
-Race Control requests logical outcomes and does not know GPIOs, addresses or device-specific command protocols.
+**Output mapping is configuration data, not a separate module.** Its persistent form is owned by Memory and the applicable working mapping is held in RAM. The output side applies that working mapping locally to select/drive the appropriate Output Device; it does not query persistent Memory for every action.
+
+Each Output Device owns the hardware-specific implementation required to carry out its standard P&P action. Race Control and the Race Engine therefore do not know GPIOs, addresses or device-specific command protocols.
 
 ### 10.1 Time-critical outputs
 
@@ -713,11 +722,13 @@ Persistent information may include installation/configuration data, remembered s
 
 Memory has three distinct relationships with the rest of P&P:
 
-1. **Ordinary persistent information and configuration** — outside a race, authorised human interfaces and other appropriate responsibilities may read or change persistent configuration, history, records, preferences and similar remembered information directly through defined P&P messages. A Session Definition is not required merely to inspect or maintain Memory.
-2. **Session preparation** — relevant remembered configuration and setup contribute to creation of a fixed **Session Definition** for a particular session. Once created, Race Control and the Race Engine operate from that Session Definition rather than repeatedly reading mutable persistent configuration from Memory.
-3. **Persistent recording** — authoritative race/session information worth retaining is written to Memory as appropriate during or after a session. Live race operation does not subsequently depend on reading that information back from Memory to reconstruct what is already known in authoritative live state.
+1. **Persistent information** — Memory owns the persistent copy of installation configuration, preferences, remembered Race Setup, identities, history, records and similar information that must survive power loss.
+2. **Working information** — at startup, and when an authorised persistent change is accepted, the applicable information is made available in working RAM to the modules/responsibilities that need it. Normal operation then uses that working data locally. A sensor crossing, output action or race calculation must not require a fresh persistent-storage lookup merely to obtain configuration already loaded for operation.
+3. **Session preparation and recording** — the proposed Race Setup plus relevant working installation/capability information contribute to creation of a fixed **Session Definition in RAM** when START is accepted. Authoritative race/session information worth retaining is written to Memory as appropriate during or after a session.
 
-The Session Definition is therefore not a gateway to Memory. It is the frozen working definition that isolates an active session from later changes to persistent configuration.
+The Session Definition is therefore not a gateway to Memory and is not a module. It is frozen working data that isolates an active session from later changes to persistent configuration.
+
+Pavlov is used when components communicate changes, Requests, facts or state to one another. A module reading configuration/state already present in its own working RAM is local data access, not a Pavlov transaction.
 
 Memory must not become a shadow Race Engine by reconstructing competition state from every live event. The Race Engine remains authoritative for competition interpretation and live competition state; Memory retains the authoritative results/history information provided for persistence.
 
