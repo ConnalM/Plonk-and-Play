@@ -22,30 +22,6 @@ The behaviour described here should use general P&P mechanisms rather than speci
 
 **Design broadly. Implement narrowly.**
 
-### 16.1 First software implementation milestone
-
-The first implementation milestone is a **software/architecture prototype**, not a declaration that the complete first saleable hardware product is finished.
-
-Wokwi may be used as the development test bench for the ESP32-side software, with simulated sensors, buttons and other suitable devices standing in for physical hardware while real browser clients exercise the P&P user/presentation boundary.
-
-Wokwi is **not part of the P&P architecture or product contract**. No architectural responsibility, interface or behaviour may depend on Wokwi-specific facilities. A simulated device must be replaceable by real hardware implementing the same P&P boundary without requiring race/session logic to be redesigned.
-
-The prototype should prove the architectural path and boundaries, including:
-
-- physical/simulated input through Hardware / Device Abstraction and Event Mapping;
-- separate Race Control and Race Engine responsibilities;
-- authoritative timing, State and Events/Facts;
-- Requests and Request Results;
-- scheduled GO coordination;
-- browser initial synchronisation and current-State refresh;
-- multiple browser clients;
-- disconnect/reconnect and recovery to current authoritative State;
-- rapid input/state changes without browser/network activity delaying timing-critical race processing;
-- configuration and persistence behaviour required by the implemented features;
-- logical output boundaries using simulated outputs where real output hardware is not yet present.
-
-Product features should then be added through these same boundaries rather than bypassing them for convenience.
-
 ## 2. General startup behaviour
 
 P&P uses the same general startup approach regardless of the amount of equipment installed.
@@ -303,6 +279,54 @@ The product-level results screen, retained History behaviour and post-race optio
 The first implementation must implement the behaviour defined above through the responsibilities and boundaries established by the governing P&P documents. It must not introduce first-product shortcuts that bypass or redefine those boundaries.
 
 Where this document deliberately leaves behaviour or implementation undecided, implementation must not silently turn that omission into a permanent architectural decision.
+
+### 16.1 First software implementation milestone
+
+The first implementation milestone is a **software/architecture prototype**, not a declaration that the complete first saleable hardware product is finished.
+
+Wokwi may be used as the development test bench for the ESP32-side software, with simulated sensors, buttons and other suitable devices standing in for physical hardware while real browser clients exercise the P&P user/presentation boundary.
+
+Wokwi is **not part of the P&P architecture or product contract**. No architectural responsibility, interface or behaviour may depend on Wokwi-specific facilities. A simulated device must be replaceable by real hardware implementing the same P&P boundary without requiring race/session logic to be redesigned.
+
+The prototype should prove the architectural path and boundaries, including:
+
+- physical/simulated input through Hardware / Device Abstraction and Event Mapping;
+- separate Race Control and Race Engine responsibilities;
+- authoritative timing, State and Events/Facts;
+- Requests and Request Results;
+- scheduled GO coordination;
+- browser initial synchronisation and current-State refresh;
+- multiple browser clients;
+- disconnect/reconnect and recovery to current authoritative State;
+- rapid input/state changes without browser/network activity delaying timing-critical race processing;
+- configuration and persistence behaviour required by the implemented features;
+- logical output boundaries using simulated outputs where real output hardware is not yet present.
+
+Product features should then be added through these same boundaries rather than bypassing them for convenience.
+
+### 16.2 Prototype implementation sequence
+
+The prototype should be built in small proving stages so that each stage leaves a testable system and validates the next architectural boundary:
+
+1. **ESP32 skeleton** — boot, P&P System Time and module boundaries exist; no race behaviour is required.
+2. **One simulated sensor** — prove a physical/simulated event enters through Hardware / Device Abstraction and produces the clean detector contract.
+3. **Event Mapping** — assign the detector as a Lane 1 Start/Finish input and prove the correct mapped event is produced.
+4. **Race Engine** — mapped crossings produce authoritative lap counts and lap times without requiring a browser.
+5. **Race Control** — prove READY → STARTING → scheduled GO → RACING → FINISHED, with Race Control and Race Engine interacting only through their defined boundaries.
+6. **Browser connection** — prove authoritative State, State-change notifications and Events/Facts can be presented without the browser owning race operation.
+7. **Browser Requests** — START is the first operational Request, including Accepted/Rejected Request Results and authoritative State change after acceptance.
+8. **Two lanes and rapid-event testing** — add a second simulated detector and deliberately exercise closely spaced and rapid inputs; browser/network speed must not compromise authoritative timing.
+9. **Multiple browsers and recovery** — exercise several clients, disconnection, reconnection and a new browser joining mid-race; each must reconstruct current authoritative State without affecting the race.
+
+**Stages 1–9 are the first prototype checkpoint.** At that checkpoint the communication and architectural approach must be assessed before additional product behaviour is piled on top.
+
+After that checkpoint, continue through the same established boundaries:
+
+10. **PAUSE / RESUME** — Honour restart first, then Grid Restart.
+11. **Results and persistence** — completed race, Results, History, Race Again and appropriate reboot persistence.
+12. **Outputs** — simulated lights, audio and other logical outputs consume defined actions/facts without Race Control or Race Engine acquiring device-specific knowledge.
+
+Practice, Endurance, Timed Stage, Drag and other product features can then be added through the proven architecture rather than being required to prove the architecture itself.
 
 **Design broadly. Implement narrowly.**
 
