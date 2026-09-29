@@ -463,8 +463,8 @@ This does **not** create a universal decision-making dispatcher or receptionist.
 
 Examples:
 
-- Presentation clients such as the browser or Taster publish authorised operational **Requests**; Race Control consumes the Requests for which it is responsible.
-- Input Devices publish clean standard competition Input Events; the Race Engine consumes the competition events relevant to it.
+- Presentation clients such as the browser or Taster publish authorised operational **Requests**; the P&P responsibility that owns the requested change consumes the Request. Race Control consumes session-operation Requests such as START, PAUSE and RESUME.
+- Input Devices publish clean standard physical Input Events; the Input Module consumes them, applies the configured working mapping and publishes meaningful competition Input Events; the Race Engine consumes the competition events relevant to it.
 - Race Control may publish an authoritative scheduled GO; the Race Engine and relevant presentation/output consumers may consume the same publication.
 - The Race Engine may publish competition completion; Race Control consumes that fact and applies the session-lifecycle consequence.
 
@@ -480,13 +480,13 @@ They do not depend on sensor models, GPIOs, wireless addresses, physical gantrie
 
 Different race forms are treated as replaceable Race Engine rule sets within the common Race Control / Race Engine framework rather than separate hardware/timing systems.
 
-Known modes include:
+Known customer-facing modes include:
 
-- lap race;
-- timed race;
-- practice;
-- timed stage;
-- drag racing;
+- Lap Race;
+- Practice;
+- Endurance;
+- Timed Stage;
+- Drag;
 - future modes.
 
 A new mode should ideally add its rules without altering unrelated existing modes.
@@ -498,10 +498,10 @@ Features that can operate across multiple race modes should not be buried inside
 Fuel is the current example:
 
 ```text
-Lap race + fuel
-Lap race without fuel
-Timed race + fuel
-Timed race without fuel
+Lap Race + fuel
+Lap Race without fuel
+Endurance + fuel
+Endurance without fuel
 ```
 
 Future optional race features may be added where justified without pre-building speculative functionality.
@@ -606,7 +606,7 @@ Loss, sleep or disconnection of a browser must not stop the race.
 
 ### 12.1 Context-sensitive controls
 
-Race Control determines which commands are valid in its current state. Presentation exposes only controls appropriate to those valid commands.
+Race Control determines which session-operation Requests are valid in its current state. Other authoritative responsibilities validate Requests that belong to them. Presentation exposes only controls appropriate to the currently valid Requests.
 
 For example, **Pause** is relevant only once a race is running, while **Resume** is relevant only when paused.
 
@@ -618,9 +618,9 @@ There is one Master control authority at a time: the **Race Director**.
 
 The controller-side Presentation / User Interaction responsibility owns client/session identity, which client currently holds Race Director authority, and deliberate transfer or recovery of that authority. It determines whether a particular client is permitted to submit Race Director commands.
 
-Race Control does not need to know browser, connection or transport details. It receives authorised logical commands and separately determines whether each command is valid in the current race/session state and what consequence it has.
+Race Control does not need to know browser, connection or transport details. It receives authorised logical session-operation Requests and separately determines whether each Request is valid in the current race/session state and what consequence it has.
 
-Only the Master may issue authoritative race-control and race-configuration commands such as:
+Only the Master may issue Race Director Requests such as:
 
 - start;
 - pause;
