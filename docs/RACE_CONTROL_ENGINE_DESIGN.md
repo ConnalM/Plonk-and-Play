@@ -121,12 +121,12 @@ Starting a new individual race creates fresh individual-race state within the al
 
 Race modes are replaceable rule sets within the common Race Engine framework rather than a single growing collection of mode-specific conditions.
 
-Known modes include:
-- lap race;
-- timed race;
-- practice;
-- rally;
-- drag racing;
+Known customer-facing modes include:
+- Lap Race;
+- Practice;
+- Endurance;
+- Timed Stage;
+- Drag;
 - future modes.
 
 Different modes may have different concepts of start, competitor, completion and result while retaining the same Race Control / Race Engine responsibility boundary.
@@ -212,7 +212,7 @@ A newly connected or recovering current-state consumer obtains the authoritative
 
 Continuous values must not generate streams of authoritative events merely because their displayed value changes with time. Significant transitions may be published as facts/events, while consumers obtain or derive the current value from authoritative state and P&P System Time where appropriate.
 
-The authoritative fact/state exists independently of whether a particular consumer successfully receives a live notification. Current-state consumers can resynchronise; obsolete transient notifications may simply be missed; information that P&P has decided must persist is retained by the appropriate persistent-storage responsibility rather than depending on a live consumer receiving a notification.
+The authoritative fact/state exists independently of whether a particular consumer successfully receives a live notification. Current-state consumers can resynchronise; obsolete transient notifications may simply be missed; information that P&P has decided must persist is retained by the Memory Module rather than depending on a live consumer receiving a notification.
 
 Consumers may derive information for their own presentation or local use, but this does not create new authoritative P&P state or facts. If derived information must itself be authoritative or shared, it is produced by the responsibility that owns that meaning and exposed through its defined boundary.
 
