@@ -686,6 +686,8 @@ The storage model must be extensible so that substantially richer information ca
 
 P&P may distribute information widely, but it must not distribute ownership. For each authoritative fact or state there is one owner and one truth. Other components may hold views, snapshots or derived presentation data without becoming another authority.
 
+Architectural modules own the internal state required to perform their responsibility. Other modules consume defined outputs, facts, state or requests through the owning module's boundary; they do not depend on its internal workings. In particular, Race Control does not need to know the Race Engine's internal lap, position or calculation process. It consumes only defined Race Engine outputs that matter to session operation, such as competition completion. The architecture therefore does not require a universal central State module.
+
 A component publishes and receives information only through its defined boundaries. Publication means information has been made available; it does not prove every consumer received it and does not by itself imply persistence.
 
 Facts/events describe what happened. Current state describes what is true now. Persistent information describes what must remain available across the relevant lifecycle. A recovering consumer resynchronises from the authoritative current state it needs and then consumes new relevant facts/events; it does not require replay of every earlier transient event.
