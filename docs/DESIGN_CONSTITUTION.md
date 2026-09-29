@@ -16,7 +16,7 @@ If a design makes P&P harder for the customer to install, expand or use, there m
 
 P&P is a system of interoperable modules, not a collection of unrelated products.
 
-Modules communicate through clearly defined interfaces. A module should be capable of being added, replaced or upgraded without requiring unrelated parts of the system to be redesigned.
+Modules communicate through clearly defined message contracts on the common P&P communications bus unless an explicit architectural exception is agreed. Bus connectivity provides communication, not authority: each message contract defines who may originate and consume it. A module should be capable of being added, replaced or upgraded without requiring unrelated parts of the system to be redesigned.
 
 What a module does must be separated from how it is physically implemented or connected.
 
@@ -26,7 +26,7 @@ The Race Engine, for example, should not need to know whether a timing event ori
 
 Supported P&P equipment should identify itself, its capabilities and its software/firmware version automatically wherever technically practical.
 
-The controller should maintain a registry of known modules and remember their configuration and assigned roles.
+The controller should maintain authoritative Registry state for known equipment. Persistent configuration and assigned roles are retained by Memory and loaded into working RAM for normal operation; Registry describes what equipment exists and is available.
 
 The customer should only be asked for information that cannot reasonably be discovered automatically, such as whether a newly installed timing bridge has physically been placed at Start/Finish or at a sector point.
 
@@ -76,7 +76,9 @@ OTA updating, version compatibility and recovery from interrupted or failed upda
 
 Each important responsibility has one defined owner.
 
-Race state belongs to the Race Engine. Hardware detection belongs to the appropriate hardware/input layer. Module identity and configuration belong to the appropriate configuration/registry system. Presentation belongs to the presentation layer.
+Competition state belongs to the Race Engine. Session-operation state belongs to Race Control. Hardware detection belongs to the appropriate hardware/input layer. Registry owns authoritative equipment state; Memory owns persistent configuration; running modules use the applicable working configuration/state in RAM. Presentation belongs to the presentation layer.
+
+Configuration, mappings, Race Setup, Session Definition and authoritative State views do not become modules merely because other parts of P&P use that information. Local access to working data is not inter-component communication and does not require a bus message.
 
 Implementation details must not leak unnecessarily across those boundaries.
 
