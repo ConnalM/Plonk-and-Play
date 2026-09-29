@@ -437,7 +437,9 @@ A small persistent list of drivers and/or cars is a possible product feature, pa
 
 ## 7.7 Authoritative Noticeboard
 
-The **Noticeboard** is the current authoritative state of every relevant thing needed to understand P&P/session state now. It is information/state assembled from the responsibilities that own that truth; it is not another operational module and does not become another owner of the underlying information.
+The **Noticeboard** is P&P's authoritative current externally presentable view of itself. It contains everything relevant and current needed to understand P&P or an active session, plus any current information made available to a Browser, Taster or other presentation interface. It is information/state assembled from the responsibilities that own that truth; it is not another operational module and does not become another owner of the underlying information.
+
+During a session this includes the relevant Session Definition information as well as live session/competition state. Outside a race it can include current Race Setup, available options, capability/availability information, selectable saved identities and user-facing status/fault information where an interface needs them. The Noticeboard is not History and does not expose private hardware/implementation detail merely because it exists. A Browser/Taster obtains current externally presentable P&P information through the Noticeboard rather than directly interrogating owning modules.
 
 A material change to the Noticeboard can cause a standard Pavlov **NOTICEBOARD_CHANGED** notification — informally, a **ding**. The ding does not carry a replacement copy of State; interested consumers look again at the current authoritative information they need.
 
@@ -722,7 +724,7 @@ The browser need not run an independent authoritative race clock. This keeps mul
 
 Separately from race timing, P&P may maintain a low-stakes human-readable clock for browser display and connection indication. P&P does not require an RTC, Internet time or manually entered wall-clock time for racing. When a browser connects, it may supply its own approximate local time to initialise this display clock. Accuracy to real-world time is not important to race operation.
 
-Once initialised, P&P maintains this display clock and sends its current value to connected browsers once per second. Browsers display the P&P-supplied value rather than independently advancing their own copy. These regular clock updates therefore also provide a simple connection/health indication without requiring a separate routine heartbeat.
+Once initialised, P&P maintains this display clock and sends its current value to connected browsers once per second. This is a dedicated time/display synchronisation stream, not a Noticeboard mutation: its once-per-second updates do not generate NOTICEBOARD_CHANGED dings. Browsers display the P&P-supplied value rather than independently advancing their own copy. These regular clock updates therefore also provide a simple connection/health indication without requiring a separate routine heartbeat.
 
 A single missed update need not imply failure. If updates cease beyond an implementation-defined tolerance, the browser treats itself as unsynchronised, freezes rather than locally advancing the P&P display clock, and indicates connection loss. Recovery requires a fresh full authoritative state snapshot before normal delta processing resumes.
 
