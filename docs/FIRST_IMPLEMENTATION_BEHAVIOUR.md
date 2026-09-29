@@ -96,7 +96,7 @@ On subsequent startup, remembered configuration takes precedence over factory de
 
 P&P discovers the equipment actually available and reconciles that reality with the remembered configuration.
 
-A missing known device or capability retains its remembered assignment but is marked unavailable.
+A missing known device or capability retains its remembered/default role proposal but is marked unavailable. The active racing role is not owned by the device or Input Module; roles actually used by a race are frozen into its Session Definition when START is accepted.
 
 P&P must not silently move another device into that role merely because it is available.
 
