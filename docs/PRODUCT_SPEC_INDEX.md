@@ -12,6 +12,7 @@ This file identifies where agreed P&P decisions live so later design work does n
 - `SYSTEM_LIFECYCLE.md` — lifecycle/recovery responsibilities.
 - `RACE_CONTROL_ENGINE_DESIGN.md` — Race Control / Race Engine ownership and boundaries.
 - `FIRST_IMPLEMENTATION_BEHAVIOUR.md` — deliberately narrow first useful implementation, including the three Lap Race finish behaviours.
+- `MESSAGE_CONTRACT.md` — common Pavlov message rules, first concrete Message Types, Session Definition v1 information and authoritative Noticeboard/ding behaviour.
 
 ## Product behaviour specifications
 
