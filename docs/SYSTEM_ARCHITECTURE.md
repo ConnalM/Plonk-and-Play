@@ -73,9 +73,9 @@ An **Input Device** is one complete working source of physical input. It owns ev
 
 Each Input Device translates its own native behaviour into the standard physical P&P input contract. Adding a new Input Device type must not require a central translator to be modified merely to understand that device's native output.
 
-An intelligent remote device may perform some or all of this source-specific interpretation locally before transmitting the standard physical event.
+An intelligent remote device may perform some or all of this source-specific interpretation locally before transmitting the standard physical event. Where an Input Device and the mapping responsibility are separate P&P components, that physical event is communicated through the common bus/appropriate Transport Adapter like other inter-component communication.
 
-The Input Module then applies the current configured mapping held in working RAM, converting the clean physical fact into its configured P&P meaning before publication for race use. The Race Engine therefore does not need to know whether a competition event originated from ToF hardware, a keyboard, a test harness or another future source, which detector identity produced it, or which physical transport carried it.
+The Input Module consumes the relevant clean physical Input Events, applies the current configured mapping held in working RAM, and publishes the resulting meaningful competition Input Events back onto the common bus for race use. The Race Engine therefore does not need to know whether a competition event originated from ToF hardware, a keyboard, a test harness or another future source, which detector identity produced it, or which physical transport carried it.
 
 ### 4.2 Detector events
 
@@ -656,7 +656,7 @@ User interfaces send logical **requests**, not direct mutations of authoritative
 
 Physical controls enter through the appropriate hardware/input path. Depending on the device, that path may map a simple physical detector state into a semantic race input, or an intelligent device may report an appropriate standard semantic input directly.
 
-Both physical controls and user interfaces ultimately present the appropriate P&P responsibility with defined semantic inputs or requests which are validated and interpreted according to current state and configuration. Race Director requests such as START, PAUSE and RESUME are validated against current state. Other permitted inputs, such as CAR OFF or TRACK_CALL_REQUEST, are interpreted according to session rules/configuration and may result in an authoritative action.
+Both physical controls and user interfaces ultimately present the appropriate P&P responsibility with defined semantic inputs or requests which are validated and interpreted according to current state and configuration. Race Director requests such as START, PAUSE and RESUME are validated against current state. Other permitted inputs, such as CAR OFF or TRACK_CALL_REQUEST, are interpreted according to the active Session Definition and current authoritative state and may result in an authoritative action.
 
 Browser-facing communication distinguishes five semantic kinds of information:
 
