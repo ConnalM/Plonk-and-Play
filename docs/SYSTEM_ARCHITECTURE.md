@@ -156,16 +156,20 @@ Race Control decides the consequence according to the active session and availab
 
 A replacement device identifies itself and its capabilities, not its assumed physical role. Configuration/Discovery may transfer remembered assignments automatically where replacement is unambiguous. Where there is a genuine choice, the user is asked.
 
-## 6. Registry / Discovery
+## 6. Registry and Discovery
 
-Registry / Discovery answers:
+Registry and Discovery answer the related question:
 
 > **What equipment actually exists?**
 
-Discovery and Registry are related but distinct responsibilities:
+They are deliberately not the same kind of architectural thing:
 
-- **Discovery** finds equipment and learns what it claims to provide.
-- **Registry** maintains P&P's current knowledge of that equipment: identity, capabilities, version and availability.
+- **Discovery** is an active responsibility. It finds equipment, learns what it claims to provide, detects relevant availability changes and updates Registry.
+- **Registry** is shared authoritative equipment state, not an operational module. It maintains P&P's current knowledge of equipment: identity, capabilities, version and availability.
+
+Registry does not decide the operational significance of the information it holds. Other responsibilities may read Registry information or react to Registry changes through standard P&P communication. For example, loss of a required detector may matter to Race Control, while the same change may also be presented by a human interface or observed by diagnostics.
+
+Where useful, equipment/capability changes may be published on the common P&P communications bus. Publication reports the change; it does not transfer responsibility for deciding its consequence to Registry.
 
 Conceptually:
 
