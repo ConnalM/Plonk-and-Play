@@ -66,7 +66,7 @@ The initial base configuration is:
 - optional race features off;
 - the recommended base physical arrangement places each lane's Start/Finish sensor before the Start/Finish line in the direction of travel.
 
-With that recommended arrangement, a car starts before its Start/Finish detector. After GO, the first Start/Finish crossing completes Lap 1, timed from GO. This is the default first-implementation behaviour; alternative physical arrangements remain supported through installation/session configuration as defined by `RACE_CONTROL_ENGINE_DESIGN.md`.
+With that recommended arrangement, a car starts before its Start/Finish detector. After GO, the first Start/Finish crossing completes Lap 1, timed from GO. This is the default first-implementation behaviour; alternative physical arrangements remain supported through installation configuration and Race Setup as defined by `RACE_CONTROL_ENGINE_DESIGN.md`.
 
 Where the base product or remembered installation makes an assignment unambiguous, P&P may make it automatically. Where more than one valid assignment is possible, P&P must not guess.
 
@@ -177,13 +177,15 @@ Immediately after START is requested, Race Control performs the final readiness 
 
 No unnecessary confirmation screen is required.
 
-## 10. Fixing the race configuration
+## 10. Fixing the Session Definition
 
-When START is accepted, the effective session configuration becomes fixed for that race.
+Before START, the SMUG changes the proposed **Race Setup**. The SMUG does not edit a Session Definition.
 
-Normal race operation may change race state, but ordinary configuration changes must not silently alter the active session definition.
+When START is accepted, P&P validates the Race Setup against the applicable working installation/capability information and creates the fixed **Session Definition in RAM** for that race.
 
-START begins the start procedure configured for that race.
+Normal race operation may change race state, but ordinary configuration changes must not silently alter the active Session Definition.
+
+START begins the start procedure defined for that race.
 
 ## 11. Start procedure
 
@@ -290,7 +292,8 @@ Wokwi is **not part of the P&P architecture or product contract**. No architectu
 
 The prototype should prove the architectural path and boundaries, including:
 
-- physical/simulated input through Hardware / Device Abstraction and Event Mapping;
+- physical/simulated input through Input Devices and the Input Module, including configured input mapping;
+- the common P&P communications bus as the normal inter-component path;
 - separate Race Control and Race Engine responsibilities;
 - authoritative timing, State and Events/Facts;
 - Requests and Request Results;
@@ -308,13 +311,14 @@ Product features should then be added through these same boundaries rather than 
 
 The prototype should be built in small proving stages so that each stage leaves a testable system and validates the next architectural boundary:
 
-1. **ESP32 skeleton** — boot, P&P System Time and module boundaries exist; no race behaviour is required.
-2. **One simulated sensor** — prove a physical/simulated event enters through Hardware / Device Abstraction and produces the clean detector contract.
-3. **Event Mapping** — assign the detector as a Lane 1 Start/Finish input and prove the correct mapped event is produced.
-4. **Race Engine** — mapped crossings produce authoritative lap counts and lap times without requiring a browser.
-5. **Race Control** — prove READY → STARTING → scheduled GO → RACING → FINISHED, with Race Control and Race Engine interacting only through their defined boundaries.
-6. **Browser connection** — prove authoritative State, State-change notifications and Events/Facts can be presented without the browser owning race operation.
-7. **Browser Requests** — START is the first operational Request, including Accepted/Rejected Request Results and authoritative State change after acceptance.
+1. **ESP32 skeleton** — boot, P&P System Time, Memory access, working configuration in RAM, the common P&P communications bus and module boundaries exist; no race behaviour is required.
+2. **One simulated Input Device** — prove a physical/simulated event is cleaned by its Input Device and produces the standard physical detector contract.
+3. **Input Module mapping** — load the detector assignment into working configuration, assign it as Lane 1 Start/Finish and prove the Input Module produces the correct meaningful competition Input Event.
+4. **Pavlov Bus delivery** — publish that competition Input Event on the common bus and prove an authorised subscriber receives it without a private point-to-point path.
+5. **Race Engine** — bus-delivered mapped crossings produce authoritative lap counts and lap times without requiring a browser.
+6. **Race Control** — prove READY → STARTING → scheduled GO → RACING → FINISHED, with Race Control and Race Engine communicating through the common bus and retaining their separate ownership boundaries.
+7. **Browser connection** — prove authoritative State, State-change notifications and Events/Facts can be presented without the browser owning race operation.
+8. **Browser Requests** — START is the first operational Request, including Accepted/Rejected Request Results, creation of the fixed Session Definition in RAM after acceptance and authoritative State change after acceptance.
 8. **Two lanes and rapid-event testing** — add a second simulated detector and deliberately exercise closely spaced and rapid inputs; browser/network speed must not compromise authoritative timing.
 9. **Multiple browsers and recovery** — exercise several clients, disconnection, reconnection and a new browser joining mid-race; each must reconstruct current authoritative State without affecting the race.
 
@@ -341,4 +345,4 @@ Before the first implementation specification is treated as settled for coding, 
 
 Any conflicts must be resolved so that implementation is working from one consistent set of instructions.
 
-The startup/reconciliation ordering is governed by SYSTEM_LIFECYCLE.md: load remembered persistent state first, then discover and reconcile actual equipment, initialise/synchronise it as required, establish current capability availability, and finally present the effective forthcoming session configuration. FIRST_IMPLEMENTATION_BEHAVIOUR.md defines the customer-visible behaviour produced by that lifecycle and does not introduce a competing startup sequence.
+The startup/reconciliation ordering is governed by SYSTEM_LIFECYCLE.md: load remembered persistent state into working RAM first, then discover and reconcile actual equipment, initialise/synchronise it as required, establish current capability availability, and finally present the effective forthcoming Race Setup. FIRST_IMPLEMENTATION_BEHAVIOUR.md defines the customer-visible behaviour produced by that lifecycle and does not introduce a competing startup sequence.
