@@ -39,11 +39,11 @@ The first product may be a simple two-lane lap counter, but the underlying platf
 
 The platform must be capable of supporting:
 
-- Lap races
-- Timed races
+- Lap Race
 - Practice
+- Endurance
 - Timed Stage
-- Drag racing
+- Drag
 
 Modes may have substantially different concepts of starts, finishes, competitors and timing. The architecture must not assume that every session is a conventional simultaneous-start circuit race.
 
