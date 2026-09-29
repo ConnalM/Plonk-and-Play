@@ -441,10 +441,25 @@ For the normal live paths currently defined:
 Conceptually:
 
 ```text
-Browser / Taster ── Requests ──► Race Control
-                                     ⇅
-                                  Race Engine ◄── Input Module
+Browser / Taster
+       │ Requests
+       ▼
+┌──────────── SYSTEM CONTROLLER (SC) ────────────┐
+│                                               │
+│   ┌──────────────┐       ┌──────────────┐     │
+│   │ Race Control │  ⇄    │ Race Engine  │     │
+│   │     (RC)     │       │     (RE)     │     │
+│   └──────────────┘       └──────▲───────┘     │
+│                                 │             │
+└─────────────────────────────────┼─────────────┘
+                                  │ Input Events
+                                  │
+                           ┌──────┴───────┐
+                           │ Input Module │
+                           └──────────────┘
 ```
+
+The **System Controller (SC)** is the enclosing authoritative race-controller boundary containing Race Control and the Race Engine. It is not an additional functional module and does not imply an extra routing layer between those modules and their defined interfaces.
 
 This routing is a consequence of responsibility ownership, not a rule that all future traffic must follow the same shape. A new module should communicate through the smallest appropriate defined boundary rather than being forced through a universal dispatcher or through Race Control merely for routing.
 
