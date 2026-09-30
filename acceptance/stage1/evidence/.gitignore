@@ -1,0 +1,2 @@
+# Keep exact local binaries for inspection without proposing them for Git.
+artifacts/

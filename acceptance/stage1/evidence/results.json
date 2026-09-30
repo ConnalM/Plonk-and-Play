@@ -1,0 +1,419 @@
+{
+  "project": "Plonk & Play",
+  "repository": "ConnalM/Plonk-and-Play",
+  "source_base_commit": "ac6c73bce1fbfad374eee7409b974663647ce65a",
+  "acceptance_spec_commit": "ac6c73bce1fbfad374eee7409b974663647ce65a",
+  "source_is_uncommitted_overlay": true,
+  "builds": {
+    "esp32dev/firmware.elf": {
+      "sha256": "20c45022e9c51ddb296ba5116da1d6c89dcf9a8b83b7ef2ef3106322edad06f6",
+      "bytes": 6127036
+    },
+    "esp32dev/firmware.merged.bin": {
+      "sha256": "c3008038789457b440ec5741dca0518d4afdee4d6f6bcb19751132c45dc0c67b",
+      "bytes": 362528
+    },
+    "acceptance/firmware.elf": {
+      "sha256": "dda4f3b5b3553d1cd42ba91111b13da0958f9c0930111e83fe0ea8e99bffd3f6",
+      "bytes": 6272812
+    },
+    "acceptance/firmware.merged.bin": {
+      "sha256": "b3ea01ced60d1c27a5f462e9dc726edfeae186f2b0ac749d1f31937bb84699ca",
+      "bytes": 376560
+    }
+  },
+  "tests": {
+    "1.1": {
+      "frozen_criterion": "Clean boot\n\n**Stimulus:** Start the Stage 1 firmware from a clean/reset ESP32.\n\n**Expected:** P&P initialises successfully and reaches its Stage 1 operational state. No race behaviour starts.",
+      "predetermined_recipe": "Fresh Wokwi ESP32 boot; observe production serial and ready/fault from instrumented composition.",
+      "result": "PASS",
+      "actual": {
+        "snapshot": {
+          "phase": "0",
+          "sample": "1",
+          "ready": "1",
+          "fault": "0",
+          "diag": "1",
+          "time": "836234",
+          "reads": "2"
+        },
+        "no_race_message": true
+      },
+      "raw_evidence": "production-serial.txt; acceptance-serial.txt; structural-review.md",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.2": {
+      "frozen_criterion": "P&P System Time\n\n**Stimulus:** Observe/read P&P System Time at known intervals during operation.\n\n**Expected:** P&P System Time is available, monotonic and advances correctly; it does not go backwards. It is the System Controller's P&P time source rather than a diagnostic-only clock.",
+      "predetermined_recipe": "Three shared-service samples, scenario delays of 1 simulated second. Adjacent differences must be 1,000,000 +/-25,000 us (UART/observer scheduling allowance, not a physical-clock accuracy claim).",
+      "result": "PASS",
+      "actual": {
+        "system_us": [
+          836234,
+          1846234,
+          2851234
+        ],
+        "delta_us": [
+          1010000,
+          1005000
+        ]
+      },
+      "raw_evidence": "acceptance-serial.txt; source/firmware/src/system_time.cpp; source/firmware/src/acceptance_clock.cpp",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.3": {
+      "frozen_criterion": "First-start Memory and configuration\n\n**Stimulus:** Start with no valid remembered customer configuration.\n\n**Expected:** Memory initialises normally and appropriate factory/default configuration is loaded into working RAM. Absence of saved configuration is a normal first-start condition, not a fault.",
+      "predetermined_recipe": "Fresh simulated flash, observe RAM defaults: lanes=2,laps=10,features=0,sound=1,power=1,mode=1; load status DefaultsMissing=1.",
+      "result": "PASS",
+      "actual": {
+        "expected": {
+          "status": 1,
+          "lanes": 2,
+          "laps": 10,
+          "features": 0,
+          "sound": 1,
+          "power": 1,
+          "mode": 1
+        },
+        "actual": {
+          "status": 1,
+          "lanes": 2,
+          "laps": 10,
+          "features": 0,
+          "sound": 1,
+          "power": 1,
+          "mode": 1
+        },
+        "result": "PASS"
+      },
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.4": {
+      "frozen_criterion": "Remembered configuration\n\n**Stimulus:** Save a deliberately identifiable valid configuration, restart P&P.\n\n**Expected:** The remembered value is recovered through Memory and loaded into working RAM rather than silently reverting to the factory value.",
+      "predetermined_recipe": "Save laps=37 through real Memory in pp-stage1, ESP.restart, then observe normal lifecycle-loaded RAM and Remembered=0.",
+      "result": "PASS",
+      "actual": {
+        "expected": {
+          "status": 0,
+          "lanes": 2,
+          "laps": 37,
+          "features": 0,
+          "sound": 1,
+          "power": 1,
+          "mode": 1
+        },
+        "actual": {
+          "status": 0,
+          "lanes": 2,
+          "laps": 37,
+          "features": 0,
+          "sound": 1,
+          "power": 1,
+          "mode": 1
+        },
+        "result": "PASS"
+      },
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.5": {
+      "frozen_criterion": "Invalid/corrupt persistent data\n\n**Stimulus:** Present deliberately invalid/corrupt saved configuration and restart.\n\n**Expected:** P&P does not use corrupt information as valid configuration. It recovers safely according to the existing persistence design and reaches a valid working configuration.",
+      "predetermined_recipe": "Overwrite both pp-stage1 slots with 32 bytes of 0xa5 at Store fault-injection seam; ESP.restart; expect defaults, DefaultsInvalid=2 and ready=1.",
+      "result": "PASS",
+      "actual": {
+        "expected": {
+          "status": 2,
+          "lanes": 2,
+          "laps": 10,
+          "features": 0,
+          "sound": 1,
+          "power": 1,
+          "mode": 1
+        },
+        "actual": {
+          "status": 2,
+          "lanes": 2,
+          "laps": 10,
+          "features": 0,
+          "sound": 1,
+          "power": 1,
+          "mode": 1
+        },
+        "result": "PASS"
+      },
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.6": {
+      "frozen_criterion": "Working-RAM independence\n\n**Stimulus:** Complete startup, then exercise/read working configuration during normal operation.\n\n**Expected:** Normal configuration use comes from working RAM. Persistent Memory is not repeatedly consulted as the ordinary operational source.",
+      "predetermined_recipe": "After startup, read RAM lap count 10,000 times; sum=100000 and persistent read count unchanged; repeated idle snapshots also must not add reads.",
+      "result": "PASS",
+      "actual": {
+        "ram_reads": {
+          "iterations": "10000",
+          "sum": "100000",
+          "readsBefore": "2",
+          "readsAfter": "2"
+        },
+        "idle_read_counts": [
+          "2",
+          "2",
+          "2"
+        ]
+      },
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.7": {
+      "frozen_criterion": "Message Bus \u2014 permitted delivery\n\n**Stimulus:** Have an authorised test publisher send a known test message to an authorised subscriber through the P&P Message Bus.\n\n**Expected:** The authorised subscriber receives exactly the permitted message through the real P&P Message Bus. No private point-to-point inter-component path is used.",
+      "predetermined_recipe": "Diagnostics publishes token=271828, relevantTime=1234567890123, eventId=73 on actual running bus. Both authorised subscribers receive type=2/source=publisher and exactly one identical payload.",
+      "result": "PASS",
+      "actual": {
+        "delivery": {
+          "phase": "0",
+          "result": "0",
+          "a": "1",
+          "b": "1",
+          "extraA": "0",
+          "extraB": "0",
+          "unrelated": "0",
+          "publisher": "8"
+        },
+        "received": [
+          {
+            "who": "A",
+            "type": "2",
+            "source": "8",
+            "token": "271828",
+            "time": "1234567890123",
+            "id": "73"
+          },
+          {
+            "who": "B",
+            "type": "2",
+            "source": "8",
+            "token": "271828",
+            "time": "1234567890123",
+            "id": "73"
+          }
+        ],
+        "expected_payload": {
+          "type": "2",
+          "source": "8",
+          "token": "271828",
+          "time": "1234567890123",
+          "id": "73"
+        }
+      },
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.8": {
+      "frozen_criterion": "Message Bus \u2014 authority\n\n**Stimulus:** Attempt publication of a Message Type from a component not permitted to publish that type.\n\n**Expected:** The unauthorised publication is rejected/not delivered. Attachment to the bus grants connectivity, not authority.",
+      "predetermined_recipe": "Input endpoint attempts the same Diagnostics-only publication; expect Forbidden=1 and neither authorised subscriber receives it.",
+      "result": "PASS",
+      "actual": {
+        "result": "1",
+        "receivedA": "0",
+        "receivedB": "0"
+      },
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.9": {
+      "frozen_criterion": "Message Bus \u2014 subscription\n\n**Stimulus:** Publish a known message with both subscribed and non-subscribed test participants present.\n\n**Expected:** The appropriate subscriber receives it. An unrelated/non-subscribed participant does not receive it merely because it is connected to the bus.",
+      "predetermined_recipe": "Same publication with an attached Diagnostics participant that has not subscribed; expect no receipt for it, while subscribed participants receive.",
+      "result": "PASS",
+      "actual": {
+        "phase": "0",
+        "result": "0",
+        "a": "1",
+        "b": "1",
+        "extraA": "0",
+        "extraB": "0",
+        "unrelated": "0",
+        "publisher": "8"
+      },
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.10": {
+      "frozen_criterion": "Message Bus self-test\n\n**Stimulus:** Run the Stage 1 Message Bus self-test.\n\n**Expected:** The intended bus behaviours are genuinely exercised and their actual results are reported. Evidence must show the exercised behaviour/results rather than only a final `[BUS SELF-TEST] PASS` assertion.",
+      "predetermined_recipe": "Run boot self-test and repeat using serial t; retain individual actual check results, raw bus observations, and exact self-test source.",
+      "result": "PASS",
+      "actual": {
+        "bus.authority.publish": 4,
+        "bus.authority.subscribe": 4,
+        "bus.fanout.publish": 4,
+        "bus.fanout.identical": 4,
+        "bus.no.duplicate": 4,
+        "bus.backpressure.atomic": 4,
+        "bus.fifo": 4,
+        "bus.recovery": 4
+      },
+      "raw_evidence": "acceptance-serial.txt; source/firmware/include/pp/verification.h",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.11": {
+      "frozen_criterion": "Required development diagnostics\n\n**Stimulus:** Perform normal startup with controlled development diagnostics enabled.\n\n**Expected:** Serial diagnostics visibly report initialisation/readiness of P&P System Time, Memory, working configuration and the P&P Message Bus, plus the Message Bus self-test result.",
+      "predetermined_recipe": "Production image boot with diagnostics enabled; require all four service readiness messages and individual bus checks plus final self-test result.",
+      "result": "PASS",
+      "actual": {
+        "System Time READY": true,
+        "Memory READY": true,
+        "Working configuration READY": true,
+        "Message Bus READY": true,
+        "[BUS SELF-TEST] PASS": true
+      },
+      "raw_evidence": "production-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.12": {
+      "frozen_criterion": "Diagnostics are non-essential\n\n**Stimulus:** Run the same Stage 1 firmware with development diagnostics disabled.\n\n**Expected:** P&P still boots and operates correctly at Stage 1. Diagnostics are not required for correct operation and do not become authoritative P&P State.",
+      "predetermined_recipe": "Same acceptance ELF, set observer-owned next-boot diagnostic switch, ESP.restart with diagnostics disabled before startup. Independent observer must see ready=1/fault=0/diag=0, working config and functioning bus; no product startup diagnostic lines after reset.",
+      "result": "PASS",
+      "actual": {
+        "snapshot": {
+          "phase": "12",
+          "sample": "1",
+          "ready": "1",
+          "fault": "0",
+          "diag": "0",
+          "time": "8400549",
+          "reads": "2"
+        },
+        "bus": {
+          "phase": "12",
+          "result": "0",
+          "a": "1",
+          "b": "1",
+          "extraA": "0",
+          "extraB": "0",
+          "unrelated": "0",
+          "publisher": "8"
+        },
+        "product_diagnostics_after_reset": false,
+        "same_ELF_for_all_phases": "dda4f3b5b3553d1cd42ba91111b13da0958f9c0930111e83fe0ea8e99bffd3f6"
+      },
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.13": {
+      "frozen_criterion": "Architectural boundaries\n\n**Method:** Inspect/build-test the Stage 1 implementation against the accepted architecture.\n\n**Expected:** P&P System Time remains a shared service; configuration remains information; Memory owns persistence; normal inter-component communication uses the P&P Message Bus; Stage 1 has not created competing authoritative ownership, inappropriate operational modules, or hidden private inter-component production paths.\n\nThis test is deliberately partly structural inspection because these architectural properties cannot all be proven from external serial output alone.",
+      "predetermined_recipe": "Inspect frozen governing documents and exact source; build production and instrumented firmware; link System Time from a second translation unit. Retain structural findings and source snapshot.",
+      "result": "PASS",
+      "actual": {
+        "baseline": {
+          "commit": "ac6c73bce1fbfad374eee7409b974663647ce65a",
+          "test": "1.13",
+          "result": "FAIL",
+          "actual": "systemTime() is in main.cpp's anonymous namespace; no shared service declaration exists. Clock mechanism is suitable but the service is not accessible to another translation unit."
+        },
+        "findings": [
+          {
+            "property": "Shared System Controller time",
+            "result": "PASS",
+            "evidence": "pp/system_time.h declares the service; src/system_time.cpp alone calls esp_timer_get_time; main.cpp and independent acceptance_clock.cpp call that same service."
+          },
+          {
+            "property": "Configuration is information",
+            "result": "PASS",
+            "evidence": "Configuration is a value struct; lifecycle obtains a correlated Memory response and copies it into workingConfiguration. No Configuration bus role/module exists."
+          },
+          {
+            "property": "Memory owns persistence",
+            "result": "PASS",
+            "evidence": "Memory codec and Store boundary retain the same owner; MemoryModule polls LoadConfiguration and publishes ConfigurationLoaded. Normal runtime makes no persistent configuration reads except processing a load request. Test-only fixture writes are explicitly isolated."
+          },
+          {
+            "property": "Common bus communication",
+            "result": "PASS",
+            "evidence": "Boot uses bus.publish LoadConfiguration, MemoryModule.tick receives it, and ConfigurationLoaded returns through bus.receive. Intra-Memory Store calls are internal, not another production component path."
+          },
+          {
+            "property": "No competing authority or Stage 2",
+            "result": "PASS",
+            "evidence": "Input/RaceControl/RaceEngine/Output/Presentation remain dormant endpoint holders; no race state, input event, session, synthetic sensor or product network interface was added."
+          },
+          {
+            "property": "Diagnostics non-authoritative",
+            "result": "PASS",
+            "evidence": "Diagnostics only buffers output; ready derives from functional initialisation/self-test regardless of enable flag. Acceptance observers read state without setting ready or bypassing boot."
+          },
+          {
+            "property": "Test boundary isolation",
+            "result": "PASS",
+            "evidence": "PP_ACCEPTANCE excludes every fixture/control/observer from esp32dev. Authorised diagnostic probes traverse the actual production Bus, not a second implementation. Fault injection uses the Store seam; reload always uses the normal MemoryModule and lifecycle path."
+          }
+        ]
+      },
+      "raw_evidence": "structural-review.md; structural-review.json; source/; esp32dev-build.txt; acceptance-build.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "1.T": {
+      "frozen_criterion": "Deliberate failure\n\n**Stimulus:** Deliberately supply the acceptance harness with a known incorrect expected value/result.\n\n**Expected:** The harness reports FAIL and retains the mismatch. Restore the correct expectation after this sanity test.\n\nThis tests the acceptance mechanism, not P&P product behaviour.",
+      "predetermined_recipe": "Feed the same configuration oracle known-wrong laps=999 against captured first-boot laps=10. Require FAIL and mismatch retained, then restore expected laps=10 and require PASS.",
+      "result": "PASS",
+      "actual": {
+        "known_wrong_expected_value": {
+          "expected": {
+            "status": 1,
+            "lanes": 2,
+            "laps": 999,
+            "features": 0,
+            "sound": 1,
+            "power": 1,
+            "mode": 1
+          },
+          "actual": {
+            "status": 1,
+            "lanes": 2,
+            "laps": 10,
+            "features": 0,
+            "sound": 1,
+            "power": 1,
+            "mode": 1
+          },
+          "result": "FAIL"
+        },
+        "restored": {
+          "expected": {
+            "status": 1,
+            "lanes": 2,
+            "laps": 10,
+            "features": 0,
+            "sound": 1,
+            "power": 1,
+            "mode": 1
+          },
+          "actual": {
+            "status": 1,
+            "lanes": 2,
+            "laps": 10,
+            "features": 0,
+            "sound": 1,
+            "power": 1,
+            "mode": 1
+          },
+          "result": "PASS"
+        }
+      },
+      "raw_evidence": "deliberate-failure.json; acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    }
+  }
+}

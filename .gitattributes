@@ -1,0 +1,2 @@
+# Evidence must remain byte-for-byte as captured, including terminal formatting.
+acceptance/stage1/evidence/** -whitespace

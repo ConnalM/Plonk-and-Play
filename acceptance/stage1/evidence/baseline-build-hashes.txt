@@ -1,0 +1,9 @@
+
+Algorithm : SHA256
+Hash      : 14B8126C4B86991C45416B55BCF7362B46554476A2486A770BEF0DC222C142CA
+Path      : C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\esp32dev\firmware.elf
+
+Algorithm : SHA256
+Hash      : C030C8F59A62A7ED62B17519F8500A113DF2646B482A9F8EFD59B23FEB136BF3
+Path      : C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\esp32dev\firmware.merged.bin
+

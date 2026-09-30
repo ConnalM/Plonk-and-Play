@@ -1,0 +1,66 @@
+{
+  "test": "1.T",
+  "source_base_commit": "ac6c73bce1fbfad374eee7409b974663647ce65a",
+  "acceptance_spec_commit": "ac6c73bce1fbfad374eee7409b974663647ce65a",
+  "build_manifest": {
+    "esp32dev/firmware.elf": {
+      "sha256": "20c45022e9c51ddb296ba5116da1d6c89dcf9a8b83b7ef2ef3106322edad06f6",
+      "bytes": 6127036
+    },
+    "esp32dev/firmware.merged.bin": {
+      "sha256": "c3008038789457b440ec5741dca0518d4afdee4d6f6bcb19751132c45dc0c67b",
+      "bytes": 362528
+    },
+    "acceptance/firmware.elf": {
+      "sha256": "dda4f3b5b3553d1cd42ba91111b13da0958f9c0930111e83fe0ea8e99bffd3f6",
+      "bytes": 6272812
+    },
+    "acceptance/firmware.merged.bin": {
+      "sha256": "b3ea01ced60d1c27a5f462e9dc726edfeae186f2b0ac749d1f31937bb84699ca",
+      "bytes": 376560
+    }
+  },
+  "raw_evidence": "acceptance-serial.txt",
+  "wrong_expectation_run": {
+    "expected": {
+      "status": 1,
+      "lanes": 2,
+      "laps": 999,
+      "features": 0,
+      "sound": 1,
+      "power": 1,
+      "mode": 1
+    },
+    "actual": {
+      "status": 1,
+      "lanes": 2,
+      "laps": 10,
+      "features": 0,
+      "sound": 1,
+      "power": 1,
+      "mode": 1
+    },
+    "result": "FAIL"
+  },
+  "restored_expectation_run": {
+    "expected": {
+      "status": 1,
+      "lanes": 2,
+      "laps": 10,
+      "features": 0,
+      "sound": 1,
+      "power": 1,
+      "mode": 1
+    },
+    "actual": {
+      "status": 1,
+      "lanes": 2,
+      "laps": 10,
+      "features": 0,
+      "sound": 1,
+      "power": 1,
+      "mode": 1
+    },
+    "result": "PASS"
+  }
+}

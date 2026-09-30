@@ -1,0 +1,52 @@
+name: Frozen Stage 1 acceptance observations
+version: 1
+author: P&P
+steps:
+  - wait-serial: 'STAGE1_PASS'
+  - delay: 500ms
+  - write-serial: 'a'
+  - wait-serial: 'ACC CONFIG phase=0'
+  - delay: 1s
+  - write-serial: 'a'
+  - wait-serial: 'sample=2'
+  - delay: 1s
+  - write-serial: 'a'
+  - wait-serial: 'sample=3'
+  - delay: 200ms
+  - write-serial: 'r'
+  - wait-serial: 'ACC RAM'
+  - delay: 200ms
+  - write-serial: 'b'
+  - wait-serial: 'ACC AUTH'
+  - delay: 200ms
+  - write-serial: 't'
+  - wait-serial: '[BUS SELF-TEST] PASS'
+  - delay: 200ms
+  - write-serial: 'w'
+  - wait-serial: 'ACC FIXTURE phase=4 ok=1'
+  - wait-serial: 'STAGE1_PASS'
+  - delay: 500ms
+  - write-serial: 'a'
+  - wait-serial: 'ACC CONFIG phase=4'
+  - delay: 200ms
+  - write-serial: 'x'
+  - wait-serial: 'ACC FIXTURE phase=5 ok=1'
+  - wait-serial: 'STAGE1_PASS'
+  - delay: 500ms
+  - write-serial: 'a'
+  - wait-serial: 'ACC CONFIG phase=5'
+  - delay: 200ms
+  - write-serial: 'd'
+  - wait-serial: 'ACC FIXTURE phase=12 ok=1'
+  - delay: 2s
+  - write-serial: 'a'
+  - wait-serial: 'ACC CONFIG phase=12'
+  - delay: 200ms
+  - write-serial: 'b'
+  - wait-serial: 'ACC AUTH'
+  - delay: 200ms
+  - write-serial: 'r'
+  - wait-serial: 'ACC RAM'
+  - delay: 200ms
+  - write-serial: 'z'
+  - wait-serial: 'ACC DONE'
