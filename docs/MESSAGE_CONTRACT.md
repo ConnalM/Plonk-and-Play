@@ -1,7 +1,7 @@
 # P&P Message Contract
 
 **Status:** Draft v0.2  
-**Purpose:** Record the generic communication rules and the first concrete Message Types agreed for the common P&P communications bus ("Pavlov Bus"). This document defines message semantics and authority, not packet encoding, C++ structures or transport protocols.
+**Purpose:** Record the generic communication rules and the first concrete Message Types agreed for the common **P&P Message Bus**. This document defines message semantics and authority, not packet encoding, C++ structures or transport protocols.
 
 This document is subordinate to the Design Constitution, System Requirements and System Architecture.
 
@@ -78,7 +78,7 @@ Transmission, receive and diagnostic timestamps may exist as implementation meta
 
 ## 7. Input events and device meaning
 
-Input Devices are components of the Input Module. Their source-specific work is internal to that module and is not a separate Pavlov exchange merely because a particular physical implementation is remote.
+Input Devices are components of the Input Module. Their source-specific work is internal to that module and is not a separate P&P Message Bus exchange merely because a particular physical implementation is remote.
 
 For the first detector-style input contract, the Input Device owns detection, filtering, debounce/hysteresis, clearing and re-arming. Once it has recognised a clean trigger, the Input Module publishes an Input Event identifying:
 
@@ -105,7 +105,7 @@ The first exact OUTPUT_ACTION payload is deliberately deferred until the output 
 
 ## 9. Browser clients and Human Interfaces
 
-The Browser interface is the P&P bus participant. Individual connected browsers are clients behind that interface rather than independent full Pavlov participants.
+The Browser interface is the P&P bus participant. Individual connected browsers are clients behind that interface rather than independent full P&P Message Bus participants.
 
 Each connected client has trusted server-side **Client Context**, for example Race Director/SMUG, a particular current Race Entry/MUG, or spectator.
 
@@ -128,7 +128,7 @@ State is obtained according to the current client/screen need. Browser clients d
 
 The Taster is another Human Interface using the same common P&P Message Contract. It does not have a separate Taster control protocol. It sends only the Requests it supports and consumes only the messages it understands or needs.
 
-## 10. The Noticeboard and the ding
+## 10. The Noticeboard and change notification
 
 The **Noticeboard** is P&P's authoritative current externally presentable view of itself. It contains everything relevant and current needed to understand P&P or an active session, plus any current information that P&P makes available to a Browser, Taster or other presentation interface. It is information/state, not another operational module and not another owner of the underlying information.
 
@@ -136,13 +136,13 @@ Examples include current session lifecycle state, relevant Session Definition in
 
 The Noticeboard is not History and does not contain every past event merely because it happened. Nor does it expose private hardware or implementation detail merely because that detail exists. The practical test is: **if a Browser or Taster needs to know something about P&P now, it obtains that current externally presentable information through the Noticeboard rather than rummaging inside owning modules.**
 
-A **ding** is the informal design term for the Pavlov notification that something material on the Noticeboard has changed. The concrete Message Type is **NOTICEBOARD_CHANGED**.
+The standard notification that something material on the Noticeboard has changed is **`NOTICEBOARD_CHANGED`**.
 
 NOTICEBOARD_CHANGED does not carry a replacement copy of the Noticeboard. Interested consumers obtain the current authoritative information they need.
 
 The architecture does **not** require the Noticeboard itself to expose a version number. An implementation may use revision counters, dirty flags, sequence numbers or another internal mechanism if useful, but that mechanism is not part of the conceptual P&P contract unless a later concrete requirement makes it necessary.
 
-A ding is not generated merely because a derived displayed value changes with the passage of time. For example, if authoritative State records the GO/start time and duration, a Browser or Taster can display a counting clock from P&P System Time without P&P changing the Noticeboard every second.
+A `NOTICEBOARD_CHANGED` notification is not generated merely because a derived displayed value changes with the passage of time. For example, if authoritative State records the GO/start time and duration, a Browser or Taster can display a counting clock from P&P System Time without P&P changing the Noticeboard every second.
 
 Facts/Events and Noticeboard State remain distinct:
 
@@ -279,7 +279,7 @@ Race Engine reports the fact. Race Control owns the resulting session-lifecycle 
 
 **Meaning:** "Something material on the authoritative Noticeboard has changed; look again if you need current State."
 
-This message is the formal equivalent of the design-discussion **ding**. It does not require a Noticeboard version number and does not itself carry the changed State.
+This message does not require a Noticeboard version number and does not itself carry the changed State.
 
 ## 14. Session Definition v1 information required by these contracts
 
