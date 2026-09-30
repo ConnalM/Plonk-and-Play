@@ -1,0 +1,5 @@
+# Optional future CLI smoke test configuration. Does not enable CLI networking.
+[wokwi]
+version = 1
+firmware = '.pio/build/esp32dev/firmware.merged.bin'
+elf = '.pio/build/esp32dev/firmware.elf'

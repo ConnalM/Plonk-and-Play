@@ -1,0 +1,18 @@
+name: Stage 1 serial controls
+version: 1
+author: P&P
+steps:
+  - wait-serial: 'STAGE1_PASS'
+  - delay: 300ms
+  - write-serial: '?'
+  - wait-serial: '[DEV] Stage1 IDLE'
+  - write-serial: 't'
+  - wait-serial: '[BUS SELF-TEST] PASS'
+  - write-serial: 'q'
+  - delay: 1s
+  - write-serial: 't'
+  - delay: 1s
+  - write-serial: 'v'
+  - wait-serial: '[DEV] Stage1 IDLE'
+  - write-serial: 't'
+  - wait-serial: '[BUS SELF-TEST] PASS'
