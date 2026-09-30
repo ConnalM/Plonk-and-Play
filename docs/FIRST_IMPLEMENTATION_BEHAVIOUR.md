@@ -313,11 +313,11 @@ The prototype should be built in small proving stages so that each stage leaves 
 
 1. **ESP32 skeleton** — boot, P&P System Time, Memory access, working configuration in RAM, the common P&P communications bus and module boundaries exist; no race behaviour is required.
 2. **One simulated Input Device** — prove a physical/simulated event is cleaned by its Input Device and the Input Module produces the standard physical event identifying the stable input/capability and event time, with no lane or race-role meaning attached.
-3. **Pavlov Bus delivery** — publish that physical Input Event on the common bus and prove an authorised subscriber receives it without a private point-to-point path.
+3. **P&P Message Bus delivery** — publish that physical Input Event on the common bus and prove an authorised subscriber receives it without a private point-to-point path.
 4. **Session role assignment** — create a minimal accepted Session Definition that assigns that stable input as Lane 1 Start/Finish, and prove the assignment is frozen for the session while the Input Module remains unchanged.
 5. **Race Engine** — bus-delivered physical Input Events interpreted through the Session Definition produce authoritative lap counts and lap times without requiring a browser.
 6. **Race Control** — prove READY → STARTING → scheduled GO → RACING → FINISHED, with Race Control and Race Engine communicating through the common bus and retaining their separate ownership boundaries.
-7. **Browser connection** — prove authoritative Noticeboard State, NOTICEBOARD_CHANGED dings and Events/Facts can be presented without the browser owning race operation.
+7. **Browser connection** — prove authoritative Noticeboard State, `NOTICEBOARD_CHANGED` notifications and Events/Facts can be presented without the browser owning race operation.
 8. **Browser Requests** — START is the first operational Request, including Accepted/Rejected Request Results, creation of the fixed Session Definition in RAM after acceptance and authoritative State change after acceptance.
 9. **Two lanes and rapid-event testing** — add a second simulated detector and deliberately exercise closely spaced and rapid inputs; browser/network speed must not compromise authoritative timing.
 10. **Multiple browsers and recovery** — exercise several clients, disconnection, reconnection and a new browser joining mid-race; each must obtain the current authoritative Noticeboard State it needs without affecting the race.
