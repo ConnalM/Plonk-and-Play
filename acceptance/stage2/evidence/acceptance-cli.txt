@@ -1,0 +1,49 @@
+Wokwi CLI v0.27.1 (ffde06bde1ae)
+Connected to Wokwi Simulation API 1.0.0-20260927-g0e36f09d
+Starting simulation...
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1156
+load:0x40078000,len:11456
+ho 0 tail 12 room 4
+load:0x40080400,len:2972
+entry 0x400805dc
+ACC READY phase=0
+[Frozen Stage 2 source-facing detector acceptance] Expected text matched: "ACC READY phase=0"
+[Frozen Stage 2 source-facing detector acceptance] delay 300ms
+ACC INPUT test=2.1 count=1 expected=1 device=50500001 capability=1 relevant=120000 observed=150000
+ACC INPUT test=2.2 count=1 expected=1 device=50500001 capability=1 relevant=220000 observed=330000
+ACC INPUT test=2.3 count=2 expected=2 device=50500001 capability=1 relevant=420000 observed=500000
+ACC INPUT test=2.4 count=1 expected=1 device=50500001 capability=1 relevant=560000 observed=590000
+ACC INPUT test=2.5 count=2 expected=2 device=50500001 capability=1 relevant=620000 observed=740000
+ACC INPUT test=2.6
+[Frozen Stage 2 source-facing detector acceptance] Expected text matched: "ACC INPUT test=2.6"
+[Frozen Stage 2 source-facing detector acceptance] delay 100ms
+ count=1 expected=1 device=50500001 capability=1 relevant=820000 observed=900000
+ACC INPUT test=2.7a count=1 expected=1 device=50500001 capability=1 relevant=940000 observed=970000
+ACC DEVICE phase=0 device=50500001 capability=1
+ACC FIXTURE identity_restart=1
+[Frozen Stage 2 source-facing detector acceptance] Expected text matched: "ACC FIXTURE identity_restart=1"
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1156
+load:0x40078000,len:11456
+ho 0 tail 12 room 4
+load:0x40080400,len:2972
+entry 0x400805dc
+ACC READY phase=1
+[Frozen Stage 2 source-facing detector acceptance] Expected text matched: "ACC READY phase=1"
+[Frozen Stage 2 source-facing detector acceptance] delay 300ms
+ACC INPUT test=2.7b count=1 expected=1 device=50500001 capability=1 relevant=120000 observed=150000
+ACC DEVICE phase=1 device=50500001 capability=1
+ACC DONE
+[Frozen Stage 2 source-facing detector acceptance] Expected text matched: "ACC DONE"
+[Frozen Stage 2 source-facing detector acceptance] Scenario completed successfully

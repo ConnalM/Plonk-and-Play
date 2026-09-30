@@ -1,0 +1,15 @@
+{
+  "test": "2.T",
+  "acceptance_spec_commit": "bc6693061f2ed4ad99b51d7109c20f271c7aa1e0",
+  "raw_evidence": "acceptance-serial.txt",
+  "wrong_expectation_run": {
+    "expected_count": 2,
+    "actual_count": 1,
+    "result": "FAIL"
+  },
+  "restored_expectation_run": {
+    "expected_count": 1,
+    "actual_count": 1,
+    "result": "PASS"
+  }
+}
