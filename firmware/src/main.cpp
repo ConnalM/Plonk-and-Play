@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include "pp/core.h"
 #include "pp/session_definition.h"
+#include "pp/race_engine.h"
 #include "pp/verification.h"
 #ifndef PP_DIAGNOSTICS
 #define PP_DIAGNOSTICS 1
@@ -63,7 +64,8 @@ const auto lifecycle=bus.attach(pp::Role::Lifecycle);
 const auto memoryEndpoint=bus.attach(pp::Role::Memory);
 pp::InputModule input(bus,bus.attach(pp::Role::Input));
 pp::RaceControl raceControl{bus.attach(pp::Role::RaceControl)};
-pp::RaceEngine raceEngine{bus.attach(pp::Role::RaceEngine)};
+const auto raceEngineEndpoint=bus.attach(pp::Role::RaceEngine);
+pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint);
 pp::OutputModule output{bus.attach(pp::Role::Output)};
 pp::Presentation presentation{bus.attach(pp::Role::Presentation)};
 const auto testPublisher=bus.attach(pp::Role::Diagnostics);
@@ -100,6 +102,9 @@ void status(){diagnostics.log("[DEV] Stage1 %s system_us=%llu dropped=%lu; no se
 #ifdef PP_STAGE4_ACCEPTANCE
 #include "../tests/stage4_acceptance_probe.inc"
 #endif
+#ifdef PP_STAGE5_ACCEPTANCE
+#include "../tests/stage5_acceptance_probe.inc"
+#endif
 }
 void setup(){
   Serial.begin(115200);
@@ -115,6 +120,9 @@ void setup(){
 #ifdef PP_STAGE4_ACCEPTANCE
   stage4AcceptanceBeforeBoot();
 #endif
+#ifdef PP_STAGE5_ACCEPTANCE
+  stage5AcceptanceBeforeBoot();
+#endif
   diagnostics.log("[DEV] P&P STAGE 1 -- diagnostics are not product State");
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
@@ -124,6 +132,7 @@ void setup(){
   testsPassed&=bus.subscribe(testPublisher,pp::Type::DiagnosticProbe);
   testsPassed&=bus.subscribe(testObserver,pp::Type::DiagnosticProbe);
   testsPassed&=bus.subscribe(inputObserver,pp::Type::InputEvent);
+  testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::InputEvent);
   diagnostics.log("[INIT] Message Bus READY: bounded mailboxes; authority checked");
   testsPassed&=pp::busSelfTest(bus,testPublisher,testObserver,input.endpoint,report);
   diagnostics.log("[BUS SELF-TEST] %s",testsPassed?"PASS":"FAIL");
@@ -157,6 +166,7 @@ void setup(){
 void loop(){
   memoryModule.tick();
   input.tick(systemTime());
+  raceEngine.tick();
   observeInputEvents();
   pp::Message message;
   if(!ready&&!bootFailed&&bus.receive(lifecycle,message)){
@@ -208,6 +218,9 @@ void loop(){
 #ifdef PP_STAGE4_ACCEPTANCE
     else stage4AcceptanceCommand(c);
 #endif
+#ifdef PP_STAGE5_ACCEPTANCE
+    else stage5AcceptanceCommand(c);
+#endif
   }
   if(ready&&systemTime()>=nextStatus){status();nextStatus=systemTime()+10000000;}
   diagnostics.flush();delay(1);
@@ -222,6 +235,9 @@ void loop(){
 #endif
 #ifdef PP_STAGE4_ACCEPTANCE
   stage4AcceptanceTick();
+#endif
+#ifdef PP_STAGE5_ACCEPTANCE
+  stage5AcceptanceTick();
 #endif
 #ifdef PP_VERIFY
   if(verificationReboot&&systemTime()>=rebootAt)ESP.restart();

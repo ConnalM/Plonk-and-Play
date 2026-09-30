@@ -8,7 +8,7 @@ using Time = uint64_t; // Monotonic microseconds in this controller boot's domai
 enum class Role : uint8_t { Lifecycle, Memory, Input, RaceControl, RaceEngine, Output, Presentation, Diagnostics };
 constexpr uint16_t mask(Role r) { return uint16_t(1u << unsigned(r)); }
 // Internal Stage 1 contracts. No race messages or invented input events.
-enum class Type : uint8_t { LoadConfiguration, ConfigurationLoaded, InputEvent, DiagnosticProbe, Count };
+enum class Type : uint8_t { LoadConfiguration, ConfigurationLoaded, InputEvent, LapCompleted, DiagnosticProbe, Count };
 struct InputIdentity {
   uint32_t device;
   uint16_t capability;
@@ -33,6 +33,9 @@ struct Message {
   Time relevantTime = 0;
   uint32_t correlation = 0;
   uint32_t eventId = 0;
+  uint32_t raceEntryId = 0;
+  uint32_t lapNumber = 0;
+  Time lapTime = 0;
   InputIdentity input{};
   Configuration configuration{};
   LoadStatus loadStatus = LoadStatus::DefaultsMissing;
@@ -90,6 +93,7 @@ private:
       case Type::LoadConfiguration: return mask(Role::Lifecycle);
       case Type::ConfigurationLoaded: return mask(Role::Memory);
       case Type::InputEvent: return mask(Role::Input);
+      case Type::LapCompleted: return mask(Role::RaceEngine);
       case Type::DiagnosticProbe: return mask(Role::Diagnostics);
       default: return 0;
     }
@@ -99,6 +103,7 @@ private:
       case Type::LoadConfiguration: return mask(Role::Memory);
       case Type::ConfigurationLoaded: return mask(Role::Lifecycle);
       case Type::InputEvent: return mask(Role::RaceEngine)|mask(Role::Diagnostics);
+      case Type::LapCompleted: return mask(Role::Diagnostics);
       case Type::DiagnosticProbe: return mask(Role::Diagnostics);
       default: return 0;
     }
@@ -197,7 +202,7 @@ public:
   void sampleSource(bool active, Time observedAt) {
     Time triggerAt=0;
     if (!detector_.sample(active,observedAt,triggerAt)) return;
-    Message event{}; event.type=Type::InputEvent; event.input=detector_.identity(); event.relevantTime=triggerAt;
+    Message event{}; event.type=Type::InputEvent; event.input=detector_.identity(); event.relevantTime=triggerAt;event.eventId=++nextEventId_;
     lastDelivery_=bus_.publish(endpoint,event); ++cleanTriggers_;
   }
   uint32_t cleanTriggers() const { return cleanTriggers_; }
@@ -208,6 +213,7 @@ private:
   bool sourceActive_=false;
   uint32_t cleanTriggers_=0;
   Delivery lastDelivery_=Delivery::NoSubscribers;
+  uint32_t nextEventId_=0;
 };
 
 // No Registry discoveries, session, sensor assignment or race readiness is invented.
