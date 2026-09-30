@@ -223,11 +223,11 @@ The **Noticeboard** is the current authoritative state of every relevant thing n
 
 Current fastest lap is an example of Noticeboard State: once established it remains the current fastest lap until superseded or until it ceases to be relevant. It does not disappear merely because later unrelated state changes occur.
 
-A material Noticeboard change may publish the standard NOTICEBOARD_CHANGED notification — informally, a **ding**. The ding says only that something material has changed; it does not carry a replacement copy of State. A newly connected or recovering current-state consumer obtains the current authoritative information it needs without replaying every intermediate state change.
+A material Noticeboard change may publish the standard `NOTICEBOARD_CHANGED` notification. The notification says only that something material has changed; it does not carry a replacement copy of State. A newly connected or recovering current-state consumer obtains the current authoritative information it needs without replaying every intermediate state change.
 
 The Noticeboard itself does not conceptually require an exposed version number. An implementation may use revision counters, dirty flags, sequence numbers or another internal mechanism where useful without making that mechanism part of the architectural State contract.
 
-Continuous values must not generate streams of authoritative events or dings merely because their displayed value changes with time. Significant transitions may be published as facts/events, while consumers obtain or derive the current value from authoritative state and P&P System Time where appropriate. A race clock can therefore count locally from authoritative timing information without changing the Noticeboard every second.
+Continuous values must not generate streams of authoritative events or `NOTICEBOARD_CHANGED` notifications merely because their displayed value changes with time. Significant transitions may be published as facts/events, while consumers obtain or derive the current value from authoritative state and P&P System Time where appropriate. A race clock can therefore count locally from authoritative timing information without changing the Noticeboard every second.
 
 The authoritative fact/state exists independently of whether a particular consumer successfully receives a live notification. Current-state consumers can resynchronise; obsolete transient notifications may simply be missed; information that P&P has decided must persist is retained by the Memory Module rather than depending on a live consumer receiving a notification.
 
