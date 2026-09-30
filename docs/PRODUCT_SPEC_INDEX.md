@@ -18,6 +18,7 @@ This file identifies where agreed P&P decisions live so later design work does n
 - `RACE_CONTROL_ENGINE_DESIGN.md` — Race Control / Race Engine ownership and boundaries.
 - `FIRST_IMPLEMENTATION_BEHAVIOUR.md` — deliberately narrow first useful implementation, including the three Lap Race finish behaviours.
 - `MESSAGE_CONTRACT.md` — common P&P Message Bus rules, first concrete Message Types, Session Definition v1 information and authoritative Noticeboard-change behaviour.
+- `DEVELOPMENT_WORKFLOW.md` — proven local Work/PlatformIO/Wokwi development and test-bench workflow; development infrastructure only, not product architecture.
 
 ## Product behaviour specifications
 
