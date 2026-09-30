@@ -87,7 +87,7 @@ INPUT ID : TIMESTAMP
 
 The timestamp represents when the clean physical trigger occurred as closely as practical, not when a communications packet happened to arrive at Race Control.
 
-Signal conditioning, debounce, hysteresis, clearing and re-arming belong close to the detector. The Input Device may need to observe both detection and clearing internally, but the first P&P detector contract does not publish a subsequent INACTIVE/clear event merely to report that re-arming has occurred. Once the meaningful trigger has been published, that event's work is done. Race meaning remains outside the Input Module.
+Signal conditioning, debounce, hysteresis, clearing and re-arming belong close to the detector. **Raw sensor samples, interrupt chatter and pre-conditioning transitions are internal to the Input Device and are not published onto Pavlov.** Only after the Input Device has recognised a clean meaningful trigger does the Input Module publish the standard physical `INPUT_EVENT`. The Input Device may need to observe both detection and clearing internally, but the first P&P detector contract does not publish a subsequent INACTIVE/clear event merely to report that re-arming has occurred. Once the meaningful trigger has been published, that event's work is done. Race meaning remains outside the Input Module.
 
 A future input type may define different event/state semantics where they are genuinely required.
 
@@ -429,7 +429,7 @@ For the first Lap Race, the Session Definition contains only what is required to
 
 The Session Definition contains the Race Setup **and the session-specific roles assigned to every input, output and other capability required to interpret and execute that session**. Only relevant capabilities need a session role. For example, the same physical detector may be Lane 2 Start/Finish in one session and a Drag finish or speed-trap input in another. Its hardware identity and Input Module behaviour do not change.
 
-Race Control and the Race Engine operate from that fixed Session Definition rather than repeatedly reading mutable configuration and discovering that operation, device roles or rules have silently changed.
+Race Control and the Race Engine operate from that fixed Session Definition rather than repeatedly reading mutable configuration and discovering that operation, device roles or rules have silently changed. **PAUSE does not unlock race-affecting configuration:** the same immutable Session Definition remains in force through PAUSE and RESUME. A change that would alter the Session Definition requires the active session to be ended/abandoned and a new session to be started from a newly accepted Race Setup.
 
 ### 7.7 Optional driver/car data
 
@@ -439,7 +439,7 @@ A small persistent list of drivers and/or cars is a possible product feature, pa
 
 The **Noticeboard** is P&P's authoritative current externally presentable view of itself. It contains everything relevant and current needed to understand P&P or an active session, plus any current information made available to a Browser, Taster or other presentation interface. It is information/state assembled from the responsibilities that own that truth; it is not another operational module and does not become another owner of the underlying information.
 
-During a session this includes the relevant Session Definition information as well as live session/competition state. Outside a race it can include current Race Setup, available options, capability/availability information, selectable saved identities and user-facing status/fault information where an interface needs them. The Noticeboard is not History and does not expose private hardware/implementation detail merely because it exists. A Browser/Taster obtains current externally presentable P&P information through the Noticeboard rather than directly interrogating owning modules.
+During a session this includes the relevant Session Definition information as well as live session/competition state. Outside a race it can include current Race Setup, available options, capability/availability information, selectable saved identities and user-facing status/fault information where an interface needs them. The Noticeboard is not History and does not expose private hardware/implementation detail merely because it exists. A Browser/Taster obtains current externally presentable P&P information through the Noticeboard rather than directly interrogating owning modules. **The Noticeboard is read-only as an architectural view: no consumer writes through it to alter Race Control, Race Engine, configuration, Registry or any other authoritative owner.** Changes originate with the responsibility that owns the truth; the Noticeboard merely exposes the resulting current externally presentable state.
 
 A material change to the Noticeboard can cause a standard Pavlov **NOTICEBOARD_CHANGED** notification — informally, a **ding**. The ding does not carry a replacement copy of State; interested consumers look again at the current authoritative information they need.
 
@@ -463,7 +463,7 @@ Important input events should be timestamped at or near their source so communic
 
 Straightforward synchronisation is preferred where practical. A known clock relationship is also acceptable, including measured offset and drift correction or rechecking where required. Approximate clocks whose effective timing reference is packet arrival are not acceptable.
 
-The specific synchronisation algorithm is deliberately not chosen. This requirement is not justification for unnecessarily elaborate clock-synchronisation machinery.
+The specific synchronisation algorithm is deliberately not chosen. This requirement is not justification for unnecessarily elaborate clock-synchronisation machinery. **In a single-System-Controller implementation, the controller's suitable high-resolution monotonic clock may directly provide P&P System Time; no clock-synchronisation protocol is required merely to satisfy the abstraction.** Offset/drift synchronisation is required only where another timing source has an independent clock whose timestamps must share the P&P time domain.
 
 Across defined P&P boundaries, timestamps must use one defined P&P representation with sufficient resolution for the supported timing functions and sufficient range that representation rollover cannot occur during any supported session. Local hardware clocks may use different native units, widths or rollover behaviour; conversion into or out of the P&P representation belongs at the appropriate boundary. The exact P&P unit and integer representation are selected during implementation design, but must be common at those boundaries.
 
@@ -876,7 +876,7 @@ MUG is internal/technical vocabulary; customer-facing interfaces may use ordinar
 
 Testability is a permanent architectural responsibility.
 
-Real wired detectors, wireless devices, future devices and simulated inputs should use the same standard P&P message contracts and common communications bus. Test tooling may publish permitted synthetic/test messages and subscribe to relevant outputs at the same architectural boundaries used by real components.
+Real wired detectors, wireless devices, future devices and simulated inputs should use the same standard P&P message contracts and common communications bus. Test tooling may publish permitted synthetic/test messages and subscribe to relevant outputs at the same architectural boundaries used by real components. **The injection point depends on what is under test:** an Input Device/Input Module test stimulates the source-facing side so filtering and event production are exercised; a downstream race/session test may impersonate the Input Module and publish an authorised standard `INPUT_EVENT` onto Pavlov. The latter deliberately bypasses physical sensing because that hardware boundary is not the subject of that test; it does not create a private production path around Pavlov.
 
 Testing should support, as appropriate:
 
