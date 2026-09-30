@@ -73,7 +73,7 @@ An **Input Device** is one complete working source of physical input. It owns ev
 
 Each Input Device translates its own native behaviour into the standard physical P&P input contract. Adding a new Input Device type must not require a central translator to be modified merely to understand that device's native output.
 
-An intelligent remote device may perform some or all of this source-specific interpretation locally before the Input Module publishes the standard physical event. Physical distribution does not change the logical ownership: Input Devices are components of the Input Module, and their internal communication is not a separate Pavlov message merely because a particular implementation uses a remote or wireless device.
+An intelligent remote device may perform some or all of this source-specific interpretation locally before the Input Module publishes the standard physical event. Physical distribution does not change the logical ownership: Input Devices are components of the Input Module, and their internal communication is not a separate P&P message merely because a particular implementation uses a remote or wireless device.
 
 The Input Module publishes the clean physical Input Event with the stable input/capability identity and original event time. It does not convert that identity into a racing role. The Race Engine uses the active Session Definition to interpret the input identity for the current session. It therefore does not need to know whether the event originated from ToF hardware, a keyboard, a test harness or another future source, nor which physical transport carried it.
 
@@ -87,7 +87,7 @@ INPUT ID : TIMESTAMP
 
 The timestamp represents when the clean physical trigger occurred as closely as practical, not when a communications packet happened to arrive at Race Control.
 
-Signal conditioning, debounce, hysteresis, clearing and re-arming belong close to the detector. **Raw sensor samples, interrupt chatter and pre-conditioning transitions are internal to the Input Device and are not published onto Pavlov.** Only after the Input Device has recognised a clean meaningful trigger does the Input Module publish the standard physical `INPUT_EVENT`. The Input Device may need to observe both detection and clearing internally, but the first P&P detector contract does not publish a subsequent INACTIVE/clear event merely to report that re-arming has occurred. Once the meaningful trigger has been published, that event's work is done. Race meaning remains outside the Input Module.
+Signal conditioning, debounce, hysteresis, clearing and re-arming belong close to the detector. **Raw sensor samples, interrupt chatter and pre-conditioning transitions are internal to the Input Device and are not published onto the P&P Message Bus.** Only after the Input Device has recognised a clean meaningful trigger does the Input Module publish the standard physical `INPUT_EVENT`. The Input Device may need to observe both detection and clearing internally, but the first P&P detector contract does not publish a subsequent INACTIVE/clear event merely to report that re-arming has occurred. Once the meaningful trigger has been published, that event's work is done. Race meaning remains outside the Input Module.
 
 A future input type may define different event/state semantics where they are genuinely required.
 
@@ -352,9 +352,9 @@ Configuration answers:
 
 > **What have we decided to use this equipment and system for?**
 
-Configuration is information, not a standalone operational module. Persistent configuration is owned by Memory. At startup, P&P loads the configuration needed for operation into working RAM; the appropriate modules then use their working configuration locally. They do not turn ordinary local configuration lookups into Pavlov messages or repeatedly consult persistent storage for timing-critical work.
+Configuration is information, not a standalone operational module. Persistent configuration is owned by Memory. At startup, P&P loads the configuration needed for operation into working RAM; the appropriate modules then use their working configuration locally. They do not turn ordinary local configuration lookups into P&P messages or repeatedly consult persistent storage for timing-critical work.
 
-The Pavlov Bus remains the normal route when one P&P component needs to communicate with another. Local access by a module to configuration/state already available to that module in working RAM is not inter-component communication and does not require the bus.
+The P&P Message Bus remains the normal route when one P&P component needs to communicate with another. Local access by a module to configuration/state already available to that module in working RAM is not inter-component communication and does not require the bus.
 
 Configuration is distinct from Registry / Discovery and from live Race Control state.
 
@@ -445,7 +445,7 @@ A material change to the Noticeboard can cause a standard Pavlov **NOTICEBOARD_C
 
 The Noticeboard does not conceptually require a public version number. Revision counters, dirty flags or sequence numbers may be used internally if useful, but are implementation mechanisms unless a later concrete requirement says otherwise.
 
-The passage of time alone does not require repeated Noticeboard changes. For example, a display can derive a counting race clock from authoritative start/GO time, duration and P&P System Time without generating a ding every second.
+The passage of time alone does not require repeated Noticeboard changes. For example, a display can derive a counting race clock from authoritative start/GO time, duration and P&P System Time without generating a `NOTICEBOARD_CHANGED` notification every second.
 
 Facts/Events describe things that happened. The Noticeboard describes what is true now as a result. A current fact such as the fastest lap remains represented as current State until it is superseded or ceases to be relevant.
 
@@ -566,7 +566,7 @@ Race Control / other authorised producer
      ↓
 Session/race responsibility resolves required role using Session Definition
      ↓
-Logical action addressed to stable Output Device/capability on the Pavlov Bus
+Logical action addressed to stable Output Device/capability on the P&P Message Bus
      ↓
 Output Module / Output Device hardware abstraction
      ↓
@@ -746,7 +746,7 @@ Memory has three distinct relationships with the rest of P&P:
 
 The Session Definition is therefore not a gateway to Memory and is not a module. It is frozen working data that isolates an active session from later changes to persistent configuration.
 
-Pavlov is used when components communicate changes, Requests, facts or state to one another. A module reading configuration/state already present in its own working RAM is local data access, not a Pavlov transaction.
+Pavlov is used when components communicate changes, Requests, facts or state to one another. A module reading configuration/state already present in its own working RAM is local data access, not a P&P Message Bus transaction.
 
 Memory must not become a shadow Race Engine by reconstructing competition state from every live event. The Race Engine remains authoritative for competition interpretation and live competition state; Memory retains the authoritative results/history information provided for persistence.
 
@@ -808,15 +808,15 @@ A private point-to-point inter-component path is therefore not part of the norma
 
 ## 13.5 P&P communications bus
 
-P&P components communicate through a common logical message backbone, referred to in design discussion as the **Pavlov Bus**. This is an architectural and programming concept, not necessarily one physical electrical bus or one transport protocol.
+P&P components communicate through a common logical message backbone: the **P&P Message Bus**. This is an architectural and programming concept, not necessarily one physical electrical bus or one transport protocol.
 
 The default architectural rule is:
 
-> **If P&P components need to communicate with one another, they do so through the Pavlov Bus.**
+> **If P&P components need to communicate with one another, they do so through the P&P Message Bus.**
 
 Modules, devices and human interfaces attach to the common bus and exchange standard P&P messages without requiring direct knowledge of each other's implementation. Local software participants may attach in-process; remote participants reach the same logical bus through appropriate Transport Adapters.
 
-The bus may carry Requests, Request Results, standard Input Events, Actions, Events/Facts, NOTICEBOARD_CHANGED dings and other defined P&P messages.
+The bus may carry Requests, Request Results, standard Input Events, Actions, Events/Facts, `NOTICEBOARD_CHANGED` notifications and other defined P&P messages.
 
 ### 13.5.1 Authority and message policing
 
@@ -844,17 +844,15 @@ Race Control and the Race Engine use this same bus for their own defined communi
 
 ### 13.5.3 State notification and resynchronisation
 
-The Pavlov Bus does not replace authoritative P&P State.
+The P&P Message Bus does not replace authoritative P&P State.
 
-Authoritative State remains owned by the relevant P&P responsibilities. A NOTICEBOARD_CHANGED ding on the bus says that something material on the authoritative Noticeboard has changed. A browser or other current-state consumer then refreshes the current authoritative State it needs.
+Authoritative State remains owned by the relevant P&P responsibilities. A `NOTICEBOARD_CHANGED` notification on the bus says that something material on the authoritative Noticeboard has changed. A browser or other current-state consumer then refreshes the current authoritative State it needs.
 
-Rapid successive changes may therefore collapse naturally from the consumer's point of view. A browser may receive one or more dings and simply refresh to what is true now rather than reconstructing every intermediate State. Events/Facts that matter individually remain separate bus messages where their individual occurrence is relevant.
-
-In design discussion this is the **ding-and-scoop** model: the bus carries the ding; authoritative State is the noticeboard from which the consumer scoops the latest truth.
+Rapid successive changes may therefore collapse naturally from the consumer's point of view. A browser may receive one or more such notifications and simply refresh to what is true now rather than reconstructing every intermediate State. Events/Facts that matter individually remain separate bus messages where their individual occurrence is relevant.
 
 ### 13.5.4 Transport Adapters
 
-The Pavlov Bus is a logical topology. It need not be one physical network and does not require every message to be physically broadcast to every participant.
+The P&P Message Bus is a logical topology. It need not be one physical network and does not require every message to be physically broadcast to every participant.
 
 A **Transport Adapter** connects a particular communications mechanism to the logical bus while preserving standard P&P message meaning and authority. Examples may include local in-process delivery, wired remote communication, ESP-NOW and Wi-Fi/WebSocket. The exact transports and software mechanisms remain implementation decisions.
 
@@ -876,7 +874,7 @@ MUG is internal/technical vocabulary; customer-facing interfaces may use ordinar
 
 Testability is a permanent architectural responsibility.
 
-Real wired detectors, wireless devices, future devices and simulated inputs should use the same standard P&P message contracts and common communications bus. Test tooling may publish permitted synthetic/test messages and subscribe to relevant outputs at the same architectural boundaries used by real components. **The injection point depends on what is under test:** an Input Device/Input Module test stimulates the source-facing side so filtering and event production are exercised; a downstream race/session test may impersonate the Input Module and publish an authorised standard `INPUT_EVENT` onto Pavlov. The latter deliberately bypasses physical sensing because that hardware boundary is not the subject of that test; it does not create a private production path around Pavlov.
+Real wired detectors, wireless devices, future devices and simulated inputs should use the same standard P&P message contracts and common communications bus. Test tooling may publish permitted synthetic/test messages and subscribe to relevant outputs at the same architectural boundaries used by real components. **The injection point depends on what is under test:** an Input Device/Input Module test stimulates the source-facing side so filtering and event production are exercised; a downstream race/session test may impersonate the Input Module and publish an authorised standard `INPUT_EVENT` onto the P&P Message Bus. The latter deliberately bypasses physical sensing because that hardware boundary is not the subject of that test; it does not create a private production path around Pavlov.
 
 Testing should support, as appropriate:
 
