@@ -14,6 +14,30 @@ Do not hide modes in a dropdown merely to save space.
 
 Secondary Home actions include **Race Again**, **Results & History** and **Setup**.
 
+## Browser presentation architecture
+
+P&P ships with a small number of good **out-of-the-box (OOTB) race-screen designs** rather than requiring a MUG or SMUG to design a screen before racing. The initial target is at least a clear **Classic** race display and a more information-rich **Race Control** display.
+
+The standard Browser race displays shall be constructed from **reusable presentation components** using the same declarative screen-layout model intended for future SMUG-editable screens. OOTB screen designs are presets, not separately hard-coded interfaces.
+
+The presentation component set may include, as appropriate to the active mode and installed capabilities, items such as MUG name, car name, lane, position, lap count, last lap, best lap, gap, race clock, sector information, fuel, reaction time, start lights and race/flag status.
+
+The layout model shall support three display classes:
+
+- **Mobile**;
+- **Tablet**;
+- **PC / large display**.
+
+A screen design may share presentation choices and data bindings across those classes while allowing component position and size to differ by display class. A SMUG should therefore be able to customise a screen without requiring a PC layout to be mechanically squeezed onto a phone.
+
+The future **Screen Designer** shall edit this declarative presentation model rather than HTML or executable application code. Its intended interaction is a constrained visual editor: choose P&P components/fields from a palette, position and resize them, and adjust permitted presentation properties such as typography, colours, backgrounds, lights and simple effects.
+
+A SMUG shall be able to duplicate an OOTB preset and customise the copy. OOTB presets remain available for straightforward recovery and use.
+
+This does **not** make the Screen Designer a v1 implementation requirement. The architectural requirement for v1 is that ordinary Browser race screens are built from reusable components and a declarative layout/preset model so that later SMUG editing extends the same system rather than requiring the Browser UI to be rewritten.
+
+Custom screens remain presentation only. Their available live data comes from P&P's externally presentable state/Noticeboard and standard presentation interfaces. A custom layout does not acquire authority over Race Control, Race Engine or other operational state merely because it displays their information.
+
 ## Lap Race setup
 
 The normal setup presents:
