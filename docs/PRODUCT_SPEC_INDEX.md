@@ -1,6 +1,11 @@
 # Plonk & Play™ — Product Specification Index
 
-**Status:** Working source-of-truth map
+**Status:** Architecture baseline accepted — ready for Stage 1 implementation  
+**Baseline accepted:** 30 September 2026
+
+The governing P&P architecture has completed its pre-implementation consistency review. No unresolved architecture blockers remain. Deferred implementation choices and future product detail remain deliberately deferred and do not prevent Stage 1 from beginning.
+
+Changes to the accepted architectural boundaries should now be made deliberately and recorded as architecture changes, rather than emerging accidentally during implementation.
 
 This file identifies where agreed P&P decisions live so later design work does not rely on conversation memory alone.
 
