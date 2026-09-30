@@ -423,7 +423,7 @@ Configuration changes must be controlled according to their effect on the live s
 
 Some changes may be safe at any time, some only while idle and some must not change underneath an active race.
 
-When START is accepted, P&P validates the proposed Race Setup against the applicable installation/capability information and creates the fixed **Session Definition** in working RAM. The Session Definition is immutable working data for that session, not a module or Pavlov participant and not something the SMUG edits directly.
+When START is accepted, P&P validates the proposed Race Setup against the applicable installation/capability information and creates the fixed **Session Definition** in working RAM. The Session Definition is immutable working data for that session, not a module or P&P Message Bus participant and not something the SMUG edits directly.
 
 For the first Lap Race, the Session Definition contains only what is required to interpret and execute that session: session identity; race rules; Race Entries; the required input-role and output-role assignments; and any physical/rule parameters needed by those rules. A Race Entry has its own stable ID for the session and retains the stable MUG ID plus the MUG display name frozen when START was accepted; optional Car identity follows the same principle when Cars are enabled. Installed capabilities unused by the session need not be copied into the Session Definition. Hardware implementation details such as GPIOs, transport addresses and detector thresholds do not belong in it.
 
@@ -441,7 +441,7 @@ The **Noticeboard** is P&P's authoritative current externally presentable view o
 
 During a session this includes the relevant Session Definition information as well as live session/competition state. Outside a race it can include current Race Setup, available options, capability/availability information, selectable saved identities and user-facing status/fault information where an interface needs them. The Noticeboard is not History and does not expose private hardware/implementation detail merely because it exists. A Browser/Taster obtains current externally presentable P&P information through the Noticeboard rather than directly interrogating owning modules. **The Noticeboard is read-only as an architectural view: no consumer writes through it to alter Race Control, Race Engine, configuration, Registry or any other authoritative owner.** Changes originate with the responsibility that owns the truth; the Noticeboard merely exposes the resulting current externally presentable state.
 
-A material change to the Noticeboard can cause a standard Pavlov **NOTICEBOARD_CHANGED** notification — informally, a **ding**. The ding does not carry a replacement copy of State; interested consumers look again at the current authoritative information they need.
+A material change to the Noticeboard can cause a standard **`NOTICEBOARD_CHANGED`** notification. The notification does not carry a replacement copy of State; interested consumers look again at the current authoritative information they need.
 
 The Noticeboard does not conceptually require a public version number. Revision counters, dirty flags or sequence numbers may be used internally if useful, but are implementation mechanisms unless a later concrete requirement says otherwise.
 
@@ -681,20 +681,20 @@ Browser-facing communication distinguishes five semantic kinds of information:
 - **Request** — browser to P&P: asks P&P to do something.
 - **Request Result** — P&P to the requesting browser: reports whether that request was accepted or rejected, with a reason where useful.
 - **State** — authoritative information maintained by P&P describing what is true now.
-- **NOTICEBOARD_CHANGED** — P&P to browser: a ding indicating that something material on the authoritative Noticeboard has changed.
+- **NOTICEBOARD_CHANGED** — P&P to browser: a notification indicating that something material on the authoritative Noticeboard has changed.
 - **Event/Fact** — P&P to browser: notification that something has happened, useful for presentation such as animation, sound or temporary messages.
 
 P&P owns and maintains authoritative live State. Browsers decide which State they need for the view they are presenting; P&P does not need knowledge of individual browser screens or to construct a screen-specific authoritative State model for each connected browser.
 
 On initial connection or reconnection, a browser obtains authoritative State sufficient to construct the correct display from nothing. It need not replay every event that occurred before or while it was disconnected.
 
-Every material change to the authoritative Noticeboard can cause a NOTICEBOARD_CHANGED ding. The ding need not identify the fields that changed or contain their new values; its purpose is to tell a browser to look again at the current authoritative information it needs.
+Every material change to the authoritative Noticeboard can cause a `NOTICEBOARD_CHANGED` notification. The notification need not identify the fields that changed or contain their new values; its purpose is to tell a browser to look again at the current authoritative information it needs.
 
-On receiving such a notification, a browser refreshes the authoritative State needed by its current view. Further dings received while that refresh is already in progress do not require parallel refreshes. The refresh process must leave the browser with internally consistent current authoritative State, including any further changes that occurred while an earlier refresh was being initiated or completed.
+On receiving such a notification, a browser refreshes the authoritative State needed by its current view. Further `NOTICEBOARD_CHANGED` notifications received while that refresh is already in progress do not require parallel refreshes. The refresh process must leave the browser with internally consistent current authoritative State, including any further changes that occurred while an earlier refresh was being initiated or completed.
 
 Rapid authoritative State changes therefore do not require a browser to observe or render every intermediate State. Superseded intermediate State may be skipped; the browser ultimately renders what is currently true. Where individual occurrences themselves matter for presentation, their Events/Facts remain distinct from current State.
 
-A browser may retain previously obtained State while it remains synchronised and no NOTICEBOARD_CHANGED ding has been received. If connection/synchronisation is lost, it must no longer assume that cached State is current. Recovery requires obtaining current authoritative State again.
+A browser may retain previously obtained State while it remains synchronised and no `NOTICEBOARD_CHANGED` notification has been received. If connection/synchronisation is lost, it must no longer assume that cached State is current. Recovery requires obtaining current authoritative State again.
 
 A browser may issue operational or configuration Requests only while it is synchronised with current authoritative P&P State. If synchronisation is lost, browser controls that would issue such Requests remain unavailable until full synchronisation has completed again. This client-side restriction does not replace P&P validation: P&P remains responsible for validating every Request against current authoritative State and control authority before accepting it.
 
@@ -724,7 +724,7 @@ The browser need not run an independent authoritative race clock. This keeps mul
 
 Separately from race timing, P&P may maintain a low-stakes human-readable clock for browser display and connection indication. P&P does not require an RTC, Internet time or manually entered wall-clock time for racing. When a browser connects, it may supply its own approximate local time to initialise this display clock. Accuracy to real-world time is not important to race operation.
 
-Once initialised, P&P maintains this display clock and sends its current value to connected browsers once per second. This is a dedicated time/display synchronisation stream, not a Noticeboard mutation: its once-per-second updates do not generate NOTICEBOARD_CHANGED dings. Browsers display the P&P-supplied value rather than independently advancing their own copy. These regular clock updates therefore also provide a simple connection/health indication without requiring a separate routine heartbeat.
+Once initialised, P&P maintains this display clock and sends its current value to connected browsers once per second. This is a dedicated time/display synchronisation stream, not a Noticeboard mutation: its once-per-second updates do not generate `NOTICEBOARD_CHANGED` notifications. Browsers display the P&P-supplied value rather than independently advancing their own copy. These regular clock updates therefore also provide a simple connection/health indication without requiring a separate routine heartbeat.
 
 A single missed update need not imply failure. If updates cease beyond an implementation-defined tolerance, the browser treats itself as unsynchronised, freezes rather than locally advancing the P&P display clock, and indicates connection loss. Recovery requires a fresh full authoritative state snapshot before normal delta processing resumes.
 
@@ -746,7 +746,7 @@ Memory has three distinct relationships with the rest of P&P:
 
 The Session Definition is therefore not a gateway to Memory and is not a module. It is frozen working data that isolates an active session from later changes to persistent configuration.
 
-Pavlov is used when components communicate changes, Requests, facts or state to one another. A module reading configuration/state already present in its own working RAM is local data access, not a P&P Message Bus transaction.
+The P&P Message Bus is used when components communicate changes, Requests, facts or state to one another. A module reading configuration/state already present in its own working RAM is local data access, not a P&P Message Bus transaction.
 
 Memory must not become a shadow Race Engine by reconstructing competition state from every live event. The Race Engine remains authoritative for competition interpretation and live competition state; Memory retains the authoritative results/history information provided for persistence.
 
@@ -874,7 +874,7 @@ MUG is internal/technical vocabulary; customer-facing interfaces may use ordinar
 
 Testability is a permanent architectural responsibility.
 
-Real wired detectors, wireless devices, future devices and simulated inputs should use the same standard P&P message contracts and common communications bus. Test tooling may publish permitted synthetic/test messages and subscribe to relevant outputs at the same architectural boundaries used by real components. **The injection point depends on what is under test:** an Input Device/Input Module test stimulates the source-facing side so filtering and event production are exercised; a downstream race/session test may impersonate the Input Module and publish an authorised standard `INPUT_EVENT` onto the P&P Message Bus. The latter deliberately bypasses physical sensing because that hardware boundary is not the subject of that test; it does not create a private production path around Pavlov.
+Real wired detectors, wireless devices, future devices and simulated inputs should use the same standard P&P message contracts and common communications bus. Test tooling may publish permitted synthetic/test messages and subscribe to relevant outputs at the same architectural boundaries used by real components. **The injection point depends on what is under test:** an Input Device/Input Module test stimulates the source-facing side so filtering and event production are exercised; a downstream race/session test may impersonate the Input Module and publish an authorised standard `INPUT_EVENT` onto the P&P Message Bus. The latter deliberately bypasses physical sensing because that hardware boundary is not the subject of that test; it does not create a private production path around the P&P Message Bus.
 
 Testing should support, as appropriate:
 
