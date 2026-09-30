@@ -1,0 +1,9 @@
+name: Stage 1 starts without diagnostic output
+version: 1
+author: P&P
+steps:
+  - delay: 2s
+  - write-serial: 'v'
+  - wait-serial: '[DEV] Stage1 IDLE'
+  - write-serial: 't'
+  - wait-serial: '[BUS SELF-TEST] PASS'

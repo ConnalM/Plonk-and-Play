@@ -1,0 +1,290 @@
+{
+  "project": "Plonk & Play",
+  "source_base_commit": "773c4a164c3b14ebda5fc12d9ce4fc1cf4fd9dff",
+  "acceptance_spec_commit": "a715c2653a08b6112565f8f1b83d1218b059827b",
+  "source_is_uncommitted_overlay": true,
+  "builds": {
+    "esp32dev/firmware.elf": {
+      "sha256": "e850ce20123b2ad084fc4be666e84b28b8b23002ca77193ca2df6649812fc1d4",
+      "bytes": 6133184
+    },
+    "esp32dev/firmware.merged.bin": {
+      "sha256": "3463b7845a4eedbd3bf69a74be3b287b53dcad91701ac315571b642256d7c692",
+      "bytes": 364096
+    },
+    "stage3acceptance/firmware.elf": {
+      "sha256": "f60b5991b6d19fd46ec1d21bb5e4e09dbd2a38b8f2d2a35aa18c9a29709a2f86",
+      "bytes": 6154668
+    },
+    "stage3acceptance/firmware.merged.bin": {
+      "sha256": "f3d5121ab3b51fe92dd285b17d57b0a0720bfe4d790dbf742a215714da86c396",
+      "bytes": 375920
+    }
+  },
+  "tests": {
+    "3.1": {
+      "frozen_criterion": "End-to-end permitted delivery\n\n**Stimulus:** Drive the accepted Stage 2 simulated detector from its source-facing side through one valid detection satisfying its configured recognition rules.\n\n**Expected:** Exactly one clean standard `INPUT_EVENT` follows the real path Input Device \u00e2\u2020\u2019 Input Module \u00e2\u2020\u2019 P&P Message Bus \u00e2\u2020\u2019 authorised Test/Diagnostics consumer. The consumer receives exactly one event. The acceptance harness must not manufacture an `INPUT_EVENT` downstream of the Input Module for this test.",
+      "predetermined_stimulus": "Drive one valid source-facing simulated-detector detection; observe subscribed consumer A.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "3.1",
+        "delivery": "0",
+        "a": "1",
+        "b": "0",
+        "expectedA": "1",
+        "expectedB": "0",
+        "source": "3",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "120000",
+        "observed": "150000"
+      },
+      "result": "PASS",
+      "raw_evidence": "production-serial.txt; acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "3.2": {
+      "frozen_criterion": "Payload preservation\n\n**Stimulus:** Produce one valid detection using a predetermined stable Input ID/capability and capture the Relevant Time assigned to the clean event at the Input Module boundary.\n\n**Expected:** The authorised consumer receives the same stable Input ID/capability and the same Relevant Time. Message Bus delivery does not reinterpret, replace or derive either value from consumer receipt time.",
+      "predetermined_stimulus": "Drive one valid detection with predetermined identity 50500001:1 and trigger Relevant Time 320000.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "3.2",
+        "delivery": "0",
+        "a": "1",
+        "b": "0",
+        "expectedA": "1",
+        "expectedB": "0",
+        "source": "3",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "320000",
+        "observed": "350000"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "3.3": {
+      "frozen_criterion": "Source preservation\n\n**Stimulus:** Produce one valid source-facing detection and inspect the P&P message received by the authorised consumer.\n\n**Expected:** The P&P Message Source identifies the Input Module as the publisher/originating P&P component. The simulated Input Device remains a component of the Input Module and does not become a separate P&P Message Bus participant.",
+      "predetermined_stimulus": "Inspect A receipt for Input Module endpoint source 3.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "3.3",
+        "delivery": "0",
+        "a": "1",
+        "b": "0",
+        "expectedA": "1",
+        "expectedB": "0",
+        "source": "3",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "520000",
+        "observed": "550000"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "3.4": {
+      "frozen_criterion": "Subscription controls ordinary delivery\n\n**Setup:** Authorised Test/Diagnostics consumer A subscribes to `INPUT_EVENT`. Test participant B is connected to the Message Bus but is not subscribed to `INPUT_EVENT`.\n\n**Stimulus:** Produce one valid source-facing detection.\n\n**Expected:** A receives exactly one `INPUT_EVENT`. B receives no `INPUT_EVENT` merely because it is connected to the bus.",
+      "predetermined_stimulus": "A subscribed, connected B unsubscribed; drive one valid source detection.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "3.4",
+        "delivery": "0",
+        "a": "1",
+        "b": "0",
+        "expectedA": "1",
+        "expectedB": "0",
+        "source": "3",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "720000",
+        "observed": "750000"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "3.5": {
+      "frozen_criterion": "Multiple permitted subscribers\n\n**Setup:** Authorised Test/Diagnostics consumers A and B both subscribe to `INPUT_EVENT`.\n\n**Stimulus:** Produce one valid source-facing detection.\n\n**Expected:** Both permitted subscribers receive the same published `INPUT_EVENT`, preserving its stable identity and Relevant Time. The Input Module does not manufacture consumer-specific copies or require knowledge of the subscriber set.",
+      "predetermined_stimulus": "A and B subscribed; drive one valid source detection.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "3.5",
+        "delivery": "0",
+        "a": "1",
+        "b": "1",
+        "expectedA": "1",
+        "expectedB": "1",
+        "source": "3",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "920000",
+        "observed": "950000"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "3.6": {
+      "frozen_criterion": "Publisher independence from consumers\n\n**Method:** Exercise the Stage 3 path with an authorised Test/Diagnostics subscriber present, then repeat with a permitted subscriber added, removed or replaced as appropriate for the harness. Inspect the implementation boundary where required.\n\n**Expected:** The Input Module's publication behaviour and production code path do not depend on the identity or number of Test/Diagnostics consumers. It publishes the standard `INPUT_EVENT` to the P&P Message Bus rather than addressing a particular downstream consumer.",
+      "predetermined_stimulus": "Add B, remove B, then drive another valid source detection; inspect InputModule source path.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "delivery": {
+          "test": "3.6",
+          "delivery": "0",
+          "a": "1",
+          "b": "0",
+          "expectedA": "1",
+          "expectedB": "0",
+          "source": "3",
+          "device": "50500001",
+          "capability": "1",
+          "relevant": "1120000",
+          "observed": "1150000"
+        },
+        "subscriptions": {
+          "added": "1",
+          "removed": "1"
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt; source/firmware/include/pp/core.h",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "3.10": {
+      "frozen_criterion": "No race meaning added\n\n**Stimulus:** Produce a valid source-facing detection and inspect the `INPUT_EVENT` after Message Bus delivery.\n\n**Expected:** The event still contains only the standard physical input meaning: stable Input ID/capability and Relevant Time, plus the generic P&P message envelope information required by the Message Contract. It contains or implies no Lane, Start/Finish, sector, drag, speed-trap, MUG or other competition interpretation.",
+      "predetermined_stimulus": "Drive one valid source detection and inspect delivered envelope/payload.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "3.10",
+        "delivery": "0",
+        "a": "1",
+        "b": "1",
+        "expectedA": "1",
+        "expectedB": "1",
+        "source": "3",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "1320000",
+        "observed": "1350000"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt; structural-review.md",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "3.11": {
+      "frozen_criterion": "Consumer independence\n\n**Setup:** Two permitted Test/Diagnostics consumers are subscribed and receiving `INPUT_EVENT`. Remove, disable or unsubscribe one consumer while leaving the other subscribed.\n\n**Stimulus:** Produce another valid source-facing detection.\n\n**Expected:** The remaining consumer continues to receive the standard `INPUT_EVENT` normally. Publication by the Input Module does not depend on a particular consumer remaining present.",
+      "predetermined_stimulus": "With A/B subscribed, unsubscribe B and drive another valid source detection.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "3.11",
+        "delivery": "0",
+        "a": "1",
+        "b": "0",
+        "expectedA": "1",
+        "expectedB": "0",
+        "source": "3",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "1520000",
+        "observed": "1550000"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "3.7": {
+      "frozen_criterion": "INPUT_EVENT publication authority\n\n**Stimulus:** A deliberately unauthorised test participant attempts to originate an `INPUT_EVENT` on the P&P Message Bus.\n\n**Expected:** The attempted publication is rejected/not delivered as an authoritative `INPUT_EVENT`. Connectivity to the Message Bus does not grant authority to publish this Message Type.",
+      "predetermined_stimulus": "Connected Diagnostics B attempts to publish a forged INPUT_EVENT.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "3.7",
+        "result": "1",
+        "a": "0",
+        "b": "0",
+        "sender": "12"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "3.8": {
+      "frozen_criterion": "Subscription does not grant publication authority\n\n**Setup:** A Test/Diagnostics participant is legitimately permitted to consume and subscribes to `INPUT_EVENT`.\n\n**Stimulus:** That participant attempts to originate an `INPUT_EVENT`.\n\n**Expected:** Its consumer/subscriber status does not grant publisher authority. The attempted `INPUT_EVENT` publication is rejected/not delivered as authoritative.",
+      "predetermined_stimulus": "Subscribed Diagnostics A attempts to publish a forged INPUT_EVENT.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "3.8",
+        "result": "1",
+        "a": "0",
+        "b": "0",
+        "sender": "11"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "3.9": {
+      "frozen_criterion": "No private point-to-point path\n\n**Method:** Structural inspection plus instrumented acceptance evidence as appropriate.\n\n**Expected:** Inter-component delivery from the Input Module to the authorised consumer occurs through the common P&P Message Bus subscription boundary. There is no private Input Module \u00e2\u2020\u2019 consumer callback, direct invocation, private inter-component queue or other production path acting as an alternative to the P&P Message Bus.",
+      "predetermined_stimulus": "Inspect exact source and instrumented Bus receipts for no direct consumer route.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "findings": [
+          {
+            "requirement": "Input Module publishes to common Bus",
+            "result": "PASS"
+          },
+          {
+            "requirement": "No direct Input Module-to-consumer path",
+            "result": "PASS"
+          },
+          {
+            "requirement": "Input Device is internal, not bus participant",
+            "result": "PASS"
+          },
+          {
+            "requirement": "No race meaning in INPUT_EVENT",
+            "result": "PASS"
+          }
+        ]
+      },
+      "result": "PASS",
+      "raw_evidence": "structural-review.md; structural-review.json; source/",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "3.T": {
+      "frozen_criterion": "Deliberate acceptance-harness failure\n\n**Method:** Run one acceptance comparison with a deliberately wrong predetermined expectation, such as an incorrect expected event count or identity.\n\n**Expected:** The harness reports FAIL and retains the mismatch as evidence. Restore the correct frozen expectation and confirm the corresponding acceptance test passes.",
+      "predetermined_stimulus": "Compare captured 3.1 receipt with known-wrong expected count 2, then restore count 1.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "wrong": {
+          "expected_count": 2,
+          "actual_count": 1,
+          "result": "FAIL"
+        },
+        "restored": {
+          "expected_count": 1,
+          "actual_count": 1,
+          "result": "PASS"
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "deliberate-failure.json; acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    }
+  }
+}

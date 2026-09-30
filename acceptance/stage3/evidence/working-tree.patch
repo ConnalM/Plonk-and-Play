@@ -1,0 +1,142 @@
+diff --git a/firmware/README.md b/firmware/README.md
+index 158340f..54e0145 100644
+--- a/firmware/README.md
++++ b/firmware/README.md
+@@ -1,4 +1,4 @@
+-# P&P Stages 1–2 — skeleton and one simulated Input Device
++# P&P Stages 1–3 — skeleton, Input Device and Message Bus delivery
+ 
+ Stage 1 is **ACCEPTED**. It passed the frozen acceptance campaign defined by
+ `docs/ACCEPTANCE_TESTS_STAGE_1.md` at
+@@ -17,6 +17,10 @@ are unchanged. Stage 2 adds one simulated detector only; no race logic, session
+ creation, role assignment, browser interface, networking or output operation is
+ implemented.
+ 
++Stage 3 proves delivery of the genuine Stage 2 `INPUT_EVENT` through the common
++P&P Message Bus to authorised Test/Diagnostics subscribers. It adds no race,
++session, browser or role-assignment behaviour.
++
+ ## What exists
+ 
+ - Controller System Time uses `esp_timer_get_time()`: 64-bit monotonic microseconds
+@@ -38,6 +42,10 @@ implemented.
+   its local stable interval, and re-arms only after a local stable clear. The
+   module publishes `INPUT_EVENT` containing only that identity and Relevant Time.
+   ACTIVE/INACTIVE and all racing roles remain internal or unimplemented.
++- The Input Module is the sole publisher of `INPUT_EVENT`. The Bus stamps its
++  source, fans out to permitted subscribed consumers, and rejects attempts by
++  Diagnostics/Test consumers to publish that event. Consumers may unsubscribe;
++  the Input Module does not address or otherwise know them.
+ - Race Control, Race Engine, Output and Presentation retain separate dormant
+   endpoints. Registry, Session Definition and configuration are not extra modules.
+ - Diagnostics are bounded (64 lines, 160 bytes each), UART writes use available
+@@ -166,6 +174,19 @@ development controls only; the Input Device performs its normal conditioning
+ before the Input Module can publish an event. Serial diagnostics show only
+ `device`, `capability` and `relevant_us` for a resulting INPUT_EVENT.
+ 
++## Stage 3 frozen acceptance — ACCEPTED
++
++Stage 3 is **ACCEPTED**. Frozen acceptance tests 3.1–3.11 and harness sanity
++test 3.T passed against
++`docs/ACCEPTANCE_TESTS_STAGE_3.md` at
++`a715c2653a08b6112565f8f1b83d1218b059827b`. The repeatable harness, raw Wokwi
++output, source and build manifests, structural review, and deliberate-failure evidence are in
++`acceptance/stage3/`; repeat it with:
++
++```powershell
++./acceptance/stage3/run.ps1
++```
++
+ ## See Stages 1–2 in the Wokwi browser
+ 
+ In the existing ESP32 custom-firmware project, stop the old plumbing simulation.
+diff --git a/firmware/build.ps1 b/firmware/build.ps1
+index da17c1c..79cb1e7 100644
+--- a/firmware/build.ps1
++++ b/firmware/build.ps1
+@@ -1,4 +1,4 @@
+-param([ValidateSet('esp32dev','verification','quiet','acceptance','stage2acceptance')][string]$Environment = 'esp32dev')
++param([ValidateSet('esp32dev','verification','quiet','acceptance','stage2acceptance','stage3acceptance')][string]$Environment = 'esp32dev')
+ $ErrorActionPreference = 'Stop'
+ $pioRoot = Join-Path $env:USERPROFILE '.platformio'
+ $python = Join-Path $pioRoot 'penv\Scripts\python.exe'
+diff --git a/firmware/include/pp/core.h b/firmware/include/pp/core.h
+index 13f0b08..d7a0239 100644
+--- a/firmware/include/pp/core.h
++++ b/firmware/include/pp/core.h
+@@ -53,6 +53,11 @@ public:
+     if (!s || unsigned(t) >= unsigned(Type::Count) || !(consumers(t) & mask(s->role))) return false;
+     s->subscriptions |= uint16_t(1u << unsigned(t)); return true;
+   }
++  bool unsubscribe(Endpoint e, Type t) {
++    auto* s = slot(e);
++    if (!s || unsigned(t) >= unsigned(Type::Count) || !(consumers(t) & mask(s->role))) return false;
++    s->subscriptions &= uint16_t(~(1u << unsigned(t))); return true;
++  }
+   Delivery publish(Endpoint e, Message m) {
+     auto* sender = slot(e);
+     if (!sender || unsigned(m.type) >= unsigned(Type::Count)) return Delivery::Invalid;
+diff --git a/firmware/platformio.ini b/firmware/platformio.ini
+index d0280ee..d0000b9 100644
+--- a/firmware/platformio.ini
++++ b/firmware/platformio.ini
+@@ -23,3 +23,7 @@ build_flags = ${env:esp32dev.build_flags} -DPP_ACCEPTANCE=1
+ [env:stage2acceptance]
+ extends = env:esp32dev
+ build_flags = ${env:esp32dev.build_flags} -DPP_STAGE2_ACCEPTANCE=1
++
++[env:stage3acceptance]
++extends = env:esp32dev
++build_flags = ${env:esp32dev.build_flags} -DPP_STAGE3_ACCEPTANCE=1
+diff --git a/firmware/src/main.cpp b/firmware/src/main.cpp
+index ecb2e87..e8bbb58 100644
+--- a/firmware/src/main.cpp
++++ b/firmware/src/main.cpp
+@@ -93,6 +93,9 @@ void status(){diagnostics.log("[DEV] Stage1 %s system_us=%llu dropped=%lu; no se
+ #ifdef PP_STAGE2_ACCEPTANCE
+ #include "../tests/stage2_acceptance_probe.inc"
+ #endif
++#ifdef PP_STAGE3_ACCEPTANCE
++#include "../tests/stage3_acceptance_probe.inc"
++#endif
+ }
+ void setup(){
+   Serial.begin(115200);
+@@ -101,6 +104,9 @@ void setup(){
+ #endif
+ #ifdef PP_STAGE2_ACCEPTANCE
+   stage2AcceptanceBeforeBoot();
++#endif
++#ifdef PP_STAGE3_ACCEPTANCE
++  stage3AcceptanceBeforeBoot();
+ #endif
+   diagnostics.log("[DEV] P&P STAGE 1 -- diagnostics are not product State");
+   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
+@@ -167,6 +173,7 @@ void loop(){
+ #endif
+       diagnostics.log("%s",ready?"STAGE1_PASS skeleton initialised; no race behaviour":"STAGE1_FAIL self-test");
+       diagnostics.log("%s",ready?"STAGE2_PASS one simulated Input Device ready; no race behaviour":"STAGE2_FAIL startup");
++      diagnostics.log("%s",ready?"STAGE3_PASS Message Bus delivery boundary ready; no race behaviour":"STAGE3_FAIL startup");
+       diagnostics.log("[DEV] Serial: ? status, t bus self-test, q quiet, v diagnostics on");
+       nextStatus=systemTime()+10000000;
+     }
+@@ -186,6 +193,9 @@ void loop(){
+ #endif
+ #ifdef PP_STAGE2_ACCEPTANCE
+     else stage2AcceptanceCommand(c);
++#endif
++#ifdef PP_STAGE3_ACCEPTANCE
++    else stage3AcceptanceCommand(c);
+ #endif
+   }
+   if(ready&&systemTime()>=nextStatus){status();nextStatus=systemTime()+10000000;}
+@@ -196,6 +206,9 @@ void loop(){
+ #ifdef PP_STAGE2_ACCEPTANCE
+   stage2AcceptanceTick();
+ #endif
++#ifdef PP_STAGE3_ACCEPTANCE
++  stage3AcceptanceTick();
++#endif
+ #ifdef PP_VERIFY
+   if(verificationReboot&&systemTime()>=rebootAt)ESP.restart();
+ #endif
