@@ -1,4 +1,4 @@
-param([ValidateSet('esp32dev','verification','quiet','acceptance','stage2acceptance','stage3acceptance')][string]$Environment = 'esp32dev')
+param([ValidateSet('esp32dev','verification','quiet','acceptance','stage2acceptance','stage3acceptance','stage4acceptance')][string]$Environment = 'esp32dev')
 $ErrorActionPreference = 'Stop'
 $pioRoot = Join-Path $env:USERPROFILE '.platformio'
 $python = Join-Path $pioRoot 'penv\Scripts\python.exe'

@@ -1,0 +1,6 @@
+name: Frozen Stage 4 session role acceptance
+version: 1
+steps:
+  - wait-serial: 'ACC READY'
+  - write-serial: 's'
+  - wait-serial: 'ACC DONE'

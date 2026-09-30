@@ -187,6 +187,21 @@ output, source and build manifests, structural review, and deliberate-failure ev
 ./acceptance/stage3/run.ps1
 ```
 
+## Stage 4 frozen acceptance — ACCEPTED
+
+Stage 4 is **ACCEPTED**. Frozen acceptance tests 4.1–4.10 and harness sanity
+test 4.T passed against `docs/ACCEPTANCE_TESTS_STAGE_4.md` at
+`eb6a1b8a4e7912c1d3b471ede96578c978f0a909`. The minimal fixed working-data
+implementation is in `include/pp/session_definition.h`: it maps a stable input
+identity to a session role and remains neither a module nor a Message Bus
+participant. Test/session-preparation scaffolding is separate from future Race
+Control ownership. The repeatable harness and retained evidence are in
+`acceptance/stage4/`; repeat it with:
+
+```powershell
+./acceptance/stage4/run.ps1
+```
+
 ## See Stages 1–2 in the Wokwi browser
 
 In the existing ESP32 custom-firmware project, stop the old plumbing simulation.

@@ -3,6 +3,7 @@
 #include "pp/system_time.h"
 #include <stdarg.h>
 #include "pp/core.h"
+#include "pp/session_definition.h"
 #include "pp/verification.h"
 #ifndef PP_DIAGNOSTICS
 #define PP_DIAGNOSTICS 1
@@ -96,6 +97,9 @@ void status(){diagnostics.log("[DEV] Stage1 %s system_us=%llu dropped=%lu; no se
 #ifdef PP_STAGE3_ACCEPTANCE
 #include "../tests/stage3_acceptance_probe.inc"
 #endif
+#ifdef PP_STAGE4_ACCEPTANCE
+#include "../tests/stage4_acceptance_probe.inc"
+#endif
 }
 void setup(){
   Serial.begin(115200);
@@ -107,6 +111,9 @@ void setup(){
 #endif
 #ifdef PP_STAGE3_ACCEPTANCE
   stage3AcceptanceBeforeBoot();
+#endif
+#ifdef PP_STAGE4_ACCEPTANCE
+  stage4AcceptanceBeforeBoot();
 #endif
   diagnostics.log("[DEV] P&P STAGE 1 -- diagnostics are not product State");
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
@@ -174,6 +181,7 @@ void loop(){
       diagnostics.log("%s",ready?"STAGE1_PASS skeleton initialised; no race behaviour":"STAGE1_FAIL self-test");
       diagnostics.log("%s",ready?"STAGE2_PASS one simulated Input Device ready; no race behaviour":"STAGE2_FAIL startup");
       diagnostics.log("%s",ready?"STAGE3_PASS Message Bus delivery boundary ready; no race behaviour":"STAGE3_FAIL startup");
+      diagnostics.log("%s",ready?"STAGE4_PASS Session Definition scaffold ready; no race behaviour":"STAGE4_FAIL startup");
       diagnostics.log("[DEV] Serial: ? status, t bus self-test, q quiet, v diagnostics on");
       nextStatus=systemTime()+10000000;
     }
@@ -197,6 +205,9 @@ void loop(){
 #ifdef PP_STAGE3_ACCEPTANCE
     else stage3AcceptanceCommand(c);
 #endif
+#ifdef PP_STAGE4_ACCEPTANCE
+    else stage4AcceptanceCommand(c);
+#endif
   }
   if(ready&&systemTime()>=nextStatus){status();nextStatus=systemTime()+10000000;}
   diagnostics.flush();delay(1);
@@ -208,6 +219,9 @@ void loop(){
 #endif
 #ifdef PP_STAGE3_ACCEPTANCE
   stage3AcceptanceTick();
+#endif
+#ifdef PP_STAGE4_ACCEPTANCE
+  stage4AcceptanceTick();
 #endif
 #ifdef PP_VERIFY
   if(verificationReboot&&systemTime()>=rebootAt)ESP.restart();

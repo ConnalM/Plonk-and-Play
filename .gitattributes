@@ -2,3 +2,4 @@
 acceptance/stage1/evidence/** -whitespace
 acceptance/stage2/evidence/** -whitespace
 acceptance/stage3/evidence/** -whitespace
+acceptance/stage4/evidence/** -whitespace
