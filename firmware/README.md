@@ -221,3 +221,13 @@ diagnostics, or `v` to resume them. These are development controls, not P&P prod
 Requests or authoritative State. No browser race screen or race behaviour is
 implemented. Wokwi's Restart button can rebuild the template; use Upload Firmware
 again to restart this local image.
+
+## Stage 7 frozen acceptance — ACCEPTED
+
+Stage 7 is **ACCEPTED**. Frozen acceptance tests 7.1–7.16 and deliberate
+harness test 7.T passed against `docs/ACCEPTANCE_TESTS_STAGE_7.md` at
+`4b6722a663bd1365c49a7dd279dcc721d3d14806`. The real Browser checkpoint also
+passed: it synchronised and displayed authoritative State and LAP_COMPLETED
+Facts through a complete two-lap race to FINISHED, then reconstructed current
+FINISHED State after a Ctrl+F5 reload. Retained automated, human-checkpoint and
+historical gateway evidence are in `acceptance/stage7/`.

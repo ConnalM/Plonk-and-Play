@@ -1,8 +1,9 @@
-# Stage 7 human Browser checkpoint — BLOCKED
+# Stage 7 human Browser checkpoint — PASS
 
-**Status:** BLOCKED — external Wokwi Private IoT Gateway forwarding defect
+**Status:** PASS — manually verified through the Wokwi Private IoT Gateway
 
-The checkpoint has not passed and Stage 7 is not accepted.
+The checkpoint passed after the gateway/browser session recovered. Stage 7 is
+accepted against its frozen acceptance plan.
 
 ## What was demonstrated
 
@@ -24,12 +25,15 @@ Gateway v2.0.1 was running with the verified mapping
 `--forward 9080:10.13.37.2:80`. Its retained log reports failed target dials,
 including `no route to host` before the active browser client was connected.
 
-## What remains unobserved
+## Completed human observation
 
-The real rendered Browser has not yet been observed through the Private IoT
-Gateway showing all of: synchronised status, authoritative current State,
-separate LAP_COMPLETED Fact/Event, race progression, and synchronised
-FINISHED State.
+The real rendered Browser was observed through the Private IoT Gateway. It
+remained visible while current State refreshed through the race, showed laps
+`0 -> 1 -> 2 -> FINISHED`, displayed the corresponding last-lap values and a
+separate `LAP_COMPLETED` Fact/Event, and returned to `synchronised` after each
+successful authoritative State refresh. A Ctrl+F5 fresh Browser instance then
+reconstructed the existing authoritative FINISHED State and the latest Fact
+without another race event.
 
 ## Retained local material
 
@@ -41,3 +45,7 @@ FINISHED State.
   `EA230C823884A6A7A64D91AFD415FC952ABAD590ADAD8AF5D62D9CED77C4E76B`.
 - `gateway-pcap-archive.zip` — SHA-256
   `C15EEC285BC493A4BB2508EE116083C6B2C0CFF6EDE95309133A531289244D75`.
+
+The historical gateway failure evidence remains retained because it records a
+real external test-environment interruption; it does not invalidate the later
+successful human checkpoint.
