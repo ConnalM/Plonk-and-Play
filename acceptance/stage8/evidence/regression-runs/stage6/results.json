@@ -1,0 +1,218 @@
+{
+  "identity": {
+    "source_manifest_sha256": "9E077C867938FCC70F2BA028469994EE07D23AAD1E02392BFDB0CE6573D50954",
+    "project": "ConnalM/Plonk-and-Play",
+    "frozen_acceptance_commit": "cff214d6cb43d3e1367f703fc5ccd06be1d2642a",
+    "source_base_commit": "20469948784a64662ef96cb20637cfd6a59cc27b",
+    "stage6_elf_sha256": "C27FD13009F82B34FB6049365044A9F4DB6DF46D0C5AC2EE839F2971AFC5EA28"
+  },
+  "tests": {
+    "6.1": {
+      "predetermined_stimulus": "Prepare fixed session and initiate real RC start procedure",
+      "expected_result": "Race Control owns READY then STARTING",
+      "actual_result": {
+        "test": "6.1",
+        "state": "READY"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.2": {
+      "predetermined_stimulus": "Begin real Race Control start procedure",
+      "expected_result": "Race Control publishes a future GO_SCHEDULED",
+      "actual_result": {
+        "test": "6.2",
+        "started": "1",
+        "publication_now": "696488",
+        "go": "1696488",
+        "future": "1",
+        "state": "STARTING"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.3": {
+      "predetermined_stimulus": "Observe GO_SCHEDULED on the Message Bus",
+      "expected_result": "Exactly one Race Control-originated GO_SCHEDULED fact",
+      "actual_result": {
+        "test": "6.3",
+        "state": "STARTING",
+        "go_facts": "1",
+        "go_source": "4",
+        "lap_facts": "0",
+        "complete_facts": "0",
+        "complete_at": "0",
+        "laps": "0",
+        "lap": "0",
+        "engine_go": "1696488"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.4": {
+      "predetermined_stimulus": "Observe just before scheduled GO",
+      "expected_result": "Race Control remains STARTING",
+      "actual_result": {
+        "test": "6.4",
+        "state": "STARTING"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.5": {
+      "predetermined_stimulus": "Advance the real Race Control scheduler to GO",
+      "expected_result": "Race Control enters RACING at GO",
+      "actual_result": {
+        "test": "6.5",
+        "state": "RACING"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.6": {
+      "predetermined_stimulus": "Run RC publication and Race Engine bus consumption",
+      "expected_result": "Race Engine uses the bus-delivered GO",
+      "actual_result": {
+        "test": "6.6",
+        "engine_go": "1696488",
+        "scheduled_go": "1696488"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.7": {
+      "predetermined_stimulus": "Cross Start/Finish at GO + 500000us",
+      "expected_result": "Lap 1 time is crossing time minus scheduled GO",
+      "actual_result": {
+        "test": "6.7",
+        "laps": "1",
+        "lap": "500000"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.8": {
+      "predetermined_stimulus": "Inspect production ownership boundaries",
+      "expected_result": "Race Control owns lifecycle; Race Engine owns lap state",
+      "actual_result": {
+        "separate_ownership": true
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.9": {
+      "predetermined_stimulus": "Inspect RC/RE production communication",
+      "expected_result": "GO and completion use the common Message Bus",
+      "actual_result": {
+        "bus_only": true
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.10": {
+      "predetermined_stimulus": "Produce the second valid Start/Finish crossing",
+      "expected_result": "Race Engine determines fixed-lap Immediate completion",
+      "actual_result": {
+        "completion": {
+          "test": "6.11",
+          "engine_complete": "1"
+        },
+        "facts": {
+          "test": "6.10",
+          "state": "FINISHED",
+          "go_facts": "0",
+          "go_source": "0",
+          "lap_facts": "2",
+          "complete_facts": "1",
+          "complete_at": "2596488",
+          "laps": "2",
+          "lap": "400000",
+          "engine_go": "1696488"
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.11": {
+      "predetermined_stimulus": "Observe completion fact on Message Bus",
+      "expected_result": "Race Engine publishes one COMPETITION_COMPLETE fact",
+      "actual_result": {
+        "test": "6.10",
+        "state": "FINISHED",
+        "go_facts": "0",
+        "go_source": "0",
+        "lap_facts": "2",
+        "complete_facts": "1",
+        "complete_at": "2596488",
+        "laps": "2",
+        "lap": "400000",
+        "engine_go": "1696488"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.12": {
+      "predetermined_stimulus": "Race Control consumes completion fact",
+      "expected_result": "Race Control enters FINISHED",
+      "actual_result": {
+        "test": "6.12",
+        "state": "FINISHED"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.13": {
+      "predetermined_stimulus": "Inspect Stage 6 initiation path",
+      "expected_result": "No production START_REQUEST/acceptance is implemented",
+      "actual_result": {
+        "fixture_is_preparation_only": true
+      },
+      "result": "FAIL",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.14": {
+      "predetermined_stimulus": "Run full lifecycle campaign without Browser",
+      "expected_result": "Lifecycle completes without Browser/Presentation participation",
+      "actual_result": {
+        "browser_dependency": false
+      },
+      "result": "FAIL",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.15": {
+      "predetermined_stimulus": "Capture a complete Stage 6 lifecycle run",
+      "expected_result": "Observable ordered lifecycle and distinct publication/GO times",
+      "actual_result": {
+        "ordering": "READY STARTING GO_SCHEDULED RACING LAP_COMPLETED COMPETITION_COMPLETE FINISHED",
+        "publication": {
+          "test": "6.2",
+          "started": "1",
+          "publication_now": "696488",
+          "go": "1696488",
+          "future": "1",
+          "state": "STARTING"
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "6.T": {
+      "predetermined_stimulus": "Compare pre-GO state with deliberately wrong then restored expectation",
+      "expected_result": "Harness retains FAIL then PASS",
+      "actual_result": {
+        "wrong": {
+          "expected_state": "RACING",
+          "actual_state": "STARTING",
+          "result": "FAIL"
+        },
+        "restored": {
+          "expected_state": "STARTING",
+          "actual_state": "STARTING",
+          "result": "PASS"
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    }
+  }
+}

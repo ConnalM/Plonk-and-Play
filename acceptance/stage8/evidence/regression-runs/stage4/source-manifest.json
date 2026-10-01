@@ -1,0 +1,6 @@
+{
+  "firmware/include/pp/core.h": "b7f5d68cdb86a144a85429f5389a6a906fea64eaa4a0916fefb61f2da73e2032",
+  "firmware/include/pp/session_definition.h": "9ea44945b95525f95bb243a17a6984d0df1568243f24abd7f1ced528be8bc558",
+  "firmware/tests/stage4_acceptance_probe.inc": "44cd725854a6aff0eb96f93d62530216df74354dbfe6e5b026b38fdfd6b42455",
+  "docs/ACCEPTANCE_TESTS_STAGE_4.md": "7d9bcb9e4df72daef7a49a6c5333d7e6884550d669fb54b2a6b6a03bd9ba5f1b"
+}

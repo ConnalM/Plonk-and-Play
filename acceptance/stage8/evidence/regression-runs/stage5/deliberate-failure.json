@@ -1,0 +1,13 @@
+{
+  "test": "5.T",
+  "wrong": {
+    "expected_laps": 2,
+    "actual_laps": 1,
+    "result": "FAIL"
+  },
+  "restored": {
+    "expected_laps": 1,
+    "actual_laps": 1,
+    "result": "PASS"
+  }
+}

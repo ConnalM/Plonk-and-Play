@@ -66,25 +66,29 @@ pp::Memory memory(storage);
 const auto lifecycle=bus.attach(pp::Role::Lifecycle);
 const auto memoryEndpoint=bus.attach(pp::Role::Memory);
 pp::InputModule input(bus,bus.attach(pp::Role::Input));
+pp::ActiveSessionDefinition activeSession;
 const auto raceControlEndpoint=bus.attach(pp::Role::RaceControl);
-pp::RaceControlModule raceControl(bus,raceControlEndpoint);
+pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession);
 const auto raceEngineEndpoint=bus.attach(pp::Role::RaceEngine);
-pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint);
+pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint,activeSession);
 pp::OutputModule output{bus.attach(pp::Role::Output)};
 const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
-pp::Noticeboard noticeboard(raceControl,raceEngine);
+pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
 pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard);
 const auto testPublisher=bus.attach(pp::Role::Diagnostics);
 const auto testObserver=bus.attach(pp::Role::Diagnostics);
 const auto inputObserver=bus.attach(pp::Role::Diagnostics);
 pp::MemoryModule memoryModule(bus,memoryEndpoint,memory);
 pp::Configuration workingConfiguration;
+pp::ProposedRaceSetup proposedRaceSetup{ {pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish}, 1, 10, pp::LapFinishBehaviour::Immediate, 1, true, false };
 bool ready=false,testsPassed=true,bootFailed=false;
 pp::Time nextStatus=0;
 // The build environment is diagnostic identity only. It never supplies product
 // State or changes P&P behaviour.
 const char* buildIdentity(){
-#if defined(PP_STAGE7_DEMO)
+ #if defined(PP_STAGE8_ACCEPTANCE)
+  return "P&P STAGE 8 ACCEPTANCE";
+#elif defined(PP_STAGE7_DEMO)
   return "P&P STAGE 7 DEMO";
 #elif defined(PP_STAGE7_ACCEPTANCE)
   return "P&P STAGE 7 ACCEPTANCE";
@@ -152,6 +156,9 @@ void status(){diagnostics.log("[DEV] Stage1 %s system_us=%llu dropped=%lu; no se
 #ifdef PP_STAGE7_DEMO
 #include "../tests/stage7_demo_probe.inc"
 #endif
+#ifdef PP_STAGE8_ACCEPTANCE
+#include "../tests/stage8_acceptance_probe.inc"
+#endif
 }
 void setup(){
   Serial.begin(115200);
@@ -179,8 +186,11 @@ void setup(){
 #ifdef PP_STAGE7_ACCEPTANCE
   stage7AcceptanceBeforeBoot();
 #endif
-#ifdef PP_STAGE7_DEMO
+ #ifdef PP_STAGE7_DEMO
   stage7DemoBeforeBoot();
+#endif
+#ifdef PP_STAGE8_ACCEPTANCE
+  stage8AcceptanceBeforeBoot();
 #endif
   diagnostics.log("[DEV] %s -- diagnostics are not product State",buildIdentity());
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
@@ -194,10 +204,12 @@ void setup(){
   testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::InputEvent);
   testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::GoScheduled);
   testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::CompetitionComplete);
+  testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::StartRequest);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::NoticeboardChanged);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::GoScheduled);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::LapCompleted);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::CompetitionComplete);
+  testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::RequestResult);
   browser.begin();
   diagnostics.log("[INIT] Message Bus READY: bounded mailboxes; authority checked");
   testsPassed&=pp::busSelfTest(bus,testPublisher,testObserver,input.endpoint,report);
@@ -242,6 +254,9 @@ void loop(){
       bootFailed=true;diagnostics.log("STAGE1_FAIL configuration response");
     }else{
       workingConfiguration=message.configuration;
+      proposedRaceSetup.lapTarget=workingConfiguration.laps;
+      raceControl.setProposedRaceSetup(proposedRaceSetup);
+      raceControl.setRequiredCapabilityAvailable(true);
 #ifdef PP_ACCEPTANCE
       acceptanceLoadStatus=unsigned(message.loadStatus);
 #endif
@@ -301,6 +316,9 @@ void loop(){
 #ifdef PP_STAGE7_DEMO
     else stage7DemoCommand(c);
 #endif
+#ifdef PP_STAGE8_ACCEPTANCE
+    else stage8AcceptanceCommand(c);
+#endif
   }
   if(ready&&systemTime()>=nextStatus){status();nextStatus=systemTime()+10000000;}
   diagnostics.flush();delay(1);
@@ -330,6 +348,9 @@ void loop(){
 #endif
 #ifdef PP_STAGE7_DEMO
   stage7DemoTick();
+#endif
+#ifdef PP_STAGE8_ACCEPTANCE
+  stage8AcceptanceTick();
 #endif
 #ifdef PP_VERIFY
   if(verificationReboot&&systemTime()>=rebootAt)ESP.restart();

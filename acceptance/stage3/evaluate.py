@@ -16,7 +16,7 @@ RECIPES={
 '3.10':'Drive one valid source detection and inspect delivered envelope/payload.',
 '3.11':'With A/B subscribed, unsubscribe B and drive another valid source detection.',
 '3.T':'Compare captured 3.1 receipt with known-wrong expected count 2, then restore count 1.'}
-def git(*a):return subprocess.check_output(['git','-c',f'safe.directory={ROOT.as_posix()}',*a],cwd=ROOT).decode()
+def git(*a):return subprocess.check_output(['git','-c',f'safe.directory={ROOT.as_posix()}',*a],cwd=ROOT).decode('cp1252')
 def dig(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def save(n,x):(OUT/n).write_text(json.dumps(x,indent=2)+'\n')
 def rows(raw,prefix):return [dict(re.findall(r'(\w+)=([^\s]+)',x)) for x in re.findall(re.escape(prefix)+r'([^\r\n]*)',raw)]

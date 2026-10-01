@@ -1,0 +1,6 @@
+name: Stage 8 Browser START_REQUEST
+version: 1
+steps:
+  - wait-serial: 'ACC READY'
+  - write-serial: 's'
+  - wait-serial: 'ACC DONE'

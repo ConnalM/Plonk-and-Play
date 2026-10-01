@@ -7,7 +7,11 @@ namespace pp {
 using Time = uint64_t; // Monotonic microseconds in this controller boot's domain.
 enum class Role : uint8_t { Lifecycle, Memory, Input, RaceControl, RaceEngine, Output, Presentation, Diagnostics };
 constexpr uint16_t mask(Role r) { return uint16_t(1u << unsigned(r)); }
-enum class Type : uint8_t { LoadConfiguration, ConfigurationLoaded, InputEvent, GoScheduled, LapCompleted, CompetitionComplete, NoticeboardChanged, DiagnosticProbe, Count };
+// Numeric values through DiagnosticProbe are the accepted Stage 7 compatibility baseline.
+enum class Type : uint8_t { LoadConfiguration=0, ConfigurationLoaded=1, InputEvent=2, GoScheduled=3, LapCompleted=4, CompetitionComplete=5, NoticeboardChanged=6, DiagnosticProbe=7, StartRequest=8, RequestResult=9, Count=10 };
+enum class ClientContext : uint8_t { Spectator, RaceDirectorSmug };
+enum class RequestResult : uint8_t { Accepted, Rejected };
+enum class RequestRejection : uint8_t { None, PermissionDenied, LifecycleNotStartable, InvalidRaceSetup, RequiredCapabilityUnavailable, SessionDefinitionUnavailable };
 struct InputIdentity {
   uint32_t device;
   uint16_t capability;
@@ -39,6 +43,9 @@ struct Message {
   Configuration configuration{};
   LoadStatus loadStatus = LoadStatus::DefaultsMissing;
   uint32_t probe = 0;
+  ClientContext clientContext = ClientContext::Spectator;
+  RequestResult requestResult = RequestResult::Rejected;
+  RequestRejection rejection = RequestRejection::None;
 };
 enum class Delivery { Delivered, Forbidden, Invalid, NoSubscribers, Full };
 class Bus {
@@ -64,7 +71,7 @@ public:
     auto* sender = slot(e);
     if (!sender || unsigned(m.type) >= unsigned(Type::Count)) return Delivery::Invalid;
     if (!(publishers(m.type) & mask(sender->role))) return Delivery::Forbidden;
-    if ((m.type == Type::LoadConfiguration || m.type == Type::ConfigurationLoaded) && m.correlation == 0) return Delivery::Invalid;
+    if ((m.type == Type::LoadConfiguration || m.type == Type::ConfigurationLoaded || m.type == Type::StartRequest || m.type == Type::RequestResult) && m.correlation == 0) return Delivery::Invalid;
     size_t recipients = 0;
     for (size_t i=0;i<count_;++i) if (interested(slots_[i], m.type)) {
       ++recipients;
@@ -106,6 +113,8 @@ private:
       case Type::LoadConfiguration: return mask(Role::Lifecycle);
       case Type::ConfigurationLoaded: return mask(Role::Memory);
       case Type::InputEvent: return mask(Role::Input);
+      case Type::StartRequest: return mask(Role::Presentation);
+      case Type::RequestResult: return mask(Role::RaceControl);
       case Type::GoScheduled: return mask(Role::RaceControl);
       case Type::LapCompleted: return mask(Role::RaceEngine);
       case Type::CompetitionComplete: return mask(Role::RaceEngine);
@@ -119,6 +128,8 @@ private:
       case Type::LoadConfiguration: return mask(Role::Memory);
       case Type::ConfigurationLoaded: return mask(Role::Lifecycle);
       case Type::InputEvent: return mask(Role::RaceEngine)|mask(Role::Diagnostics);
+      case Type::StartRequest: return mask(Role::RaceControl)|mask(Role::Diagnostics);
+      case Type::RequestResult: return mask(Role::Presentation)|mask(Role::Diagnostics);
       case Type::GoScheduled: return mask(Role::RaceEngine)|mask(Role::Presentation)|mask(Role::Diagnostics);
       case Type::LapCompleted: return mask(Role::Presentation)|mask(Role::Diagnostics);
       case Type::CompetitionComplete: return mask(Role::RaceControl)|mask(Role::Presentation)|mask(Role::Diagnostics);

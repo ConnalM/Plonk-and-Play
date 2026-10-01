@@ -1,0 +1,13 @@
+{
+  "test": "6.T",
+  "wrong": {
+    "expected_state": "RACING",
+    "actual_state": "STARTING",
+    "result": "FAIL"
+  },
+  "restored": {
+    "expected_state": "STARTING",
+    "actual_state": "STARTING",
+    "result": "PASS"
+  }
+}

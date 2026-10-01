@@ -4,16 +4,20 @@
 namespace pp {
 class RaceEngineModule {
 public:
-  RaceEngineModule(Bus& bus,Bus::Endpoint endpoint):bus_(bus),endpoint_(endpoint) {}
+  RaceEngineModule(Bus& bus,Bus::Endpoint endpoint,ActiveSessionDefinition& active):bus_(bus),endpoint_(endpoint),active_(active) {}
   // Stage 5 regression setup only. Stage 6 uses GO_SCHEDULED from Race Control.
-  void begin(const SessionDefinition& definition,Time go){definition_=&definition;go_=go;lastCrossing_=go;lastLapTime_=0;laps_=0;complete_=false;}
+  void begin(const SessionDefinition& definition,Time go){definition_=&definition;observedRevision_=active_.revision();go_=go;lastCrossing_=go;lastLapTime_=0;laps_=0;complete_=false;}
   // The Stage 6 preparation boundary supplies immutable working session data;
   // it does not establish GO or change Race Control lifecycle state.
-  void prepare(const SessionDefinition& definition){definition_=&definition;go_=0;lastCrossing_=0;lastLapTime_=0;laps_=0;complete_=false;}
-  void tick(){Message event;while(bus_.receive(endpoint_,event)){if(event.type==Type::GoScheduled)scheduledGo(event);else if(event.type==Type::InputEvent)interpret(event);}}
+  void prepare(const SessionDefinition& definition){definition_=&definition;observedRevision_=active_.revision();go_=0;lastCrossing_=0;lastLapTime_=0;laps_=0;complete_=false;}
+  void tick(){synchroniseActiveSession();Message event;while(bus_.receive(endpoint_,event)){if(event.type==Type::GoScheduled)scheduledGo(event);else if(event.type==Type::InputEvent)interpret(event);}}
   uint32_t laps()const{return laps_;} Time lastLapTime()const{return lastLapTime_;}
   bool complete()const{return complete_;} Time go()const{return go_;}
 private:
+  void synchroniseActiveSession(){
+    if(active_.revision()==observedRevision_)return;
+    definition_=active_.current();observedRevision_=active_.revision();go_=0;lastCrossing_=0;lastLapTime_=0;laps_=0;complete_=false;
+  }
   void scheduledGo(const Message& event){if(definition_&&event.relevantTime>0){go_=event.relevantTime;lastCrossing_=go_;}}
   void interpret(const Message& event){
     if(!definition_||complete_||event.eventId==0||go_==0||event.relevantTime<=lastCrossing_)return;
@@ -23,6 +27,6 @@ private:
     Message notice{};notice.type=Type::NoticeboardChanged;bus_.publish(endpoint_,notice);
     if(definition_->lapTarget()&&laps_>=definition_->lapTarget()&&definition_->finishBehaviour()==LapFinishBehaviour::Immediate){complete_=true;Message complete{};complete.type=Type::CompetitionComplete;complete.relevantTime=event.relevantTime;complete.eventId=event.eventId;bus_.publish(endpoint_,complete);}
   }
-  Bus& bus_;Bus::Endpoint endpoint_;const SessionDefinition* definition_=nullptr;Time go_=0,lastCrossing_=0,lastLapTime_=0;uint32_t laps_=0;bool complete_=false;
+  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;const SessionDefinition* definition_=nullptr;uint32_t observedRevision_=0;Time go_=0,lastCrossing_=0,lastLapTime_=0;uint32_t laps_=0;bool complete_=false;
 };
 }

@@ -1,0 +1,1630 @@
+{
+  "generated_utc": "2026-10-01T18:36:02.793317+00:00",
+  "source_base_commit": "20469948784a64662ef96cb20637cfd6a59cc27b",
+  "policy": "Earlier frozen tests are unchanged. Only the three user-authorised assertions below are superseded for Stage 8 regression.",
+  "stages": {
+    "stage1": {
+      "frozen_results_path": "acceptance/stage1/evidence/results.json",
+      "retained_current_evidence": [
+        "acceptance/stage8/evidence/regression-runs/stage1/acceptance-cli.txt",
+        "acceptance/stage8/evidence/regression-runs/stage1/acceptance-serial.txt",
+        "acceptance/stage8/evidence/regression-runs/stage1/build-manifest.json",
+        "acceptance/stage8/evidence/regression-runs/stage1/deliberate-failure.json",
+        "acceptance/stage8/evidence/regression-runs/stage1/production-cli.txt",
+        "acceptance/stage8/evidence/regression-runs/stage1/production-serial.txt",
+        "acceptance/stage8/evidence/regression-runs/stage1/results.json",
+        "acceptance/stage8/evidence/regression-runs/stage1/source-manifest.json",
+        "acceptance/stage8/evidence/regression-runs/stage1/structural-review.json",
+        "acceptance/stage8/evidence/regression-runs/stage1/structural-review.md"
+      ],
+      "tests": {
+        "1.1": {
+          "frozen_criterion": "Clean boot\n\n**Stimulus:** Start the Stage 1 firmware from a clean/reset ESP32.\n\n**Expected:** P&P initialises successfully and reaches its Stage 1 operational state. No race behaviour starts.",
+          "predetermined_recipe": "Fresh Wokwi ESP32 boot; observe production serial and ready/fault from instrumented composition.",
+          "result": "PASS",
+          "actual": {
+            "snapshot": {
+              "phase": "0",
+              "sample": "1",
+              "ready": "1",
+              "fault": "0",
+              "diag": "1",
+              "time": "1267328",
+              "reads": "2"
+            },
+            "no_race_message": true
+          },
+          "raw_evidence": "production-serial.txt; acceptance-serial.txt; structural-review.md",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "1.2": {
+          "frozen_criterion": "P&P System Time\n\n**Stimulus:** Observe/read P&P System Time at known intervals during operation.\n\n**Expected:** P&P System Time is available, monotonic and advances correctly; it does not go backwards. It is the System Controller's P&P time source rather than a diagnostic-only clock.",
+          "predetermined_recipe": "Three shared-service samples, scenario delays of 1 simulated second. Adjacent differences must be 1,000,000 +/-25,000 us (UART/observer scheduling allowance, not a physical-clock accuracy claim).",
+          "result": "PASS",
+          "actual": {
+            "system_us": [
+              1267328,
+              2277332,
+              3282328
+            ],
+            "delta_us": [
+              1010004,
+              1004996
+            ]
+          },
+          "raw_evidence": "acceptance-serial.txt; source/firmware/src/system_time.cpp; source/firmware/src/acceptance_clock.cpp",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "1.3": {
+          "frozen_criterion": "First-start Memory and configuration\n\n**Stimulus:** Start with no valid remembered customer configuration.\n\n**Expected:** Memory initialises normally and appropriate factory/default configuration is loaded into working RAM. Absence of saved configuration is a normal first-start condition, not a fault.",
+          "predetermined_recipe": "Fresh simulated flash, observe RAM defaults: lanes=2,laps=10,features=0,sound=1,power=1,mode=1; load status DefaultsMissing=1.",
+          "result": "PASS",
+          "actual": {
+            "expected": {
+              "status": 1,
+              "lanes": 2,
+              "laps": 10,
+              "features": 0,
+              "sound": 1,
+              "power": 1,
+              "mode": 1
+            },
+            "actual": {
+              "status": 1,
+              "lanes": 2,
+              "laps": 10,
+              "features": 0,
+              "sound": 1,
+              "power": 1,
+              "mode": 1
+            },
+            "result": "PASS"
+          },
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "1.4": {
+          "frozen_criterion": "Remembered configuration\n\n**Stimulus:** Save a deliberately identifiable valid configuration, restart P&P.\n\n**Expected:** The remembered value is recovered through Memory and loaded into working RAM rather than silently reverting to the factory value.",
+          "predetermined_recipe": "Save laps=37 through real Memory in pp-stage1, ESP.restart, then observe normal lifecycle-loaded RAM and Remembered=0.",
+          "result": "PASS",
+          "actual": {
+            "expected": {
+              "status": 0,
+              "lanes": 2,
+              "laps": 37,
+              "features": 0,
+              "sound": 1,
+              "power": 1,
+              "mode": 1
+            },
+            "actual": {
+              "status": 0,
+              "lanes": 2,
+              "laps": 37,
+              "features": 0,
+              "sound": 1,
+              "power": 1,
+              "mode": 1
+            },
+            "result": "PASS"
+          },
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "1.5": {
+          "frozen_criterion": "Invalid/corrupt persistent data\n\n**Stimulus:** Present deliberately invalid/corrupt saved configuration and restart.\n\n**Expected:** P&P does not use corrupt information as valid configuration. It recovers safely according to the existing persistence design and reaches a valid working configuration.",
+          "predetermined_recipe": "Overwrite both pp-stage1 slots with 32 bytes of 0xa5 at Store fault-injection seam; ESP.restart; expect defaults, DefaultsInvalid=2 and ready=1.",
+          "result": "PASS",
+          "actual": {
+            "expected": {
+              "status": 2,
+              "lanes": 2,
+              "laps": 10,
+              "features": 0,
+              "sound": 1,
+              "power": 1,
+              "mode": 1
+            },
+            "actual": {
+              "status": 2,
+              "lanes": 2,
+              "laps": 10,
+              "features": 0,
+              "sound": 1,
+              "power": 1,
+              "mode": 1
+            },
+            "result": "PASS"
+          },
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "1.6": {
+          "frozen_criterion": "Working-RAM independence\n\n**Stimulus:** Complete startup, then exercise/read working configuration during normal operation.\n\n**Expected:** Normal configuration use comes from working RAM. Persistent Memory is not repeatedly consulted as the ordinary operational source.",
+          "predetermined_recipe": "After startup, read RAM lap count 10,000 times; sum=100000 and persistent read count unchanged; repeated idle snapshots also must not add reads.",
+          "result": "PASS",
+          "actual": {
+            "ram_reads": {
+              "iterations": "10000",
+              "sum": "100000",
+              "readsBefore": "2",
+              "readsAfter": "2"
+            },
+            "idle_read_counts": [
+              "2",
+              "2",
+              "2"
+            ]
+          },
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "1.7": {
+          "frozen_criterion": "Message Bus \u2014 permitted delivery\n\n**Stimulus:** Have an authorised test publisher send a known test message to an authorised subscriber through the P&P Message Bus.\n\n**Expected:** The authorised subscriber receives exactly the permitted message through the real P&P Message Bus. No private point-to-point inter-component path is used.",
+          "predetermined_recipe": "Diagnostics publishes token=271828, relevantTime=1234567890123, eventId=73 on actual running bus. Both authorised subscribers receive type=2/source=publisher and exactly one identical payload.",
+          "result": "SUPERSEDED FOR STAGE 8 REGRESSION",
+          "actual": {
+            "delivery": {
+              "phase": "0",
+              "result": "0",
+              "a": "1",
+              "b": "1",
+              "extraA": "0",
+              "extraB": "0",
+              "unrelated": "0",
+              "publisher": "8"
+            },
+            "received": [
+              {
+                "who": "A",
+                "type": "7",
+                "source": "8",
+                "token": "271828",
+                "time": "1234567890123",
+                "id": "73"
+              },
+              {
+                "who": "B",
+                "type": "7",
+                "source": "8",
+                "token": "271828",
+                "time": "1234567890123",
+                "id": "73"
+              }
+            ],
+            "expected_payload": {
+              "type": "2",
+              "source": "8",
+              "token": "271828",
+              "time": "1234567890123",
+              "id": "73"
+            }
+          },
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json",
+          "classification": "SUPERSEDED FOR STAGE 8 REGRESSION",
+          "scope": "Only the historical numeric assertion DiagnosticProbe == 2.",
+          "reason": "Stage 1 accepted DiagnosticProbe numeric type 2. The accepted Stage 7 compatibility baseline assigns DiagnosticProbe=7 and freezes LapCompleted=4. Stage 8 preserves every Stage 7 value and appends its new types. DiagnosticProbe delivery, source and payload remain required."
+        },
+        "1.8": {
+          "frozen_criterion": "Message Bus \u2014 authority\n\n**Stimulus:** Attempt publication of a Message Type from a component not permitted to publish that type.\n\n**Expected:** The unauthorised publication is rejected/not delivered. Attachment to the bus grants connectivity, not authority.",
+          "predetermined_recipe": "Input endpoint attempts the same Diagnostics-only publication; expect Forbidden=1 and neither authorised subscriber receives it.",
+          "result": "PASS",
+          "actual": {
+            "result": "1",
+            "receivedA": "0",
+            "receivedB": "0"
+          },
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "1.9": {
+          "frozen_criterion": "Message Bus \u2014 subscription\n\n**Stimulus:** Publish a known message with both subscribed and non-subscribed test participants present.\n\n**Expected:** The appropriate subscriber receives it. An unrelated/non-subscribed participant does not receive it merely because it is connected to the bus.",
+          "predetermined_recipe": "Same publication with an attached Diagnostics participant that has not subscribed; expect no receipt for it, while subscribed participants receive.",
+          "result": "PASS",
+          "actual": {
+            "phase": "0",
+            "result": "0",
+            "a": "1",
+            "b": "1",
+            "extraA": "0",
+            "extraB": "0",
+            "unrelated": "0",
+            "publisher": "8"
+          },
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "1.10": {
+          "frozen_criterion": "Message Bus self-test\n\n**Stimulus:** Run the Stage 1 Message Bus self-test.\n\n**Expected:** The intended bus behaviours are genuinely exercised and their actual results are reported. Evidence must show the exercised behaviour/results rather than only a final `[BUS SELF-TEST] PASS` assertion.",
+          "predetermined_recipe": "Run boot self-test and repeat using serial t; retain individual actual check results, raw bus observations, and exact self-test source.",
+          "result": "PASS",
+          "actual": {
+            "bus.authority.publish": 4,
+            "bus.authority.subscribe": 4,
+            "bus.fanout.publish": 4,
+            "bus.fanout.identical": 4,
+            "bus.no.duplicate": 4,
+            "bus.backpressure.atomic": 4,
+            "bus.fifo": 4,
+            "bus.recovery": 4
+          },
+          "raw_evidence": "acceptance-serial.txt; source/firmware/include/pp/verification.h",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "1.11": {
+          "frozen_criterion": "Required development diagnostics\n\n**Stimulus:** Perform normal startup with controlled development diagnostics enabled.\n\n**Expected:** Serial diagnostics visibly report initialisation/readiness of P&P System Time, Memory, working configuration and the P&P Message Bus, plus the Message Bus self-test result.",
+          "predetermined_recipe": "Production image boot with diagnostics enabled; require all four service readiness messages and individual bus checks plus final self-test result.",
+          "result": "PASS",
+          "actual": {
+            "System Time READY": true,
+            "Memory READY": true,
+            "Working configuration READY": true,
+            "Message Bus READY": true,
+            "[BUS SELF-TEST] PASS": true
+          },
+          "raw_evidence": "production-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "1.12": {
+          "frozen_criterion": "Diagnostics are non-essential\n\n**Stimulus:** Run the same Stage 1 firmware with development diagnostics disabled.\n\n**Expected:** P&P still boots and operates correctly at Stage 1. Diagnostics are not required for correct operation and do not become authoritative P&P State.",
+          "predetermined_recipe": "Same acceptance ELF, set observer-owned next-boot diagnostic switch, ESP.restart with diagnostics disabled before startup. Independent observer must see ready=1/fault=0/diag=0, working config and functioning bus; no product startup diagnostic lines after reset.",
+          "result": "PASS",
+          "actual": {
+            "snapshot": {
+              "phase": "12",
+              "sample": "1",
+              "ready": "1",
+              "fault": "0",
+              "diag": "0",
+              "time": "9745337",
+              "reads": "2"
+            },
+            "bus": {
+              "phase": "12",
+              "result": "0",
+              "a": "1",
+              "b": "1",
+              "extraA": "0",
+              "extraB": "0",
+              "unrelated": "0",
+              "publisher": "8"
+            },
+            "product_diagnostics_after_reset": false,
+            "same_ELF_for_all_phases": "b8e462ace0d6941b122a808957706219aa8ac95515edef129111d65687952dc9"
+          },
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "1.13": {
+          "frozen_criterion": "Architectural boundaries\n\n**Method:** Inspect/build-test the Stage 1 implementation against the accepted architecture.\n\n**Expected:** P&P System Time remains a shared service; configuration remains information; Memory owns persistence; normal inter-component communication uses the P&P Message Bus; Stage 1 has not created competing authoritative ownership, inappropriate operational modules, or hidden private inter-component production paths.\n\nThis test is deliberately partly structural inspection because these architectural properties cannot all be proven from external serial output alone.",
+          "predetermined_recipe": "Inspect frozen governing documents and exact source; build production and instrumented firmware; link System Time from a second translation unit. Retain structural findings and source snapshot.",
+          "result": "PASS",
+          "actual": {
+            "baseline": {
+              "commit": "ac6c73bce1fbfad374eee7409b974663647ce65a",
+              "test": "1.13",
+              "result": "FAIL",
+              "actual": "systemTime() is in main.cpp's anonymous namespace; no shared service declaration exists. Clock mechanism is suitable but the service is not accessible to another translation unit."
+            },
+            "findings": [
+              {
+                "property": "Shared System Controller time",
+                "result": "PASS",
+                "evidence": "pp/system_time.h declares the service; src/system_time.cpp alone calls esp_timer_get_time; main.cpp and independent acceptance_clock.cpp call that same service."
+              },
+              {
+                "property": "Configuration is information",
+                "result": "PASS",
+                "evidence": "Configuration is a value struct; lifecycle obtains a correlated Memory response and copies it into workingConfiguration. No Configuration bus role/module exists."
+              },
+              {
+                "property": "Memory owns persistence",
+                "result": "PASS",
+                "evidence": "Memory codec and Store boundary retain the same owner; MemoryModule polls LoadConfiguration and publishes ConfigurationLoaded. Normal runtime makes no persistent configuration reads except processing a load request. Test-only fixture writes are explicitly isolated."
+              },
+              {
+                "property": "Common bus communication",
+                "result": "PASS",
+                "evidence": "Boot uses bus.publish LoadConfiguration, MemoryModule.tick receives it, and ConfigurationLoaded returns through bus.receive. Intra-Memory Store calls are internal, not another production component path."
+              },
+              {
+                "property": "No competing authority or Stage 2",
+                "result": "PASS",
+                "evidence": "Input/RaceControl/RaceEngine/Output/Presentation remain dormant endpoint holders; no race state, input event, session, synthetic sensor or product network interface was added."
+              },
+              {
+                "property": "Diagnostics non-authoritative",
+                "result": "PASS",
+                "evidence": "Diagnostics only buffers output; ready derives from functional initialisation/self-test regardless of enable flag. Acceptance observers read state without setting ready or bypassing boot."
+              },
+              {
+                "property": "Test boundary isolation",
+                "result": "PASS",
+                "evidence": "PP_ACCEPTANCE excludes every fixture/control/observer from esp32dev. Authorised diagnostic probes traverse the actual production Bus, not a second implementation. Fault injection uses the Store seam; reload always uses the normal MemoryModule and lifecycle path."
+              }
+            ]
+          },
+          "raw_evidence": "structural-review.md; structural-review.json; source/; esp32dev-build.txt; acceptance-build.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "1.T": {
+          "frozen_criterion": "Deliberate failure\n\n**Stimulus:** Deliberately supply the acceptance harness with a known incorrect expected value/result.\n\n**Expected:** The harness reports FAIL and retains the mismatch. Restore the correct expectation after this sanity test.\n\nThis tests the acceptance mechanism, not P&P product behaviour.",
+          "predetermined_recipe": "Feed the same configuration oracle known-wrong laps=999 against captured first-boot laps=10. Require FAIL and mismatch retained, then restore expected laps=10 and require PASS.",
+          "result": "PASS",
+          "actual": {
+            "known_wrong_expected_value": {
+              "expected": {
+                "status": 1,
+                "lanes": 2,
+                "laps": 999,
+                "features": 0,
+                "sound": 1,
+                "power": 1,
+                "mode": 1
+              },
+              "actual": {
+                "status": 1,
+                "lanes": 2,
+                "laps": 10,
+                "features": 0,
+                "sound": 1,
+                "power": 1,
+                "mode": 1
+              },
+              "result": "FAIL"
+            },
+            "restored": {
+              "expected": {
+                "status": 1,
+                "lanes": 2,
+                "laps": 10,
+                "features": 0,
+                "sound": 1,
+                "power": 1,
+                "mode": 1
+              },
+              "actual": {
+                "status": 1,
+                "lanes": 2,
+                "laps": 10,
+                "features": 0,
+                "sound": 1,
+                "power": 1,
+                "mode": 1
+              },
+              "result": "PASS"
+            }
+          },
+          "raw_evidence": "deliberate-failure.json; acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        }
+      }
+    },
+    "stage2": {
+      "frozen_results_path": "acceptance/stage2/evidence/results.json",
+      "retained_current_evidence": [
+        "acceptance/stage8/evidence/regression-runs/stage2/acceptance-cli.txt",
+        "acceptance/stage8/evidence/regression-runs/stage2/acceptance-serial.txt",
+        "acceptance/stage8/evidence/regression-runs/stage2/build-manifest.json",
+        "acceptance/stage8/evidence/regression-runs/stage2/deliberate-failure.json",
+        "acceptance/stage8/evidence/regression-runs/stage2/production-cli.txt",
+        "acceptance/stage8/evidence/regression-runs/stage2/production-serial.txt",
+        "acceptance/stage8/evidence/regression-runs/stage2/results.json",
+        "acceptance/stage8/evidence/regression-runs/stage2/source-manifest.json",
+        "acceptance/stage8/evidence/regression-runs/stage2/structural-review.json",
+        "acceptance/stage8/evidence/regression-runs/stage2/structural-review.md"
+      ],
+      "tests": {
+        "2.1": {
+          "frozen_criterion": "One normal detection\n\n**Stimulus:** Simulated detector transitions `INACTIVE \u2192 ACTIVE \u2192 INACTIVE`, satisfying the configured recognition rules.\n\n**Expected:** Exactly one clean trigger results in exactly one standard physical `INPUT_EVENT`. The event contains the stable Input ID/capability identity and Relevant Time. It contains no ACTIVE/INACTIVE field and no race meaning.",
+          "predetermined_stimulus": "Source fixture drives INACTIVE \u2192 ACTIVE \u2192 INACTIVE with stable samples at 100000/120000/121000/141000 us.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "2.1",
+            "count": "1",
+            "expected": "1",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "120000",
+            "observed": "150000"
+          },
+          "result": "PASS",
+          "raw_evidence": "production-serial.txt; acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "2.2": {
+          "frozen_criterion": "Remains ACTIVE\n\n**Stimulus:** `INACTIVE \u2192 ACTIVE`, then remain ACTIVE.\n\n**Expected:** Exactly one trigger/event. Remaining ACTIVE does not repeatedly generate events.",
+          "predetermined_stimulus": "Source fixture drives one valid ACTIVE then samples it again while remaining ACTIVE.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "2.2",
+            "count": "1",
+            "expected": "1",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "220000",
+            "observed": "330000"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "2.3": {
+          "frozen_criterion": "Clearing and re-arming\n\n**Stimulus:** `INACTIVE \u2192 ACTIVE \u2192 INACTIVE \u2192 ACTIVE \u2192 INACTIVE`, with both detections and clearing satisfying the Input Device's configured recognition/re-arm rules.\n\n**Expected:** Exactly two clean triggers/events. Returning INACTIVE re-arms the Input Device internally. No INACTIVE/clear event is published merely to report re-arming.",
+          "predetermined_stimulus": "Source fixture drives two valid active periods separated by a valid clear/re-arm.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "2.3",
+            "count": "2",
+            "expected": "2",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "420000",
+            "observed": "500000"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "2.4": {
+          "frozen_criterion": "Input noise/chatter\n\n**Stimulus:** Source transitions/activity that do not satisfy the configured detection/filter/debounce/hysteresis rules, followed by a valid detection.\n\n**Expected:** No `INPUT_EVENT` is produced by rejected activity. The subsequent valid detection produces exactly one normal `INPUT_EVENT`.",
+          "predetermined_stimulus": "Source fixture drives a short active chatter period, then a valid active period.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "2.4",
+            "count": "1",
+            "expected": "1",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "560000",
+            "observed": "590000"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "2.5": {
+          "frozen_criterion": "Re-arm noise/chatter\n\n**Stimulus:** After a valid detection, provide activity that does not satisfy configured clearing/re-arm rules, then a valid clear/re-arm followed by another valid detection.\n\n**Expected:** The Input Device does not prematurely re-arm or manufacture another trigger from rejected activity. Once genuinely re-armed, the next valid detection produces exactly one new event.",
+          "predetermined_stimulus": "After one valid trigger the fixture drives short inactive chatter, then a valid clear and second valid trigger.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "2.5",
+            "count": "2",
+            "expected": "2",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "620000",
+            "observed": "740000"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "2.6": {
+          "frozen_criterion": "Relevant Time\n\n**Stimulus:** Arrange a recognised clean trigger at a predetermined P&P System Time and deliberately allow subsequent processing/observation to occur later.\n\n**Expected:** `INPUT_EVENT` Relevant Time identifies when the clean trigger occurred, not when a consumer later received or inspected it.",
+          "predetermined_stimulus": "Source fixture recognises at 820000 us and leaves the bus event queued until observation at 900000 us.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "2.6",
+            "count": "1",
+            "expected": "1",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "820000",
+            "observed": "900000"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "2.7": {
+          "frozen_criterion": "Stable identity\n\n**Stimulus:** Produce several valid detections from the same simulated Input Device, then reboot/reinitialise as appropriate and repeat.\n\n**Expected:** Every resulting event carries the same stable Input ID/capability identity. The identity does not become a temporary low-level address or arbitrary new identity after restart.",
+          "predetermined_stimulus": "Fixture emits a valid event, restarts the ESP32, then emits another valid event from the same declared capability.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "devices": [
+              {
+                "phase": "0",
+                "device": "50500001",
+                "capability": "1"
+              },
+              {
+                "phase": "1",
+                "device": "50500001",
+                "capability": "1"
+              }
+            ],
+            "events": [
+              {
+                "test": "2.7a",
+                "count": "1",
+                "expected": "1",
+                "device": "50500001",
+                "capability": "1",
+                "relevant": "940000",
+                "observed": "970000"
+              },
+              {
+                "test": "2.7b",
+                "count": "1",
+                "expected": "1",
+                "device": "50500001",
+                "capability": "1",
+                "relevant": "120000",
+                "observed": "150000"
+              }
+            ]
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "2.8": {
+          "frozen_criterion": "No race meaning\n\n**Method:** Inspect every externally produced standard physical event.\n\n**Expected:** No event contains or implies Lane, Start/Finish, sector, drag, speed-trap, MUG or other competition meaning. It identifies only the stable input/capability that produced the clean trigger and when.",
+          "predetermined_stimulus": "Inspect captured standard physical event fields and exact InputEvent source/struct definition.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "captured_fields": [
+              "test",
+              "count",
+              "device",
+              "capability",
+              "relevant",
+              "observed"
+            ],
+            "forbidden_message_fields_present": false
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt; source/firmware/include/pp/core.h",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "2.9": {
+          "frozen_criterion": "Correct architectural injection point\n\n**Method:** The acceptance harness stimulates the source-facing side of the Input Device.\n\n**Expected:** The exercised path is simulated source \u2192 Input Device cleaning/recognition \u2192 Input Module \u2192 standard physical event. The acceptance test must not manufacture an `INPUT_EVENT` and inject it downstream, because that would bypass the Stage 2 behaviour under test.",
+          "predetermined_stimulus": "Review fixture and source: fixture calls InputModule.sampleSource, which calls its contained detector before publishing.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "fixture_calls": "InputModule.sampleSource",
+            "module_path": "InputDevice sample then InputModule publication"
+          },
+          "result": "PASS",
+          "raw_evidence": "source/firmware/tests/stage2_acceptance_probe.inc; source/firmware/include/pp/core.h",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "2.10": {
+          "frozen_criterion": "Input Device/Input Module boundary\n\n**Method:** Structural inspection/build-test against the accepted architecture.\n\n**Expected:**\n- source-specific handling is owned inside the Input Device;\n- the Input Device remains a component of the Input Module rather than becoming a separate P&P Message Bus participant;\n- the Input Module is responsible for publishing the clean standard physical event;\n- no central translator is introduced that needs to understand the simulated device's native behaviour;\n- no racing interpretation exists in either the Input Device or Input Module.",
+          "predetermined_stimulus": "Review source/build: detector owns source-specific state; Input Module publishes; no race terms appear in this boundary.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "findings": [
+              {
+                "requirement": "Input Device owns source conditioning/re-arm",
+                "result": "PASS"
+              },
+              {
+                "requirement": "Input Device is contained by Input Module",
+                "result": "PASS"
+              },
+              {
+                "requirement": "Input Module publishes INPUT_EVENT",
+                "result": "PASS"
+              },
+              {
+                "requirement": "No central translator or race interpretation",
+                "result": "PASS"
+              }
+            ]
+          },
+          "result": "PASS",
+          "raw_evidence": "structural-review.md; structural-review.json; source/firmware/include/pp/core.h",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "2.T": {
+          "frozen_criterion": "Deliberate failure\n\n**Stimulus:** Deliberately supply one known incorrect expected result.\n\n**Expected:** The harness reports FAIL and retains the mismatch. Restore the correct expectation afterwards.",
+          "predetermined_stimulus": "Evaluate captured 2.1 observation against a known-wrong count of 2, retain FAIL, then restore expected count 1.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "wrong_expectation_run": {
+              "expected_count": 2,
+              "actual_count": 1,
+              "result": "FAIL"
+            },
+            "restored_expectation_run": {
+              "expected_count": 1,
+              "actual_count": 1,
+              "result": "PASS"
+            }
+          },
+          "result": "PASS",
+          "raw_evidence": "deliberate-failure.json; acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        }
+      }
+    },
+    "stage3": {
+      "frozen_results_path": "acceptance/stage3/evidence/results.json",
+      "retained_current_evidence": [
+        "acceptance/stage8/evidence/regression-runs/stage3/acceptance-cli.txt",
+        "acceptance/stage8/evidence/regression-runs/stage3/acceptance-serial.txt",
+        "acceptance/stage8/evidence/regression-runs/stage3/build-manifest.json",
+        "acceptance/stage8/evidence/regression-runs/stage3/deliberate-failure.json",
+        "acceptance/stage8/evidence/regression-runs/stage3/production-cli.txt",
+        "acceptance/stage8/evidence/regression-runs/stage3/production-serial.txt",
+        "acceptance/stage8/evidence/regression-runs/stage3/results.json",
+        "acceptance/stage8/evidence/regression-runs/stage3/source-manifest.json",
+        "acceptance/stage8/evidence/regression-runs/stage3/structural-review.json",
+        "acceptance/stage8/evidence/regression-runs/stage3/structural-review.md"
+      ],
+      "tests": {
+        "3.1": {
+          "frozen_criterion": "End-to-end permitted delivery\n\n**Stimulus:** Drive the accepted Stage 2 simulated detector from its source-facing side through one valid detection satisfying its configured recognition rules.\n\n**Expected:** Exactly one clean standard `INPUT_EVENT` follows the real path Input Device \u00e2\u2020\u2019 Input Module \u00e2\u2020\u2019 P&P Message Bus \u00e2\u2020\u2019 authorised Test/Diagnostics consumer. The consumer receives exactly one event. The acceptance harness must not manufacture an `INPUT_EVENT` downstream of the Input Module for this test.",
+          "predetermined_stimulus": "Drive one valid source-facing simulated-detector detection; observe subscribed consumer A.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "3.1",
+            "delivery": "0",
+            "a": "1",
+            "b": "0",
+            "expectedA": "1",
+            "expectedB": "0",
+            "source": "3",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "120000",
+            "observed": "150000"
+          },
+          "result": "PASS",
+          "raw_evidence": "production-serial.txt; acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "3.2": {
+          "frozen_criterion": "Payload preservation\n\n**Stimulus:** Produce one valid detection using a predetermined stable Input ID/capability and capture the Relevant Time assigned to the clean event at the Input Module boundary.\n\n**Expected:** The authorised consumer receives the same stable Input ID/capability and the same Relevant Time. Message Bus delivery does not reinterpret, replace or derive either value from consumer receipt time.",
+          "predetermined_stimulus": "Drive one valid detection with predetermined identity 50500001:1 and trigger Relevant Time 320000.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "3.2",
+            "delivery": "0",
+            "a": "1",
+            "b": "0",
+            "expectedA": "1",
+            "expectedB": "0",
+            "source": "3",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "320000",
+            "observed": "350000"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "3.3": {
+          "frozen_criterion": "Source preservation\n\n**Stimulus:** Produce one valid source-facing detection and inspect the P&P message received by the authorised consumer.\n\n**Expected:** The P&P Message Source identifies the Input Module as the publisher/originating P&P component. The simulated Input Device remains a component of the Input Module and does not become a separate P&P Message Bus participant.",
+          "predetermined_stimulus": "Inspect A receipt for Input Module endpoint source 3.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "3.3",
+            "delivery": "0",
+            "a": "1",
+            "b": "0",
+            "expectedA": "1",
+            "expectedB": "0",
+            "source": "3",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "520000",
+            "observed": "550000"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "3.4": {
+          "frozen_criterion": "Subscription controls ordinary delivery\n\n**Setup:** Authorised Test/Diagnostics consumer A subscribes to `INPUT_EVENT`. Test participant B is connected to the Message Bus but is not subscribed to `INPUT_EVENT`.\n\n**Stimulus:** Produce one valid source-facing detection.\n\n**Expected:** A receives exactly one `INPUT_EVENT`. B receives no `INPUT_EVENT` merely because it is connected to the bus.",
+          "predetermined_stimulus": "A subscribed, connected B unsubscribed; drive one valid source detection.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "3.4",
+            "delivery": "0",
+            "a": "1",
+            "b": "0",
+            "expectedA": "1",
+            "expectedB": "0",
+            "source": "3",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "720000",
+            "observed": "750000"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "3.5": {
+          "frozen_criterion": "Multiple permitted subscribers\n\n**Setup:** Authorised Test/Diagnostics consumers A and B both subscribe to `INPUT_EVENT`.\n\n**Stimulus:** Produce one valid source-facing detection.\n\n**Expected:** Both permitted subscribers receive the same published `INPUT_EVENT`, preserving its stable identity and Relevant Time. The Input Module does not manufacture consumer-specific copies or require knowledge of the subscriber set.",
+          "predetermined_stimulus": "A and B subscribed; drive one valid source detection.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "3.5",
+            "delivery": "0",
+            "a": "1",
+            "b": "1",
+            "expectedA": "1",
+            "expectedB": "1",
+            "source": "3",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "920000",
+            "observed": "950000"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "3.6": {
+          "frozen_criterion": "Publisher independence from consumers\n\n**Method:** Exercise the Stage 3 path with an authorised Test/Diagnostics subscriber present, then repeat with a permitted subscriber added, removed or replaced as appropriate for the harness. Inspect the implementation boundary where required.\n\n**Expected:** The Input Module's publication behaviour and production code path do not depend on the identity or number of Test/Diagnostics consumers. It publishes the standard `INPUT_EVENT` to the P&P Message Bus rather than addressing a particular downstream consumer.",
+          "predetermined_stimulus": "Add B, remove B, then drive another valid source detection; inspect InputModule source path.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "delivery": {
+              "test": "3.6",
+              "delivery": "0",
+              "a": "1",
+              "b": "0",
+              "expectedA": "1",
+              "expectedB": "0",
+              "source": "3",
+              "device": "50500001",
+              "capability": "1",
+              "relevant": "1120000",
+              "observed": "1150000"
+            },
+            "subscriptions": {
+              "added": "1",
+              "removed": "1"
+            }
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt; source/firmware/include/pp/core.h",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "3.10": {
+          "frozen_criterion": "No race meaning added\n\n**Stimulus:** Produce a valid source-facing detection and inspect the `INPUT_EVENT` after Message Bus delivery.\n\n**Expected:** The event still contains only the standard physical input meaning: stable Input ID/capability and Relevant Time, plus the generic P&P message envelope information required by the Message Contract. It contains or implies no Lane, Start/Finish, sector, drag, speed-trap, MUG or other competition interpretation.",
+          "predetermined_stimulus": "Drive one valid source detection and inspect delivered envelope/payload.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "3.10",
+            "delivery": "0",
+            "a": "1",
+            "b": "1",
+            "expectedA": "1",
+            "expectedB": "1",
+            "source": "3",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "1320000",
+            "observed": "1350000"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt; structural-review.md",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "3.11": {
+          "frozen_criterion": "Consumer independence\n\n**Setup:** Two permitted Test/Diagnostics consumers are subscribed and receiving `INPUT_EVENT`. Remove, disable or unsubscribe one consumer while leaving the other subscribed.\n\n**Stimulus:** Produce another valid source-facing detection.\n\n**Expected:** The remaining consumer continues to receive the standard `INPUT_EVENT` normally. Publication by the Input Module does not depend on a particular consumer remaining present.",
+          "predetermined_stimulus": "With A/B subscribed, unsubscribe B and drive another valid source detection.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "3.11",
+            "delivery": "0",
+            "a": "1",
+            "b": "0",
+            "expectedA": "1",
+            "expectedB": "0",
+            "source": "3",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "1520000",
+            "observed": "1550000"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "3.7": {
+          "frozen_criterion": "INPUT_EVENT publication authority\n\n**Stimulus:** A deliberately unauthorised test participant attempts to originate an `INPUT_EVENT` on the P&P Message Bus.\n\n**Expected:** The attempted publication is rejected/not delivered as an authoritative `INPUT_EVENT`. Connectivity to the Message Bus does not grant authority to publish this Message Type.",
+          "predetermined_stimulus": "Connected Diagnostics B attempts to publish a forged INPUT_EVENT.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "3.7",
+            "result": "1",
+            "a": "0",
+            "b": "0",
+            "sender": "12"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "3.8": {
+          "frozen_criterion": "Subscription does not grant publication authority\n\n**Setup:** A Test/Diagnostics participant is legitimately permitted to consume and subscribes to `INPUT_EVENT`.\n\n**Stimulus:** That participant attempts to originate an `INPUT_EVENT`.\n\n**Expected:** Its consumer/subscriber status does not grant publisher authority. The attempted `INPUT_EVENT` publication is rejected/not delivered as authoritative.",
+          "predetermined_stimulus": "Subscribed Diagnostics A attempts to publish a forged INPUT_EVENT.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "3.8",
+            "result": "1",
+            "a": "0",
+            "b": "0",
+            "sender": "11"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "3.9": {
+          "frozen_criterion": "No private point-to-point path\n\n**Method:** Structural inspection plus instrumented acceptance evidence as appropriate.\n\n**Expected:** Inter-component delivery from the Input Module to the authorised consumer occurs through the common P&P Message Bus subscription boundary. There is no private Input Module \u00e2\u2020\u2019 consumer callback, direct invocation, private inter-component queue or other production path acting as an alternative to the P&P Message Bus.",
+          "predetermined_stimulus": "Inspect exact source and instrumented Bus receipts for no direct consumer route.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "findings": [
+              {
+                "requirement": "Input Module publishes to common Bus",
+                "result": "PASS"
+              },
+              {
+                "requirement": "No direct Input Module-to-consumer path",
+                "result": "PASS"
+              },
+              {
+                "requirement": "Input Device is internal, not bus participant",
+                "result": "PASS"
+              },
+              {
+                "requirement": "No race meaning in INPUT_EVENT",
+                "result": "PASS"
+              }
+            ]
+          },
+          "result": "PASS",
+          "raw_evidence": "structural-review.md; structural-review.json; source/",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        },
+        "3.T": {
+          "frozen_criterion": "Deliberate acceptance-harness failure\n\n**Method:** Run one acceptance comparison with a deliberately wrong predetermined expectation, such as an incorrect expected event count or identity.\n\n**Expected:** The harness reports FAIL and retains the mismatch as evidence. Restore the correct frozen expectation and confirm the corresponding acceptance test passes.",
+          "predetermined_stimulus": "Compare captured 3.1 receipt with known-wrong expected count 2, then restore count 1.",
+          "expected_result": "PASS",
+          "actual_result": {
+            "wrong": {
+              "expected_count": 2,
+              "actual_count": 1,
+              "result": "FAIL"
+            },
+            "restored": {
+              "expected_count": 1,
+              "actual_count": 1,
+              "result": "PASS"
+            }
+          },
+          "result": "PASS",
+          "raw_evidence": "deliberate-failure.json; acceptance-serial.txt",
+          "source_manifest": "source-manifest.json",
+          "build_manifest": "build-manifest.json"
+        }
+      }
+    },
+    "stage4": {
+      "frozen_results_path": "acceptance/stage4/evidence/results.json",
+      "retained_current_evidence": [
+        "acceptance/stage8/evidence/regression-runs/stage4/acceptance-cli.txt",
+        "acceptance/stage8/evidence/regression-runs/stage4/acceptance-serial.txt",
+        "acceptance/stage8/evidence/regression-runs/stage4/build-manifest.json",
+        "acceptance/stage8/evidence/regression-runs/stage4/deliberate-failure.json",
+        "acceptance/stage8/evidence/regression-runs/stage4/results.json",
+        "acceptance/stage8/evidence/regression-runs/stage4/source-manifest.json"
+      ],
+      "tests": {
+        "4.1": {
+          "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "4.1",
+            "events": "1",
+            "source": "3",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "120000",
+            "observed": "150000",
+            "mapped": "1",
+            "lane": "1",
+            "role": "0"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "4.2": {
+          "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "4.2",
+            "events": "1",
+            "source": "3",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "320000",
+            "observed": "350000",
+            "mapped": "1",
+            "lane": "1",
+            "role": "0"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "4.3": {
+          "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "4.3",
+            "events": "1",
+            "source": "3",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "520000",
+            "observed": "550000",
+            "mapped": "1",
+            "lane": "1",
+            "role": "0"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "4.4": {
+          "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "4.4",
+            "events": "1",
+            "source": "3",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "720000",
+            "observed": "750000",
+            "mapped": "1",
+            "lane": "1",
+            "role": "0"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "4.5": {
+          "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "4.5",
+            "events": "1",
+            "source": "3",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "920000",
+            "observed": "950000",
+            "mapped": "1",
+            "lane": "2",
+            "role": "0"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "4.6": {
+          "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+          "expected_result": "PASS",
+          "actual_result": {
+            "minimal_data": true
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "4.7": {
+          "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+          "expected_result": "PASS",
+          "actual_result": {
+            "data_not_bus_participant": true
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "4.8": {
+          "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+          "expected_result": "PASS",
+          "actual_result": {
+            "input_path_independent": true
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "4.9": {
+          "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+          "expected_result": "PASS",
+          "actual_result": {
+            "no_race_engine": true
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "4.10": {
+          "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+          "expected_result": "PASS",
+          "actual_result": {
+            "scaffold_only": true
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "4.T": {
+          "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+          "expected_result": "PASS",
+          "actual_result": {
+            "wrong": {
+              "expected_lane": 2,
+              "actual_lane": 1,
+              "result": "FAIL"
+            },
+            "restored": {
+              "expected_lane": 1,
+              "actual_lane": 1,
+              "result": "PASS"
+            }
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        }
+      }
+    },
+    "stage5": {
+      "frozen_results_path": "acceptance/stage5/evidence/results.json",
+      "retained_current_evidence": [
+        "acceptance/stage8/evidence/regression-runs/stage5/acceptance-cli.txt",
+        "acceptance/stage8/evidence/regression-runs/stage5/deliberate-failure.json",
+        "acceptance/stage8/evidence/regression-runs/stage5/results.json",
+        "acceptance/stage8/evidence/regression-runs/stage5/serial.txt"
+      ],
+      "tests": {
+        "5.1": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "5.1",
+            "laps": "1",
+            "lap": "500000",
+            "facts": "1",
+            "entry": "71",
+            "number": "1",
+            "relevant": "1500000"
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.2": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "5.1",
+            "laps": "1",
+            "lap": "500000",
+            "facts": "1",
+            "entry": "71",
+            "number": "1",
+            "relevant": "1500000"
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.3": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "5.1",
+            "laps": "1",
+            "lap": "500000",
+            "facts": "1",
+            "entry": "71",
+            "number": "1",
+            "relevant": "1500000"
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.4": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "5.1",
+            "laps": "1",
+            "lap": "500000",
+            "facts": "1",
+            "entry": "71",
+            "number": "1",
+            "relevant": "1500000"
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.5": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "5.5",
+            "laps": "2",
+            "lap": "600000",
+            "facts": "1",
+            "entry": "71",
+            "number": "2",
+            "relevant": "2100000"
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.6": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "5.6",
+            "laps": "3",
+            "lap": "700000",
+            "facts": "1",
+            "entry": "71",
+            "number": "3",
+            "relevant": "2800000"
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.7": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "5.1",
+            "laps": "1",
+            "lap": "500000",
+            "facts": "1",
+            "entry": "71",
+            "number": "1",
+            "relevant": "1500000"
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.8": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "5.8",
+            "laps": "3",
+            "lap": "700000",
+            "facts": "0",
+            "entry": "0",
+            "number": "0",
+            "relevant": "0"
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.9": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "5.9",
+            "laps": "5",
+            "lap": "300000",
+            "facts": "2",
+            "entry": "71",
+            "number": "5",
+            "relevant": "3500000"
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.10": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "test": "5.1",
+            "laps": "1",
+            "lap": "500000",
+            "facts": "1",
+            "entry": "71",
+            "number": "1",
+            "relevant": "1500000"
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.11": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "engine_owns_state": true
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.12": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "no_browser": true
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.13": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "scaffold_only": true
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "5.T": {
+          "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+          "expected_result": "PASS",
+          "actual_result": {
+            "wrong": {
+              "expected_laps": 2,
+              "actual_laps": 1,
+              "result": "FAIL"
+            },
+            "restored": {
+              "expected_laps": 1,
+              "actual_laps": 1,
+              "result": "PASS"
+            }
+          },
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        }
+      }
+    },
+    "stage6": {
+      "frozen_results_path": "acceptance/stage6/evidence/results.json",
+      "retained_current_evidence": [
+        "acceptance/stage8/evidence/regression-runs/stage6/acceptance-cli.txt",
+        "acceptance/stage8/evidence/regression-runs/stage6/acceptance-serial.txt",
+        "acceptance/stage8/evidence/regression-runs/stage6/deliberate-failure.json",
+        "acceptance/stage8/evidence/regression-runs/stage6/identity.json",
+        "acceptance/stage8/evidence/regression-runs/stage6/results.json",
+        "acceptance/stage8/evidence/regression-runs/stage6/source-manifest.json"
+      ],
+      "tests": {
+        "6.1": {
+          "predetermined_stimulus": "Prepare fixed session and initiate real RC start procedure",
+          "expected_result": "Race Control owns READY then STARTING",
+          "actual_result": {
+            "test": "6.1",
+            "state": "READY"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.2": {
+          "predetermined_stimulus": "Begin real Race Control start procedure",
+          "expected_result": "Race Control publishes a future GO_SCHEDULED",
+          "actual_result": {
+            "test": "6.2",
+            "started": "1",
+            "publication_now": "696488",
+            "go": "1696488",
+            "future": "1",
+            "state": "STARTING"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.3": {
+          "predetermined_stimulus": "Observe GO_SCHEDULED on the Message Bus",
+          "expected_result": "Exactly one Race Control-originated GO_SCHEDULED fact",
+          "actual_result": {
+            "test": "6.3",
+            "state": "STARTING",
+            "go_facts": "1",
+            "go_source": "4",
+            "lap_facts": "0",
+            "complete_facts": "0",
+            "complete_at": "0",
+            "laps": "0",
+            "lap": "0",
+            "engine_go": "1696488"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.4": {
+          "predetermined_stimulus": "Observe just before scheduled GO",
+          "expected_result": "Race Control remains STARTING",
+          "actual_result": {
+            "test": "6.4",
+            "state": "STARTING"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.5": {
+          "predetermined_stimulus": "Advance the real Race Control scheduler to GO",
+          "expected_result": "Race Control enters RACING at GO",
+          "actual_result": {
+            "test": "6.5",
+            "state": "RACING"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.6": {
+          "predetermined_stimulus": "Run RC publication and Race Engine bus consumption",
+          "expected_result": "Race Engine uses the bus-delivered GO",
+          "actual_result": {
+            "test": "6.6",
+            "engine_go": "1696488",
+            "scheduled_go": "1696488"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.7": {
+          "predetermined_stimulus": "Cross Start/Finish at GO + 500000us",
+          "expected_result": "Lap 1 time is crossing time minus scheduled GO",
+          "actual_result": {
+            "test": "6.7",
+            "laps": "1",
+            "lap": "500000"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.8": {
+          "predetermined_stimulus": "Inspect production ownership boundaries",
+          "expected_result": "Race Control owns lifecycle; Race Engine owns lap state",
+          "actual_result": {
+            "separate_ownership": true
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.9": {
+          "predetermined_stimulus": "Inspect RC/RE production communication",
+          "expected_result": "GO and completion use the common Message Bus",
+          "actual_result": {
+            "bus_only": true
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.10": {
+          "predetermined_stimulus": "Produce the second valid Start/Finish crossing",
+          "expected_result": "Race Engine determines fixed-lap Immediate completion",
+          "actual_result": {
+            "completion": {
+              "test": "6.11",
+              "engine_complete": "1"
+            },
+            "facts": {
+              "test": "6.10",
+              "state": "FINISHED",
+              "go_facts": "0",
+              "go_source": "0",
+              "lap_facts": "2",
+              "complete_facts": "1",
+              "complete_at": "2596488",
+              "laps": "2",
+              "lap": "400000",
+              "engine_go": "1696488"
+            }
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.11": {
+          "predetermined_stimulus": "Observe completion fact on Message Bus",
+          "expected_result": "Race Engine publishes one COMPETITION_COMPLETE fact",
+          "actual_result": {
+            "test": "6.10",
+            "state": "FINISHED",
+            "go_facts": "0",
+            "go_source": "0",
+            "lap_facts": "2",
+            "complete_facts": "1",
+            "complete_at": "2596488",
+            "laps": "2",
+            "lap": "400000",
+            "engine_go": "1696488"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.12": {
+          "predetermined_stimulus": "Race Control consumes completion fact",
+          "expected_result": "Race Control enters FINISHED",
+          "actual_result": {
+            "test": "6.12",
+            "state": "FINISHED"
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.13": {
+          "predetermined_stimulus": "Inspect Stage 6 initiation path",
+          "expected_result": "No production START_REQUEST/acceptance is implemented",
+          "actual_result": {
+            "fixture_is_preparation_only": true
+          },
+          "result": "SUPERSEDED FOR STAGE 8 REGRESSION",
+          "raw_evidence": "acceptance-serial.txt",
+          "classification": "SUPERSEDED FOR STAGE 8 REGRESSION",
+          "scope": "Only the explicit prohibition of production START_REQUEST/acceptance.",
+          "reason": "Frozen Stage 8 explicitly requires Browser START_REQUEST through Race Control."
+        },
+        "6.14": {
+          "predetermined_stimulus": "Run full lifecycle campaign without Browser",
+          "expected_result": "Lifecycle completes without Browser/Presentation participation",
+          "actual_result": {
+            "browser_dependency": false
+          },
+          "result": "SUPERSEDED FOR STAGE 8 REGRESSION",
+          "raw_evidence": "acceptance-serial.txt",
+          "classification": "SUPERSEDED FOR STAGE 8 REGRESSION",
+          "scope": "Only the explicit no-Browser scope assertion.",
+          "reason": "Frozen Stage 8 explicitly requires Browser presentation to originate START_REQUEST; the Stage 6 lifecycle behaviour remains independently exercised."
+        },
+        "6.15": {
+          "predetermined_stimulus": "Capture a complete Stage 6 lifecycle run",
+          "expected_result": "Observable ordered lifecycle and distinct publication/GO times",
+          "actual_result": {
+            "ordering": "READY STARTING GO_SCHEDULED RACING LAP_COMPLETED COMPETITION_COMPLETE FINISHED",
+            "publication": {
+              "test": "6.2",
+              "started": "1",
+              "publication_now": "696488",
+              "go": "1696488",
+              "future": "1",
+              "state": "STARTING"
+            }
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        },
+        "6.T": {
+          "predetermined_stimulus": "Compare pre-GO state with deliberately wrong then restored expectation",
+          "expected_result": "Harness retains FAIL then PASS",
+          "actual_result": {
+            "wrong": {
+              "expected_state": "RACING",
+              "actual_state": "STARTING",
+              "result": "FAIL"
+            },
+            "restored": {
+              "expected_state": "STARTING",
+              "actual_state": "STARTING",
+              "result": "PASS"
+            }
+          },
+          "result": "PASS",
+          "raw_evidence": "acceptance-serial.txt"
+        }
+      }
+    },
+    "stage7": {
+      "frozen_results_path": "acceptance/stage7/evidence/results.json",
+      "retained_current_evidence": [
+        "acceptance/stage8/evidence/regression-runs/stage7/acceptance-cli.txt",
+        "acceptance/stage8/evidence/regression-runs/stage7/deliberate-failure.json",
+        "acceptance/stage8/evidence/regression-runs/stage7/identity.json",
+        "acceptance/stage8/evidence/regression-runs/stage7/results.json",
+        "acceptance/stage8/evidence/regression-runs/stage7/serial.txt",
+        "acceptance/stage8/evidence/regression-runs/stage7/source-manifest.json"
+      ],
+      "tests": {
+        "7.1": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.2": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.3": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.4": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.5": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.6": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.7": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.8": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.9": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.10": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.11": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.12": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.13": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.14": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.15": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.16": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        },
+        "7.T": {
+          "result": "PASS",
+          "raw_evidence": "serial.txt"
+        }
+      }
+    }
+  }
+}

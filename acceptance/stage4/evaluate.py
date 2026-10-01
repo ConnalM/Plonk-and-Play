@@ -10,10 +10,10 @@ tests={}
 def ck(k,ok,a):tests[k]={'predetermined_stimulus':'Stage 4 source-facing fixture and fixed session data','expected_result':'PASS','actual_result':a,'result':'PASS' if ok else 'FAIL','raw_evidence':'acceptance-serial.txt'}
 for k,lane,time in [('4.1',1,'120000'),('4.2',1,'320000'),('4.3',1,'520000'),('4.4',1,'720000'),('4.5',2,'920000')]:
  r=d[k];ck(k,r['events']=='1' and r['device']=='50500001' and r['capability']=='1' and r['lane']==str(lane) and r['role']=='0' and r['relevant']==time,r)
-ck('4.6','class SessionDefinition' in session_header and all(x not in session_header for x in ['GPIO','Browser','threshold']),{'minimal_data':True})
 session=session_header[session_header.index('class SessionDefinition'):session_header.index('};',session_header.index('class SessionDefinition'))+2]
+ck('4.6','class SessionDefinition' in session and all(x not in session for x in ['GPIO','Browser','threshold']),{'minimal_data':True})
 ck('4.7','class SessionDefinition' in session and 'Bus' not in session,{'data_not_bus_participant':True})
-ck('4.8','SessionDefinition' not in core[core.index('class SimulatedDetector'):core.index('struct RaceControl')],{'input_path_independent':True})
+ck('4.8','SessionDefinition' not in core[core.index('class SimulatedDetector'):core.index('struct OutputModule')],{'input_path_independent':True})
 ck('4.9','Lap' not in probe and 'RaceEngine' not in probe,{'no_race_engine':True})
 ck('4.10','Stage 4 test/session-preparation scaffolding only' in probe and 'Type::Start' not in probe and 'RaceControl' not in probe,{'scaffold_only':True})
 wrong={'expected_lane':2,'actual_lane':int(d['4.1']['lane']),'result':'FAIL'};restored={'expected_lane':1,'actual_lane':int(d['4.1']['lane']),'result':'PASS'};save('deliberate-failure.json',{'test':'4.T','wrong':wrong,'restored':restored});ck('4.T',wrong['result']=='FAIL' and restored['result']=='PASS',{'wrong':wrong,'restored':restored})

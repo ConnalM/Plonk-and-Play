@@ -13,15 +13,16 @@ struct NoticeboardState {
 };
 class Noticeboard {
 public:
-  Noticeboard(const RaceControlModule& control,const RaceEngineModule& engine):control_(control),engine_(engine) {}
+  Noticeboard(const RaceControlModule& control,const RaceEngineModule& engine,const ActiveSessionDefinition& active):control_(control),engine_(engine),active_(active) {}
   void setSession(const SessionDefinition& definition){definition_=&definition;}
   NoticeboardState current() const {
     NoticeboardState state{};state.lifecycle=control_.state();state.scheduledGo=control_.scheduledGo();
     state.laps=engine_.laps();state.lastLapTime=engine_.lastLapTime();state.hasLap=state.laps!=0;
-    if(definition_)state.raceEntryId=definition_->raceEntryId();
+    const SessionDefinition* definition=definition_?definition_:active_.current();
+    if(definition)state.raceEntryId=definition->raceEntryId();
     return state;
   }
 private:
-  const RaceControlModule& control_;const RaceEngineModule& engine_;const SessionDefinition* definition_=nullptr;
+  const RaceControlModule& control_;const RaceEngineModule& engine_;const ActiveSessionDefinition& active_;const SessionDefinition* definition_=nullptr;
 };
 } // namespace pp
