@@ -1,0 +1,73 @@
+{
+  "acceptance_spec_commit": "4b6722a663bd1365c49a7dd279dcc721d3d14806",
+  "tests": {
+    "7.1": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.2": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.3": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.4": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.5": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.6": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.7": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.8": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.9": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.10": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.11": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.12": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.13": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.14": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.15": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.16": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "7.T": {
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    }
+  }
+}

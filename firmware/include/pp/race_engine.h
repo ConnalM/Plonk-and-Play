@@ -20,6 +20,7 @@ private:
     SessionInputRole role;if(!definition_->resolve(event.input,role)||role.role!=InputRole::StartFinish)return;
     const Time lap=event.relevantTime-lastCrossing_;lastCrossing_=event.relevantTime;lastLapTime_=lap;++laps_;
     Message fact{};fact.type=Type::LapCompleted;fact.relevantTime=event.relevantTime;fact.raceEntryId=definition_->raceEntryId();fact.lapNumber=laps_;fact.lapTime=lap;fact.eventId=event.eventId;bus_.publish(endpoint_,fact);
+    Message notice{};notice.type=Type::NoticeboardChanged;bus_.publish(endpoint_,notice);
     if(definition_->lapTarget()&&laps_>=definition_->lapTarget()&&definition_->finishBehaviour()==LapFinishBehaviour::Immediate){complete_=true;Message complete{};complete.type=Type::CompetitionComplete;complete.relevantTime=event.relevantTime;complete.eventId=event.eventId;bus_.publish(endpoint_,complete);}
   }
   Bus& bus_;Bus::Endpoint endpoint_;const SessionDefinition* definition_=nullptr;Time go_=0,lastCrossing_=0,lastLapTime_=0;uint32_t laps_=0;bool complete_=false;

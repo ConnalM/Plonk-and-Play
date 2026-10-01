@@ -1,0 +1,7 @@
+{
+    "source_base_commit":  "4b6722a663bd1365c49a7dd279dcc721d3d14806",
+    "stage7_elf_sha256":  "CDC7FAA7D2A30CD3BBD9B171CD38C666DEBAFCB24DC5DC7614C4DDDECA5CF093",
+    "project":  "ConnalM/Plonk-and-Play",
+    "frozen_acceptance_commit":  "4b6722a663bd1365c49a7dd279dcc721d3d14806",
+    "source_manifest_sha256":  "8B5B5D9BF8A16917CFEBF1A8F1251462EBAC2CF9590C1423F79EA4E8F45B6AA4"
+}

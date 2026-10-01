@@ -1,0 +1,2 @@
+Wokwi CLI v0.27.1 (ffde06bde1ae)
+Error: scenario file not found: C:\Users\conna\Documents\Plonk-and-Play\firmware\acceptance\stage5\scenario.yaml.

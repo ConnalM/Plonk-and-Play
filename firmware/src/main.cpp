@@ -6,6 +6,8 @@
 #include "pp/session_definition.h"
 #include "pp/race_control.h"
 #include "pp/race_engine.h"
+#include "pp/noticeboard.h"
+#include "pp/browser_interface.h"
 #include "pp/verification.h"
 #ifndef PP_DIAGNOSTICS
 #define PP_DIAGNOSTICS 1
@@ -69,7 +71,9 @@ pp::RaceControlModule raceControl(bus,raceControlEndpoint);
 const auto raceEngineEndpoint=bus.attach(pp::Role::RaceEngine);
 pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint);
 pp::OutputModule output{bus.attach(pp::Role::Output)};
-pp::Presentation presentation{bus.attach(pp::Role::Presentation)};
+const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
+pp::Noticeboard noticeboard(raceControl,raceEngine);
+pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard);
 const auto testPublisher=bus.attach(pp::Role::Diagnostics);
 const auto testObserver=bus.attach(pp::Role::Diagnostics);
 const auto inputObserver=bus.attach(pp::Role::Diagnostics);
@@ -77,6 +81,35 @@ pp::MemoryModule memoryModule(bus,memoryEndpoint,memory);
 pp::Configuration workingConfiguration;
 bool ready=false,testsPassed=true,bootFailed=false;
 pp::Time nextStatus=0;
+// The build environment is diagnostic identity only. It never supplies product
+// State or changes P&P behaviour.
+const char* buildIdentity(){
+#if defined(PP_STAGE7_DEMO)
+  return "P&P STAGE 7 DEMO";
+#elif defined(PP_STAGE7_ACCEPTANCE)
+  return "P&P STAGE 7 ACCEPTANCE";
+#elif defined(PP_STAGE6_DEMO)
+  return "P&P STAGE 6 DEMO";
+#elif defined(PP_STAGE6_ACCEPTANCE)
+  return "P&P STAGE 6 ACCEPTANCE";
+#elif defined(PP_STAGE5_ACCEPTANCE)
+  return "P&P STAGE 5 ACCEPTANCE";
+#elif defined(PP_STAGE4_ACCEPTANCE)
+  return "P&P STAGE 4 ACCEPTANCE";
+#elif defined(PP_STAGE3_ACCEPTANCE)
+  return "P&P STAGE 3 ACCEPTANCE";
+#elif defined(PP_STAGE2_ACCEPTANCE)
+  return "P&P STAGE 2 ACCEPTANCE";
+#elif defined(PP_ACCEPTANCE)
+  return "P&P STAGE 1 ACCEPTANCE";
+#elif defined(PP_VERIFY)
+  return "P&P VERIFICATION";
+#elif defined(PP_DIAGNOSTICS) && !PP_DIAGNOSTICS
+  return "P&P QUIET";
+#else
+  return "P&P NORMAL";
+#endif
+}
 #ifdef PP_VERIFY
 bool verificationReboot=false;
 pp::Time rebootAt=0;
@@ -113,6 +146,12 @@ void status(){diagnostics.log("[DEV] Stage1 %s system_us=%llu dropped=%lu; no se
 #ifdef PP_STAGE6_DEMO
 #include "../tests/stage6_demo_probe.inc"
 #endif
+#ifdef PP_STAGE7_ACCEPTANCE
+#include "../tests/stage7_acceptance_probe.inc"
+#endif
+#ifdef PP_STAGE7_DEMO
+#include "../tests/stage7_demo_probe.inc"
+#endif
 }
 void setup(){
   Serial.begin(115200);
@@ -137,7 +176,13 @@ void setup(){
 #ifdef PP_STAGE6_DEMO
   stage6DemoBeforeBoot();
 #endif
-  diagnostics.log("[DEV] P&P STAGE 1 -- diagnostics are not product State");
+#ifdef PP_STAGE7_ACCEPTANCE
+  stage7AcceptanceBeforeBoot();
+#endif
+#ifdef PP_STAGE7_DEMO
+  stage7DemoBeforeBoot();
+#endif
+  diagnostics.log("[DEV] %s -- diagnostics are not product State",buildIdentity());
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
   storage.begin();diagnostics.log("[INIT] Memory %s: NVS behind Memory boundary",storage.available()?"READY":"DEGRADED");
@@ -149,6 +194,11 @@ void setup(){
   testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::InputEvent);
   testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::GoScheduled);
   testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::CompetitionComplete);
+  testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::NoticeboardChanged);
+  testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::GoScheduled);
+  testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::LapCompleted);
+  testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::CompetitionComplete);
+  browser.begin();
   diagnostics.log("[INIT] Message Bus READY: bounded mailboxes; authority checked");
   testsPassed&=pp::busSelfTest(bus,testPublisher,testObserver,input.endpoint,report);
   diagnostics.log("[BUS SELF-TEST] %s",testsPassed?"PASS":"FAIL");
@@ -184,6 +234,7 @@ void loop(){
   input.tick(systemTime());
   raceEngine.tick();
   raceControl.tick(systemTime());
+  browser.tick();
   observeInputEvents();
   pp::Message message;
   if(!ready&&!bootFailed&&bus.receive(lifecycle,message)){
@@ -244,6 +295,12 @@ void loop(){
 #ifdef PP_STAGE6_DEMO
     else stage6DemoCommand(c);
 #endif
+#ifdef PP_STAGE7_ACCEPTANCE
+    else stage7AcceptanceCommand(c);
+#endif
+#ifdef PP_STAGE7_DEMO
+    else stage7DemoCommand(c);
+#endif
   }
   if(ready&&systemTime()>=nextStatus){status();nextStatus=systemTime()+10000000;}
   diagnostics.flush();delay(1);
@@ -267,6 +324,12 @@ void loop(){
 #endif
 #ifdef PP_STAGE6_DEMO
   stage6DemoTick();
+#endif
+#ifdef PP_STAGE7_ACCEPTANCE
+  stage7AcceptanceTick();
+#endif
+#ifdef PP_STAGE7_DEMO
+  stage7DemoTick();
 #endif
 #ifdef PP_VERIFY
   if(verificationReboot&&systemTime()>=rebootAt)ESP.restart();

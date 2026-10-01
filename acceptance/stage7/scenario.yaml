@@ -1,0 +1,6 @@
+name: Stage 7 Browser connection
+version: 1
+steps:
+  - wait-serial: 'ACC READY'
+  - write-serial: 's'
+  - wait-serial: 'ACC DONE'

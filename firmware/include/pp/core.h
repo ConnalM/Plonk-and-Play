@@ -7,7 +7,7 @@ namespace pp {
 using Time = uint64_t; // Monotonic microseconds in this controller boot's domain.
 enum class Role : uint8_t { Lifecycle, Memory, Input, RaceControl, RaceEngine, Output, Presentation, Diagnostics };
 constexpr uint16_t mask(Role r) { return uint16_t(1u << unsigned(r)); }
-enum class Type : uint8_t { LoadConfiguration, ConfigurationLoaded, InputEvent, GoScheduled, LapCompleted, CompetitionComplete, DiagnosticProbe, Count };
+enum class Type : uint8_t { LoadConfiguration, ConfigurationLoaded, InputEvent, GoScheduled, LapCompleted, CompetitionComplete, NoticeboardChanged, DiagnosticProbe, Count };
 struct InputIdentity {
   uint32_t device;
   uint16_t capability;
@@ -68,13 +68,18 @@ public:
     size_t recipients = 0;
     for (size_t i=0;i<count_;++i) if (interested(slots_[i], m.type)) {
       ++recipients;
-      if (slots_[i].size == Depth) return Delivery::Full;
+      // These current presentation deliveries are individually best-effort:
+      // Noticeboard change may be superseded, and presentation Facts can be
+      // lost without changing authoritative operation. Future Presentation
+      // message types remain reliable unless their contract says otherwise.
+      if (slots_[i].size == Depth && !(slots_[i].role == Role::Presentation && presentationBestEffort(m.type))) return Delivery::Full;
     }
     if (!recipients) return Delivery::NoSubscribers;
     m.source = e.id;
     // Atomic fan-out: explicit failure, never a partially delivered publication.
     for (size_t i=0;i<count_;++i) if (interested(slots_[i], m.type)) {
-      auto& s=slots_[i]; s.queue[(s.head+s.size)%Depth]=m; ++s.size;
+      auto& s=slots_[i]; if(s.size==Depth&&s.role==Role::Presentation&&presentationBestEffort(m.type))continue;
+      s.queue[(s.head+s.size)%Depth]=m; ++s.size;
     }
     return Delivery::Delivered;
   }
@@ -87,6 +92,15 @@ private:
   Slot slots_[Participants]{}; size_t count_=0;
   Slot* slot(Endpoint e) { return e.id && e.id<=count_ ? &slots_[e.id-1] : nullptr; }
   static bool interested(const Slot& s, Type t) { return s.subscriptions & (1u << unsigned(t)); }
+  static bool presentationBestEffort(Type t) {
+    switch(t) {
+      case Type::GoScheduled:
+      case Type::LapCompleted:
+      case Type::CompetitionComplete:
+      case Type::NoticeboardChanged: return true;
+      default: return false;
+    }
+  }
   static uint16_t publishers(Type t) {
     switch(t) {
       case Type::LoadConfiguration: return mask(Role::Lifecycle);
@@ -95,6 +109,7 @@ private:
       case Type::GoScheduled: return mask(Role::RaceControl);
       case Type::LapCompleted: return mask(Role::RaceEngine);
       case Type::CompetitionComplete: return mask(Role::RaceEngine);
+      case Type::NoticeboardChanged: return mask(Role::RaceControl)|mask(Role::RaceEngine);
       case Type::DiagnosticProbe: return mask(Role::Diagnostics);
       default: return 0;
     }
@@ -104,9 +119,10 @@ private:
       case Type::LoadConfiguration: return mask(Role::Memory);
       case Type::ConfigurationLoaded: return mask(Role::Lifecycle);
       case Type::InputEvent: return mask(Role::RaceEngine)|mask(Role::Diagnostics);
-      case Type::GoScheduled: return mask(Role::RaceEngine)|mask(Role::Diagnostics);
-      case Type::LapCompleted: return mask(Role::Diagnostics);
-      case Type::CompetitionComplete: return mask(Role::RaceControl)|mask(Role::Diagnostics);
+      case Type::GoScheduled: return mask(Role::RaceEngine)|mask(Role::Presentation)|mask(Role::Diagnostics);
+      case Type::LapCompleted: return mask(Role::Presentation)|mask(Role::Diagnostics);
+      case Type::CompetitionComplete: return mask(Role::RaceControl)|mask(Role::Presentation)|mask(Role::Diagnostics);
+      case Type::NoticeboardChanged: return mask(Role::Presentation)|mask(Role::Diagnostics);
       case Type::DiagnosticProbe: return mask(Role::Diagnostics);
       default: return 0;
     }

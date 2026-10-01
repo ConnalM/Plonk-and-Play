@@ -73,6 +73,28 @@ Rendered multi-browser behaviour should be proved when the P&P browser implement
 4. Real hardware validation complements simulation; it does not require race/session logic to be redesigned.
 5. Accepted changes should be committed to GitHub promptly so implementation does not depend on chat history.
 6. Stage work should begin from a clean repository and should not silently alter accepted architecture to make implementation easier.
+7. Startup diagnostics must identify the actual build environment accurately. A normal, acceptance, verification, quiet or demonstration image must never present itself as a different stage. These labels are diagnostic only and do not form product State.
+
+## Stage 7 gateway blocker
+
+The Stage 7 human Browser checkpoint is currently **BLOCKED**, not passed. The
+Stage 7 ESP32 demo has been shown running by its `P&P STAGE 7 DEMO` startup
+identifier, but the real rendered Browser page has not been observed through
+the Wokwi Private IoT Gateway.
+
+The current external-test evidence shows the simulated ESP32 obtained private
+gateway address `10.13.37.2`, listens on TCP port 80, receives gateway SYNs and
+responds with valid SYN/ACKs. The gateway/Wokwi side did not complete the TCP
+handshake. The current official gateway v2.0.1 command and port mapping were
+verified. This is being pursued with Wokwi as an external test-environment
+defect. P&P networking and BrowserInterface must not be changed to work around
+it.
+
+The unobserved portion of the checkpoint is a real rendered Browser connected
+through the Private Gateway showing synchronisation, authoritative State and
+Fact presentation through a complete race to FINISHED. Automated Stage 7
+acceptance remains independent evidence and does not substitute for this human
+checkpoint.
 
 ## Stage 1 handoff
 
