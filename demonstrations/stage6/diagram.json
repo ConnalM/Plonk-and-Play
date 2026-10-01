@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "author": "P&P Stage 6 human demonstration",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-pushbutton", "id": "start", "top": -78, "left": 286, "attrs": { "color": "green" } },
+    { "type": "wokwi-pushbutton", "id": "crossing", "top": 112, "left": 286, "attrs": { "color": "yellow" } }
+  ],
+  "connections": [
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ],
+    [ "start:1.l", "esp:13", "green", [] ],
+    [ "start:2.l", "esp:GND.1", "black", [] ],
+    [ "crossing:1.l", "esp:12", "yellow", [] ],
+    [ "crossing:2.l", "esp:GND.1", "black", [] ]
+  ],
+  "serialMonitor": { "display": "terminal" }
+}

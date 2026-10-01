@@ -1,0 +1,11 @@
+name: Stage 6 human demonstration smoke test
+version: 1
+steps:
+  - wait-serial: '[DEMO] READY'
+  - write-serial: 's'
+  - wait-serial: '[DEMO] RACING'
+  - write-serial: 'c'
+  - wait-serial: 'LAP_COMPLETED: lap=1'
+  - wait-serial: '[DEMO] detector rearmed'
+  - write-serial: 'c'
+  - wait-serial: '[DEMO] FINISHED'

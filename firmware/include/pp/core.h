@@ -7,8 +7,7 @@ namespace pp {
 using Time = uint64_t; // Monotonic microseconds in this controller boot's domain.
 enum class Role : uint8_t { Lifecycle, Memory, Input, RaceControl, RaceEngine, Output, Presentation, Diagnostics };
 constexpr uint16_t mask(Role r) { return uint16_t(1u << unsigned(r)); }
-// Internal Stage 1 contracts. No race messages or invented input events.
-enum class Type : uint8_t { LoadConfiguration, ConfigurationLoaded, InputEvent, LapCompleted, DiagnosticProbe, Count };
+enum class Type : uint8_t { LoadConfiguration, ConfigurationLoaded, InputEvent, GoScheduled, LapCompleted, CompetitionComplete, DiagnosticProbe, Count };
 struct InputIdentity {
   uint32_t device;
   uint16_t capability;
@@ -93,7 +92,9 @@ private:
       case Type::LoadConfiguration: return mask(Role::Lifecycle);
       case Type::ConfigurationLoaded: return mask(Role::Memory);
       case Type::InputEvent: return mask(Role::Input);
+      case Type::GoScheduled: return mask(Role::RaceControl);
       case Type::LapCompleted: return mask(Role::RaceEngine);
+      case Type::CompetitionComplete: return mask(Role::RaceEngine);
       case Type::DiagnosticProbe: return mask(Role::Diagnostics);
       default: return 0;
     }
@@ -103,7 +104,9 @@ private:
       case Type::LoadConfiguration: return mask(Role::Memory);
       case Type::ConfigurationLoaded: return mask(Role::Lifecycle);
       case Type::InputEvent: return mask(Role::RaceEngine)|mask(Role::Diagnostics);
+      case Type::GoScheduled: return mask(Role::RaceEngine)|mask(Role::Diagnostics);
       case Type::LapCompleted: return mask(Role::Diagnostics);
+      case Type::CompetitionComplete: return mask(Role::RaceControl)|mask(Role::Diagnostics);
       case Type::DiagnosticProbe: return mask(Role::Diagnostics);
       default: return 0;
     }
@@ -216,9 +219,6 @@ private:
   uint32_t nextEventId_=0;
 };
 
-// No Registry discoveries, session, sensor assignment or race readiness is invented.
-struct RaceControl { Bus::Endpoint endpoint; };
-struct RaceEngine { Bus::Endpoint endpoint; };
 struct OutputModule { Bus::Endpoint endpoint; };
 struct Presentation { Bus::Endpoint endpoint; };
 

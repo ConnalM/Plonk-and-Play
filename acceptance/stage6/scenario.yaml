@@ -1,0 +1,6 @@
+name: Stage 6 Race Control lifecycle and scheduled GO
+version: 1
+steps:
+  - wait-serial: 'ACC READY'
+  - write-serial: 's'
+  - wait-serial: 'ACC DONE'
