@@ -27,29 +27,70 @@ The default physical arrangement does not pretend to provide capabilities it can
 
 Taster should remain comparable in complexity to a basic Scalextric-style lap counter.
 
-The intended local controls remain deliberately simple, but the Taster must not require the SMUG merely to change an ordinary race distance.
+The intended local controls are deliberately simple. Taster must not require the SMUG merely to choose an ordinary race distance or duration.
 
 The preferred hardware direction is a rotary encoder with an integral push-button, together with the local graphical display.
 
-From the normal READY state, rotating the encoder directly changes the Lap Race distance and the display immediately shows the selected number of laps. Ordinary lap-count adjustment must require no menu entry. The exact permitted range, step size or preset values remain a later product decision.
+### READY
 
-The encoder push-button may provide START/confirmation, RACE AGAIN/restart, or a deliberately protected Abort/Reset function such as a long press. Exact button semantics are deliberately not fixed yet and must be designed against the complete before/during/after-race lifecycle.
+Taster provides exactly two locally selectable race types:
 
-A very small number of other genuinely useful local settings may later be considered, but the Taster must not grow into a general menu-driven recreation of the browser interface. If configuration becomes menu-heavy or requires navigating levels, it belongs on the SMUG.
+- **LAPS** — 1 to 999 laps;
+- **TIMED** — 1 to 999 minutes.
 
-Taster does not need local controls for every exceptional situation such as aborting, restarting or reconfiguring a race in progress. Those are full P&P/browser functions.
+On first/factory use, READY defaults to **10 LAPS**.
+
+Thereafter the last selected race type, the last selected lap distance and the last selected timed duration are retained in persistent settings storage and restored after power-off/restart.
+
+At READY:
+
+- rotating the encoder changes the currently displayed lap distance or timed duration directly, with no menu entry;
+- slow rotation changes the value by 1 per detent;
+- medium-speed rotation accelerates adjustment to 5 per detent;
+- fast rotation accelerates adjustment to 10 per detent;
+- when rotation slows, adjustment promptly returns to 1 per detent;
+- values are clamped to 1–999 and do not wrap;
+- a short press starts the displayed race;
+- a long press toggles between LAPS and TIMED, restoring the last value used for that race type.
+
+START is not a second Taster-specific race mechanism. Once requested, the selected Taster setup is submitted to the normal P&P start procedure and normal Race Control/session machinery.
+
+### During a race
+
+A short encoder press has no race-control effect.
+
+A deliberate long press requests the protected Abort interaction. The display asks the MUG to confirm **ABORT RACE?**, with **NO** as the safe/default choice. Rotating the encoder selects YES or NO and a short press confirms. If no confirmation is made within a short timeout, the confirmation is dismissed and the live race display resumes. Merely long-pressing must never itself abort the race.
+
+### FINISHED
+
+The final result remains displayed indefinitely until the MUG acts.
+
+- short press = **RACE AGAIN**, using the same race type and value and entering the normal start procedure;
+- rotating the encoder leaves the result view and adjusts the current race value ready for a new race;
+- the same velocity-sensitive 1/5/10 adjustment applies.
+
+Taster must not grow into a general menu-driven recreation of the browser interface. If configuration becomes menu-heavy or requires navigating levels, it belongs on the SMUG.
 
 ## What the MUG sees
 
 Before the race, the local screen shows the Taster race type/distance and the two competitors as READY.
 
-During a basic Lap Race it shows, for each lane/competitor:
+During a race it provides one stable display row for each of the two lanes/competitors. Each row shows the useful live information appropriate to the race type, including:
 
 - lane number or configured MUG name;
-- laps completed / target laps;
-- latest lap time.
+- lap count/progress;
+- latest lap time;
+- race time/countdown information where appropriate for TIMED.
 
-At finish it shows the finishing/result information, including finish time as appropriate, followed by a simple result and RACE AGAIN.
+A genuine Start/Finish crossing for a lane may trigger a short graphical animation confined to that lane's row: for example, its little car whizzing across a Start/Finish marker while the new lap information appears. Lane 1 events animate Lane 1; Lane 2 events animate Lane 2. The other lane remains undisturbed.
+
+The lap-crossing presentation may include an optional playful car-pass sound (the intended spirit is a brief “neeeooooowwww”). Graphics and sound are Presentation responses to authoritative race events only and have no timing or Race Engine authority.
+
+On the winning/final lap, the appropriate lane may use a chequered-flag/finish treatment rather than the ordinary lap animation.
+
+For Taster Lap Races, both lanes always complete the full selected race distance. The first lane to complete the target is recorded as the winner/first finisher, but the other lane continues until it has also completed the target. Taster exposes no alternative finish-policy setting.
+
+At finish it shows the finishing/result information, including finish time as appropriate, followed by the simple result. The result remains on screen until the MUG chooses Race Again or changes the race setting.
 
 If SMUG has configured MUG names, those names may replace generic LANE 1 / LANE 2 labels on the Taster display rather than adding unnecessary extra clutter.
 
