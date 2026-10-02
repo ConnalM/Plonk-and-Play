@@ -27,11 +27,15 @@ The default physical arrangement does not pretend to provide capabilities it can
 
 Taster should remain comparable in complexity to a basic Scalextric-style lap counter.
 
-The intended local control is one simple physical race button.
+The intended local controls remain deliberately simple, but the Taster must not require the SMUG merely to change an ordinary race distance.
 
-Before the race the screen clearly offers START. Pressing the button begins the configured start sequence.
+The preferred hardware direction is a rotary encoder with an integral push-button, together with the local graphical display.
 
-After the race the screen clearly offers RACE AGAIN. Pressing the same button resets the Taster to its ready state; pressing START then begins the next race.
+From the normal READY state, rotating the encoder directly changes the Lap Race distance and the display immediately shows the selected number of laps. Ordinary lap-count adjustment must require no menu entry. The exact permitted range, step size or preset values remain a later product decision.
+
+The encoder push-button may provide START/confirmation, RACE AGAIN/restart, or a deliberately protected Abort/Reset function such as a long press. Exact button semantics are deliberately not fixed yet and must be designed against the complete before/during/after-race lifecycle.
+
+A very small number of other genuinely useful local settings may later be considered, but the Taster must not grow into a general menu-driven recreation of the browser interface. If configuration becomes menu-heavy or requires navigating levels, it belongs on the SMUG.
 
 Taster does not need local controls for every exceptional situation such as aborting, restarting or reconfiguring a race in progress. Those are full P&P/browser functions.
 
@@ -57,7 +61,7 @@ The Factory Taster is only the out-of-box default.
 
 Using the browser, a SMUG may configure a different supported Taster for subsequent standalone use. This allows the full interface to perform setup once while leaving later operation simple enough for MUGs or MINIMUGs without supervision.
 
-Examples may include changing the lap count, assigning names instead of lane labels, and selecting other settings that remain completely operable from the local Taster interface.
+Examples may include assigning names instead of lane labels and selecting other settings that remain completely operable from the local Taster interface. Lap count is a special case: it must also be adjustable directly on the Taster itself using the local rotary control.
 
 A configured Taster must remain self-contained: the browser must not allow a Taster configuration that subsequently requires a browser merely to run it.
 
