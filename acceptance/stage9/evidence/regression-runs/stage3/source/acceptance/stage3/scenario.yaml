@@ -1,0 +1,8 @@
+name: Frozen Stage 3 Message Bus delivery acceptance
+version: 1
+author: P&P
+steps:
+  - wait-serial: 'ACC READY'
+  - delay: 300ms
+  - write-serial: 's'
+  - wait-serial: 'ACC DONE'

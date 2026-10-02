@@ -86,7 +86,11 @@ pp::Time nextStatus=0;
 // The build environment is diagnostic identity only. It never supplies product
 // State or changes P&P behaviour.
 const char* buildIdentity(){
- #if defined(PP_STAGE8_ACCEPTANCE)
+ #if defined(PP_STAGE9_DEMO)
+  return "P&P STAGE 9 DEMO";
+#elif defined(PP_STAGE9_ACCEPTANCE)
+  return "P&P STAGE 9 ACCEPTANCE";
+#elif defined(PP_STAGE8_ACCEPTANCE)
   return "P&P STAGE 8 ACCEPTANCE";
 #elif defined(PP_STAGE7_DEMO)
   return "P&P STAGE 7 DEMO";
@@ -127,7 +131,7 @@ void observeInputEvents() {
       static_cast<unsigned long long>(event.relevantTime));
   }
 }
-void status(){diagnostics.log("[DEV] Stage1 %s system_us=%llu dropped=%lu; no session, no race",
+void status(){diagnostics.log("[DEV] %s %s system_us=%llu dropped=%lu; no session, no race",buildIdentity(),
   ready?"IDLE":bootFailed?"FAULT":"STARTING",static_cast<unsigned long long>(systemTime()),static_cast<unsigned long>(diagnostics.dropped));}
 #ifdef PP_ACCEPTANCE
 #include "../tests/acceptance_probe.inc"
@@ -158,6 +162,9 @@ void status(){diagnostics.log("[DEV] Stage1 %s system_us=%llu dropped=%lu; no se
 #endif
 #ifdef PP_STAGE8_ACCEPTANCE
 #include "../tests/stage8_acceptance_probe.inc"
+#endif
+#ifdef PP_STAGE9_ACCEPTANCE
+#include "../tests/stage9_acceptance_probe.inc"
 #endif
 }
 void setup(){
@@ -192,6 +199,9 @@ void setup(){
 #ifdef PP_STAGE8_ACCEPTANCE
   stage8AcceptanceBeforeBoot();
 #endif
+#ifdef PP_STAGE9_ACCEPTANCE
+  stage9AcceptanceBeforeBoot();
+#endif
   diagnostics.log("[DEV] %s -- diagnostics are not product State",buildIdentity());
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
@@ -205,6 +215,8 @@ void setup(){
   testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::GoScheduled);
   testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::CompetitionComplete);
   testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::StartRequest);
+  testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::RaceIntegrityFault);
+  testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::RaceIntegrityFault);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::NoticeboardChanged);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::GoScheduled);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::LapCompleted);
@@ -254,7 +266,13 @@ void loop(){
       bootFailed=true;diagnostics.log("STAGE1_FAIL configuration response");
     }else{
       workingConfiguration=message.configuration;
+#ifdef PP_STAGE9_DEMO
+      proposedRaceSetup.startFinish={pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish};
+      proposedRaceSetup.secondStartFinish={pp::InputModule::simulatedDetectorBIdentity(),2,pp::InputRole::StartFinish};
+      proposedRaceSetup.selectedMugId=91;proposedRaceSetup.secondMugId=92;proposedRaceSetup.activeLanes=2;proposedRaceSetup.lapTarget=2;
+#else
       proposedRaceSetup.lapTarget=workingConfiguration.laps;
+#endif
       raceControl.setProposedRaceSetup(proposedRaceSetup);
       raceControl.setRequiredCapabilityAvailable(true);
 #ifdef PP_ACCEPTANCE
@@ -279,8 +297,9 @@ void loop(){
       nextStatus=systemTime()+10000000;
     }
   }
-  // Bounded serial command work. 0/1 are a development-only simulated source,
-  // exercised through the Input Device; they are not P&P Requests or bus events.
+  // Bounded serial command work. 0/1 control detector A and 2/3 control
+  // detector B. These are source-facing simulated detector controls, not P&P
+  // Requests or bus events.
   for(unsigned i=0;i<8&&Serial.available();++i){
     const char c=Serial.read();
     if(c=='q')diagnostics.enable(false);
@@ -289,6 +308,8 @@ void loop(){
     else if(c=='t'){const bool ok=pp::busSelfTest(bus,testPublisher,testObserver,input.endpoint,report);diagnostics.log("[BUS SELF-TEST] %s",ok?"PASS":"FAIL");}
     else if(c=='0'){input.setSimulatedSource(false);diagnostics.log("[INPUT SOURCE] simulated detector INACTIVE");}
     else if(c=='1'){input.setSimulatedSource(true);diagnostics.log("[INPUT SOURCE] simulated detector ACTIVE");}
+    else if(c=='2'){input.setSimulatedSourceB(true);diagnostics.log("[INPUT SOURCE] simulated detector B ACTIVE");}
+    else if(c=='3'){input.setSimulatedSourceB(false);diagnostics.log("[INPUT SOURCE] simulated detector B INACTIVE");}
 #ifdef PP_ACCEPTANCE
     else acceptanceCommand(c);
 #endif
@@ -318,6 +339,9 @@ void loop(){
 #endif
 #ifdef PP_STAGE8_ACCEPTANCE
     else stage8AcceptanceCommand(c);
+#endif
+#ifdef PP_STAGE9_ACCEPTANCE
+    else stage9AcceptanceCommand(c);
 #endif
   }
   if(ready&&systemTime()>=nextStatus){status();nextStatus=systemTime()+10000000;}
@@ -351,6 +375,9 @@ void loop(){
 #endif
 #ifdef PP_STAGE8_ACCEPTANCE
   stage8AcceptanceTick();
+#endif
+#ifdef PP_STAGE9_ACCEPTANCE
+  stage9AcceptanceTick();
 #endif
 #ifdef PP_VERIFY
   if(verificationReboot&&systemTime()>=rebootAt)ESP.restart();

@@ -1,0 +1,31 @@
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1156
+load:0x40078000,len:11456
+ho 0 tail 12 room 4
+load:0x40080400,len:2972
+entry 0x400805dc
+[DEV] P&P STAGE 1 -- diagnostics are not product State
+[INIT] System Time READY: monotonic 64-bit microseconds
+[INIT] Memory READY: NVS behind Memory boundary
+[INIT] Message Bus READY: bounded mailboxes; authority checked
+[TEST] PASS bus.authority.publish
+[TEST] PASS bus.authority.subscribe
+[TEST] PASS bus.fanout.publish
+[TEST] PASS bus.fanout.identical
+[TEST] PASS bus.no.duplicate
+[TEST] PASS bus.backpressure.atomic
+[TEST] PASS bus.fifo
+[TEST] PASS bus.recovery
+[BUS SELF-TEST] PASS
+[INIT] Working configuration READY in RAM (factory: no saved configuration)
+[CONFIG] Lap Race proposed; lanes=2 laps=10 optional_features=off
+[INIT] Input Module READY: one simulated detector; Race Control / Race Engine / Output / Presentation dormant
+[INIT] No capabilities discovered or assigned; session readiness not claimed
+STAGE1_PASS skeleton initialised; no race behaviour
+STAGE2_PASS one simulated Input Device ready; no race behaviour
+[DEV] Serial: ? status, t bus self-test, q quiet, v diagnostics on

@@ -1,0 +1,25 @@
+Wokwi CLI v0.27.1 (ffde06bde1ae)
+Connected to Wokwi Simulation API 1.0.0-20261001-g3f6ebbc6
+Starting simulation...
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1156
+load:0x40078000,len:11456
+ho 0 tail 12 room 4
+load:0x40080400,len:2972
+entry 0x400805dc
+ACC READY
+[Frozen Stage 4 session role acceptance] Expected text matched: "ACC READY"
+ACC S4 test=4.1 events=1 source=3 device=50500001 capability=1 relevant=120000 observed=150000 mapped=1 lane=1 role=0
+ACC S4 test=4.2 events=1 source=3 device=50500001 capability=1 relevant=320000 observed=350000 mapped=1 lane=1 role=0
+ACC S4 test=4.3 events=1 source=3 device=50500001 capability=1 relevant=520000 observed=550000 mapped=1 lane=1 role=0
+ACC S4 test=4.4 events=1 source=3 device=50500001 capability=1 relevant=720000 observed=750000 mapped=1 lane=1 role=0
+ACC S4 test=4.5 events=1 source=3 device=50500001 capability=1 relevant=920000 observed=950000 mapped=1 lane=2 role=0
+ACC S4 FIRST lane=1 SECOND lane=2 proposed=2
+ACC DONE
+[Frozen Stage 4 session role acceptance] Expected text matched: "ACC DONE"
+[Frozen Stage 4 session role acceptance] Scenario completed successfully

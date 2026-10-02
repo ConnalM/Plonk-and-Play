@@ -1,0 +1,23 @@
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1156
+load:0x40078000,len:11456
+ho 0 tail 12 room 4
+load:0x40080400,len:2972
+entry 0x400805dc
+ACC READYACC S6 test=6.1 state=READY
+ACC S6 test=6.2 started=1 publication_now=269145 go=1269145 future=1 state=STARTING
+ACC S6 test=6.3 state=STARTING go_facts=1 go_source=4 lap_facts=0 complete_facts=0 complete_at=0 laps=0 lap=0 engine_go=1269145
+ACC S6 test=6.4 state=STARTING
+ACC S6 test=6.5 state=RACING
+ACC S6 test=6.6 engine_go=1269145 scheduled_go=1269145
+ACC S6 test=6.7 laps=1 lap=500000
+ACC S6 test=6.10 state=FINISHED go_facts=0 go_source=0 lap_facts=2 complete_facts=1 complete_at=2169145 laps=2 lap=400000 engine_go=1269145
+ACC S6 test=6.11 engine_complete=1
+ACC S6 test=6.12 state=FINISHED
+ACC S6 LIFECYCLE READY STARTING GO_SCHEDULED RACING LAP_COMPLETED COMPETITION_COMPLETE FINISHED
+ACC DONE

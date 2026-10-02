@@ -1,0 +1,12 @@
+{
+  "baseline": {"commit":"ac6c73bce1fbfad374eee7409b974663647ce65a","test":"1.13","result":"FAIL","actual":"systemTime() is in main.cpp's anonymous namespace; no shared service declaration exists. Clock mechanism is suitable but the service is not accessible to another translation unit."},
+  "findings": [
+    {"property":"Shared System Controller time", "result":"PASS", "evidence":"pp/system_time.h declares the service; src/system_time.cpp alone calls esp_timer_get_time; main.cpp and independent acceptance_clock.cpp call that same service."},
+    {"property":"Configuration is information", "result":"PASS", "evidence":"Configuration is a value struct; lifecycle obtains a correlated Memory response and copies it into workingConfiguration. No Configuration bus role/module exists."},
+    {"property":"Memory owns persistence", "result":"PASS", "evidence":"Memory codec and Store boundary retain the same owner; MemoryModule polls LoadConfiguration and publishes ConfigurationLoaded. Normal runtime makes no persistent configuration reads except processing a load request. Test-only fixture writes are explicitly isolated."},
+    {"property":"Common bus communication", "result":"PASS", "evidence":"Boot uses bus.publish LoadConfiguration, MemoryModule.tick receives it, and ConfigurationLoaded returns through bus.receive. Intra-Memory Store calls are internal, not another production component path."},
+    {"property":"No competing authority or Stage 2", "result":"PASS", "evidence":"Input/RaceControl/RaceEngine/Output/Presentation remain dormant endpoint holders; no race state, input event, session, synthetic sensor or product network interface was added."},
+    {"property":"Diagnostics non-authoritative", "result":"PASS", "evidence":"Diagnostics only buffers output; ready derives from functional initialisation/self-test regardless of enable flag. Acceptance observers read state without setting ready or bypassing boot."},
+    {"property":"Test boundary isolation", "result":"PASS", "evidence":"PP_ACCEPTANCE excludes every fixture/control/observer from esp32dev. Authorised diagnostic probes traverse the actual production Bus, not a second implementation. Fault injection uses the Store seam; reload always uses the normal MemoryModule and lifecycle path."}
+  ]
+}

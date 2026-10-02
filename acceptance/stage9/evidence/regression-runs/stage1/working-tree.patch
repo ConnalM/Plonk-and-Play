@@ -1,0 +1,457 @@
+diff --git a/firmware/build.ps1 b/firmware/build.ps1
+index 7fc9e26..fffc244 100644
+--- a/firmware/build.ps1
++++ b/firmware/build.ps1
+@@ -1,4 +1,4 @@
+-param([ValidateSet('esp32dev','verification','quiet','acceptance','stage2acceptance','stage3acceptance','stage4acceptance','stage5acceptance','stage6acceptance','stage6demo','stage7acceptance','stage7demo','stage8acceptance')][string]$Environment = 'esp32dev')
++param([ValidateSet('esp32dev','verification','quiet','acceptance','stage2acceptance','stage3acceptance','stage4acceptance','stage5acceptance','stage6acceptance','stage6demo','stage7acceptance','stage7demo','stage8acceptance','stage9acceptance')][string]$Environment = 'esp32dev')
+ $ErrorActionPreference = 'Stop'
+ $pioRoot = Join-Path $env:USERPROFILE '.platformio'
+ $python = Join-Path $pioRoot 'penv\Scripts\python.exe'
+diff --git a/firmware/include/pp/browser_interface.h b/firmware/include/pp/browser_interface.h
+index ae75021..82c594e 100644
+--- a/firmware/include/pp/browser_interface.h
++++ b/firmware/include/pp/browser_interface.h
+@@ -47,7 +47,7 @@ private:
+   uint32_t noticeRevision_=0,factRevision_=0;Message lastFact_{};bool hasFact_=false,started_=false;Time scheduledGo_=0;
+   StoredResult results_[4]{};size_t nextResult_=0;
+   static const char* lifecycle(SessionLifecycle value){
+-    switch(value){case SessionLifecycle::Ready:return "READY";case SessionLifecycle::Starting:return "STARTING";case SessionLifecycle::Racing:return "RACING";case SessionLifecycle::Finished:return "FINISHED";}return "UNKNOWN";
++    switch(value){case SessionLifecycle::Ready:return "READY";case SessionLifecycle::Starting:return "STARTING";case SessionLifecycle::Racing:return "RACING";case SessionLifecycle::Finished:return "FINISHED";case SessionLifecycle::Faulted:return "FAULTED";}return "UNKNOWN";
+   }
+   static const char* rejectionText(RequestRejection value){
+     switch(value){
+@@ -64,7 +64,7 @@ private:
+     auto& result=results_[nextResult_++%4];result.correlation=message.correlation;result.result=message.requestResult;result.rejection=message.rejection;result.ready=true;
+   }
+   static esp_err_t state(httpd_req_t* request){
+-    const auto value=instance()->current();char json[256];snprintf(json,sizeof(json),"{\"lifecycle\":\"%s\",\"raceEntryId\":%lu,\"laps\":%lu,\"hasLap\":%s,\"lastLapTime\":%llu,\"scheduledGo\":%llu}",lifecycle(value.lifecycle),(unsigned long)value.raceEntryId,(unsigned long)value.laps,value.hasLap?"true":"false",(unsigned long long)value.lastLapTime,(unsigned long long)value.scheduledGo);
++    const auto value=instance()->current();char json[512];snprintf(json,sizeof(json),"{\"lifecycle\":\"%s\",\"raceEntryId\":%lu,\"laps\":%lu,\"hasLap\":%s,\"lastLapTime\":%llu,\"scheduledGo\":%llu,\"resultValid\":%s,\"raceIntegrity\":\"%s\",\"entries\":[{\"raceEntryId\":%lu,\"laps\":%lu},{\"raceEntryId\":%lu,\"laps\":%lu}]}",lifecycle(value.lifecycle),(unsigned long)value.raceEntryId,(unsigned long)value.laps,value.hasLap?"true":"false",(unsigned long long)value.lastLapTime,(unsigned long long)value.scheduledGo,value.resultValid?"true":"false",value.raceIntegrityFaulted?"FAULTED":"OK",(unsigned long)value.entries[0].raceEntryId,(unsigned long)value.entries[0].laps,(unsigned long)value.entries[1].raceEntryId,(unsigned long)value.entries[1].laps);
+     httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");return httpd_resp_sendstr(request,json);
+   }
+   static esp_err_t notice(httpd_req_t* request){
+@@ -98,7 +98,7 @@ private:
+     httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");return httpd_resp_sendstr(request,json);
+   }
+   static esp_err_t page(httpd_req_t* request){
+-    static const char html[]=R"HTML(<!doctype html><meta charset="utf-8"><title>P&P Stage 8</title><style>body{font:16px system-ui;max-width:44rem;margin:2rem auto;padding:0 1rem}pre{background:#eee;padding:1rem}button{font:inherit;padding:.5rem 1rem}</style><h1>P&amp;P diagnostic Browser</h1><p id="connection">connecting</p><button id="start">START</button><p id="request"></p><pre id="state"></pre><pre id="fact"></pre><script>let syncedNotice=null,hasState=false,nextCorrelation=1;const state=document.querySelector('#state'),fact=document.querySelector('#fact'),connection=document.querySelector('#connection'),request=document.querySelector('#request');async function get(path){let r=await fetch(path,{cache:'no-store'});if(r.status===204)return null;if(!r.ok)throw Error(r.status);return r.json()}async function refresh(revision){let value=await get('/state');state.textContent=JSON.stringify(value,null,2);syncedNotice=revision;hasState=true}async function poll(){try{let n=await get('/noticeboard');if(!hasState||n.revision!==syncedNotice){connection.textContent='unsynchronised';await refresh(n.revision)}connection.textContent='synchronised'}catch(e){connection.textContent='unsynchronised';return}try{fact.textContent=JSON.stringify(await get('/fact'),null,2)}catch(e){}}document.querySelector('#start').onclick=async()=>{let correlation=nextCorrelation++;let r=await fetch('/request/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:correlation})});if(r.status!==202){request.textContent='submission failed';return}request.textContent='START submitted';let timer=setInterval(async()=>{let result=await get('/request-result?correlationId='+correlation);if(result){request.textContent=JSON.stringify(result);clearInterval(timer)}},100)};poll();setInterval(poll,250)</script>)HTML";
++    static const char html[]=R"HTML(<!doctype html><meta charset="utf-8"><title>P&P Stage 9</title><style>body{font:16px system-ui;max-width:44rem;margin:2rem auto;padding:0 1rem}pre{background:#eee;padding:1rem}button{font:inherit;padding:.5rem 1rem}</style><h1>P&amp;P diagnostic Browser</h1><p id="connection">connecting</p><button id="start">START</button><p id="request"></p><pre id="state"></pre><pre id="fact"></pre><script>let syncedNotice=null,hasState=false,nextCorrelation=1;const state=document.querySelector('#state'),fact=document.querySelector('#fact'),connection=document.querySelector('#connection'),request=document.querySelector('#request');async function get(path){let r=await fetch(path,{cache:'no-store'});if(r.status===204)return null;if(!r.ok)throw Error(r.status);return r.json()}async function refresh(revision){let value=await get('/state');state.textContent=JSON.stringify(value,null,2);syncedNotice=revision;hasState=true}async function poll(){try{let n=await get('/noticeboard');if(!hasState||n.revision!==syncedNotice){connection.textContent='unsynchronised';await refresh(n.revision)}connection.textContent='synchronised'}catch(e){connection.textContent='unsynchronised';return}try{fact.textContent=JSON.stringify(await get('/fact'),null,2)}catch(e){}}document.querySelector('#start').onclick=async()=>{let correlation=nextCorrelation++;let r=await fetch('/request/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:correlation})});if(r.status!==202){request.textContent='submission failed';return}request.textContent='START submitted';let timer=setInterval(async()=>{let result=await get('/request-result?correlationId='+correlation);if(result){request.textContent=JSON.stringify(result);clearInterval(timer)}},100)};poll();setInterval(poll,250)</script>)HTML";
+     httpd_resp_set_type(request,"text/html; charset=utf-8");httpd_resp_set_hdr(request,"Cache-Control","no-store");return httpd_resp_send(request,html,sizeof(html)-1);
+   }
+   static esp_err_t health(httpd_req_t* request){httpd_resp_set_type(request,"application/json");return httpd_resp_sendstr(request,"{\"ok\":true,\"browser\":\"stage8\"}");}
+diff --git a/firmware/include/pp/core.h b/firmware/include/pp/core.h
+index d983dc0..a490676 100644
+--- a/firmware/include/pp/core.h
++++ b/firmware/include/pp/core.h
+@@ -8,14 +8,15 @@ using Time = uint64_t; // Monotonic microseconds in this controller boot's domai
+ enum class Role : uint8_t { Lifecycle, Memory, Input, RaceControl, RaceEngine, Output, Presentation, Diagnostics };
+ constexpr uint16_t mask(Role r) { return uint16_t(1u << unsigned(r)); }
+ // Numeric values through DiagnosticProbe are the accepted Stage 7 compatibility baseline.
+-enum class Type : uint8_t { LoadConfiguration=0, ConfigurationLoaded=1, InputEvent=2, GoScheduled=3, LapCompleted=4, CompetitionComplete=5, NoticeboardChanged=6, DiagnosticProbe=7, StartRequest=8, RequestResult=9, Count=10 };
++enum class Type : uint8_t { LoadConfiguration=0, ConfigurationLoaded=1, InputEvent=2, GoScheduled=3, LapCompleted=4, CompetitionComplete=5, NoticeboardChanged=6, DiagnosticProbe=7, StartRequest=8, RequestResult=9, RaceIntegrityFault=10, Count=11 };
+ enum class ClientContext : uint8_t { Spectator, RaceDirectorSmug };
+ enum class RequestResult : uint8_t { Accepted, Rejected };
+ enum class RequestRejection : uint8_t { None, PermissionDenied, LifecycleNotStartable, InvalidRaceSetup, RequiredCapabilityUnavailable, SessionDefinitionUnavailable };
++enum class RaceIntegrityReason : uint8_t { None, InputEventDeliveryOverrun };
+ struct InputIdentity {
+   uint32_t device;
+   uint16_t capability;
+-  constexpr InputIdentity(uint32_t deviceValue=0, uint16_t capabilityValue=0):device(deviceValue),capability(capabilityValue) {}
++  constexpr InputIdentity(uint32_t deviceValue=0, uint16_t capabilityValue=0):device(deviceValue),capability(capabilityValue) {} constexpr bool operator==(const InputIdentity& other) const { return device==other.device && capability==other.capability; }
+ };
+ struct Configuration {
+   uint16_t lanes = 2;
+@@ -46,6 +47,7 @@ struct Message {
+   ClientContext clientContext = ClientContext::Spectator;
+   RequestResult requestResult = RequestResult::Rejected;
+   RequestRejection rejection = RequestRejection::None;
++  RaceIntegrityReason integrityReason = RaceIntegrityReason::None;
+ };
+ enum class Delivery { Delivered, Forbidden, Invalid, NoSubscribers, Full };
+ class Bus {
+@@ -79,13 +81,14 @@ public:
+       // Noticeboard change may be superseded, and presentation Facts can be
+       // lost without changing authoritative operation. Future Presentation
+       // message types remain reliable unless their contract says otherwise.
+-      if (slots_[i].size == Depth && !(slots_[i].role == Role::Presentation && presentationBestEffort(m.type))) return Delivery::Full;
++      if (slots_[i].size == Depth && !((slots_[i].role == Role::Presentation && presentationBestEffort(m.type)) || (slots_[i].role == Role::Diagnostics && m.type == Type::InputEvent) || (m.type == Type::RaceIntegrityFault && slots_[i].role == Role::RaceEngine))) return Delivery::Full;
+     }
+     if (!recipients) return Delivery::NoSubscribers;
+     m.source = e.id;
+     // Atomic fan-out: explicit failure, never a partially delivered publication.
+     for (size_t i=0;i<count_;++i) if (interested(slots_[i], m.type)) {
+-      auto& s=slots_[i]; if(s.size==Depth&&s.role==Role::Presentation&&presentationBestEffort(m.type))continue;
++      auto& s=slots_[i]; if(s.size==Depth&&((s.role==Role::Presentation&&presentationBestEffort(m.type))||(s.role==Role::Diagnostics&&m.type==Type::InputEvent)))continue;
++      if(s.size==Depth&&m.type==Type::RaceIntegrityFault&&s.role==Role::RaceEngine){s.head=0;s.size=0;}
+       s.queue[(s.head+s.size)%Depth]=m; ++s.size;
+     }
+     return Delivery::Delivered;
+@@ -115,6 +118,7 @@ private:
+       case Type::InputEvent: return mask(Role::Input);
+       case Type::StartRequest: return mask(Role::Presentation);
+       case Type::RequestResult: return mask(Role::RaceControl);
++      case Type::RaceIntegrityFault: return mask(Role::Input);
+       case Type::GoScheduled: return mask(Role::RaceControl);
+       case Type::LapCompleted: return mask(Role::RaceEngine);
+       case Type::CompetitionComplete: return mask(Role::RaceEngine);
+@@ -130,6 +134,7 @@ private:
+       case Type::InputEvent: return mask(Role::RaceEngine)|mask(Role::Diagnostics);
+       case Type::StartRequest: return mask(Role::RaceControl)|mask(Role::Diagnostics);
+       case Type::RequestResult: return mask(Role::Presentation)|mask(Role::Diagnostics);
++      case Type::RaceIntegrityFault: return mask(Role::RaceControl)|mask(Role::RaceEngine)|mask(Role::Diagnostics);
+       case Type::GoScheduled: return mask(Role::RaceEngine)|mask(Role::Presentation)|mask(Role::Diagnostics);
+       case Type::LapCompleted: return mask(Role::Presentation)|mask(Role::Diagnostics);
+       case Type::CompetitionComplete: return mask(Role::RaceControl)|mask(Role::Presentation)|mask(Role::Diagnostics);
+@@ -223,29 +228,23 @@ private:
+ 
+ class InputModule {
+ public:
+-  static constexpr InputIdentity simulatedDetectorIdentity() { return InputIdentity(0x50500001u, 1); }
+-  InputModule(Bus& bus, Bus::Endpoint endpoint):endpoint(endpoint),bus_(bus),detector_(simulatedDetectorIdentity()) {}
++  static constexpr size_t ProtectedDepth=8;
++  static constexpr InputIdentity simulatedDetectorIdentity(){return InputIdentity(0x50500001u,1);}
++  static constexpr InputIdentity simulatedDetectorBIdentity(){return InputIdentity(0x50500001u,2);}
++  InputModule(Bus& bus,Bus::Endpoint endpoint):endpoint(endpoint),bus_(bus),detectors_{SimulatedDetector(simulatedDetectorIdentity()),SimulatedDetector(simulatedDetectorBIdentity())}{}
+   Bus::Endpoint endpoint;
+-  // This is the source-facing simulated-device boundary, not a bus injection API.
+-  void setSimulatedSource(bool active) { sourceActive_=active; }
+-  void tick(Time now) { sampleSource(sourceActive_,now); }
+-  void sampleSource(bool active, Time observedAt) {
+-    Time triggerAt=0;
+-    if (!detector_.sample(active,observedAt,triggerAt)) return;
+-    Message event{}; event.type=Type::InputEvent; event.input=detector_.identity(); event.relevantTime=triggerAt;event.eventId=++nextEventId_;
+-    lastDelivery_=bus_.publish(endpoint,event); ++cleanTriggers_;
+-  }
+-  uint32_t cleanTriggers() const { return cleanTriggers_; }
+-  Delivery lastDelivery() const { return lastDelivery_; }
++  void setSimulatedSource(bool active){sources_[0]=active;} void setSimulatedSourceB(bool active){sources_[1]=active;}
++  void tick(Time now){sampleSource(0,sources_[0],now);sampleSource(1,sources_[1],now);flush();}
++  void sampleSource(bool active,Time at){sampleSource(0,active,at);}
++  void sampleSourceB(bool active,Time at){sampleSource(1,active,at);}
++  void sampleSource(uint8_t which,bool active,Time at){Time trigger=0;if(!detectors_[which].sample(active,at,trigger))return;++cleanTriggers_;Message e{};e.type=Type::InputEvent;e.input=detectors_[which].identity();e.relevantTime=trigger;e.eventId=++nextEventId_;enqueue(e);flush();}
++  void flush(){if(faulted_)return;while(size_){Delivery d=bus_.publish(endpoint,backlog_[head_]);lastDelivery_=d;if(d==Delivery::Delivered){head_=(head_+1)%ProtectedDepth;--size_;continue;}if(d==Delivery::Full)return;fault(Time{});return;}}
++  uint32_t cleanTriggers()const{return cleanTriggers_;}Delivery lastDelivery()const{return lastDelivery_;}size_t protectedBacklogDepth()const{return size_;}size_t maximumProtectedBacklogDepth()const{return maxDepth_;}bool faulted()const{return faulted_;}
+ private:
+-  Bus& bus_;
+-  SimulatedDetector detector_;
+-  bool sourceActive_=false;
+-  uint32_t cleanTriggers_=0;
+-  Delivery lastDelivery_=Delivery::NoSubscribers;
+-  uint32_t nextEventId_=0;
++  void enqueue(const Message&e){if(faulted_)return;if(size_==ProtectedDepth){fault(e.relevantTime);return;}backlog_[(head_+size_)%ProtectedDepth]=e;++size_;if(size_>maxDepth_)maxDepth_=size_;}
++  void fault(Time at){if(faulted_)return;faulted_=true;Message f{};f.type=Type::RaceIntegrityFault;f.relevantTime=at;f.integrityReason=RaceIntegrityReason::InputEventDeliveryOverrun;bus_.publish(endpoint,f);}
++  Bus& bus_;SimulatedDetector detectors_[2];bool sources_[2]{};Message backlog_[ProtectedDepth]{};size_t head_=0,size_=0,maxDepth_=0;uint32_t cleanTriggers_=0,nextEventId_=0;Delivery lastDelivery_=Delivery::NoSubscribers;bool faulted_=false;
+ };
+-
+ struct OutputModule { Bus::Endpoint endpoint; };
+ struct Presentation { Bus::Endpoint endpoint; };
+ 
+diff --git a/firmware/include/pp/noticeboard.h b/firmware/include/pp/noticeboard.h
+index ef33657..b6a64a1 100644
+--- a/firmware/include/pp/noticeboard.h
++++ b/firmware/include/pp/noticeboard.h
+@@ -1,28 +1,8 @@
+ #pragma once
+ #include "race_control.h"
+ #include "race_engine.h"
+-
+ namespace pp {
+-// The Noticeboard is an authoritative externally presentable view. It reads
+-// state from the owners; it does not hold a competing race-state model.
+-struct NoticeboardState {
+-  SessionLifecycle lifecycle=SessionLifecycle::Ready;
+-  uint32_t raceEntryId=0,laps=0;
+-  Time lastLapTime=0,scheduledGo=0;
+-  bool hasLap=false;
+-};
+-class Noticeboard {
+-public:
+-  Noticeboard(const RaceControlModule& control,const RaceEngineModule& engine,const ActiveSessionDefinition& active):control_(control),engine_(engine),active_(active) {}
+-  void setSession(const SessionDefinition& definition){definition_=&definition;}
+-  NoticeboardState current() const {
+-    NoticeboardState state{};state.lifecycle=control_.state();state.scheduledGo=control_.scheduledGo();
+-    state.laps=engine_.laps();state.lastLapTime=engine_.lastLapTime();state.hasLap=state.laps!=0;
+-    const SessionDefinition* definition=definition_?definition_:active_.current();
+-    if(definition)state.raceEntryId=definition->raceEntryId();
+-    return state;
+-  }
+-private:
+-  const RaceControlModule& control_;const RaceEngineModule& engine_;const ActiveSessionDefinition& active_;const SessionDefinition* definition_=nullptr;
+-};
+-} // namespace pp
++struct NoticeboardEntryState { uint32_t raceEntryId,laps;Time lastLapTime;bool hasLap; constexpr NoticeboardEntryState(uint32_t id=0,uint32_t lap=0,Time time=0,bool present=false):raceEntryId(id),laps(lap),lastLapTime(time),hasLap(present){} };
++struct NoticeboardState { SessionLifecycle lifecycle=SessionLifecycle::Ready;uint32_t raceEntryId=0,laps=0;Time lastLapTime=0,scheduledGo=0;bool hasLap=false;NoticeboardEntryState entries[2]{};uint8_t entryCount=0;bool deadHeat=false,raceIntegrityFaulted=false,resultValid=true;RaceIntegrityReason raceIntegrityReason=RaceIntegrityReason::None;};
++class Noticeboard { public: Noticeboard(const RaceControlModule& c,const RaceEngineModule&e,const ActiveSessionDefinition&a):control_(c),engine_(e),active_(a){}void setSession(const SessionDefinition& d){definition_=&d;}NoticeboardState current()const{NoticeboardState s{};s.lifecycle=control_.state();s.scheduledGo=control_.scheduledGo();s.entryCount=engine_.entryCount();for(uint8_t i=0;i<s.entryCount;i++){auto&e=engine_.entryState(i);s.entries[i]=NoticeboardEntryState{e.raceEntryId,e.laps,e.lastLapTime,e.hasLap};}if(s.entryCount){s.raceEntryId=s.entries[0].raceEntryId;s.laps=s.entries[0].laps;s.lastLapTime=s.entries[0].lastLapTime;s.hasLap=s.entries[0].hasLap;}s.deadHeat=engine_.deadHeat();s.raceIntegrityFaulted=control_.integrityFaulted();s.raceIntegrityReason=control_.integrityReason();s.resultValid=!s.raceIntegrityFaulted;return s;}private:const RaceControlModule&control_;const RaceEngineModule&engine_;const ActiveSessionDefinition&active_;const SessionDefinition*definition_=nullptr;};
++}
+diff --git a/firmware/include/pp/race_control.h b/firmware/include/pp/race_control.h
+index b7dce5a..d3bcb10 100644
+--- a/firmware/include/pp/race_control.h
++++ b/firmware/include/pp/race_control.h
+@@ -4,7 +4,7 @@
+ 
+ namespace pp {
+ 
+-enum class SessionLifecycle : uint8_t { Ready, Starting, Racing, Finished };
++enum class SessionLifecycle : uint8_t { Ready, Starting, Racing, Finished, Faulted };
+ 
+ class RaceControlModule {
+ public:
+@@ -25,14 +25,14 @@ public:
+     Message event;
+     while(bus_.receive(endpoint_,event)) {
+       if(event.type==Type::StartRequest) handleStart(event,now);
+-      else if(state_==SessionLifecycle::Racing&&event.type==Type::CompetitionComplete){state_=SessionLifecycle::Finished;changed();}
++      else if(state_==SessionLifecycle::Racing&&event.type==Type::CompetitionComplete){state_=SessionLifecycle::Finished;changed();} else if(event.type==Type::RaceIntegrityFault){integrityFaulted_=true;integrityReason_=event.integrityReason;state_=SessionLifecycle::Faulted;changed();}
+     }
+     if(state_==SessionLifecycle::Starting&&now>=go_){state_=SessionLifecycle::Racing;changed();}
+   }
+   SessionLifecycle state()const{return state_;}
+   Time scheduledGo()const{return go_;}
+   const SessionDefinition* definition()const{return definition_;}
+-  bool startCommitted()const{return startCommitted_;}
++  bool startCommitted()const{return startCommitted_;} bool integrityFaulted()const{return integrityFaulted_;} RaceIntegrityReason integrityReason()const{return integrityReason_;}
+ private:
+   bool beginStart(Time now){
+     const Time scheduledGo=now+StartLeadUs;
+@@ -61,7 +61,7 @@ private:
+   }
+   void changed(){Message notice{};notice.type=Type::NoticeboardChanged;bus_.publish(endpoint_,notice);}
+   Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
+-  SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0;bool requiredCapabilityAvailable_=true,startCommitted_=false;
++  SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0;bool requiredCapabilityAvailable_=true,startCommitted_=false,integrityFaulted_=false;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
+   uint32_t nextSessionId_=1,nextRaceEntryId_=1;
+ };
+ 
+diff --git a/firmware/include/pp/race_engine.h b/firmware/include/pp/race_engine.h
+index 93cb698..4df3fd9 100644
+--- a/firmware/include/pp/race_engine.h
++++ b/firmware/include/pp/race_engine.h
+@@ -4,29 +4,21 @@
+ namespace pp {
+ class RaceEngineModule {
+ public:
+-  RaceEngineModule(Bus& bus,Bus::Endpoint endpoint,ActiveSessionDefinition& active):bus_(bus),endpoint_(endpoint),active_(active) {}
+-  // Stage 5 regression setup only. Stage 6 uses GO_SCHEDULED from Race Control.
+-  void begin(const SessionDefinition& definition,Time go){definition_=&definition;observedRevision_=active_.revision();go_=go;lastCrossing_=go;lastLapTime_=0;laps_=0;complete_=false;}
+-  // The Stage 6 preparation boundary supplies immutable working session data;
+-  // it does not establish GO or change Race Control lifecycle state.
+-  void prepare(const SessionDefinition& definition){definition_=&definition;observedRevision_=active_.revision();go_=0;lastCrossing_=0;lastLapTime_=0;laps_=0;complete_=false;}
+-  void tick(){synchroniseActiveSession();Message event;while(bus_.receive(endpoint_,event)){if(event.type==Type::GoScheduled)scheduledGo(event);else if(event.type==Type::InputEvent)interpret(event);}}
+-  uint32_t laps()const{return laps_;} Time lastLapTime()const{return lastLapTime_;}
+-  bool complete()const{return complete_;} Time go()const{return go_;}
++  struct EntryState { uint32_t raceEntryId=0,laps=0;Time lastCrossing=0,lastLapTime=0;bool hasLap=false; };
++  RaceEngineModule(Bus& b,Bus::Endpoint e,ActiveSessionDefinition& a):bus_(b),endpoint_(e),active_(a){}
++  void begin(const SessionDefinition& d,Time go){definition_=&d;observedRevision_=active_.revision();reset(go);}
++  void prepare(const SessionDefinition& d){definition_=&d;observedRevision_=active_.revision();reset(0);}
++  void tick(){synchronise();Message m;while(bus_.receive(endpoint_,m)){if(m.type==Type::GoScheduled)scheduled(m);else if(m.type==Type::InputEvent)queue(m);else if(m.type==Type::RaceIntegrityFault)faulted_=true;}process();}
++  uint32_t laps()const{return entries_[0].laps;}Time lastLapTime()const{return entries_[0].lastLapTime;}bool complete()const{return complete_;}Time go()const{return go_;}
++  uint8_t entryCount()const{return definition_?definition_->entryCount():0;} const EntryState& entryState(uint8_t i)const{return entries_[i];} bool deadHeat()const{return deadHeat_;} bool faulted()const{return faulted_;}
+ private:
+-  void synchroniseActiveSession(){
+-    if(active_.revision()==observedRevision_)return;
+-    definition_=active_.current();observedRevision_=active_.revision();go_=0;lastCrossing_=0;lastLapTime_=0;laps_=0;complete_=false;
+-  }
+-  void scheduledGo(const Message& event){if(definition_&&event.relevantTime>0){go_=event.relevantTime;lastCrossing_=go_;}}
+-  void interpret(const Message& event){
+-    if(!definition_||complete_||event.eventId==0||go_==0||event.relevantTime<=lastCrossing_)return;
+-    SessionInputRole role;if(!definition_->resolve(event.input,role)||role.role!=InputRole::StartFinish)return;
+-    const Time lap=event.relevantTime-lastCrossing_;lastCrossing_=event.relevantTime;lastLapTime_=lap;++laps_;
+-    Message fact{};fact.type=Type::LapCompleted;fact.relevantTime=event.relevantTime;fact.raceEntryId=definition_->raceEntryId();fact.lapNumber=laps_;fact.lapTime=lap;fact.eventId=event.eventId;bus_.publish(endpoint_,fact);
+-    Message notice{};notice.type=Type::NoticeboardChanged;bus_.publish(endpoint_,notice);
+-    if(definition_->lapTarget()&&laps_>=definition_->lapTarget()&&definition_->finishBehaviour()==LapFinishBehaviour::Immediate){complete_=true;Message complete{};complete.type=Type::CompetitionComplete;complete.relevantTime=event.relevantTime;complete.eventId=event.eventId;bus_.publish(endpoint_,complete);}
+-  }
+-  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;const SessionDefinition* definition_=nullptr;uint32_t observedRevision_=0;Time go_=0,lastCrossing_=0,lastLapTime_=0;uint32_t laps_=0;bool complete_=false;
++  void reset(Time go){go_=go;complete_=deadHeat_=faulted_=false;pendingCount_=0;for(auto& e:entries_)e={};if(definition_)for(uint8_t i=0;i<definition_->entryCount();++i)entries_[i].raceEntryId=definition_->entry(i).raceEntryId;}
++  void synchronise(){if(active_.revision()!=observedRevision_){definition_=active_.current();observedRevision_=active_.revision();reset(0);}}
++  void scheduled(const Message&m){if(definition_&&m.relevantTime){go_=m.relevantTime;for(uint8_t i=0;i<definition_->entryCount();++i)entries_[i].lastCrossing=go_;}}
++  bool seen(uint32_t id)const{for(auto x:seen_)if(x==id)return true;return false;} void remember(uint32_t id){seen_[seenAt_++%16]=id;}
++  void queue(const Message&m){if(!definition_||complete_||faulted_||!go_||!m.eventId||seen(m.eventId)||pendingCount_==16)return;seen_[seenAt_++%16]=m.eventId;pending_[pendingCount_++]=m;}
++  void process(){if(!definition_||complete_||faulted_)return;for(uint8_t i=1;i<pendingCount_;++i){Message x=pending_[i];int j=i-1;while(j>=0&&pending_[j].relevantTime>x.relevantTime){pending_[j+1]=pending_[j];--j;}pending_[j+1]=x;}for(uint8_t i=0;i<pendingCount_;++i)interpret(pending_[i]);pendingCount_=0;if(pendingFinish_){complete_=true;Message c{};c.type=Type::CompetitionComplete;c.relevantTime=pendingFinishTime_;c.raceEntryId=winner_;c.probe=deadHeat_?1:0;bus_.publish(endpoint_,c);pendingFinish_=false;}}
++  void interpret(const Message&m){if(pendingFinish_&&m.relevantTime>pendingFinishTime_)return;SessionInputRole role;RaceEntryDefinition entry;if(!definition_->resolve(m.input,role,entry)||role.role!=InputRole::StartFinish)return;EntryState* state=nullptr;for(auto& e:entries_)if(e.raceEntryId==entry.raceEntryId)state=&e;if(!state||m.relevantTime<=state->lastCrossing)return;const Time lap=m.relevantTime-state->lastCrossing;state->lastCrossing=m.relevantTime;state->lastLapTime=lap;state->hasLap=true;++state->laps;Message f{};f.type=Type::LapCompleted;f.relevantTime=m.relevantTime;f.raceEntryId=entry.raceEntryId;f.lapNumber=state->laps;f.lapTime=lap;f.eventId=m.eventId;bus_.publish(endpoint_,f);Message n{};n.type=Type::NoticeboardChanged;bus_.publish(endpoint_,n);if(state->laps>=definition_->lapTarget()){if(!pendingFinish_||m.relevantTime<pendingFinishTime_){pendingFinish_=true;pendingFinishTime_=m.relevantTime;winner_=entry.raceEntryId;deadHeat_=false;}else if(m.relevantTime==pendingFinishTime_)deadHeat_=true;}}
++  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;const SessionDefinition* definition_=nullptr;uint32_t observedRevision_=0;Time go_=0;EntryState entries_[2]{};bool complete_=false,deadHeat_=false,faulted_=false,pendingFinish_=false;Time pendingFinishTime_=0;uint32_t winner_=0;Message pending_[16]{};uint8_t pendingCount_=0;uint32_t seen_[16]{};uint8_t seenAt_=0;
+ };
+-}
+\ No newline at end of file
++}
+diff --git a/firmware/include/pp/session_definition.h b/firmware/include/pp/session_definition.h
+index 9bf35f4..4745a93 100644
+--- a/firmware/include/pp/session_definition.h
++++ b/firmware/include/pp/session_definition.h
+@@ -1,78 +1,38 @@
+ #pragma once
+ #include "core.h"
+ #include <new>
+-
+ namespace pp {
+-
+ enum class InputRole : uint8_t { StartFinish };
+ enum class LapFinishBehaviour : uint8_t { Immediate };
+-
+-struct SessionInputRole {
+-  InputIdentity input;
+-  uint8_t lane;
+-  InputRole role;
+-};
+-
+-// Mutable working choices for the next race. This is data, not an operational
+-// module, and Browser START never supplies a copy of it.
++struct SessionInputRole { InputIdentity input; uint8_t lane; InputRole role; };
++struct RaceEntryDefinition { uint32_t raceEntryId,mugId; uint8_t lane; constexpr RaceEntryDefinition(uint32_t id=0,uint32_t mug=0,uint8_t laneValue=0):raceEntryId(id),mugId(mug),lane(laneValue){} };
+ struct ProposedRaceSetup {
+-  ProposedRaceSetup() {}
+-  ProposedRaceSetup(SessionInputRole assignment,uint32_t mug,uint32_t target,LapFinishBehaviour finishValue,uint8_t lanes,bool startsBefore,bool optional):startFinish(assignment),selectedMugId(mug),lapTarget(target),finish(finishValue),activeLanes(lanes),startsBeforeStartFinish(startsBefore),optionalFeaturesEnabled(optional) {}
+   SessionInputRole startFinish{InputIdentity{},1,InputRole::StartFinish};
+-  uint32_t selectedMugId=0;
+-  uint32_t lapTarget=0;
++  SessionInputRole secondStartFinish{InputIdentity{},2,InputRole::StartFinish};
++  uint32_t selectedMugId=0,secondMugId=0,lapTarget=0;
+   LapFinishBehaviour finish=LapFinishBehaviour::Immediate;
+-  uint8_t activeLanes=1;
+-  bool startsBeforeStartFinish=true;
+-  bool optionalFeaturesEnabled=false;
++  uint8_t activeLanes=1; bool startsBeforeStartFinish=true,optionalFeaturesEnabled=false;
++  ProposedRaceSetup()=default;
++  ProposedRaceSetup(SessionInputRole assignment,uint32_t mug,uint32_t target,LapFinishBehaviour f,uint8_t lanes,bool startsBefore,bool optional):startFinish(assignment),selectedMugId(mug),lapTarget(target),finish(f),activeLanes(lanes),startsBeforeStartFinish(startsBefore),optionalFeaturesEnabled(optional) {}
+ };
+-
+-inline bool valid(const ProposedRaceSetup& setup) {
+-  return setup.startFinish.input.device!=0 && setup.startFinish.input.capability!=0 &&
+-    setup.startFinish.lane==1 && setup.startFinish.role==InputRole::StartFinish &&
+-    setup.selectedMugId!=0 && setup.lapTarget>0 && setup.activeLanes==1 &&
+-    setup.startsBeforeStartFinish && !setup.optionalFeaturesEnabled;
++inline bool valid(const ProposedRaceSetup& s) {
++  const bool first=s.startFinish.input.device&&s.startFinish.input.capability&&s.startFinish.lane==1&&s.startFinish.role==InputRole::StartFinish&&s.selectedMugId;
++  const bool second=s.activeLanes!=2 || (s.secondStartFinish.input.device&&s.secondStartFinish.input.capability&&s.secondStartFinish.lane==2&&s.secondStartFinish.role==InputRole::StartFinish&&s.secondMugId&&!(s.secondStartFinish.input==s.startFinish.input));
++  return first&&second&&s.lapTarget>0&&(s.activeLanes==1||s.activeLanes==2)&&s.startsBeforeStartFinish&&!s.optionalFeaturesEnabled;
+ }
+-
+-// Fixed working session data. Public access is read-only; construction is the
+-// Race Control acceptance boundary or earlier-stage preparation scaffolding.
+ class SessionDefinition {
+ public:
+-  explicit SessionDefinition(SessionInputRole assignment,uint32_t raceEntryId=1,uint32_t lapTarget=0,LapFinishBehaviour finish=LapFinishBehaviour::Immediate):assignment_(assignment),raceEntryId_(raceEntryId),lapTarget_(lapTarget),finish_(finish) {}
+-  SessionDefinition(const ProposedRaceSetup& setup,uint32_t sessionId,uint32_t raceEntryId):assignment_(setup.startFinish),sessionId_(sessionId),raceEntryId_(raceEntryId),mugId_(setup.selectedMugId),lapTarget_(setup.lapTarget),finish_(setup.finish) {}
+-  bool resolve(InputIdentity input, SessionInputRole& result) const {
+-    if(input.device!=assignment_.input.device || input.capability!=assignment_.input.capability) return false;
+-    result=assignment_;return true;
+-  }
+-  uint32_t sessionId() const { return sessionId_; }
+-  uint32_t raceEntryId() const { return raceEntryId_; }
+-  uint32_t mugId() const { return mugId_; }
+-  uint32_t lapTarget() const { return lapTarget_; }
+-  LapFinishBehaviour finishBehaviour() const { return finish_; }
+-private:
+-  const SessionInputRole assignment_;
+-  const uint32_t sessionId_=0;
+-  const uint32_t raceEntryId_;
+-  const uint32_t mugId_=0;
+-  const uint32_t lapTarget_;
+-  const LapFinishBehaviour finish_;
+-};
+-
+-// Shared working-RAM storage, not an operational module or Bus participant.
+-// Race Control commits it once for an accepted session; Race Engine reads it.
+-class ActiveSessionDefinition {
+-public:
+-  bool commit(const ProposedRaceSetup& setup,uint32_t sessionId,uint32_t raceEntryId) {
+-    if(value_ || !valid(setup)) return false;
+-    value_=new(storage_) SessionDefinition(setup,sessionId,raceEntryId);
+-    ++revision_;return true;
++  explicit SessionDefinition(SessionInputRole a,uint32_t id=1,uint32_t target=0,LapFinishBehaviour f=LapFinishBehaviour::Immediate):roles_{a,{}},entries_{RaceEntryDefinition{id,0,a.lane},RaceEntryDefinition{}},count_(1),lapTarget_(target),finish_(f) {}
++  SessionDefinition(const ProposedRaceSetup& s,uint32_t session,uint32_t firstId):sessionId_(session),count_(s.activeLanes),lapTarget_(s.lapTarget),finish_(s.finish) {
++    roles_[0]=s.startFinish;entries_[0]=RaceEntryDefinition{firstId,s.selectedMugId,1};
++    if(count_==2){roles_[1]=s.secondStartFinish;entries_[1]=RaceEntryDefinition{firstId+1,s.secondMugId,2};}
+   }
+-  const SessionDefinition* current() const { return value_; }
+-  uint32_t revision() const { return revision_; }
++  bool resolve(InputIdentity input,SessionInputRole& role,RaceEntryDefinition& entry) const { for(uint8_t i=0;i<count_;++i)if(roles_[i].input==input){role=roles_[i];entry=entries_[i];return true;}return false; }
++  bool resolve(InputIdentity input,SessionInputRole& role) const { RaceEntryDefinition ignored;return resolve(input,role,ignored); }
++  uint8_t entryCount()const{return count_;} const RaceEntryDefinition& entry(uint8_t i)const{return entries_[i];}
++  uint32_t sessionId()const{return sessionId_;} uint32_t raceEntryId()const{return entries_[0].raceEntryId;} uint32_t mugId()const{return entries_[0].mugId;} uint32_t lapTarget()const{return lapTarget_;} LapFinishBehaviour finishBehaviour()const{return finish_;}
+ private:
+-  alignas(SessionDefinition) uint8_t storage_[sizeof(SessionDefinition)]{};
+-  const SessionDefinition* value_=nullptr;
+-  uint32_t revision_=0;
++  SessionInputRole roles_[2]{}; RaceEntryDefinition entries_[2]{}; uint32_t sessionId_=0; uint8_t count_=1; uint32_t lapTarget_=0; LapFinishBehaviour finish_=LapFinishBehaviour::Immediate;
+ };
+-
+-} // namespace pp
+\ No newline at end of file
++class ActiveSessionDefinition { public: bool commit(const ProposedRaceSetup& s,uint32_t session,uint32_t entry){if(value_||!valid(s))return false;value_=new(storage_) SessionDefinition(s,session,entry);++revision_;return true;} const SessionDefinition* current()const{return value_;}uint32_t revision()const{return revision_;}private:alignas(SessionDefinition)uint8_t storage_[sizeof(SessionDefinition)]{};const SessionDefinition* value_=nullptr;uint32_t revision_=0;};
++} // namespace pp
+diff --git a/firmware/platformio.ini b/firmware/platformio.ini
+index a165a31..a7405b7 100644
+--- a/firmware/platformio.ini
++++ b/firmware/platformio.ini
+@@ -55,3 +55,7 @@ build_flags = ${env:esp32dev.build_flags} -DPP_STAGE7_DEMO=1
+ [env:stage8acceptance]
+ extends = env:esp32dev
+ build_flags = ${env:esp32dev.build_flags} -DPP_STAGE8_ACCEPTANCE=1
++
++[env:stage9acceptance]
++extends = env:esp32dev
++build_flags = ${env:esp32dev.build_flags} -DPP_STAGE9_ACCEPTANCE=1
+diff --git a/firmware/src/main.cpp b/firmware/src/main.cpp
+index e875bd8..4d055e9 100644
+--- a/firmware/src/main.cpp
++++ b/firmware/src/main.cpp
+@@ -86,7 +86,9 @@ pp::Time nextStatus=0;
+ // The build environment is diagnostic identity only. It never supplies product
+ // State or changes P&P behaviour.
+ const char* buildIdentity(){
+- #if defined(PP_STAGE8_ACCEPTANCE)
++ #if defined(PP_STAGE9_ACCEPTANCE)
++  return "P&P STAGE 9 ACCEPTANCE";
++#elif defined(PP_STAGE8_ACCEPTANCE)
+   return "P&P STAGE 8 ACCEPTANCE";
+ #elif defined(PP_STAGE7_DEMO)
+   return "P&P STAGE 7 DEMO";
+@@ -159,6 +161,9 @@ void status(){diagnostics.log("[DEV] Stage1 %s system_us=%llu dropped=%lu; no se
+ #ifdef PP_STAGE8_ACCEPTANCE
+ #include "../tests/stage8_acceptance_probe.inc"
+ #endif
++#ifdef PP_STAGE9_ACCEPTANCE
++#include "../tests/stage9_acceptance_probe.inc"
++#endif
+ }
+ void setup(){
+   Serial.begin(115200);
+@@ -191,6 +196,9 @@ void setup(){
+ #endif
+ #ifdef PP_STAGE8_ACCEPTANCE
+   stage8AcceptanceBeforeBoot();
++#endif
++#ifdef PP_STAGE9_ACCEPTANCE
++  stage9AcceptanceBeforeBoot();
+ #endif
+   diagnostics.log("[DEV] %s -- diagnostics are not product State",buildIdentity());
+   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
+@@ -205,6 +213,8 @@ void setup(){
+   testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::GoScheduled);
+   testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::CompetitionComplete);
+   testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::StartRequest);
++  testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::RaceIntegrityFault);
++  testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::RaceIntegrityFault);
+   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::NoticeboardChanged);
+   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::GoScheduled);
+   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::LapCompleted);
+@@ -318,6 +328,9 @@ void loop(){
+ #endif
+ #ifdef PP_STAGE8_ACCEPTANCE
+     else stage8AcceptanceCommand(c);
++#endif
++#ifdef PP_STAGE9_ACCEPTANCE
++    else stage9AcceptanceCommand(c);
+ #endif
+   }
+   if(ready&&systemTime()>=nextStatus){status();nextStatus=systemTime()+10000000;}
+@@ -352,6 +365,9 @@ void loop(){
+ #ifdef PP_STAGE8_ACCEPTANCE
+   stage8AcceptanceTick();
+ #endif
++#ifdef PP_STAGE9_ACCEPTANCE
++  stage9AcceptanceTick();
++#endif
+ #ifdef PP_VERIFY
+   if(verificationReboot&&systemTime()>=rebootAt)ESP.restart();
+ #endif

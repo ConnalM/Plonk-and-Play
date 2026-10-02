@@ -1,0 +1,160 @@
+{
+  "project": "Plonk & Play",
+  "source_base_commit": "eb6a1b8a4e7912c1d3b471ede96578c978f0a909",
+  "acceptance_spec_commit": "eb6a1b8a4e7912c1d3b471ede96578c978f0a909",
+  "tests": {
+    "4.1": {
+      "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "4.1",
+        "events": "1",
+        "source": "3",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "120000",
+        "observed": "150000",
+        "mapped": "1",
+        "lane": "1",
+        "role": "0"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "4.2": {
+      "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "4.2",
+        "events": "1",
+        "source": "3",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "320000",
+        "observed": "350000",
+        "mapped": "1",
+        "lane": "1",
+        "role": "0"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "4.3": {
+      "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "4.3",
+        "events": "1",
+        "source": "3",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "520000",
+        "observed": "550000",
+        "mapped": "1",
+        "lane": "1",
+        "role": "0"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "4.4": {
+      "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "4.4",
+        "events": "1",
+        "source": "3",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "720000",
+        "observed": "750000",
+        "mapped": "1",
+        "lane": "1",
+        "role": "0"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "4.5": {
+      "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "4.5",
+        "events": "1",
+        "source": "3",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "920000",
+        "observed": "950000",
+        "mapped": "1",
+        "lane": "2",
+        "role": "0"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "4.6": {
+      "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+      "expected_result": "PASS",
+      "actual_result": {
+        "minimal_data": true
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "4.7": {
+      "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+      "expected_result": "PASS",
+      "actual_result": {
+        "data_not_bus_participant": true
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "4.8": {
+      "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+      "expected_result": "PASS",
+      "actual_result": {
+        "input_path_independent": true
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "4.9": {
+      "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+      "expected_result": "PASS",
+      "actual_result": {
+        "no_race_engine": true
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "4.10": {
+      "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+      "expected_result": "PASS",
+      "actual_result": {
+        "scaffold_only": true
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    },
+    "4.T": {
+      "predetermined_stimulus": "Stage 4 source-facing fixture and fixed session data",
+      "expected_result": "PASS",
+      "actual_result": {
+        "wrong": {
+          "expected_lane": 2,
+          "actual_lane": 1,
+          "result": "FAIL"
+        },
+        "restored": {
+          "expected_lane": 1,
+          "actual_lane": 1,
+          "result": "PASS"
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt"
+    }
+  }
+}

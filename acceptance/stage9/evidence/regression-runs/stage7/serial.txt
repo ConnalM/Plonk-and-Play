@@ -1,0 +1,30 @@
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1156
+load:0x40078000,len:11456
+ho 0 tail 12 room 4
+load:0x40080400,len:2972
+entry 0x400805dc
+ACC READYACC S7 test=7.1 connected=1 initial_revision=0 initial_state_reads=1 synchronised=1
+ACC S7 test=7.2 lifecycle=READY entry=91 laps=0 has_lap=0
+ACC S7 test=7.3 started=1 lifecycle=STARTING
+ACC S7 test=7.8r refresh_failed=1 retry_converged=1 lifecycle=STARTING
+ACC S7 test=7.6 notice=3 notification_only=1
+ACC S7 test=7.7 notice_has_state=0
+ACC S7 test=7.11 go=1693767 browser_go=1693767
+ACC S7 test=7.4 entry=91 laps=1 lap=500000
+ACC S7 test=7.5 authoritative_laps=1 browser_laps=1
+ACC S7 test=7.9 fact_failure_keeps_state=1 fact_type=4 fact_lap=1 state_laps=1
+ACC S7 test=7.12 disconnected=1 authoritative_laps=2 lifecycle=FINISHED
+ACC S7 test=7.8 lifecycle=FINISHED laps=2
+ACC S7 test=7.10 missed_fact=1 laps=2 lap=400000
+ACC S7 test=7.13 late=1 lifecycle=FINISHED entry=91 laps=2
+ACC S7 test=7.14 slow_client=1 authoritative_laps=2 complete=1
+ACC S7 test=7.15 browser_requests=0
+ACC S7 test=7.16 cache_only=1 state_from_noticeboard=1
+ACC S7 test=7.T wrong_laps=1 actual_laps=2 result=FAIL restored_laps=2 result2=PASS
+ACC DONE

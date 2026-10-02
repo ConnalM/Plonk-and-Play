@@ -1,0 +1,40 @@
+Wokwi CLI v0.27.1 (ffde06bde1ae)
+Connected to Wokwi Simulation API 1.0.0-20261002-g60296cc6
+Starting simulation...
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1156
+load:0x40078000,len:11456
+ho 0 tail 12 room 4
+load:0x40080400,len:2972
+entry 0x400805dc
+ACC READY
+[Stage 9 acceptance] Expected text matched: "ACC READY"
+ACC S9 test=9.1 result=PASS
+ACC S9 test=9.2 result=PASS
+ACC S9 test=9.3 result=PASS
+ACC S9 test=9.4 result=PASS
+ACC S9 test=9.5 result=PASS
+ACC S9 test=9.6 result=PASS
+ACC S9 test=9.7 result=PASS
+ACC S9 test=9.8 result=PASS dead_heat=1
+ACC S9 test=9.9 result=PASS delta_us=1
+ACC S9 test=9.10 result=PASS relevant_time_order=1
+ACC S9 test=9.11 result=PASS duplicates=0
+ACC S9 test=9.12 result=PASS accepted=32 delivered=32 max_backlog=1
+ACC S9 test=9.13 result=PASS
+ACC S9 test=9.14 result=PASS fault=INPUT_EVENT_DELIVERY_OVERRUN
+ACC S9 test=9.15 result=PASS resultValid=false
+ACC S9 test=9.16 result=PASS recovery=restart
+ACC S9 test=9.17 result=PASS
+ACC S9 test=9.18 result=PASS entries=2
+ACC S9 test=9.19 result=PASS bus_only=1
+ACC S9 test=9.20 result=PASS
+ACC S9 test=9.T wrong=FAIL restored=PASS
+ACC DONE
+[Stage 9 acceptance] Expected text matched: "ACC DONE"
+[Stage 9 acceptance] Scenario completed successfully

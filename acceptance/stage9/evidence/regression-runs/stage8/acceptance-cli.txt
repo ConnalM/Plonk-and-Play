@@ -1,0 +1,36 @@
+Wokwi CLI v0.27.1 (ffde06bde1ae)
+Connected to Wokwi Simulation API 1.0.0-20261001-g3f6ebbc6
+Starting simulation...
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1156
+load:0x40078000,len:11456
+ho 0 tail 12 room 4
+load:0x40080400,len:2972
+entry 0x400805dc
+ACC READY
+[Stage 8 Browser START_REQUEST] Expected text matched: "ACC READY"
+ACC S8 test=8.1 submitted=1 starts=1 source=1 presentation=1
+ACC S8 test=8.2 correlation=801 result_correlation=801
+ACC S8 test=8.3 bus_source=1 control_endpoint=2
+ACC S8 test=8.5 result=ACCEPTED
+ACC S8 test=8.10 result=ACCEPTED
+ACC S8 test=8.11 definition_before_result=1 definition=1 result_visible=1 committed=1
+ACC S8 test=8.12 fixed_laps=2 fixed_mug=91 unchanged=1
+ACC S8 test=8.13 state=2 go=2000000
+ACC S8 test=8.14 result=ACCEPTED state=2 entry=1
+ACC S8 test=8.4 claimed=RaceDirector server_context=Spectator result=REJECTED
+ACC S8 test=8.6 result=REJECTED reason=START_permission_denied definition=0 state=0
+ACC S8 test=8.7 result=REJECTED reason=lifecycle_not_startable state=1 definition=1
+ACC S8 test=8.8 result=REJECTED reason=invalid_race_setup_lap_target definition=0 state=0
+ACC S8 test=8.9 result=REJECTED reason=required_StartFinish_capability_unavailable definition=0 state=0
+ACC S8 test=8.15 first=ACCEPTED second=REJECTED definition=1 committed=1 go=1
+ACC S8 test=8.16 first=ACCEPTED second=ACCEPTED first_laps=2 second_laps=3 second_mug=92 payload=correlation_only
+ACC S8 test=8.T wrong_expected=ACCEPTED actual=REJECTED result=FAIL restored_expected=REJECTED result2=PASS
+ACC DONE
+[Stage 8 Browser START_REQUEST] Expected text matched: "ACC DONE"
+[Stage 8 Browser START_REQUEST] Scenario completed successfully

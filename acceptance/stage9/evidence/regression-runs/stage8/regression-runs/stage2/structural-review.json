@@ -1,0 +1,20 @@
+{
+  "findings": [
+    {
+      "requirement": "Input Device owns source conditioning/re-arm",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Input Device is contained by Input Module",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Input Module publishes INPUT_EVENT",
+      "result": "PASS"
+    },
+    {
+      "requirement": "No central translator or race interpretation",
+      "result": "PASS"
+    }
+  ]
+}

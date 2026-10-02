@@ -1,0 +1,40 @@
+{
+  "findings": [
+    {
+      "requirement": "Input Module owns bounded protected backlog",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Input Module publishes standard INPUT_EVENT",
+      "result": "PASS"
+    },
+    {
+      "requirement": "No direct Input Module to Race Engine call",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Race Engine owns per-entry state",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Relevant Time ordering is explicit",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Fault remains a Bus message with authority",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Fault priority is bounded Bus queue policy",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Race Control owns fault consequence",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Session Definition holds two lane roles and entries",
+      "result": "PASS"
+    }
+  ]
+}

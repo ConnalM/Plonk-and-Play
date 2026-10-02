@@ -1,0 +1,3 @@
+Wokwi CLI v0.27.1 (ffde06bde1ae)
+Error: firmware file not found: C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\stage6acceptance\firmware.elf.
+Please check the firmware path in your wokwi.toml configuration file.

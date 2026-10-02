@@ -1,0 +1,351 @@
+diff --git a/firmware/README.md b/firmware/README.md
+index 19da5d1..158340f 100644
+--- a/firmware/README.md
++++ b/firmware/README.md
+@@ -1,4 +1,4 @@
+-# P&P Stage 1 — ESP32 skeleton
++# P&P Stages 1–2 — skeleton and one simulated Input Device
+ 
+ Stage 1 is **ACCEPTED**. It passed the frozen acceptance campaign defined by
+ `docs/ACCEPTANCE_TESTS_STAGE_1.md` at
+@@ -13,8 +13,9 @@ microsecond source and does not alter Stage 1 product behaviour.
+ 
+ This directory is the real firmware skeleton. `experiments/wokwi-plumbing`
+ remains a separate disposable transport experiment. Accepted specification files
+-are unchanged. No race logic, session creation, detector simulation, browser
+-interface, networking or output operation is introduced in Stage 1.
++are unchanged. Stage 2 adds one simulated detector only; no race logic, session
++creation, role assignment, browser interface, networking or output operation is
++implemented.
+ 
+ ## What exists
+ 
+@@ -32,9 +33,13 @@ interface, networking or output operation is introduced in Stage 1.
+ - Proposed defaults: two lanes, Lap Race, ten laps, optional race features off,
+   sound and power if available. No equipment is claimed available, no physical
+   roles are guessed, and skeleton IDLE does not mean a race can start.
+-- Input, Race Control, Race Engine, Output and Presentation have separate dormant
++- The Input Module contains one simulated Input Device with stable identity
++  `50500001:1`. It filters source state changes, recognises a clean trigger after
++  its local stable interval, and re-arms only after a local stable clear. The
++  module publishes `INPUT_EVENT` containing only that identity and Relevant Time.
++  ACTIVE/INACTIVE and all racing roles remain internal or unimplemented.
++- Race Control, Race Engine, Output and Presentation retain separate dormant
+   endpoints. Registry, Session Definition and configuration are not extra modules.
+-  Discovery and actual device operation start in later stages.
+ - Diagnostics are bounded (64 lines, 160 bytes each), UART writes use available
+   space only, and idle status is limited to once per ten seconds. Saturation drops
+   diagnostic lines with an observable counter rather than waiting for serial.
+@@ -61,6 +66,7 @@ The implemented internal contracts are deliberately narrow:
+ |---|---|---|---|
+ | LoadConfiguration | Lifecycle | Memory | Boot-time request; nonzero correlation required |
+ | ConfigurationLoaded | Memory | Lifecycle | Correlated configuration snapshot and load status |
++| INPUT_EVENT | Input Module | Race Engine; authorised Diagnostics/Test | Clean stable input capability and Relevant Time |
+ | DiagnosticProbe | Diagnostics | Diagnostics | Development-only test token, time and ID; no product/race meaning |
+ 
+ These are in-process encodings, not new public wire protocols. Permission checks
+@@ -68,7 +74,8 @@ do not decide race validity or grant external-client authority. Endpoints are
+ trusted internal handles, not a security boundary against hostile C++ code.
+ The bus self-test uses the **running common bus**, two authorised diagnostic
+ subscribers and an unauthorised Input endpoint; it emits no fake INPUT_EVENT,
+-GO or LAP_COMPLETED and does not implement Stage 2/3 ahead of their scope.
++GO or LAP_COMPLETED. The Stage 2 fixture stimulates the Input Device's source
++side and never constructs an INPUT_EVENT itself.
+ 
+ ## Build and automated Wokwi tests
+ 
+@@ -140,7 +147,26 @@ It checks that the frozen acceptance specification has not changed before it
+ builds and runs the normal and instrumented images. The simulated test fixture
+ intentionally writes only Wokwi NVS; it never writes credentials or hardware.
+ 
+-## See Stage 1 in the Wokwi browser
++## Stage 2 acceptance run — awaiting approval
++
++Frozen acceptance tests 2.1–2.10 and harness sanity test 2.T passed on the
++uncommitted Stage 2 implementation against
++`docs/ACCEPTANCE_TESTS_STAGE_2.md` at
++`bc6693061f2ed4ad99b51d7109c20f271c7aa1e0`. This is a completed test run, not
++an acceptance declaration. The repeatable harness and retained evidence are in
++`acceptance/stage2/`; repeat it with:
++
++```powershell
++./acceptance/stage2/run.ps1
++```
++
++The normal firmware accepts `1` and `0` on its development serial interface to
++set the simulated detector source ACTIVE or INACTIVE. They are source-side
++development controls only; the Input Device performs its normal conditioning
++before the Input Module can publish an event. Serial diagnostics show only
++`device`, `capability` and `relevant_us` for a resulting INPUT_EVENT.
++
++## See Stages 1–2 in the Wokwi browser
+ 
+ In the existing ESP32 custom-firmware project, stop the old plumbing simulation.
+ Click the editor, press F1, choose **Upload Firmware and Start Simulation…**, and
+@@ -150,11 +176,12 @@ unproven tooling step; the automated tests above load firmware through Wokwi CLI
+ 
+ Watch the **Serial Monitor at 115200 baud** for System Time, Memory, Message Bus
+ and working configuration READY lines, individual `[TEST] PASS` lines,
+-`[BUS SELF-TEST] PASS`, and `STAGE1_PASS skeleton initialised; no race behaviour`.
++`[BUS SELF-TEST] PASS`, `STAGE1_PASS`, and `STAGE2_PASS`. Send `1`, wait at
++least 20 milliseconds, then send `0` and watch for one `[INPUT EVENT]` line.
+ Every ten seconds an IDLE line shows advancing `system_us` and diagnostic drops.
+ 
+ Send `?` for status, `t` to repeat the Message Bus self-test, `q` to silence
+ diagnostics, or `v` to resume them. These are development controls, not P&P product
+-Requests or authoritative State. No browser race screen or sensor activity is
+-expected in Stage 1. Wokwi's Restart button can rebuild the template; use Upload
+-Firmware again to restart this local image.
++Requests or authoritative State. No browser race screen or race behaviour is
++implemented. Wokwi's Restart button can rebuild the template; use Upload Firmware
++again to restart this local image.
+diff --git a/firmware/build.ps1 b/firmware/build.ps1
+index e7f10bf..da17c1c 100644
+--- a/firmware/build.ps1
++++ b/firmware/build.ps1
+@@ -1,4 +1,4 @@
+-param([ValidateSet('esp32dev','verification','quiet','acceptance')][string]$Environment = 'esp32dev')
++param([ValidateSet('esp32dev','verification','quiet','acceptance','stage2acceptance')][string]$Environment = 'esp32dev')
+ $ErrorActionPreference = 'Stop'
+ $pioRoot = Join-Path $env:USERPROFILE '.platformio'
+ $python = Join-Path $pioRoot 'penv\Scripts\python.exe'
+diff --git a/firmware/include/pp/core.h b/firmware/include/pp/core.h
+index 2dad8ba..13f0b08 100644
+--- a/firmware/include/pp/core.h
++++ b/firmware/include/pp/core.h
+@@ -8,7 +8,12 @@ using Time = uint64_t; // Monotonic microseconds in this controller boot's domai
+ enum class Role : uint8_t { Lifecycle, Memory, Input, RaceControl, RaceEngine, Output, Presentation, Diagnostics };
+ constexpr uint16_t mask(Role r) { return uint16_t(1u << unsigned(r)); }
+ // Internal Stage 1 contracts. No race messages or invented input events.
+-enum class Type : uint8_t { LoadConfiguration, ConfigurationLoaded, DiagnosticProbe, Count };
++enum class Type : uint8_t { LoadConfiguration, ConfigurationLoaded, InputEvent, DiagnosticProbe, Count };
++struct InputIdentity {
++  uint32_t device;
++  uint16_t capability;
++  constexpr InputIdentity(uint32_t deviceValue=0, uint16_t capabilityValue=0):device(deviceValue),capability(capabilityValue) {}
++};
+ struct Configuration {
+   uint16_t lanes = 2;
+   uint32_t laps = 10;
+@@ -28,6 +33,7 @@ struct Message {
+   Time relevantTime = 0;
+   uint32_t correlation = 0;
+   uint32_t eventId = 0;
++  InputIdentity input{};
+   Configuration configuration{};
+   LoadStatus loadStatus = LoadStatus::DefaultsMissing;
+   uint32_t probe = 0;
+@@ -51,7 +57,7 @@ public:
+     auto* sender = slot(e);
+     if (!sender || unsigned(m.type) >= unsigned(Type::Count)) return Delivery::Invalid;
+     if (!(publishers(m.type) & mask(sender->role))) return Delivery::Forbidden;
+-    if (m.type != Type::DiagnosticProbe && m.correlation == 0) return Delivery::Invalid;
++    if ((m.type == Type::LoadConfiguration || m.type == Type::ConfigurationLoaded) && m.correlation == 0) return Delivery::Invalid;
+     size_t recipients = 0;
+     for (size_t i=0;i<count_;++i) if (interested(slots_[i], m.type)) {
+       ++recipients;
+@@ -78,6 +84,7 @@ private:
+     switch(t) {
+       case Type::LoadConfiguration: return mask(Role::Lifecycle);
+       case Type::ConfigurationLoaded: return mask(Role::Memory);
++      case Type::InputEvent: return mask(Role::Input);
+       case Type::DiagnosticProbe: return mask(Role::Diagnostics);
+       default: return 0;
+     }
+@@ -86,6 +93,7 @@ private:
+     switch(t) {
+       case Type::LoadConfiguration: return mask(Role::Memory);
+       case Type::ConfigurationLoaded: return mask(Role::Lifecycle);
++      case Type::InputEvent: return mask(Role::RaceEngine)|mask(Role::Diagnostics);
+       case Type::DiagnosticProbe: return mask(Role::Diagnostics);
+       default: return 0;
+     }
+@@ -145,9 +153,59 @@ private:
+   }
+ };
+ 
+-// Module boundaries are intentionally dormant until their proving stage.
++// The simulated detector is one Input Device within the Input Module. Its native
++// source state, filtering and re-arm state stay here: they never become bus data.
++class SimulatedDetector {
++public:
++  static constexpr Time DetectionStableUs = 20000;
++  static constexpr Time ClearStableUs = 20000;
++  explicit SimulatedDetector(InputIdentity identity):identity_(identity) {}
++  // Returns a clean trigger only after the source has been stable long enough.
++  // The returned time is when recognition became true, rather than later polling.
++  bool sample(bool active, Time sampleTime, Time& triggerTime) {
++    if (active != sourceActive_) { sourceActive_=active; stableSince_=sampleTime; }
++    if (armed_) {
++      if (sourceActive_ && sampleTime-stableSince_>=DetectionStableUs) {
++        armed_=false; triggerTime=stableSince_+DetectionStableUs; return true;
++      }
++    } else if (!sourceActive_ && sampleTime-stableSince_>=ClearStableUs) {
++      armed_=true;
++    }
++    return false;
++  }
++  InputIdentity identity() const { return identity_; }
++private:
++  InputIdentity identity_;
++  bool sourceActive_=false;
++  bool armed_=true;
++  Time stableSince_=0;
++};
++
++class InputModule {
++public:
++  static constexpr InputIdentity simulatedDetectorIdentity() { return InputIdentity(0x50500001u, 1); }
++  InputModule(Bus& bus, Bus::Endpoint endpoint):endpoint(endpoint),bus_(bus),detector_(simulatedDetectorIdentity()) {}
++  Bus::Endpoint endpoint;
++  // This is the source-facing simulated-device boundary, not a bus injection API.
++  void setSimulatedSource(bool active) { sourceActive_=active; }
++  void tick(Time now) { sampleSource(sourceActive_,now); }
++  void sampleSource(bool active, Time observedAt) {
++    Time triggerAt=0;
++    if (!detector_.sample(active,observedAt,triggerAt)) return;
++    Message event{}; event.type=Type::InputEvent; event.input=detector_.identity(); event.relevantTime=triggerAt;
++    lastDelivery_=bus_.publish(endpoint,event); ++cleanTriggers_;
++  }
++  uint32_t cleanTriggers() const { return cleanTriggers_; }
++  Delivery lastDelivery() const { return lastDelivery_; }
++private:
++  Bus& bus_;
++  SimulatedDetector detector_;
++  bool sourceActive_=false;
++  uint32_t cleanTriggers_=0;
++  Delivery lastDelivery_=Delivery::NoSubscribers;
++};
++
+ // No Registry discoveries, session, sensor assignment or race readiness is invented.
+-struct InputModule { Bus::Endpoint endpoint; };
+ struct RaceControl { Bus::Endpoint endpoint; };
+ struct RaceEngine { Bus::Endpoint endpoint; };
+ struct OutputModule { Bus::Endpoint endpoint; };
+diff --git a/firmware/platformio.ini b/firmware/platformio.ini
+index 4f23d5b..d0280ee 100644
+--- a/firmware/platformio.ini
++++ b/firmware/platformio.ini
+@@ -19,3 +19,7 @@ build_flags = ${env:esp32dev.build_flags} -DPP_DIAGNOSTICS=0
+ [env:acceptance]
+ extends = env:esp32dev
+ build_flags = ${env:esp32dev.build_flags} -DPP_ACCEPTANCE=1
++
++[env:stage2acceptance]
++extends = env:esp32dev
++build_flags = ${env:esp32dev.build_flags} -DPP_STAGE2_ACCEPTANCE=1
+diff --git a/firmware/src/main.cpp b/firmware/src/main.cpp
+index 3c5503b..ecb2e87 100644
+--- a/firmware/src/main.cpp
++++ b/firmware/src/main.cpp
+@@ -60,13 +60,14 @@ pp::Bus bus;
+ pp::Memory memory(storage);
+ const auto lifecycle=bus.attach(pp::Role::Lifecycle);
+ const auto memoryEndpoint=bus.attach(pp::Role::Memory);
+-pp::InputModule input{bus.attach(pp::Role::Input)};
++pp::InputModule input(bus,bus.attach(pp::Role::Input));
+ pp::RaceControl raceControl{bus.attach(pp::Role::RaceControl)};
+ pp::RaceEngine raceEngine{bus.attach(pp::Role::RaceEngine)};
+ pp::OutputModule output{bus.attach(pp::Role::Output)};
+ pp::Presentation presentation{bus.attach(pp::Role::Presentation)};
+ const auto testPublisher=bus.attach(pp::Role::Diagnostics);
+ const auto testObserver=bus.attach(pp::Role::Diagnostics);
++const auto inputObserver=bus.attach(pp::Role::Diagnostics);
+ pp::MemoryModule memoryModule(bus,memoryEndpoint,memory);
+ pp::Configuration workingConfiguration;
+ bool ready=false,testsPassed=true,bootFailed=false;
+@@ -76,16 +77,30 @@ bool verificationReboot=false;
+ pp::Time rebootAt=0;
+ #endif
+ void report(const char* name,bool passed){diagnostics.log("[TEST] %s %s",passed?"PASS":"FAIL",name);}
++void observeInputEvents() {
++  pp::Message event;
++  while(bus.receive(inputObserver,event)) {
++    diagnostics.log("[INPUT EVENT] device=%08lx capability=%u relevant_us=%llu",
++      static_cast<unsigned long>(event.input.device),event.input.capability,
++      static_cast<unsigned long long>(event.relevantTime));
++  }
++}
+ void status(){diagnostics.log("[DEV] Stage1 %s system_us=%llu dropped=%lu; no session, no race",
+   ready?"IDLE":bootFailed?"FAULT":"STARTING",static_cast<unsigned long long>(systemTime()),static_cast<unsigned long>(diagnostics.dropped));}
+ #ifdef PP_ACCEPTANCE
+ #include "../tests/acceptance_probe.inc"
+ #endif
++#ifdef PP_STAGE2_ACCEPTANCE
++#include "../tests/stage2_acceptance_probe.inc"
++#endif
+ }
+ void setup(){
+   Serial.begin(115200);
+ #ifdef PP_ACCEPTANCE
+   acceptanceBeforeBoot();
++#endif
++#ifdef PP_STAGE2_ACCEPTANCE
++  stage2AcceptanceBeforeBoot();
+ #endif
+   diagnostics.log("[DEV] P&P STAGE 1 -- diagnostics are not product State");
+   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
+@@ -95,6 +110,7 @@ void setup(){
+   testsPassed&=bus.subscribe(lifecycle,pp::Type::ConfigurationLoaded);
+   testsPassed&=bus.subscribe(testPublisher,pp::Type::DiagnosticProbe);
+   testsPassed&=bus.subscribe(testObserver,pp::Type::DiagnosticProbe);
++  testsPassed&=bus.subscribe(inputObserver,pp::Type::InputEvent);
+   diagnostics.log("[INIT] Message Bus READY: bounded mailboxes; authority checked");
+   testsPassed&=pp::busSelfTest(bus,testPublisher,testObserver,input.endpoint,report);
+   diagnostics.log("[BUS SELF-TEST] %s",testsPassed?"PASS":"FAIL");
+@@ -127,6 +143,8 @@ void setup(){
+ }
+ void loop(){
+   memoryModule.tick();
++  input.tick(systemTime());
++  observeInputEvents();
+   pp::Message message;
+   if(!ready&&!bootFailed&&bus.receive(lifecycle,message)){
+     if(message.type!=pp::Type::ConfigurationLoaded||message.correlation!=1||!pp::valid(message.configuration)){
+@@ -139,7 +157,7 @@ void loop(){
+       const char* sources[]={"remembered","factory: no saved configuration","factory: invalid saved configuration","factory: storage unavailable"};
+       diagnostics.log("[INIT] Working configuration READY in RAM (%s)",sources[unsigned(message.loadStatus)]);
+       diagnostics.log("[CONFIG] Lap Race proposed; lanes=%u laps=%lu optional_features=off",workingConfiguration.lanes,static_cast<unsigned long>(workingConfiguration.laps));
+-      diagnostics.log("[INIT] Input / Race Control / Race Engine / Output / Presentation boundaries attached; dormant");
++      diagnostics.log("[INIT] Input Module READY: one simulated detector; Race Control / Race Engine / Output / Presentation dormant");
+       diagnostics.log("[INIT] No capabilities discovered or assigned; session readiness not claimed");
+       ready=testsPassed;
+       bootFailed=!testsPassed;
+@@ -148,19 +166,26 @@ void loop(){
+       else
+ #endif
+       diagnostics.log("%s",ready?"STAGE1_PASS skeleton initialised; no race behaviour":"STAGE1_FAIL self-test");
++      diagnostics.log("%s",ready?"STAGE2_PASS one simulated Input Device ready; no race behaviour":"STAGE2_FAIL startup");
+       diagnostics.log("[DEV] Serial: ? status, t bus self-test, q quiet, v diagnostics on");
+       nextStatus=systemTime()+10000000;
+     }
+   }
+-  // Bounded serial command work. No operational product Request is exposed here.
++  // Bounded serial command work. 0/1 are a development-only simulated source,
++  // exercised through the Input Device; they are not P&P Requests or bus events.
+   for(unsigned i=0;i<8&&Serial.available();++i){
+     const char c=Serial.read();
+     if(c=='q')diagnostics.enable(false);
+     else if(c=='v'){diagnostics.enable(true);status();}
+     else if(c=='?')status();
+     else if(c=='t'){const bool ok=pp::busSelfTest(bus,testPublisher,testObserver,input.endpoint,report);diagnostics.log("[BUS SELF-TEST] %s",ok?"PASS":"FAIL");}
++    else if(c=='0'){input.setSimulatedSource(false);diagnostics.log("[INPUT SOURCE] simulated detector INACTIVE");}
++    else if(c=='1'){input.setSimulatedSource(true);diagnostics.log("[INPUT SOURCE] simulated detector ACTIVE");}
+ #ifdef PP_ACCEPTANCE
+     else acceptanceCommand(c);
++#endif
++#ifdef PP_STAGE2_ACCEPTANCE
++    else stage2AcceptanceCommand(c);
+ #endif
+   }
+   if(ready&&systemTime()>=nextStatus){status();nextStatus=systemTime()+10000000;}
+@@ -168,6 +193,9 @@ void loop(){
+ #ifdef PP_ACCEPTANCE
+   acceptanceTick();
+ #endif
++#ifdef PP_STAGE2_ACCEPTANCE
++  stage2AcceptanceTick();
++#endif
+ #ifdef PP_VERIFY
+   if(verificationReboot&&systemTime()>=rebootAt)ESP.restart();
+ #endif

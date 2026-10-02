@@ -1,0 +1,54 @@
+{
+  "project": "Plonk & Play",
+  "repository": "ConnalM/Plonk-and-Play",
+  "source_base_commit": "5d5790984d7744fbde3630c7d29aa5f5a3a29e5a",
+  "acceptance_spec_commit": "bc6693061f2ed4ad99b51d7109c20f271c7aa1e0",
+  "prepared_utc": "2026-09-30T18:07:58.990966+00:00",
+  "frozen_spec_sha256": "c02b3cf96cf67321a4f75b6ac7e73185854b707391393f235f1d0597da38f338",
+  "tests": {
+    "2.1": {
+      "frozen_criterion": "One normal detection\n\n**Stimulus:** Simulated detector transitions `INACTIVE \u2192 ACTIVE \u2192 INACTIVE`, satisfying the configured recognition rules.\n\n**Expected:** Exactly one clean trigger results in exactly one standard physical `INPUT_EVENT`. The event contains the stable Input ID/capability identity and Relevant Time. It contains no ACTIVE/INACTIVE field and no race meaning.",
+      "predetermined_stimulus": "Source fixture drives INACTIVE \u2192 ACTIVE \u2192 INACTIVE with stable samples at 100000/120000/121000/141000 us."
+    },
+    "2.2": {
+      "frozen_criterion": "Remains ACTIVE\n\n**Stimulus:** `INACTIVE \u2192 ACTIVE`, then remain ACTIVE.\n\n**Expected:** Exactly one trigger/event. Remaining ACTIVE does not repeatedly generate events.",
+      "predetermined_stimulus": "Source fixture drives one valid ACTIVE then samples it again while remaining ACTIVE."
+    },
+    "2.3": {
+      "frozen_criterion": "Clearing and re-arming\n\n**Stimulus:** `INACTIVE \u2192 ACTIVE \u2192 INACTIVE \u2192 ACTIVE \u2192 INACTIVE`, with both detections and clearing satisfying the Input Device's configured recognition/re-arm rules.\n\n**Expected:** Exactly two clean triggers/events. Returning INACTIVE re-arms the Input Device internally. No INACTIVE/clear event is published merely to report re-arming.",
+      "predetermined_stimulus": "Source fixture drives two valid active periods separated by a valid clear/re-arm."
+    },
+    "2.4": {
+      "frozen_criterion": "Input noise/chatter\n\n**Stimulus:** Source transitions/activity that do not satisfy the configured detection/filter/debounce/hysteresis rules, followed by a valid detection.\n\n**Expected:** No `INPUT_EVENT` is produced by rejected activity. The subsequent valid detection produces exactly one normal `INPUT_EVENT`.",
+      "predetermined_stimulus": "Source fixture drives a short active chatter period, then a valid active period."
+    },
+    "2.5": {
+      "frozen_criterion": "Re-arm noise/chatter\n\n**Stimulus:** After a valid detection, provide activity that does not satisfy configured clearing/re-arm rules, then a valid clear/re-arm followed by another valid detection.\n\n**Expected:** The Input Device does not prematurely re-arm or manufacture another trigger from rejected activity. Once genuinely re-armed, the next valid detection produces exactly one new event.",
+      "predetermined_stimulus": "After one valid trigger the fixture drives short inactive chatter, then a valid clear and second valid trigger."
+    },
+    "2.6": {
+      "frozen_criterion": "Relevant Time\n\n**Stimulus:** Arrange a recognised clean trigger at a predetermined P&P System Time and deliberately allow subsequent processing/observation to occur later.\n\n**Expected:** `INPUT_EVENT` Relevant Time identifies when the clean trigger occurred, not when a consumer later received or inspected it.",
+      "predetermined_stimulus": "Source fixture recognises at 820000 us and leaves the bus event queued until observation at 900000 us."
+    },
+    "2.7": {
+      "frozen_criterion": "Stable identity\n\n**Stimulus:** Produce several valid detections from the same simulated Input Device, then reboot/reinitialise as appropriate and repeat.\n\n**Expected:** Every resulting event carries the same stable Input ID/capability identity. The identity does not become a temporary low-level address or arbitrary new identity after restart.",
+      "predetermined_stimulus": "Fixture emits a valid event, restarts the ESP32, then emits another valid event from the same declared capability."
+    },
+    "2.8": {
+      "frozen_criterion": "No race meaning\n\n**Method:** Inspect every externally produced standard physical event.\n\n**Expected:** No event contains or implies Lane, Start/Finish, sector, drag, speed-trap, MUG or other competition meaning. It identifies only the stable input/capability that produced the clean trigger and when.",
+      "predetermined_stimulus": "Inspect captured standard physical event fields and exact InputEvent source/struct definition."
+    },
+    "2.9": {
+      "frozen_criterion": "Correct architectural injection point\n\n**Method:** The acceptance harness stimulates the source-facing side of the Input Device.\n\n**Expected:** The exercised path is simulated source \u2192 Input Device cleaning/recognition \u2192 Input Module \u2192 standard physical event. The acceptance test must not manufacture an `INPUT_EVENT` and inject it downstream, because that would bypass the Stage 2 behaviour under test.",
+      "predetermined_stimulus": "Review fixture and source: fixture calls InputModule.sampleSource, which calls its contained detector before publishing."
+    },
+    "2.10": {
+      "frozen_criterion": "Input Device/Input Module boundary\n\n**Method:** Structural inspection/build-test against the accepted architecture.\n\n**Expected:**\n- source-specific handling is owned inside the Input Device;\n- the Input Device remains a component of the Input Module rather than becoming a separate P&P Message Bus participant;\n- the Input Module is responsible for publishing the clean standard physical event;\n- no central translator is introduced that needs to understand the simulated device's native behaviour;\n- no racing interpretation exists in either the Input Device or Input Module.",
+      "predetermined_stimulus": "Review source/build: detector owns source-specific state; Input Module publishes; no race terms appear in this boundary."
+    },
+    "2.T": {
+      "frozen_criterion": "Deliberate failure\n\n**Stimulus:** Deliberately supply one known incorrect expected result.\n\n**Expected:** The harness reports FAIL and retains the mismatch. Restore the correct expectation afterwards.",
+      "predetermined_stimulus": "Evaluate captured 2.1 observation against a known-wrong count of 2, retain FAIL, then restore expected count 1."
+    }
+  }
+}

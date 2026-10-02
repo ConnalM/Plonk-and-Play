@@ -1,0 +1,23 @@
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1156
+load:0x40078000,len:11456
+ho 0 tail 12 room 4
+load:0x40080400,len:2972
+entry 0x400805dc
+ACC READYACC DELIVERY test=3.1 delivery=0 a=1 b=0 expectedA=1 expectedB=0 source=3 device=50500001 capability=1 relevant=120000 observed=150000
+ACC DELIVERY test=3.2 delivery=0 a=1 b=0 expectedA=1 expectedB=0 source=3 device=50500001 capability=1 relevant=320000 observed=350000
+ACC DELIVERY test=3.3 delivery=0 a=1 b=0 expectedA=1 expectedB=0 source=3 device=50500001 capability=1 relevant=520000 observed=550000
+ACC DELIVERY test=3.4 delivery=0 a=1 b=0 expectedA=1 expectedB=0 source=3 device=50500001 capability=1 relevant=720000 observed=750000
+ACC DELIVERY test=3.5 delivery=0 a=1 b=1 expectedA=1 expectedB=1 source=3 device=50500001 capability=1 relevant=920000 observed=950000
+ACC DELIVERY test=3.6 delivery=0 a=1 b=0 expectedA=1 expectedB=0 source=3 device=50500001 capability=1 relevant=1120000 observed=1150000
+ACC SUBSCRIBERS added=1 removed=1
+ACC AUTH test=3.7 result=1 a=0 b=0 sender=12
+ACC AUTH test=3.8 result=1 a=0 b=0 sender=11
+ACC DELIVERY test=3.10 delivery=0 a=1 b=1 expectedA=1 expectedB=1 source=3 device=50500001 capability=1 relevant=1320000 observed=1350000
+ACC DELIVERY test=3.11 delivery=0 a=1 b=0 expectedA=1 expectedB=0 source=3 device=50500001 capability=1 relevant=1520000 observed=1550000
+ACC DONE

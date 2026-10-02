@@ -1,0 +1,18 @@
+{
+  "esp32dev/firmware.elf": {
+    "sha256": "846e30689e12d406535fe6978a9a908d84316035332591f24902e9005bd84734",
+    "bytes": 11241320
+  },
+  "esp32dev/firmware.merged.bin": {
+    "sha256": "3496abeda9091ff1c42312289d073e5b4b0e5260ac21248a450293cb51434d8f",
+    "bytes": 861936
+  },
+  "stage2acceptance/firmware.elf": {
+    "sha256": "0e5c6e5b99a06b3e9de423d31f7940fa717d4f9cd546d27cf135d6cc6ab08c36",
+    "bytes": 11372908
+  },
+  "stage2acceptance/firmware.merged.bin": {
+    "sha256": "24ceab146c39edeac2178a1029197f7258630b11987746bf40ad62823e85187e",
+    "bytes": 875872
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "frozen_acceptance_commit": "20469948784a64662ef96cb20637cfd6a59cc27b",
+  "findings": [
+    {
+      "requirement": "Race Control consumes and decides START_REQUEST",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Race Engine does not consume START_REQUEST or commit sessions",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Noticeboard does not decide START_REQUEST",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Race Control owns session commit and existing start procedure",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Session Definition is fixed data, not a Bus participant",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Browser Interface is the Bus participant",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Browser has no direct Race Control or Race Engine control route",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Bus authority restricts START_REQUEST and REQUEST_RESULT",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Presentation loss policy remains message-contract-specific",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Browser State is derived from Noticeboard cache",
+      "result": "PASS"
+    }
+  ]
+}

@@ -1,0 +1,228 @@
+{
+  "identity": {
+    "source_base_commit": "20469948784a64662ef96cb20637cfd6a59cc27b",
+    "project": "ConnalM/Plonk-and-Play",
+    "source_manifest_sha256": "158E352DF5D97694C4BDD567CCD5BDD1D80198EFE589693A83C890207F5A9129",
+    "stage8_elf_sha256": "A76957332D3631329B0B7797889706340B2D9F6ED2FF80A2AA15F0796BBE1698",
+    "frozen_acceptance_commit": "20469948784a64662ef96cb20637cfd6a59cc27b"
+  },
+  "tests": {
+    "8.1": {
+      "predetermined_stimulus": "Browser POST /request/start through Browser Interface",
+      "expected_result": "One START_REQUEST originates at Presentation",
+      "actual_result": {
+        "test": "8.1",
+        "submitted": "1",
+        "starts": "1",
+        "source": "1",
+        "presentation": "1"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.2": {
+      "predetermined_stimulus": "Predetermined correlation 801",
+      "expected_result": "Request and Request Result retain correlation",
+      "actual_result": {
+        "test": "8.2",
+        "correlation": "801",
+        "result_correlation": "801"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.3": {
+      "predetermined_stimulus": "Trace Browser Interface request publication",
+      "expected_result": "Real P&P Message Bus route to Race Control only",
+      "actual_result": {
+        "test": "8.3",
+        "bus_source": "1",
+        "control_endpoint": "2"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.4": {
+      "predetermined_stimulus": "Spectator Browser supplies RaceDirector claim",
+      "expected_result": "Claim cannot grant permission",
+      "actual_result": {
+        "test": "8.4",
+        "claimed": "RaceDirector",
+        "server_context": "Spectator",
+        "result": "REJECTED"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.5": {
+      "predetermined_stimulus": "Authorised Race Director/SMUG Context",
+      "expected_result": "Request passes permission and validity",
+      "actual_result": {
+        "test": "8.5",
+        "result": "ACCEPTED"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.6": {
+      "predetermined_stimulus": "Spectator START",
+      "expected_result": "Correlated permission rejection with no session/state change",
+      "actual_result": {
+        "test": "8.6",
+        "result": "REJECTED",
+        "reason": "START_permission_denied",
+        "definition": "0",
+        "state": "0"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.7": {
+      "predetermined_stimulus": "Authorised START during STARTING",
+      "expected_result": "Lifecycle rejection",
+      "actual_result": {
+        "test": "8.7",
+        "result": "REJECTED",
+        "reason": "lifecycle_not_startable",
+        "state": "1",
+        "definition": "1"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.8": {
+      "predetermined_stimulus": "Zero-lap proposed setup",
+      "expected_result": "Deterministic invalid-setup rejection",
+      "actual_result": {
+        "test": "8.8",
+        "result": "REJECTED",
+        "reason": "invalid_race_setup_lap_target",
+        "definition": "0",
+        "state": "0"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.9": {
+      "predetermined_stimulus": "Required Start/Finish unavailable",
+      "expected_result": "Deterministic capability rejection",
+      "actual_result": {
+        "test": "8.9",
+        "result": "REJECTED",
+        "reason": "required_StartFinish_capability_unavailable",
+        "definition": "0",
+        "state": "0"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.10": {
+      "predetermined_stimulus": "Valid authorised START",
+      "expected_result": "One correlated ACCEPTED result",
+      "actual_result": {
+        "test": "8.10",
+        "result": "ACCEPTED"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.11": {
+      "predetermined_stimulus": "Commit accepted proposed setup",
+      "expected_result": "Fixed Session Definition exists before ACCEPTED is externally visible",
+      "actual_result": {
+        "test": "8.11",
+        "definition_before_result": "1",
+        "definition": "1",
+        "result_visible": "1",
+        "committed": "1"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.12": {
+      "predetermined_stimulus": "Mutate proposed setup after acceptance",
+      "expected_result": "Fixed Session Definition stays unchanged",
+      "actual_result": {
+        "test": "8.12",
+        "fixed_laps": "2",
+        "fixed_mug": "91",
+        "unchanged": "1"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.13": {
+      "predetermined_stimulus": "Advance accepted Race Control procedure to GO",
+      "expected_result": "Race Control reaches RACING through existing path",
+      "actual_result": {
+        "test": "8.13",
+        "state": "2",
+        "go": "2000000"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.14": {
+      "predetermined_stimulus": "Observe Browser result and Noticeboard State",
+      "expected_result": "Result is distinct from authoritative State",
+      "actual_result": {
+        "test": "8.14",
+        "result": "ACCEPTED",
+        "state": "2",
+        "entry": "1"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.15": {
+      "predetermined_stimulus": "Two distinct correlations submitted before Race Control tick",
+      "expected_result": "At most one accepted/session/start/GO",
+      "actual_result": {
+        "test": "8.15",
+        "first": "ACCEPTED",
+        "second": "REJECTED",
+        "definition": "1",
+        "committed": "1",
+        "go": "1"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.16": {
+      "predetermined_stimulus": "Two valid proposed setups",
+      "expected_result": "START carries no Race Setup copy",
+      "actual_result": {
+        "test": "8.16",
+        "first": "ACCEPTED",
+        "second": "ACCEPTED",
+        "first_laps": "2",
+        "second_laps": "3",
+        "second_mug": "92",
+        "payload": "correlation_only"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.17": {
+      "predetermined_stimulus": "Run frozen Stage 7 regression separately",
+      "expected_result": "A current, independently retained Stage 7 regression result is PASS",
+      "actual_result": {},
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "8.T": {
+      "predetermined_stimulus": "Compare unauthorised request with wrong then restored expectation",
+      "expected_result": "Harness reports FAIL then PASS",
+      "actual_result": {
+        "test": "8.T",
+        "wrong_expected": "ACCEPTED",
+        "actual": "REJECTED",
+        "result": "FAIL",
+        "restored_expected": "REJECTED",
+        "result2": "PASS"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    }
+  }
+}

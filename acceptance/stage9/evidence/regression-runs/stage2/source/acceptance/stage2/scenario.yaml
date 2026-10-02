@@ -1,0 +1,15 @@
+name: Frozen Stage 2 source-facing detector acceptance
+version: 1
+author: P&P
+steps:
+  - wait-serial: 'ACC READY phase=0'
+  - delay: 300ms
+  - write-serial: 's'
+  - wait-serial: 'ACC INPUT test=2.6'
+  - delay: 100ms
+  - write-serial: 'i'
+  - wait-serial: 'ACC FIXTURE identity_restart=1'
+  - wait-serial: 'ACC READY phase=1'
+  - delay: 300ms
+  - write-serial: 'j'
+  - wait-serial: 'ACC DONE'

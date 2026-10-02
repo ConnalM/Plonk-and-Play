@@ -1,0 +1,260 @@
+{
+  "project": "Plonk & Play",
+  "source_base_commit": "20469948784a64662ef96cb20637cfd6a59cc27b",
+  "acceptance_spec_commit": "bc6693061f2ed4ad99b51d7109c20f271c7aa1e0",
+  "source_is_uncommitted_overlay": true,
+  "builds": {
+    "esp32dev/firmware.elf": {
+      "sha256": "846e30689e12d406535fe6978a9a908d84316035332591f24902e9005bd84734",
+      "bytes": 11241320
+    },
+    "esp32dev/firmware.merged.bin": {
+      "sha256": "3496abeda9091ff1c42312289d073e5b4b0e5260ac21248a450293cb51434d8f",
+      "bytes": 861936
+    },
+    "stage2acceptance/firmware.elf": {
+      "sha256": "0e5c6e5b99a06b3e9de423d31f7940fa717d4f9cd546d27cf135d6cc6ab08c36",
+      "bytes": 11372908
+    },
+    "stage2acceptance/firmware.merged.bin": {
+      "sha256": "24ceab146c39edeac2178a1029197f7258630b11987746bf40ad62823e85187e",
+      "bytes": 875872
+    }
+  },
+  "tests": {
+    "2.1": {
+      "frozen_criterion": "One normal detection\n\n**Stimulus:** Simulated detector transitions `INACTIVE \u2192 ACTIVE \u2192 INACTIVE`, satisfying the configured recognition rules.\n\n**Expected:** Exactly one clean trigger results in exactly one standard physical `INPUT_EVENT`. The event contains the stable Input ID/capability identity and Relevant Time. It contains no ACTIVE/INACTIVE field and no race meaning.",
+      "predetermined_stimulus": "Source fixture drives INACTIVE \u2192 ACTIVE \u2192 INACTIVE with stable samples at 100000/120000/121000/141000 us.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "2.1",
+        "count": "1",
+        "expected": "1",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "120000",
+        "observed": "150000"
+      },
+      "result": "PASS",
+      "raw_evidence": "production-serial.txt; acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "2.2": {
+      "frozen_criterion": "Remains ACTIVE\n\n**Stimulus:** `INACTIVE \u2192 ACTIVE`, then remain ACTIVE.\n\n**Expected:** Exactly one trigger/event. Remaining ACTIVE does not repeatedly generate events.",
+      "predetermined_stimulus": "Source fixture drives one valid ACTIVE then samples it again while remaining ACTIVE.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "2.2",
+        "count": "1",
+        "expected": "1",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "220000",
+        "observed": "330000"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "2.3": {
+      "frozen_criterion": "Clearing and re-arming\n\n**Stimulus:** `INACTIVE \u2192 ACTIVE \u2192 INACTIVE \u2192 ACTIVE \u2192 INACTIVE`, with both detections and clearing satisfying the Input Device's configured recognition/re-arm rules.\n\n**Expected:** Exactly two clean triggers/events. Returning INACTIVE re-arms the Input Device internally. No INACTIVE/clear event is published merely to report re-arming.",
+      "predetermined_stimulus": "Source fixture drives two valid active periods separated by a valid clear/re-arm.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "2.3",
+        "count": "2",
+        "expected": "2",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "420000",
+        "observed": "500000"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "2.4": {
+      "frozen_criterion": "Input noise/chatter\n\n**Stimulus:** Source transitions/activity that do not satisfy the configured detection/filter/debounce/hysteresis rules, followed by a valid detection.\n\n**Expected:** No `INPUT_EVENT` is produced by rejected activity. The subsequent valid detection produces exactly one normal `INPUT_EVENT`.",
+      "predetermined_stimulus": "Source fixture drives a short active chatter period, then a valid active period.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "2.4",
+        "count": "1",
+        "expected": "1",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "560000",
+        "observed": "590000"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "2.5": {
+      "frozen_criterion": "Re-arm noise/chatter\n\n**Stimulus:** After a valid detection, provide activity that does not satisfy configured clearing/re-arm rules, then a valid clear/re-arm followed by another valid detection.\n\n**Expected:** The Input Device does not prematurely re-arm or manufacture another trigger from rejected activity. Once genuinely re-armed, the next valid detection produces exactly one new event.",
+      "predetermined_stimulus": "After one valid trigger the fixture drives short inactive chatter, then a valid clear and second valid trigger.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "2.5",
+        "count": "2",
+        "expected": "2",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "620000",
+        "observed": "740000"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "2.6": {
+      "frozen_criterion": "Relevant Time\n\n**Stimulus:** Arrange a recognised clean trigger at a predetermined P&P System Time and deliberately allow subsequent processing/observation to occur later.\n\n**Expected:** `INPUT_EVENT` Relevant Time identifies when the clean trigger occurred, not when a consumer later received or inspected it.",
+      "predetermined_stimulus": "Source fixture recognises at 820000 us and leaves the bus event queued until observation at 900000 us.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "2.6",
+        "count": "1",
+        "expected": "1",
+        "device": "50500001",
+        "capability": "1",
+        "relevant": "820000",
+        "observed": "900000"
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "2.7": {
+      "frozen_criterion": "Stable identity\n\n**Stimulus:** Produce several valid detections from the same simulated Input Device, then reboot/reinitialise as appropriate and repeat.\n\n**Expected:** Every resulting event carries the same stable Input ID/capability identity. The identity does not become a temporary low-level address or arbitrary new identity after restart.",
+      "predetermined_stimulus": "Fixture emits a valid event, restarts the ESP32, then emits another valid event from the same declared capability.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "devices": [
+          {
+            "phase": "0",
+            "device": "50500001",
+            "capability": "1"
+          },
+          {
+            "phase": "1",
+            "device": "50500001",
+            "capability": "1"
+          }
+        ],
+        "events": [
+          {
+            "test": "2.7a",
+            "count": "1",
+            "expected": "1",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "940000",
+            "observed": "970000"
+          },
+          {
+            "test": "2.7b",
+            "count": "1",
+            "expected": "1",
+            "device": "50500001",
+            "capability": "1",
+            "relevant": "120000",
+            "observed": "150000"
+          }
+        ]
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "2.8": {
+      "frozen_criterion": "No race meaning\n\n**Method:** Inspect every externally produced standard physical event.\n\n**Expected:** No event contains or implies Lane, Start/Finish, sector, drag, speed-trap, MUG or other competition meaning. It identifies only the stable input/capability that produced the clean trigger and when.",
+      "predetermined_stimulus": "Inspect captured standard physical event fields and exact InputEvent source/struct definition.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "captured_fields": [
+          "test",
+          "count",
+          "device",
+          "capability",
+          "relevant",
+          "observed"
+        ],
+        "forbidden_message_fields_present": false
+      },
+      "result": "PASS",
+      "raw_evidence": "acceptance-serial.txt; source/firmware/include/pp/core.h",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "2.9": {
+      "frozen_criterion": "Correct architectural injection point\n\n**Method:** The acceptance harness stimulates the source-facing side of the Input Device.\n\n**Expected:** The exercised path is simulated source \u2192 Input Device cleaning/recognition \u2192 Input Module \u2192 standard physical event. The acceptance test must not manufacture an `INPUT_EVENT` and inject it downstream, because that would bypass the Stage 2 behaviour under test.",
+      "predetermined_stimulus": "Review fixture and source: fixture calls InputModule.sampleSource, which calls its contained detector before publishing.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "fixture_calls": "InputModule.sampleSource",
+        "module_path": "InputDevice sample then InputModule publication"
+      },
+      "result": "PASS",
+      "raw_evidence": "source/firmware/tests/stage2_acceptance_probe.inc; source/firmware/include/pp/core.h",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "2.10": {
+      "frozen_criterion": "Input Device/Input Module boundary\n\n**Method:** Structural inspection/build-test against the accepted architecture.\n\n**Expected:**\n- source-specific handling is owned inside the Input Device;\n- the Input Device remains a component of the Input Module rather than becoming a separate P&P Message Bus participant;\n- the Input Module is responsible for publishing the clean standard physical event;\n- no central translator is introduced that needs to understand the simulated device's native behaviour;\n- no racing interpretation exists in either the Input Device or Input Module.",
+      "predetermined_stimulus": "Review source/build: detector owns source-specific state; Input Module publishes; no race terms appear in this boundary.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "findings": [
+          {
+            "requirement": "Input Device owns source conditioning/re-arm",
+            "result": "PASS"
+          },
+          {
+            "requirement": "Input Device is contained by Input Module",
+            "result": "PASS"
+          },
+          {
+            "requirement": "Input Module publishes INPUT_EVENT",
+            "result": "PASS"
+          },
+          {
+            "requirement": "No central translator or race interpretation",
+            "result": "PASS"
+          }
+        ]
+      },
+      "result": "PASS",
+      "raw_evidence": "structural-review.md; structural-review.json; source/firmware/include/pp/core.h",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    },
+    "2.T": {
+      "frozen_criterion": "Deliberate failure\n\n**Stimulus:** Deliberately supply one known incorrect expected result.\n\n**Expected:** The harness reports FAIL and retains the mismatch. Restore the correct expectation afterwards.",
+      "predetermined_stimulus": "Evaluate captured 2.1 observation against a known-wrong count of 2, retain FAIL, then restore expected count 1.",
+      "expected_result": "PASS",
+      "actual_result": {
+        "wrong_expectation_run": {
+          "expected_count": 2,
+          "actual_count": 1,
+          "result": "FAIL"
+        },
+        "restored_expectation_run": {
+          "expected_count": 1,
+          "actual_count": 1,
+          "result": "PASS"
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "deliberate-failure.json; acceptance-serial.txt",
+      "source_manifest": "source-manifest.json",
+      "build_manifest": "build-manifest.json"
+    }
+  }
+}

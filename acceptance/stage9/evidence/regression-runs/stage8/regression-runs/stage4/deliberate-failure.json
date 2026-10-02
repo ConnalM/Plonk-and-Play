@@ -1,0 +1,13 @@
+{
+  "test": "4.T",
+  "wrong": {
+    "expected_lane": 2,
+    "actual_lane": 1,
+    "result": "FAIL"
+  },
+  "restored": {
+    "expected_lane": 1,
+    "actual_lane": 1,
+    "result": "PASS"
+  }
+}
