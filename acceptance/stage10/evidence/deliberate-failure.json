@@ -1,0 +1,13 @@
+{
+  "restored": {
+    "result": "PASS",
+    "expected": "PASS",
+    "actual": "PASS"
+  },
+  "wrong": {
+    "result": "FAIL",
+    "expected": "PASS",
+    "actual": "FAIL"
+  },
+  "test": "10.T"
+}

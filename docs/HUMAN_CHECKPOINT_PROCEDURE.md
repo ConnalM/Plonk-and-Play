@@ -38,6 +38,13 @@ The agent must not use the live human checkpoint to discover the intended
 sequence, diagnose an unfinished fixture, or decide which State should be
 observed next.
 
+A status update is not a stopping point. During authorised preparation and
+checkpoint support, the agent continues through diagnostics, non-destructive
+repairs, builds and verification without waiting for further prompting. It asks
+Connal only for a physical/manual action it cannot perform, an approval that is
+actually required, a genuine unresolved design decision, the prepared human
+checkpoint, or final completion.
+
 ## 2. Establish the known initial state
 
 This setup is not part of the human acceptance checkpoint. Complete it before
@@ -104,3 +111,4 @@ When the predetermined final observation is reached:
 A successful human checkpoint supplements automated evidence. It does not
 replace frozen automated acceptance tests, structural checks, or required
 regressions.
+

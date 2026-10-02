@@ -1,0 +1,58 @@
+{
+  "endpoint": "http://127.0.0.1:9080",
+  "a_initial": "{\"role\":\"Spectator\",\"hasMaster\":false}",
+  "b_initial": "{\"role\":\"Spectator\",\"hasMaster\":false}",
+  "c_initial": "{\"role\":\"Spectator\",\"hasMaster\":false}",
+  "bootstrap_status": 200,
+  "claimed_submission": "{\"submitted\":true,\"correlationId\":202}",
+  "claimed_result": "{\"correlationId\":202,\"result\":\"REJECTED\",\"reason\":\"START permission denied\"}",
+  "viewer_context_after_claim": "{\"role\":\"Spectator\",\"hasMaster\":true}",
+  "repeat_statuses": [
+    409,
+    409
+  ],
+  "master_result": "{\"correlationId\":300,\"result\":\"ACCEPTED\"}",
+  "spectator_result": "{\"correlationId\":300,\"result\":\"REJECTED\",\"reason\":\"START permission denied\"}",
+  "third_owner_result_status": 204,
+  "state_after_master": "{\"lifecycle\":\"RACING\",\"raceEntryId\":1,\"laps\":0,\"hasLap\":false,\"lastLapTime\":0,\"scheduledGo\":43450847,\"resultValid\":true,\"raceIntegrity\":\"OK\",\"entries\":[{\"raceEntryId\":1,\"laps\":0},{\"raceEntryId\":2,\"laps\":0}]}",
+  "all": {
+    "10.1": {
+      "prebootstrap_start_denied": true,
+      "passive_no_master": true,
+      "opaque_cookies_issued": true
+    },
+    "10.2": {
+      "one_time_bootstrap": true
+    },
+    "10.3": {
+      "claims_denied": true
+    },
+    "10.4": {
+      "master_start": true
+    },
+    "10.5": {
+      "spectator_denied": true
+    },
+    "10.6": {
+      "private_results": true
+    },
+    "10.7": {
+      "separate_clients": true
+    },
+    "10.8": {
+      "state_reconstruction": true
+    },
+    "10.11": {
+      "cookie_retained": true
+    },
+    "10.12": {
+      "retained_authority": true
+    },
+    "10.13": {
+      "lost_identity_no_promotion": true
+    },
+    "10.14": {
+      "state_reconstruction": true
+    }
+  }
+}

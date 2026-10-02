@@ -1,0 +1,114 @@
+{
+  "frozen_plan_commit": "09c03b45f8ecd9dce9f903f169cf52f0bf931ccb",
+  "tests": {
+    "9.1": {
+      "result": "PASS",
+      "actual": "result=PASS",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.2": {
+      "result": "PASS",
+      "actual": "result=PASS",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.3": {
+      "result": "PASS",
+      "actual": "result=PASS",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.4": {
+      "result": "PASS",
+      "actual": "result=PASS",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.5": {
+      "result": "PASS",
+      "actual": "result=PASS",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.6": {
+      "result": "PASS",
+      "actual": "result=PASS",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.7": {
+      "result": "PASS",
+      "actual": "result=PASS",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.8": {
+      "result": "PASS",
+      "actual": "result=PASS dead_heat=1",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.9": {
+      "result": "PASS",
+      "actual": "result=PASS delta_us=1",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.10": {
+      "result": "PASS",
+      "actual": "result=PASS relevant_time_order=1",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.11": {
+      "result": "PASS",
+      "actual": "result=PASS duplicates=0",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.12": {
+      "result": "PASS",
+      "actual": "result=PASS accepted=32 delivered=32 max_backlog=1",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.13": {
+      "result": "PASS",
+      "actual": "result=PASS",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.14": {
+      "result": "PASS",
+      "actual": "result=PASS fault=INPUT_EVENT_DELIVERY_OVERRUN",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.15": {
+      "result": "PASS",
+      "actual": "result=PASS resultValid=false",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.16": {
+      "result": "PASS",
+      "actual": "result=PASS recovery=restart",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.17": {
+      "result": "PASS",
+      "actual": "result=PASS",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.18": {
+      "result": "PASS",
+      "actual": "result=PASS entries=2",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.19": {
+      "result": "PASS",
+      "actual": "result=PASS bus_only=1",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.20": {
+      "result": "PASS",
+      "actual": "result=PASS",
+      "raw_evidence": "serial-current.txt"
+    },
+    "9.T": {
+      "result": "PASS",
+      "actual": "wrong=FAIL restored=PASS",
+      "raw_evidence": "serial-current.txt"
+    }
+  },
+  "human_browser_checkpoint": {
+    "result": "PASS",
+    "evidence": "human-browser-checkpoint.md"
+  }
+}

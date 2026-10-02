@@ -1,0 +1,17 @@
+{
+  "checkpoint": "Stage 10 human Browser checkpoint",
+  "result": "PASS",
+  "observed": [
+    "Normal Chrome deliberately bootstrapped as Race Director.",
+    "Incognito received a separate Spectator identity with disabled START.",
+    "Master START was accepted and both clients reconstructed authoritative RACING State.",
+    "After the Race Director Browser closed, Wokwi simulated Input A and Input B independently advanced Race Entries 1 and 2.",
+    "Entry 1 completed the configured two-lap race while Entry 2 remained at one lap.",
+    "Incognito refresh remained Spectator and reconstructed current FINISHED State without event replay."
+  ],
+  "environment": {
+    "serial_identity": "[DEV] P&P STAGE 10 DEMO",
+    "firmware": "firmware/.pio/build/stage10demo/firmware.merged.bin",
+    "gateway": "127.0.0.1:9080"
+  }
+}

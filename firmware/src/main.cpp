@@ -61,6 +61,14 @@ public:
   bool write(unsigned s,const uint8_t* data,size_t n)override{return ready&&preferences.putBytes(s?"config-b":"config-a",data,n)==n;}
 private: Preferences preferences;bool ready=false;
 } storage;
+class BrowserAuthorityStore final: public pp::AuthorityStore {
+public:
+  void begin(){ready=preferences.begin("pp-browser-auth",false);}
+  bool loadMaster(uint64_t& value) override { if(!ready||!preferences.isKey("master"))return false;value=preferences.getULong64("master",0);return value!=0; }
+  bool saveMaster(uint64_t value) override { return ready&&value&&preferences.putULong64("master",value)==sizeof(value); }
+  void clearForFixture(){if(ready&&preferences.isKey("master"))preferences.remove("master");}
+private: Preferences preferences;bool ready=false;
+} browserAuthority;
 pp::Bus bus;
 pp::Memory memory(storage);
 const auto lifecycle=bus.attach(pp::Role::Lifecycle);
@@ -74,7 +82,7 @@ pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint,activeSession);
 pp::OutputModule output{bus.attach(pp::Role::Output)};
 const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
 pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
-pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard);
+pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthority);
 const auto testPublisher=bus.attach(pp::Role::Diagnostics);
 const auto testObserver=bus.attach(pp::Role::Diagnostics);
 const auto inputObserver=bus.attach(pp::Role::Diagnostics);
@@ -83,10 +91,17 @@ pp::Configuration workingConfiguration;
 pp::ProposedRaceSetup proposedRaceSetup{ {pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish}, 1, 10, pp::LapFinishBehaviour::Immediate, 1, true, false };
 bool ready=false,testsPassed=true,bootFailed=false;
 pp::Time nextStatus=0;
+#ifdef PP_STAGE10_DEMO
+bool stage10ServerReported=false;
+#endif
 // The build environment is diagnostic identity only. It never supplies product
 // State or changes P&P behaviour.
 const char* buildIdentity(){
- #if defined(PP_STAGE9_DEMO)
+ #if defined(PP_STAGE10_DEMO)
+  return "P&P STAGE 10 DEMO";
+#elif defined(PP_STAGE10_ACCEPTANCE)
+  return "P&P STAGE 10 ACCEPTANCE";
+#elif defined(PP_STAGE9_DEMO)
   return "P&P STAGE 9 DEMO";
 #elif defined(PP_STAGE9_ACCEPTANCE)
   return "P&P STAGE 9 ACCEPTANCE";
@@ -166,6 +181,9 @@ void status(){diagnostics.log("[DEV] %s %s system_us=%llu dropped=%lu; no sessio
 #ifdef PP_STAGE9_ACCEPTANCE
 #include "../tests/stage9_acceptance_probe.inc"
 #endif
+#ifdef PP_STAGE10_ACCEPTANCE
+#include "../tests/stage10_acceptance_probe.inc"
+#endif
 }
 void setup(){
   Serial.begin(115200);
@@ -202,10 +220,17 @@ void setup(){
 #ifdef PP_STAGE9_ACCEPTANCE
   stage9AcceptanceBeforeBoot();
 #endif
+#ifdef PP_STAGE10_ACCEPTANCE
+  stage10AcceptanceBeforeBoot();
+#endif
   diagnostics.log("[DEV] %s -- diagnostics are not product State",buildIdentity());
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
-  storage.begin();diagnostics.log("[INIT] Memory %s: NVS behind Memory boundary",storage.available()?"READY":"DEGRADED");
+  storage.begin();browserAuthority.begin();
+#ifdef PP_STAGE10_DEMO
+  browserAuthority.clearForFixture();
+#endif
+  diagnostics.log("[INIT] Memory %s: NVS behind Memory boundary",storage.available()?"READY":"DEGRADED");
   testsPassed&=bus.subscribe(memoryEndpoint,pp::Type::LoadConfiguration);
   testsPassed&=bus.subscribe(lifecycle,pp::Type::ConfigurationLoaded);
   testsPassed&=bus.subscribe(testPublisher,pp::Type::DiagnosticProbe);
@@ -259,6 +284,12 @@ void loop(){
   raceEngine.tick();
   raceControl.tick(systemTime());
   browser.tick();
+#ifdef PP_STAGE10_DEMO
+  if(!stage10ServerReported&&(browser.serverReady()||browser.serverStartError())){
+    stage10ServerReported=true;
+    diagnostics.log("[DEV] Stage10 Browser server=%s error=%d",browser.serverReady()?"READY":"FAILED",browser.serverStartError());
+  }
+#endif
   observeInputEvents();
   pp::Message message;
   if(!ready&&!bootFailed&&bus.receive(lifecycle,message)){
@@ -266,7 +297,7 @@ void loop(){
       bootFailed=true;diagnostics.log("STAGE1_FAIL configuration response");
     }else{
       workingConfiguration=message.configuration;
-#ifdef PP_STAGE9_DEMO
+#if defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_DEMO)
       proposedRaceSetup.startFinish={pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish};
       proposedRaceSetup.secondStartFinish={pp::InputModule::simulatedDetectorBIdentity(),2,pp::InputRole::StartFinish};
       proposedRaceSetup.selectedMugId=91;proposedRaceSetup.secondMugId=92;proposedRaceSetup.activeLanes=2;proposedRaceSetup.lapTarget=2;
@@ -343,6 +374,9 @@ void loop(){
 #ifdef PP_STAGE9_ACCEPTANCE
     else stage9AcceptanceCommand(c);
 #endif
+#ifdef PP_STAGE10_ACCEPTANCE
+    else stage10AcceptanceCommand(c);
+#endif
   }
   if(ready&&systemTime()>=nextStatus){status();nextStatus=systemTime()+10000000;}
   diagnostics.flush();delay(1);
@@ -379,7 +413,14 @@ void loop(){
 #ifdef PP_STAGE9_ACCEPTANCE
   stage9AcceptanceTick();
 #endif
+#ifdef PP_STAGE10_ACCEPTANCE
+  stage10AcceptanceTick();
+#endif
 #ifdef PP_VERIFY
   if(verificationReboot&&systemTime()>=rebootAt)ESP.restart();
 #endif
 }
+
+
+
+

@@ -1,0 +1,49 @@
+{
+  "frozen_acceptance_commit": "ba194fed214a638098613e1318c703a650c3e228",
+  "findings": [
+    {
+      "requirement": "Browser Interface is the sole Browser-side Bus participant",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Cookie identity contains no role or authority claim",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Retained Master binding is Browser Interface state only",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Race Control has no Browser identity/token/cookie dependency",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Race Engine and Noticeboard have no Browser authority ownership",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Session Definition contains no Browser identity",
+      "result": "PASS"
+    },
+    {
+      "requirement": "START authority remains Message Bus restricted",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Request Results remain Race Control to Presentation only",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Browser state is current Noticeboard state, not replay",
+      "result": "PASS"
+    },
+    {
+      "requirement": "Presentation loss cannot block Input/Race Engine",
+      "result": "PASS"
+    },
+    {
+      "requirement": "No private Browser-to-Race-Control control route",
+      "result": "PASS"
+    }
+  ]
+}

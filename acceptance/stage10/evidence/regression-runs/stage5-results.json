@@ -1,0 +1,200 @@
+{
+  "acceptance_spec_commit": "818d71a622d253bba3f5e26fa16c9b46b05ec897",
+  "tests": {
+    "5.1": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "5.1",
+        "laps": "1",
+        "lap": "500000",
+        "facts": "1",
+        "entry": "71",
+        "number": "1",
+        "relevant": "1500000"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.2": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "5.1",
+        "laps": "1",
+        "lap": "500000",
+        "facts": "1",
+        "entry": "71",
+        "number": "1",
+        "relevant": "1500000"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.3": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "5.1",
+        "laps": "1",
+        "lap": "500000",
+        "facts": "1",
+        "entry": "71",
+        "number": "1",
+        "relevant": "1500000"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.4": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "5.1",
+        "laps": "1",
+        "lap": "500000",
+        "facts": "1",
+        "entry": "71",
+        "number": "1",
+        "relevant": "1500000"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.5": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "5.5",
+        "laps": "2",
+        "lap": "600000",
+        "facts": "1",
+        "entry": "71",
+        "number": "2",
+        "relevant": "2100000"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.6": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "5.6",
+        "laps": "3",
+        "lap": "700000",
+        "facts": "1",
+        "entry": "71",
+        "number": "3",
+        "relevant": "2800000"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.7": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "5.1",
+        "laps": "1",
+        "lap": "500000",
+        "facts": "1",
+        "entry": "71",
+        "number": "1",
+        "relevant": "1500000"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.8": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "5.8",
+        "laps": "3",
+        "lap": "700000",
+        "facts": "0",
+        "entry": "0",
+        "number": "0",
+        "relevant": "0"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.9": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "5.9",
+        "laps": "5",
+        "lap": "300000",
+        "facts": "2",
+        "entry": "71",
+        "number": "5",
+        "relevant": "3500000"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.10": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "test": "5.1",
+        "laps": "1",
+        "lap": "500000",
+        "facts": "1",
+        "entry": "71",
+        "number": "1",
+        "relevant": "1500000"
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.11": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "engine_owns_per_entry_lap_state": true
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.12": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "no_browser": true
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.13": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "scaffold_only": true
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "5.T": {
+      "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
+      "expected_result": "PASS",
+      "actual_result": {
+        "wrong": {
+          "expected_laps": 2,
+          "actual_laps": 1,
+          "result": "FAIL"
+        },
+        "restored": {
+          "expected_laps": 1,
+          "actual_laps": 1,
+          "result": "PASS"
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    }
+  }
+}

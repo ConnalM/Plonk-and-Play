@@ -87,12 +87,12 @@ def evaluate():
     no_race=not any(word in event_fields.lower() for word in forbidden)
     check('2.8',all(set(row).issuperset({'test','count','device','capability','relevant'}) for row in events.values()) and no_race,
       {'captured_fields':['test','count','device','capability','relevant','observed'],'forbidden_message_fields_present':not no_race},'acceptance-serial.txt; source/firmware/include/pp/core.h')
-    source_path=('input.sampleSource(active,at)' in probe and 'if (!detector_.sample(active,observedAt,triggerAt)) return;' in core and 'bus_.publish(endpoint,event)' in core)
+    source_path=('input.sampleSource(active,at)' in probe and 'class InputModule' in core and 'detectors_[which].sample(active,at,trigger)' in core and 'bus_.publish(endpoint,backlog_[head_])' in core)
     check('2.9',source_path,{'fixture_calls':'InputModule.sampleSource','module_path':'InputDevice sample then InputModule publication'},'source/firmware/tests/stage2_acceptance_probe.inc; source/firmware/include/pp/core.h')
     findings=[
       {'requirement':'Input Device owns source conditioning/re-arm','result':'PASS' if all(x in core for x in ['class SimulatedDetector','sourceActive_','armed_','DetectionStableUs','ClearStableUs']) else 'FAIL'},
-      {'requirement':'Input Device is contained by Input Module','result':'PASS' if 'SimulatedDetector detector_;' in core and 'Role::Input' not in core[core.index('class SimulatedDetector'):core.index('class InputModule')] else 'FAIL'},
-      {'requirement':'Input Module publishes INPUT_EVENT','result':'PASS' if 'event.type=Type::InputEvent' in core and 'bus_.publish(endpoint,event)' in core else 'FAIL'},
+      {'requirement':'Input Device is contained by Input Module','result':'PASS' if 'SimulatedDetector detectors_[2]' in core and 'Role::Input' not in core[core.index('class SimulatedDetector'):core.index('class InputModule')] else 'FAIL'},
+      {'requirement':'Input Module publishes INPUT_EVENT','result':'PASS' if 'e.type=Type::InputEvent' in core and 'bus_.publish(endpoint,backlog_[head_])' in core else 'FAIL'},
       {'requirement':'No central translator or race interpretation','result':'PASS' if no_race else 'FAIL'}]
     save('structural-review.json',{'findings':findings})
     (OUT/'structural-review.md').write_text('# Stage 2 structural review\n\n'+'\n'.join(f"- **{f['result']}** — {f['requirement']}" for f in findings)+'\n',encoding='utf-8')

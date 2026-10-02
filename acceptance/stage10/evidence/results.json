@@ -1,0 +1,284 @@
+{
+  "tests": {
+    "10.1": {
+      "predetermined_stimulus": "Three passive cookie clients and pre-bootstrap START",
+      "expected_result": "No Master and permission rejection",
+      "actual_result": {
+        "serial": {
+          "test": "10.1",
+          "passive": "1",
+          "denied": "1",
+          "master": "1",
+          "state": "2"
+        },
+        "http": {
+          "prebootstrap_start_denied": true,
+          "passive_no_master": true,
+          "opaque_cookies_issued": true
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; http-results.json"
+    },
+    "10.2": {
+      "predetermined_stimulus": "Master cookie POST /bootstrap then repeats",
+      "expected_result": "Only first caller retains Master",
+      "actual_result": {
+        "serial": {
+          "test": "10.2",
+          "bootstrap": "1",
+          "repeat": "1"
+        },
+        "http": {
+          "one_time_bootstrap": true
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; http-results.json"
+    },
+    "10.3": {
+      "predetermined_stimulus": "Spectator sends authority claims in JSON/header/query",
+      "expected_result": "Resolved context stays Spectator",
+      "actual_result": {
+        "serial": {
+          "test": "10.3",
+          "claimed": "1",
+          "context": "Spectator"
+        },
+        "http": {
+          "claims_denied": true
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; http-results.json"
+    },
+    "10.4": {
+      "predetermined_stimulus": "Master POST /request/start",
+      "expected_result": "Race Control accepts after Session Definition commit",
+      "actual_result": {
+        "serial": {
+          "test": "10.4",
+          "submitted": "1",
+          "accepted": "1",
+          "definition": "1",
+          "go": "2000100"
+        },
+        "http": {
+          "master_start": true
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; http-results.json"
+    },
+    "10.5": {
+      "predetermined_stimulus": "Spectator START during active race",
+      "expected_result": "Private rejection with unchanged authoritative race",
+      "actual_result": {
+        "serial": {
+          "test": "10.5",
+          "submitted": "1",
+          "denied": "1",
+          "state": "2"
+        },
+        "http": {
+          "spectator_denied": true
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; http-results.json"
+    },
+    "10.6": {
+      "predetermined_stimulus": "Equal visible correlation IDs from two identities",
+      "expected_result": "Owner-private results",
+      "actual_result": {
+        "serial": {
+          "test": "10.6",
+          "private": "1",
+          "same_visible_correlation": "1003"
+        },
+        "http": {
+          "private_results": true
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; http-results.json"
+    },
+    "10.7": {
+      "predetermined_stimulus": "Join viewers at current two-lane state",
+      "expected_result": "Current State includes both entries",
+      "actual_result": {
+        "serial": {
+          "test": "10.7",
+          "two_lane_current": "1",
+          "entries": "2"
+        },
+        "http": {
+          "separate_clients": true
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; http-results.json"
+    },
+    "10.8": {
+      "predetermined_stimulus": "Join after Facts",
+      "expected_result": "Noticeboard current State sufficient",
+      "actual_result": {
+        "serial": {
+          "test": "10.8",
+          "current_without_replay": "1",
+          "facts_before_join": "2"
+        },
+        "http": {
+          "state_reconstruction": true
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; http-results.json"
+    },
+    "10.9": {
+      "predetermined_stimulus": "Stop Master activity during Input crossings",
+      "expected_result": "Race continues with no promotion",
+      "actual_result": {
+        "serial": {
+          "test": "10.9",
+          "master_absent_input_progress": "1"
+        },
+        "http": {}
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "10.10": {
+      "predetermined_stimulus": "Do not consume presentation while Input/Race Engine progresses",
+      "expected_result": "Input and State remain correct",
+      "actual_result": {
+        "serial": {
+          "test": "10.10",
+          "pressure_isolated": "1",
+          "max_backlog": "1"
+        },
+        "http": {}
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "10.11": {
+      "predetermined_stimulus": "Reuse Master cookie after reconnect",
+      "expected_result": "Master restored without bootstrap",
+      "actual_result": {
+        "serial": {
+          "test": "10.11",
+          "refresh_reopen": "1"
+        },
+        "http": {
+          "cookie_retained": true
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; http-results.json"
+    },
+    "10.12": {
+      "predetermined_stimulus": "Recreate Browser Interface with retained Master store",
+      "expected_result": "Viewer first remains Spectator",
+      "actual_result": {
+        "serial": {
+          "test": "10.12",
+          "restart_retains": "1",
+          "viewer_first": "Spectator"
+        },
+        "http": {
+          "retained_authority": true
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; http-results.json"
+    },
+    "10.13": {
+      "predetermined_stimulus": "Use fresh unmatched cookie after retained binding",
+      "expected_result": "No automatic assignment",
+      "actual_result": {
+        "serial": {
+          "test": "10.13",
+          "lost_identity_no_promotion": "1"
+        },
+        "http": {
+          "lost_identity_no_promotion": true
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; http-results.json"
+    },
+    "10.14": {
+      "predetermined_stimulus": "Reconnect retained identities",
+      "expected_result": "Current Noticeboard State reconstructed",
+      "actual_result": {
+        "serial": {
+          "test": "10.14",
+          "reconnect_current": "1"
+        },
+        "http": {
+          "state_reconstruction": true
+        }
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; http-results.json"
+    },
+    "10.15": {
+      "predetermined_stimulus": "Master START after lifecycle change",
+      "expected_result": "Race Control rejects invalid lifecycle",
+      "actual_result": {
+        "serial": {
+          "test": "10.15",
+          "race_control_validity": "1",
+          "submitted": "1",
+          "visible": "1",
+          "result": "1",
+          "rejection": "2"
+        },
+        "http": {}
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt"
+    },
+    "10.16": {
+      "predetermined_stimulus": "Static authority/boundary review",
+      "expected_result": "Browser interface boundary only",
+      "actual_result": {
+        "serial": {
+          "test": "10.16",
+          "result": "STRUCTURAL"
+        },
+        "http": {}
+      },
+      "result": "PASS",
+      "raw_evidence": "structural-review.json; structural-review.md"
+    },
+    "10.17": {
+      "predetermined_stimulus": "Run Stage 1\u20139 regression campaign",
+      "expected_result": "Only authorised narrow supersessions",
+      "actual_result": {
+        "serial": {
+          "test": "10.17",
+          "result": "REGRESSION"
+        },
+        "http": {}
+      },
+      "result": "PASS",
+      "raw_evidence": "regressions.json"
+    },
+    "10.T": {
+      "predetermined_stimulus": "Deliberate wrong expected result then restore",
+      "expected_result": "Evaluator detects failure then passes correct expectation",
+      "actual_result": {
+        "serial": {
+          "test": "10.T",
+          "wrong": "FAIL",
+          "restored": "PASS"
+        },
+        "http": {}
+      },
+      "result": "PASS",
+      "raw_evidence": "serial.txt; deliberate-failure.json"
+    }
+  }
+}

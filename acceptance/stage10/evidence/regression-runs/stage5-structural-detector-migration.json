@@ -1,0 +1,8 @@
+{
+  "historical_detector_assumption": [
+    "laps_",
+    "lastLapTime_"
+  ],
+  "why_obsolete": "Stage 9 replaced single-entry fields with Race Engine-owned per-entry state.",
+  "current_requirement_proof": "EntryState entries_ holds and RaceEngine increments each entry lap count and time."
+}

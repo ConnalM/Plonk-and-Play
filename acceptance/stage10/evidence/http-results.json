@@ -1,0 +1,40 @@
+{
+  "10.1": {
+    "prebootstrap_start_denied": true,
+    "passive_no_master": true,
+    "opaque_cookies_issued": true
+  },
+  "10.2": {
+    "one_time_bootstrap": true
+  },
+  "10.3": {
+    "claims_denied": true
+  },
+  "10.4": {
+    "master_start": true
+  },
+  "10.5": {
+    "spectator_denied": true
+  },
+  "10.6": {
+    "private_results": true
+  },
+  "10.7": {
+    "separate_clients": true
+  },
+  "10.8": {
+    "state_reconstruction": true
+  },
+  "10.11": {
+    "cookie_retained": true
+  },
+  "10.12": {
+    "retained_authority": true
+  },
+  "10.13": {
+    "lost_identity_no_promotion": true
+  },
+  "10.14": {
+    "state_reconstruction": true
+  }
+}

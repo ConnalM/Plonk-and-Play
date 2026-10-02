@@ -1,0 +1,13 @@
+{
+  "historical_detector_assumption": [
+    "bus_.publish(endpoint,event)",
+    "SimulatedDetector detector_"
+  ],
+  "why_obsolete": "Stage 9 added the protected Input Module backlog and two detector instances while preserving the frozen Input Module to Message Bus boundary.",
+  "current_requirement_proof": {
+    "input_module_bus_publish": true,
+    "no_private_consumer_dependency": true,
+    "detector_internal": true,
+    "input_event_authority": "Input publisher and RaceEngine/Diagnostics consumers are enforced by Bus roles."
+  }
+}
