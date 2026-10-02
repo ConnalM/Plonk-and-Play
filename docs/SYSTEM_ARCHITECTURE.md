@@ -648,7 +648,7 @@ Only the Master may issue Race Director Requests such as:
 
 Connecting another browser must never accidentally create another Race Director.
 
-Master authority belongs to a client/browser session, not to the human identity of the Race Director. The first suitable control client may become Race Director automatically.
+Master authority belongs to a client/browser session, not to the human identity of the Race Director. When no Master binding exists, a client becomes suitable for initial Race Director assignment only by performing the deliberate bootstrap action. Opening, polling, State retrieval, connection order and Race Director Requests never make a client suitable or assign Master authority.
 
 A second control client may view the control screen but remains non-Master. It may deliberately choose **Take Control**. If another Race Director is still active, takeover should require an explicit confirmation. Authority then transfers and the former client immediately loses its Master privilege.
 
