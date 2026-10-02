@@ -219,8 +219,8 @@ Every ten seconds an IDLE line shows advancing `system_us` and diagnostic drops.
 Send `?` for status, `t` to repeat the Message Bus self-test, `q` to silence
 diagnostics, or `v` to resume them. These are development controls, not P&P product
 Requests or authoritative State. No browser race screen or race behaviour is
-implemented. Wokwi's Restart button can rebuild the template; use Upload Firmware
-again to restart this local image.
+implemented. For the restartable local development workflow, see
+`../docs/WOKWI_DEVELOPMENT_WORKFLOW.md`.
 
 ## Stage 7 frozen acceptance — ACCEPTED
 

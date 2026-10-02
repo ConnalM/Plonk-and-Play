@@ -341,6 +341,12 @@ void loop(){
     else if(c=='1'){input.setSimulatedSource(true);diagnostics.log("[INPUT SOURCE] simulated detector ACTIVE");}
     else if(c=='2'){input.setSimulatedSourceB(true);diagnostics.log("[INPUT SOURCE] simulated detector B ACTIVE");}
     else if(c=='3'){input.setSimulatedSourceB(false);diagnostics.log("[INPUT SOURCE] simulated detector B INACTIVE");}
+#ifdef PP_WOKWI_DEV
+    // This resets the simulated chip only. It is unavailable in normal, demo,
+    // and acceptance builds, and avoids the web project's Restart action which
+    // replaces a temporary custom-firmware upload with its cloud project image.
+    else if(c=='r'){Serial.flush();ESP.restart();}
+#endif
 #ifdef PP_ACCEPTANCE
     else acceptanceCommand(c);
 #endif
