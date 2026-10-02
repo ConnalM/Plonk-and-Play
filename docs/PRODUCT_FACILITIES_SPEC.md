@@ -170,7 +170,84 @@ Advanced or uncommon choices may be placed under **Advanced** so the ordinary MU
 
 Hardware-dependent premium/expansion capabilities can remain visible but locked with a clear requirement explanation.
 
-## 9. Deferred decisions
+## 9. Demonstration and Attract facilities
+
+P&P should provide demonstration facilities as a product capability, distinct from normal race operation. These facilities are intended for showroom/exhibition presentation, user familiarisation, development testing and fault diagnosis.
+
+The facilities are deliberately separated into **Attract Mode**, **Automatic Demo Race** and **Manual Demo/Test**.
+
+### 9.1 Attract Mode
+
+Attract Mode is a presentation facility analogous to the demonstration displays used on retail hi-fi and similar equipment.
+
+It is not intended to be generally available as an ordinary race mode. A SMUG-controlled configuration option enables or disables it.
+
+When enabled, an idle P&P unit may automatically run a short repeating presentation sequence. The sequence may demonstrate the product using lightweight graphics and animation, for example:
+
+- the P&P logo/identity;
+- a simple track drawing itself;
+- small animated cars;
+- start lights;
+- lap-count and timing displays;
+- fastest-lap callouts;
+- a close finish and chequered flag;
+- results;
+- short visual demonstrations of supported race types and expansion capability.
+
+Attract Mode is presentation, not authoritative race simulation. Its race sequence may therefore be deliberately scripted and choreographed for clarity and visual interest.
+
+The display implementation should favour simple, lightweight graphical primitives, text, icons and small bitmap/sprite assets suitable for an ESP32-class controller. Presentation work must remain subordinate to authoritative race processing and must never compromise race timing or control.
+
+The exact display hardware, resolution, artwork, animation style, sequence length and wake/exit behaviour remain deferred design decisions.
+
+Attract Mode may ultimately be available on the local Taster display and/or connected Browser displays. That presentation scope is deliberately not fixed yet.
+
+### 9.2 Automatic Demo Race
+
+Automatic Demo Race is different from Attract Mode: it is a genuine P&P race driven by simulated detector activity.
+
+Virtual detector events must enter at the defined sensor/input boundary so that the normal downstream product path is exercised. Race Control, Race Engine, Message Bus, Noticeboard, displays, audio and results processing should operate as they would for physical detector events.
+
+The simulator may create plausible virtual competitors with slightly varying lap times. Demonstrations may be tuned to produce interesting, reasonably close racing, but the result should be determined by the real race logic rather than by a separately scripted fake result.
+
+Automatic Demo Race may be initiated through SMUG-controlled demonstration facilities. It is not an ordinary Taster race option that a MUG can accidentally select.
+
+### 9.3 Manual Demo/Test
+
+A manual demonstration/test facility may expose virtual versions of the installed detector inputs through SMUG.
+
+For example, a two-lane Lap Race installation may provide virtual controls equivalent to:
+
+- Lane 1 Start/Finish detector;
+- Lane 2 Start/Finish detector.
+
+Additional configured detectors may be represented where appropriate.
+
+Activating a virtual detector should inject the corresponding simulated event at the same defined simulation boundary used by Automatic Demo Race, exercising the real downstream system.
+
+This provides a useful diagnostic boundary. If a virtual detector produces the expected race behaviour while the corresponding physical detector does not, investigation can concentrate on the physical sensor/input side rather than the downstream race system.
+
+### 9.4 Demo-session integrity
+
+Simulated race sessions must be authoritatively identifiable as **DEMO**, not merely labelled by presentation code.
+
+Demo results must not contaminate genuine sporting records, including personal bests, track records, championship results or equivalent persistent competitive data.
+
+Displays should identify simulated operation clearly enough that a demo cannot reasonably be mistaken for a live race.
+
+The eventual persistence design may retain demo sessions for testing or support purposes, but they must remain distinguishable from genuine results.
+
+Physical and simulated detector events must not accidentally mingle within an authoritative race. Exact behaviour when real detector activity occurs during an Automatic Demo Race remains a later design decision; possible policies include cleanly terminating the demo or ignoring physical detector activity for that demo session.
+
+### 9.5 Architectural principle
+
+Demo capability must not create a second fake Race Engine.
+
+Where the purpose is to demonstrate or test real P&P behaviour, simulation occurs at the sensor/input boundary and everything downstream remains normal product behaviour.
+
+Attract Mode is the deliberate exception because it is presentation rather than race simulation.
+
+## 10. Deferred decisions
 
 The following remain deliberately open:
 
@@ -181,6 +258,11 @@ The following remain deliberately open:
 - exact dual-beam Drag hardware;
 - detailed RMS state machine;
 - detailed visual styling and animations;
-- detailed persistence schema.
+- detailed persistence schema;
+- exact Attract Mode display hardware, graphics, sequence and wake/exit behaviour;
+- whether Attract Mode presentation is local-display only or also available on Browser displays;
+- exact Automatic Demo Race virtual-car model and timing variation;
+- exact behaviour when physical detector activity occurs during an Automatic Demo Race;
+- detailed SMUG controls for demonstration/test facilities.
 
 These are not forgotten requirements; they are deferred implementation/product decisions.
