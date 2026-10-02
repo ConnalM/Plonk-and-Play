@@ -202,6 +202,22 @@ The exact display hardware, resolution, artwork, animation style, sequence lengt
 
 Attract Mode may ultimately be available on the local Taster display and/or connected Browser displays. That presentation scope is deliberately not fixed yet.
 
+#### V1 Attract presentation guidance
+
+The initial implementation should use the following approximately 35-second loop as a practical starting storyboard:
+
+- **0–3 s:** P&P / PLONK & PLAY identity;
+- **3–6 s:** a simple track draws onto the screen, followed by two lane lines and small car sprites;
+- **6–9 s:** start-light sequence followed by GO;
+- **9–18 s:** a short choreographed race with changing lap/timing information, cars changing relative position and a FASTEST LAP moment;
+- **18–22 s:** close finish, chequered flag and winner/gap presentation;
+- **22–30 s:** brief feature flashes illustrating **RACE → RALLY → DRAG** and **2 → 4 → 6 → 8 LANES**;
+- **30–35 s:** return to P&P / PLONK & PLAY identity, pause briefly, then repeat.
+
+This storyboard is **presentation guidance for V1, not a frozen behavioural contract**. Timing, transitions, wording, sprites, artwork, sound effects and individual beats may be tuned once the sequence is seen on real display hardware. Such presentation tuning does not require an architectural/product-specification change provided the purpose and boundaries of Attract Mode remain unchanged.
+
+A final P&P logo is not a dependency for V1. Until a satisfactory logo is designed, the presentation may use a clean **P&P / PLONK & PLAY** text identity.
+
 ### 9.2 Automatic Demo Race
 
 Automatic Demo Race is different from Attract Mode: it is a genuine P&P race driven by simulated detector activity.
