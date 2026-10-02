@@ -485,6 +485,7 @@ Examples:
 - The Input Module publishes clean standard physical Input Events identifying the stable input/capability and event time; the Race Engine interprets relevant events using the device roles frozen in the active Session Definition.
 - Race Control may publish an authoritative scheduled GO; the Race Engine and relevant presentation/output consumers may consume the same publication.
 - The Race Engine may publish competition completion; Race Control consumes that fact and applies the session-lifecycle consequence.
+- A local PAUSE delivery fence, where required, is likewise composed of defined common-bus messages. Race Control does not inspect an Input Module backlog, and the Input Module does not acquire lane, MUG, lifecycle, or competition-rule authority.
 
 Race Control and the Race Engine therefore do not require a privileged private communications path merely because both are contained within the System Controller. Their ownership boundaries remain distinct while their defined inter-component communication uses the same common bus as the rest of P&P.
 

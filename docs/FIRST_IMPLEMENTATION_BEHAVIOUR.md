@@ -241,6 +241,8 @@ The default restart method is **Honour restart**:
 - The interrupted lap is preserved. Time spent paused is excluded from that lap time.
 - RESUME uses a short restart countdown and one authoritative scheduled restart instant so all MUGs receive a predictable common restart rather than racing becoming live at the instant the RESUME Request is pressed.
 
+PAUSED is an operational State, not a claim that all pre-pause input has already been interpreted. A clean local detector event timestamped before the authoritative pause instant remains eligible even if its delivery is delayed. A restart therefore waits for a defined local input-settlement fence before it can be accepted.
+
 This is deliberately an honour-system behaviour for the base product. P&P does not claim to know a car's physical position between configured detection points.
 
 An alternative **Grid Restart** may be selected where a more controlled restart is wanted:

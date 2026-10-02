@@ -108,6 +108,8 @@ For example, if PAUSE is effective at P&P time 250.000:
 - an event timestamped 249.999 belongs before the pause even if it arrives afterwards;
 - an event timestamped 250.001 belongs after the pause.
 
+For a local Input Module pause, PAUSED lifecycle State does not by itself mean that pre-pause competition State is final. A clean input accepted locally before the authoritative pause boundary can still be delivered and interpreted afterwards. Before Race Control accepts a restart, the Race Engine confirms through the common Message Bus that it has interpreted every clean input accepted locally before that boundary. This is a local delivery fence, not a distributed-device watermark, clock-synchronisation, or remote-input settlement protocol.
+
 Detailed buffering and sequencing mechanisms remain implementation/subsystem decisions.
 
 If two relevant events have the same effective P&P timestamp, the responsibility interpreting those events defines the consequence of equality. P&P does not require a universal tie-breaking mechanism merely to force an artificial order.

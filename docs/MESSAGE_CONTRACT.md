@@ -155,6 +155,10 @@ A recovering or newly connected consumer can obtain what is true now from the No
 
 Different Message Types may require different delivery behaviour. The Message Contract for each type must state what is required rather than relying on one universal reliability rule.
 
+### 11.1 Local Pause settlement
+
+An accepted local PAUSE may establish a standard Message Bus delivery fence. Race Control publishes the pause operation to the Race Engine and Input Module; the Input Module publishes one settlement marker after all clean inputs it accepted locally before the pause boundary; and the Race Engine acknowledges settlement only after interpreting those preceding inputs. The fence uses normal component endpoints and delivery semantics: it does not create a private Input-to-Race-Engine route, give the Input Module race-rule meaning, or define a distributed-input watermark, clock protocol, or remote-device settlement mechanism.
+
 Current categories include:
 
 - **race-critical event** — must not silently disappear where loss would change authoritative competition behaviour;
