@@ -59,7 +59,12 @@ START is not a second Taster-specific race mechanism. Once requested, the select
 
 A short encoder press has no race-control effect.
 
-A deliberate long press requests the protected Abort interaction. The display asks the MUG to confirm **ABORT RACE?**, with **NO** as the safe/default choice. Rotating the encoder selects YES or NO and a short press confirms. If no confirmation is made within a short timeout, the confirmation is dismissed and the live race display resumes. Merely long-pressing must never itself abort the race.
+A deliberate long press during a race pauses/stops race progress and presents **RESTART RACE?**. This is the Taster's deliberately simple combined restart/pause-resume interaction.
+
+- **YES** — abandon the current race and return to the initial Taster READY screen, retaining the selected LAPS/TIMED mode and its value. The abandoned race is not treated as a completed result.
+- **NO** — do not abandon the race. Run the normal P&P start-light sequence and then resume the interrupted race from the preserved race state. Completed laps, lane positions/progress and other authoritative race state remain intact, and paused time is excluded according to the normal P&P pause/resume rules.
+
+Rotating the encoder selects YES or NO and a short press confirms. **NO** is the safe/default choice. Until YES is explicitly confirmed, the current race must remain recoverable for resume; the long press itself must not destroy the race state.
 
 ### FINISHED
 
