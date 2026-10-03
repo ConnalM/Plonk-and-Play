@@ -1,0 +1,7 @@
+{
+  "structural": "PASS",
+  "evaluator": "PASS",
+  "serial": "serial-latest.txt",
+  "http": "PASS",
+  "frozen": "a063056769588623fcd4a127cbe547d55edcb7b8"
+}

@@ -1,0 +1,6 @@
+name: Stage 11 Pause and Restart
+version: 1
+steps:
+  - wait-serial: 'ACC READY'
+  - write-serial: 's'
+  - wait-serial: 'ACC DONE'

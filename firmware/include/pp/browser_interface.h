@@ -70,6 +70,8 @@ public:
         ++factRevision_;
       } else if (message.type == Type::GoScheduled) {
         scheduledGo_ = message.relevantTime;
+      } else if (message.type == Type::Paused || message.type == Type::RestartScheduled || message.type == Type::Resumed) {
+        lastFact_ = message; hasFact_ = true; ++factRevision_;
       } else if (message.type == Type::RequestResult) {
         recordResult(message);
       }
@@ -97,6 +99,16 @@ public:
     pending.owner = owner;
     pending.ready = true;
     return true;
+  }
+
+  void clearForFixture(){masterFingerprint_=0;clearRaceForFixture();}
+  void clearRaceForFixture(){for(auto& p:pending_)p.ready=false;for(auto& r:results_)r.ready=false;hasFact_=false;lastFact_={};noticeRevision_=0;factRevision_=0;scheduledGo_=0;}
+  void setFixtureCallbacks(bool (*pass)(uint8_t), void (*reset)()){fixturePass_=pass;fixtureReset_=reset;}
+  bool submitOperation(uint32_t visibleCorrelation, SessionOperation operation, ClientContext context, uint64_t owner) {
+    if (!visibleCorrelation) return false;
+    Message request{}; request.type=Type::SessionOperationRequest; request.correlation=nextInternalCorrelation(); request.operation=operation; request.clientContext=context;
+    if (bus_.publish(endpoint_,request)!=Delivery::Delivered) return false;
+    Pending& pending=pending_[nextPending_++%ResultCapacity]; pending.internal=request.correlation; pending.visible=visibleCorrelation; pending.owner=owner; pending.ready=true; return true;
   }
 
   bool requestResult(uint32_t visibleCorrelation, ResultView& result) const {
@@ -188,6 +200,8 @@ private:
   size_t nextResult_ = 0;
   size_t nextPending_ = 0;
   int serverStartError_ = 0;
+  bool (*fixturePass_)(uint8_t) = nullptr;
+  void (*fixtureReset_)() = nullptr;
 
   static uint64_t fingerprint(uint64_t token) {
     token ^= token >> 33;
@@ -206,6 +220,8 @@ private:
       case SessionLifecycle::Ready: return "READY";
       case SessionLifecycle::Starting: return "STARTING";
       case SessionLifecycle::Racing: return "RACING";
+      case SessionLifecycle::Paused: return "PAUSED";
+      case SessionLifecycle::Restarting: return "RESTARTING";
       case SessionLifecycle::Finished: return "FINISHED";
       case SessionLifecycle::Faulted: return "FAULTED";
     }
@@ -219,6 +235,9 @@ private:
       case RequestRejection::InvalidRaceSetup: return "invalid race setup: lap target must be at least 1";
       case RequestRejection::RequiredCapabilityUnavailable: return "required Start/Finish capability unavailable";
       case RequestRejection::SessionDefinitionUnavailable: return "unable to establish Session Definition";
+      case RequestRejection::LifecycleNotPausable: return "PAUSE is not valid in the current lifecycle state";
+      case RequestRejection::LifecycleNotRestartable: return "restart is not valid in the current lifecycle state";
+      case RequestRejection::PauseSettlementPending: return "PAUSE settlement is still pending";
       default: return "";
     }
   }
@@ -279,10 +298,11 @@ private:
     const NoticeboardState value = instance()->current();
     char json[600];
     snprintf(json, sizeof(json),
-      "{\"lifecycle\":\"%s\",\"raceEntryId\":%lu,\"laps\":%lu,\"hasLap\":%s,\"lastLapTime\":%llu,\"scheduledGo\":%llu,\"resultValid\":%s,\"raceIntegrity\":\"%s\",\"entries\":[{\"raceEntryId\":%lu,\"laps\":%lu},{\"raceEntryId\":%lu,\"laps\":%lu}]}",
+      "{\"lifecycle\":\"%s\",\"raceEntryId\":%lu,\"laps\":%lu,\"hasLap\":%s,\"lastLapTime\":%llu,\"scheduledGo\":%llu,\"pauseEffectiveAt\":%llu,\"scheduledRestartAt\":%llu,\"restartMethod\":\"%s\",\"resultValid\":%s,\"raceIntegrity\":\"%s\",\"entries\":[{\"raceEntryId\":%lu,\"laps\":%lu},{\"raceEntryId\":%lu,\"laps\":%lu}]}",
       lifecycle(value.lifecycle), (unsigned long)value.raceEntryId, (unsigned long)value.laps,
       value.hasLap ? "true" : "false", (unsigned long long)value.lastLapTime,
-      (unsigned long long)value.scheduledGo, value.resultValid ? "true" : "false",
+      (unsigned long long)value.scheduledGo,(unsigned long long)value.pauseEffectiveAt,(unsigned long long)value.scheduledRestartAt,
+      value.restartMethod==RestartMethod::Honour?"HONOUR":value.restartMethod==RestartMethod::Grid?"GRID":"NONE", value.resultValid ? "true" : "false",
       value.raceIntegrityFaulted ? "FAULTED" : "OK",
       (unsigned long)value.entries[0].raceEntryId, (unsigned long)value.entries[0].laps,
       (unsigned long)value.entries[1].raceEntryId, (unsigned long)value.entries[1].laps);
@@ -308,12 +328,15 @@ private:
     if (!instance()->lastFact(fact)) {
       snprintf(json, sizeof(json), "{\"type\":\"NONE\",\"revision\":%lu}",
                (unsigned long)instance()->factRevision());
-    } else {
+    } else if (fact.type==Type::LapCompleted) {
       snprintf(json, sizeof(json),
         "{\"type\":\"LAP_COMPLETED\",\"revision\":%lu,\"raceEntryId\":%lu,\"lapNumber\":%lu,\"lapTime\":%llu,\"relevantTime\":%llu}",
         (unsigned long)instance()->factRevision(), (unsigned long)fact.raceEntryId,
         (unsigned long)fact.lapNumber, (unsigned long long)fact.lapTime,
         (unsigned long long)fact.relevantTime);
+    } else {
+      const char* name=fact.type==Type::Paused?"PAUSED":fact.type==Type::RestartScheduled?"RESTART_SCHEDULED":"RESUMED";
+      snprintf(json,sizeof(json),"{\"type\":\"%s\",\"revision\":%lu,\"relevantTime\":%llu}",name,(unsigned long)instance()->factRevision(),(unsigned long long)fact.relevantTime);
     }
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
@@ -384,6 +407,29 @@ private:
     return httpd_resp_sendstr(request, json);
   }
 
+  static esp_err_t operationRoute(httpd_req_t* request, SessionOperation operation) {
+    uint32_t correlation=0;if(!correlationFromBody(request,correlation)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"correlationId required");return ESP_FAIL;}
+    const uint64_t owner=client(request);
+    if(!instance()->submitOperation(correlation,operation,instance()->context(owner),owner)){httpd_resp_set_status(request,"503 Service Unavailable");return httpd_resp_sendstr(request,"request unavailable");}
+    char json[96];snprintf(json,sizeof(json),"{\"submitted\":true,\"correlationId\":%lu}",(unsigned long)correlation);httpd_resp_set_status(request,"202 Accepted");httpd_resp_set_type(request,"application/json");return httpd_resp_sendstr(request,json);
+  }
+  static esp_err_t pauseRoute(httpd_req_t* r){return operationRoute(r,SessionOperation::Pause);}
+  static esp_err_t honourRoute(httpd_req_t* r){return operationRoute(r,SessionOperation::HonourRestart);}
+  static esp_err_t gridRoute(httpd_req_t* r){return operationRoute(r,SessionOperation::GridRestart);}
+  static esp_err_t fixtureRoute(httpd_req_t* request){
+#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE)
+    char body[64]{}; int n=httpd_req_recv(request,body,sizeof(body)-1); if(n<=0){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"fixture action required");return ESP_FAIL;} body[n]=0;
+    if(instance()->context(client(request))!=ClientContext::RaceDirectorSmug){httpd_resp_send_err(request,HTTPD_403_FORBIDDEN,"Race Director required");return ESP_FAIL;}
+    if(strstr(body,"lane1")&&instance()->fixturePass_){if(!instance()->fixturePass_(1)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"Start the race before triggering a simulated car.");return ESP_FAIL;}}
+    else if(strstr(body,"lane2")&&instance()->fixturePass_){if(!instance()->fixturePass_(2)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"Start the race before triggering a simulated car.");return ESP_FAIL;}}
+    else if(strstr(body,"reset")&&instance()->fixtureReset_) instance()->fixtureReset_();
+    else {httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"unknown fixture action");return ESP_FAIL;}
+    httpd_resp_set_type(request,"application/json"); return httpd_resp_sendstr(request,"{\"accepted\":true}");
+#else
+    httpd_resp_send_err(request,HTTPD_404_NOT_FOUND,"fixture unavailable"); return ESP_FAIL;
+#endif
+  }
+
   static esp_err_t resultRoute(httpd_req_t* request) {
     const uint64_t owner = client(request);
     char query[64]{};
@@ -420,7 +466,7 @@ private:
 
   static esp_err_t page(httpd_req_t* request) {
     client(request);
-    static const char html[] = R"HTML(<!doctype html><meta charset="utf-8"><title>P&amp;P Stage 10</title><style>body{font:16px system-ui;max-width:44rem;margin:2rem auto;padding:0 1rem}pre{background:#eee;padding:1rem}button{font:inherit;padding:.5rem 1rem}</style><h1>P&amp;P diagnostic Browser</h1><p id="connection">connecting</p><p id="role"></p><button id="bootstrap">Make this Browser Race Director</button><button id="start">START</button><p id="request"></p><pre id="state"></pre><pre id="fact"></pre><script>let revision=null,hasState=false,nextCorrelation=1;const $=x=>document.querySelector(x);async function get(path){const r=await fetch(path,{cache:'no-store'});if(r.status===204)return null;if(!r.ok)throw Error(r.status);return r.json()}async function poll(){try{const notice=await get('/noticeboard');if(!hasState||notice.revision!==revision){$('#connection').textContent='unsynchronised';$('#state').textContent=JSON.stringify(await get('/state'),null,2);revision=notice.revision;hasState=true}$('#connection').textContent='synchronised';const context=await get('/context');$('#role').textContent=context.hasMaster?context.role:'No Race Director';$('#bootstrap').hidden=context.hasMaster;$('#start').disabled=context.role!=='Race Director'}catch(e){$('#connection').textContent='unsynchronised'}try{$('#fact').textContent=JSON.stringify(await get('/fact'),null,2)}catch(e){}}$('#bootstrap').onclick=async()=>{await fetch('/bootstrap',{method:'POST'});poll()};$('#start').onclick=async()=>{const correlation=nextCorrelation++;const response=await fetch('/request/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:correlation})});if(response.status!==202){$('#request').textContent='submission failed';return}const timer=setInterval(async()=>{const result=await get('/request-result?correlationId='+correlation);if(result){$('#request').textContent=JSON.stringify(result);clearInterval(timer)}},100)};poll();setInterval(poll,250)</script>)HTML";
+    static const char html[] = R"HTML(<!doctype html><meta charset="utf-8"><title>P&amp;P diagnostic Browser</title><style>body{font:16px system-ui;max-width:52rem;margin:2rem auto;padding:0 1rem}pre{background:#eee;padding:1rem;white-space:pre-wrap}.summary{background:#f5f5f5;padding:1rem;border-radius:.35rem;line-height:1.5}.status{font-size:1.3rem;font-weight:600;margin:.5rem 0}button{font:inherit;padding:.5rem;margin:.15rem}.muted{color:#555}</style><h1>P&amp;P diagnostic Browser</h1><p id="connection">connecting</p><p id="role"></p><div id="human" class="summary">Loading race status...</div><p id="request"></p><button id="bootstrap">Make this Browser Race Director</button><button id="start">START</button><button id="pause">PAUSE</button><button id="honour">HONOUR RESTART</button><button id="grid">GRID RESTART</button><h2>SIMULATED DETECTORS</h2><button id="lane1">LANE 1 PASS</button><button id="lane2">LANE 2 PASS</button><button id="resetTest">RESET TEST</button><h2>Engineering State</h2><pre id="state"></pre><h2>Latest Fact</h2><pre id="fact"></pre><script>let revision=null,hasState=false,nextCorrelation=1,polling=false,lastState=null;const $=x=>document.querySelector(x);async function get(path){const r=await fetch(path,{cache:'no-store'});if(r.status===204)return null;if(!r.ok)throw Error(r.status);return r.json()}function sec(us){return (Number(us||0)/1000000).toFixed(2)+' s'}function life(v){return ({READY:'Ready',STARTING:'Starting',RACING:'Racing',PAUSED:'Paused',RESTARTING:'Restarting',FINISHED:'Finished',FAULTED:'Faulted'})[v]||v}function meth(v){return v==='HONOUR'?'Honour Restart':v==='GRID'?'Grid Restart':'None'}function render(){const v=lastState;if(!v)return;let h='<div class="status">'+life(v.lifecycle)+'</div>';if(v.lifecycle==='PAUSED')h+='<div>Paused at the authoritative P&amp;P time.</div>';if(v.lifecycle==='RESTARTING')h+='<div>'+meth(v.restartMethod)+' - restart countdown active.</div>';if(v.lifecycle==='RACING')h+='<div>Race is running.</div>';if(v.lifecycle==='FINISHED')h+='<div>Race finished.</div>';h+='<div><b>Lane 1:</b> '+(v.entries[0]?.laps||0)+' laps; <b>Lane 2:</b> '+(v.entries[1]?.laps||0)+' laps.</div>';if(v.hasLap)h+='<div>Last completed lap: '+sec(v.lastLapTime)+'</div>';h+='<div class="muted">Race integrity: '+(v.raceIntegrity==='OK'?'OK':'FAULTED')+'; results: '+(v.resultValid?'valid':'invalid')+'</div>';if(v.scheduledRestartAt&&v.lifecycle==='RESTARTING')h+='<div id="countdown" class="status">Restart countdown</div>';$('#human').innerHTML=h;if(v.lifecycle==='RESTARTING'&&v.scheduledRestartAt){const deadline=performance.now()+3000;clearInterval(window.restartTimer);window.restartTimer=setInterval(()=>{const c=$('#countdown');if(!c||!lastState||lastState.lifecycle!=='RESTARTING'){clearInterval(window.restartTimer);return}const left=Math.max(0,(deadline-performance.now())/1000);c.textContent=left>0?'Restarting - '+left.toFixed(1)+' s remaining':'Restarting - GO'},100)}}async function poll(){if(polling)return;polling=true;try{const n=await get('/noticeboard');if(!hasState||n.revision!==revision){$('#connection').textContent='unsynchronised';lastState=await get('/state');$('#state').textContent=JSON.stringify(lastState,null,2);revision=n.revision;hasState=true;try{$('#fact').textContent=JSON.stringify(await get('/fact'),null,2)}catch(e){}render()}$('#connection').textContent='synchronised';const c=await get('/context');$('#role').textContent=c.hasMaster?c.role:'No Race Director';$('#bootstrap').hidden=c.hasMaster;['start','pause','honour','grid'].forEach(id=>$('#'+id).disabled=c.role!=='Race Director')}catch(e){$('#connection').textContent='unsynchronised'}finally{polling=false}}async function operation(path,name){const id=nextCorrelation++,started=performance.now();const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:id})});if(r.status!==202){$('#request').textContent='Request '+name+' was not accepted for submission.';return}const timer=setInterval(async()=>{const x=await get('/request-result?correlationId='+id);if(x){$('#request').textContent=(x.result==='ACCEPTED'?'Accepted: ':'Rejected: ')+(x.reason||'')+' ('+((performance.now()-started)/1000).toFixed(2)+' s; correlation '+id+')';clearInterval(timer)}},100)}$('#bootstrap').onclick=async()=>{await fetch('/bootstrap',{method:'POST'});poll()};$('#start').onclick=()=>operation('/request/start','START');$('#pause').onclick=()=>operation('/request/pause','PAUSE');$('#honour').onclick=()=>operation('/request/honour-restart','Honour Restart');$('#grid').onclick=()=>operation('/request/grid-restart','Grid Restart');async function fixture(action,name){const r=await fetch('/fixture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});$('#request').textContent=r.ok?(action==='lane1'?'Lane 1 car triggered':action==='lane2'?'Lane 2 car triggered':'TEST RESET complete'):(action==='lane1'||action==='lane2'?'Start the race before triggering a simulated car.':name+' unavailable')}$('#lane1').onclick=()=>fixture('lane1','Lane 1 passage');$('#lane2').onclick=()=>fixture('lane2','Lane 2 passage');$('#resetTest').onclick=()=>fixture('reset','TEST RESET');poll();setInterval(poll,250)</script>)HTML";
     httpd_resp_set_type(request, "text/html; charset=utf-8");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
     return httpd_resp_send(request, html, sizeof(html) - 1);
@@ -440,7 +486,7 @@ private:
     // LRU eviction keeps sleeping presentation clients from exhausting them.
     config.max_open_sockets = 13;
     config.lru_purge_enable = true;
-    config.max_uri_handlers = 9;
+    config.max_uri_handlers = 13;
     const esp_err_t started = httpd_start(&server_, &config);
     if (started != ESP_OK) {
       serverStartError_ = int(started);
@@ -456,6 +502,10 @@ private:
       {"/context", HTTP_GET, contextRoute, nullptr},
       {"/bootstrap", HTTP_POST, bootstrapRoute, nullptr},
       {"/request/start", HTTP_POST, startRoute, nullptr},
+      {"/request/pause", HTTP_POST, pauseRoute, nullptr},
+      {"/request/honour-restart", HTTP_POST, honourRoute, nullptr},
+      {"/request/grid-restart", HTTP_POST, gridRoute, nullptr},
+      {"/fixture", HTTP_POST, fixtureRoute, nullptr},
       {"/request-result", HTTP_GET, resultRoute, nullptr},
     };
     for (httpd_uri_t& route : routes) {

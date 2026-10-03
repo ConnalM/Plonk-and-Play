@@ -1,0 +1,65 @@
+{"cycles": 12, "kind": "stage11-scenario-stress", "seed": 11011}
+{"cycle": 0, "op": "PAUSE", "sequence": 0}
+{"cycle": 0, "op": "SETTLE", "sequence": 1}
+{"cycle": 0, "op": "HONOUR_RESTART", "sequence": 2}
+{"lane": 2, "op": "DETECTOR_PASS", "relevantTime": 9997561, "sequence": 3}
+{"entries": [0, 0], "expect": "RACING", "sequence": 4}
+{"cycle": 1, "op": "PAUSE", "sequence": 5}
+{"cycle": 1, "op": "SETTLE", "sequence": 6}
+{"cycle": 1, "op": "GRID_RESTART", "sequence": 7}
+{"lane": 1, "op": "DETECTOR_PASS", "relevantTime": 13000914, "sequence": 8}
+{"cycle": 1, "op": "RECONNECT", "sequence": 9}
+{"entries": [1, 0], "expect": "RACING", "sequence": 10}
+{"cycle": 2, "op": "PAUSE", "sequence": 11}
+{"cycle": 2, "op": "SETTLE", "sequence": 12}
+{"cycle": 2, "op": "HONOUR_RESTART", "sequence": 13}
+{"lane": 2, "op": "DETECTOR_PASS", "relevantTime": 16001684, "sequence": 14}
+{"entries": [1, 1], "expect": "RACING", "sequence": 15}
+{"cycle": 3, "op": "PAUSE", "sequence": 16}
+{"cycle": 3, "op": "SETTLE", "sequence": 17}
+{"cycle": 3, "op": "GRID_RESTART", "sequence": 18}
+{"lane": 2, "op": "DETECTOR_PASS", "relevantTime": 18998943, "sequence": 19}
+{"entries": [1, 2], "expect": "RACING", "sequence": 20}
+{"cycle": 4, "op": "PAUSE", "sequence": 21}
+{"cycle": 4, "op": "SETTLE", "sequence": 22}
+{"cycle": 4, "op": "HONOUR_RESTART", "sequence": 23}
+{"lane": 2, "op": "DETECTOR_PASS", "relevantTime": 21998437, "sequence": 24}
+{"cycle": 4, "op": "RECONNECT", "sequence": 25}
+{"entries": [1, 2], "expect": "RACING", "sequence": 26}
+{"cycle": 5, "op": "PAUSE", "sequence": 27}
+{"cycle": 5, "op": "SETTLE", "sequence": 28}
+{"cycle": 5, "op": "GRID_RESTART", "sequence": 29}
+{"lane": 1, "op": "DETECTOR_PASS", "relevantTime": 24998168, "sequence": 30}
+{"entries": [2, 2], "expect": "RACING", "sequence": 31}
+{"cycle": 6, "op": "PAUSE", "sequence": 32}
+{"cycle": 6, "op": "SETTLE", "sequence": 33}
+{"cycle": 6, "op": "HONOUR_RESTART", "sequence": 34}
+{"lane": 2, "op": "DETECTOR_PASS", "relevantTime": 27995291, "sequence": 35}
+{"entries": [2, 2], "expect": "RACING", "sequence": 36}
+{"cycle": 7, "op": "PAUSE", "sequence": 37}
+{"cycle": 7, "op": "SETTLE", "sequence": 38}
+{"cycle": 7, "op": "GRID_RESTART", "sequence": 39}
+{"lane": 1, "op": "DETECTOR_PASS", "relevantTime": 30998791, "sequence": 40}
+{"cycle": 7, "op": "RECONNECT", "sequence": 41}
+{"entries": [3, 2], "expect": "RACING", "sequence": 42}
+{"cycle": 8, "op": "PAUSE", "sequence": 43}
+{"cycle": 8, "op": "SETTLE", "sequence": 44}
+{"cycle": 8, "op": "HONOUR_RESTART", "sequence": 45}
+{"lane": 1, "op": "DETECTOR_PASS", "relevantTime": 34001230, "sequence": 46}
+{"entries": [3, 2], "expect": "RACING", "sequence": 47}
+{"cycle": 9, "op": "PAUSE", "sequence": 48}
+{"cycle": 9, "op": "SETTLE", "sequence": 49}
+{"cycle": 9, "op": "GRID_RESTART", "sequence": 50}
+{"lane": 2, "op": "DETECTOR_PASS", "relevantTime": 36997528, "sequence": 51}
+{"entries": [3, 3], "expect": "RACING", "sequence": 52}
+{"cycle": 10, "op": "PAUSE", "sequence": 53}
+{"cycle": 10, "op": "SETTLE", "sequence": 54}
+{"cycle": 10, "op": "HONOUR_RESTART", "sequence": 55}
+{"lane": 2, "op": "DETECTOR_PASS", "relevantTime": 40002391, "sequence": 56}
+{"cycle": 10, "op": "RECONNECT", "sequence": 57}
+{"entries": [3, 4], "expect": "RACING", "sequence": 58}
+{"cycle": 11, "op": "PAUSE", "sequence": 59}
+{"cycle": 11, "op": "SETTLE", "sequence": 60}
+{"cycle": 11, "op": "GRID_RESTART", "sequence": 61}
+{"lane": 1, "op": "DETECTOR_PASS", "relevantTime": 43001147, "sequence": 62}
+{"entries": [4, 4], "expect": "RACING", "sequence": 63}

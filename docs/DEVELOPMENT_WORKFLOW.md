@@ -102,3 +102,12 @@ Stage 1 is governed by the accepted repository specifications, especially `FIRST
 The Stage 1 implementation target is the ESP32 skeleton: boot, P&P System Time, Memory access, working configuration in RAM, P&P Message Bus and initial module boundaries, together with the controlled serial diagnostics and Message Bus self-test required by `FIRST_IMPLEMENTATION_BEHAVIOUR.md`.
 
 No race behaviour is required in Stage 1.
+
+## Browser checkpoint reset note
+
+Serial `r` remains the development soft-reset mechanism and preserves the manually uploaded firmware. An in-flight Browser request may show a temporary connection reset while the ESP32 reboots; once the server returns, fresh requests through the existing gateway route should recover. For the Stage 11 demo and acceptance images only, serial `x` performs the fixture TEST RESET and returns the volatile race to clean READY, clearing the retained test Master binding. This is test/demo setup and is not a production race restart or takeover control.
+
+
+## Stage 11 scenario/stress regression
+
+Generate the permanent deterministic scenario ledger with `python acceptance/stage11/stress_regression.py --seed 11011`. It covers alternating Honour/Grid cycles, unequal progress, awkward Relevant Times and reconnect points. The seed and ordered JSONL ledger are retained with the observed State, Fact and Request Result evidence whenever a real fixture run is attached. This facility supplements the numbered acceptance tests.

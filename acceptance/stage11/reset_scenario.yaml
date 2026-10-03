@@ -1,0 +1,6 @@
+name: Stage 11 Fixture Reset
+version: 1
+steps:
+  - wait-serial: 'ACC READY'
+  - write-serial: 'x'
+  - wait-serial: '[DEV] TEST RESET READY'

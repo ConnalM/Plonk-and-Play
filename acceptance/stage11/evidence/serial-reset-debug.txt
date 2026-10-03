@@ -1,0 +1,37 @@
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1156
+load:0x40078000,len:11456
+ho 0 tail 12 room 4
+load:0x40080400,len:2972
+entry 0x400805dc
+[DEV] P&P STAGE 11 ACCEPTANCE -- diagnostics are not product State
+[INIT] System Time READY: monotonic 64-bit microsecondsACC READY
+[INIT] Memory READY: NVS behind Memory boundary
+[INIT] Message Bus READY: bounded mailboxes; authority checked
+ACC S11 test=11.1 racing=1 paused=1 same_P=1
+ACC S11 test=11.2 early_rejected=1 reason=8
+ACC S11 test=11.5 settlement=1 restart=1
+ACC S11 test=11.7 honour=1 R=15000010
+ACC S11 test=11.11 entries=2
+ACC S11 test=11.10 r_minus_1=1 r_exact=1
+ACC S11 test=11.9 grid=1 origin_R=15000010
+ACC S11 regression=repeat_pause_restart pass=1
+ACC S11 test=11.12 facts_state=1
+ACC S11 test=11.4 delayed_pre_pause=1
+ACC S11 test=11.6 delayed_completion=1
+ACC S11 test=11.3 p_minus_1_counts_p_exact_ignored=1
+ACC S11 test=11.16 integrity_fault_paused=1
+ACC S11 test=11.17 controller_restart_volatile=1
+ACC S11 test=11.15 presentation_pressure=1
+ACC S11 test=11.18 result=STRUCTURAL
+ACC S11 test=11.19 result=REGRESSION
+ACC S11 test=11.20 result=TIMING_ORDER
+ACC S11 reset_debug rejection=0 setup=1
+ACC S11 regression=reset_types browser_keeps_master=1 full_clears_master=1 ready=1 fact_clean=1 start_after_reset=0
+ACC S11 test=11.T wrong=FAIL restored=PASS
+ACC DONE

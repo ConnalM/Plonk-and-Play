@@ -1,0 +1,3 @@
+Wokwi CLI v0.27.1 (ffde06bde1ae)
+Connected to Wokwi Simulation API 1.0.0-20261002-gd6cd65f4
+API Error: Connection to transport closed unexpectedly: code 1006

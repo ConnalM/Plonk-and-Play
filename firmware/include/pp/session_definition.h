@@ -34,5 +34,5 @@ public:
 private:
   SessionInputRole roles_[2]{}; RaceEntryDefinition entries_[2]{}; uint32_t sessionId_=0; uint8_t count_=1; uint32_t lapTarget_=0; LapFinishBehaviour finish_=LapFinishBehaviour::Immediate;
 };
-class ActiveSessionDefinition { public: bool commit(const ProposedRaceSetup& s,uint32_t session,uint32_t entry){if(value_||!valid(s))return false;value_=new(storage_) SessionDefinition(s,session,entry);++revision_;return true;} const SessionDefinition* current()const{return value_;}uint32_t revision()const{return revision_;}private:alignas(SessionDefinition)uint8_t storage_[sizeof(SessionDefinition)]{};const SessionDefinition* value_=nullptr;uint32_t revision_=0;};
+class ActiveSessionDefinition { public: void clearForFixture(){value_=nullptr;++revision_;} bool commit(const ProposedRaceSetup& s,uint32_t session,uint32_t entry){if(value_||!valid(s))return false;value_=new(storage_) SessionDefinition(s,session,entry);++revision_;return true;} const SessionDefinition* current()const{return value_;}uint32_t revision()const{return revision_;}private:alignas(SessionDefinition)uint8_t storage_[sizeof(SessionDefinition)]{};const SessionDefinition* value_=nullptr;uint32_t revision_=0;};
 } // namespace pp
