@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "C:\Users\conna\Documents\Plonk-and-Play\acceptance\stage8\structural_review.py", line 10, in <module>
+    browser=(ROOT/'firmware/include/pp/browser_interface.h').read_text(encoding='utf-8')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\conna\.platformio\python3\Lib\pathlib.py", line 1059, in read_text
+    return f.read()
+           ^^^^^^^^
+  File "<frozen codecs>", line 322, in decode
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x97 in position 27159: invalid start byte

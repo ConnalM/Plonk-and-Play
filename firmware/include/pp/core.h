@@ -8,12 +8,12 @@ using Time = uint64_t; // Monotonic microseconds in this controller boot's domai
 enum class Role : uint8_t { Lifecycle, Memory, Input, RaceControl, RaceEngine, Output, Presentation, Diagnostics };
 constexpr uint16_t mask(Role r) { return uint16_t(1u << unsigned(r)); }
 // Numeric values through DiagnosticProbe are the accepted Stage 7 compatibility baseline.
-enum class Type : uint8_t { LoadConfiguration=0, ConfigurationLoaded=1, InputEvent=2, GoScheduled=3, LapCompleted=4, CompetitionComplete=5, NoticeboardChanged=6, DiagnosticProbe=7, StartRequest=8, RequestResult=9, RaceIntegrityFault=10, SessionOperationRequest=11, SessionOperation=12, InputSettlement=13, PauseSettled=14, Paused=15, RestartScheduled=16, Resumed=17, Count=18 };
+enum class Type : uint8_t { LoadConfiguration=0, ConfigurationLoaded=1, InputEvent=2, GoScheduled=3, LapCompleted=4, CompetitionComplete=5, NoticeboardChanged=6, DiagnosticProbe=7, StartRequest=8, RequestResult=9, RaceIntegrityFault=10, SessionOperationRequest=11, SessionOperation=12, InputSettlement=13, PauseSettled=14, Paused=15, RestartScheduled=16, Resumed=17, FinishSettlement=18, FinishSettled=19, Count=20 };
 enum class ClientContext : uint8_t { Spectator, RaceDirectorSmug };
 enum class RequestResult : uint8_t { Accepted, Rejected };
-enum class RequestRejection : uint8_t { None, PermissionDenied, LifecycleNotStartable, InvalidRaceSetup, RequiredCapabilityUnavailable, SessionDefinitionUnavailable, LifecycleNotPausable, LifecycleNotRestartable, PauseSettlementPending };
+enum class RequestRejection : uint8_t { None, PermissionDenied, LifecycleNotStartable, InvalidRaceSetup, RequiredCapabilityUnavailable, SessionDefinitionUnavailable, LifecycleNotPausable, LifecycleNotRestartable, PauseSettlementPending, LifecycleNotRaceAgain };
 enum class RaceIntegrityReason : uint8_t { None, InputEventDeliveryOverrun };
-enum class SessionOperation : uint8_t { Pause, HonourRestart, GridRestart };
+enum class SessionOperation : uint8_t { Pause, HonourRestart, GridRestart, RaceAgain };
 enum class RestartMethod : uint8_t { None, Honour, Grid };
 struct InputIdentity {
   uint32_t device;
@@ -52,6 +52,7 @@ struct Message {
   RaceIntegrityReason integrityReason = RaceIntegrityReason::None;
   SessionOperation operation = SessionOperation::Pause;
   RestartMethod restartMethod = RestartMethod::None;
+  uint32_t finishBehaviour = 0;
 };
 enum class Delivery { Delivered, Forbidden, Invalid, NoSubscribers, Full };
 class Bus {
@@ -127,6 +128,8 @@ private:
       case Type::SessionOperation: return mask(Role::RaceControl);
       case Type::InputSettlement: return mask(Role::Input);
       case Type::PauseSettled: return mask(Role::RaceEngine);
+      case Type::FinishSettlement: return mask(Role::RaceEngine);
+      case Type::FinishSettled: return mask(Role::Input);
       case Type::Paused: case Type::RestartScheduled: case Type::Resumed: return mask(Role::RaceControl);
       case Type::GoScheduled: return mask(Role::RaceControl);
       case Type::LapCompleted: return mask(Role::RaceEngine);
@@ -147,6 +150,8 @@ private:
       case Type::SessionOperationRequest: return mask(Role::RaceControl)|mask(Role::Diagnostics);
       case Type::SessionOperation: return mask(Role::RaceEngine)|mask(Role::Input)|mask(Role::Diagnostics);
       case Type::InputSettlement: return mask(Role::RaceEngine)|mask(Role::Diagnostics);
+      case Type::FinishSettlement: return mask(Role::Input)|mask(Role::Diagnostics);
+      case Type::FinishSettled: return mask(Role::RaceEngine)|mask(Role::Diagnostics);
       case Type::PauseSettled: return mask(Role::RaceControl)|mask(Role::Diagnostics);
       case Type::Paused: case Type::RestartScheduled: case Type::Resumed: return mask(Role::Presentation)|mask(Role::Diagnostics);
       case Type::GoScheduled: return mask(Role::RaceEngine)|mask(Role::Presentation)|mask(Role::Diagnostics);
@@ -248,19 +253,19 @@ public:
   InputModule(Bus& bus,Bus::Endpoint endpoint):endpoint(endpoint),bus_(bus),detectors_{SimulatedDetector(simulatedDetectorIdentity()),SimulatedDetector(simulatedDetectorBIdentity())}{}
   Bus::Endpoint endpoint;
   void setSimulatedSource(bool active){sources_[0]=active;} void setSimulatedSourceB(bool active){sources_[1]=active;}
-  void tick(Time now){drainOperations();sampleSource(0,sources_[0],now);sampleSource(1,sources_[1],now);flush();settleIfReady();}
+  void tick(Time now){drainOperations();sampleSource(0,sources_[0],now);sampleSource(1,sources_[1],now);flush();settleIfReady();finishSettleIfReady();}
   void sampleSource(bool active,Time at){sampleSource(0,active,at);}
   void sampleSourceB(bool active,Time at){sampleSource(1,active,at);}
   void sampleSource(uint8_t which,bool active,Time at){Time trigger=0;if(!detectors_[which].sample(active,at,trigger))return;++cleanTriggers_;Message e{};e.type=Type::InputEvent;e.input=detectors_[which].identity();e.relevantTime=trigger;e.eventId=++nextEventId_;enqueue(e);flush();}
   void flush(){if(faulted_)return;while(size_){Delivery d=bus_.publish(endpoint,backlog_[head_]);lastDelivery_=d;if(d==Delivery::Delivered){head_=(head_+1)%ProtectedDepth;--size_;continue;}if(d==Delivery::Full)return;fault(Time{});return;}}
   void settleIfReady(){if(!settlementPending_||size_||settlementPublished_)return;Message s{};s.type=Type::InputSettlement;s.relevantTime=settlementAt_;Delivery d=bus_.publish(endpoint,s);lastDelivery_=d;if(d==Delivery::Delivered)settlementPublished_=true;else if(d!=Delivery::Full)fault(settlementAt_);}
   void sessionOperation(const Message&m){if(m.operation==SessionOperation::Pause){settlementPending_=true;settlementAt_=m.relevantTime;settlementPublished_=false;settleIfReady();}else if(m.operation==SessionOperation::HonourRestart||m.operation==SessionOperation::GridRestart){settlementPending_=false;settlementPublished_=false;settlementAt_=0;}}
-  void drainOperations(){Message m;while(bus_.receive(endpoint,m))if(m.type==Type::SessionOperation)sessionOperation(m);}
+  void drainOperations(){Message m;while(bus_.receive(endpoint,m)){if(m.type==Type::SessionOperation)sessionOperation(m);else if(m.type==Type::FinishSettlement){if(!finishSettlementPending_||m.relevantTime!=finishSettlementAt_)finishSettlementPublished_=false;finishSettlementPending_=true;finishSettlementAt_=m.relevantTime;}}} void finishSettleIfReady(){if(!finishSettlementPending_||size_||finishSettlementPublished_||faulted_)return;Message s{};s.type=Type::FinishSettled;s.relevantTime=finishSettlementAt_;if(bus_.publish(endpoint,s)==Delivery::Delivered){finishSettlementPublished_=true;finishSettlementPending_=false;}}
   uint32_t cleanTriggers()const{return cleanTriggers_;}Delivery lastDelivery()const{return lastDelivery_;}size_t protectedBacklogDepth()const{return size_;}size_t maximumProtectedBacklogDepth()const{return maxDepth_;}bool faulted()const{return faulted_;}
 private:
   void enqueue(const Message&e){if(faulted_)return;if(size_==ProtectedDepth){fault(e.relevantTime);return;}backlog_[(head_+size_)%ProtectedDepth]=e;++size_;if(size_>maxDepth_)maxDepth_=size_;}
   void fault(Time at){if(faulted_)return;faulted_=true;Message f{};f.type=Type::RaceIntegrityFault;f.relevantTime=at;f.integrityReason=RaceIntegrityReason::InputEventDeliveryOverrun;bus_.publish(endpoint,f);}
-  Bus& bus_;SimulatedDetector detectors_[2];bool sources_[2]{};Message backlog_[ProtectedDepth]{};size_t head_=0,size_=0,maxDepth_=0;uint32_t cleanTriggers_=0,nextEventId_=0;Delivery lastDelivery_=Delivery::NoSubscribers;bool faulted_=false;bool settlementPending_=false,settlementPublished_=false;Time settlementAt_=0;
+  Bus& bus_;SimulatedDetector detectors_[2];bool sources_[2]{};Message backlog_[ProtectedDepth]{};size_t head_=0,size_=0,maxDepth_=0;uint32_t cleanTriggers_=0,nextEventId_=0;Delivery lastDelivery_=Delivery::NoSubscribers;bool faulted_=false;bool settlementPending_=false,settlementPublished_=false;Time settlementAt_=0;bool finishSettlementPending_=false,finishSettlementPublished_=false;Time finishSettlementAt_=0;
 };
 struct OutputModule { Bus::Endpoint endpoint; };
 struct Presentation { Bus::Endpoint endpoint; };

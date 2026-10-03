@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "C:\Users\conna\Documents\Plonk-and-Play\acceptance\stage2\evaluate.py", line 111, in <module>
+    if sys.argv[1]=='prepare': prepare()
+       ~~~~~~~~^^^
+IndexError: list index out of range

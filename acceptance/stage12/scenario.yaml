@@ -1,0 +1,7 @@
+name: Stage 12 Results and Post-Race
+version: 1
+steps:
+  - wait-serial: 'ACC READY'
+  - write-serial: 's'
+  - wait-serial: 'ACC DONE'
+

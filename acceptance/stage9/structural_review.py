@@ -5,7 +5,7 @@ checks={
 'Input Module owns bounded protected backlog':'ProtectedDepth=8' in input_module and 'backlog_' in input_module,
 'Input Module publishes standard INPUT_EVENT':'e.type=Type::InputEvent' in input_module and 'bus_.publish' in input_module,
 'No direct Input Module to Race Engine call':'RaceEngineModule' not in input_module,
-'Race Engine owns per-entry state':'EntryState entries_[2]' in engine,
+'Race Engine owns per-entry state':'struct EntryState' in engine and 'EntryState entries_[MaxEntries]' in engine and '++s.laps' in engine and 's.lastLapTime=lap' in engine,
 'Relevant Time ordering is explicit':'pending_[j].relevantTime>x.relevantTime' in engine,
 'Fault remains a Bus message with authority':'RaceIntegrityFault' in core and 'case Type::RaceIntegrityFault: return mask(Role::Input)' in core,
 'Fault priority is bounded Bus queue policy':'m.type==Type::RaceIntegrityFault&&s.role==Role::RaceEngine' in core,

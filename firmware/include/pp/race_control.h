@@ -43,6 +43,7 @@ public:
   bool pauseSettled()const{return pauseSettled_;}
   Delivery lastFactDelivery()const{return lastFactDelivery_;}
   const SessionDefinition* definition()const{return definition_;}
+  const ProposedRaceSetup* proposedRaceSetup()const{return setup_;}
   bool startCommitted()const{return startCommitted_;} bool integrityFaulted()const{return integrityFaulted_;} RaceIntegrityReason integrityReason()const{return integrityReason_;}
 private:
   bool beginStart(Time now){
@@ -63,6 +64,12 @@ private:
   void publishFact(Type type,Time at){Message f{};f.type=type;f.relevantTime=at;f.restartMethod=restartMethod_;lastFactDelivery_=bus_.publish(endpoint_,f);}
   void handleOperation(const Message& request,Time now){
     if(request.clientContext!=ClientContext::RaceDirectorSmug){reject(request.correlation,RequestRejection::PermissionDenied);return;}
+    if(request.operation==SessionOperation::RaceAgain){
+      if(state_!=SessionLifecycle::Finished||!definition_){reject(request.correlation,RequestRejection::LifecycleNotRaceAgain);return;}
+      proposedCopy_={};proposedCopy_.startFinish=definition_->role(0);proposedCopy_.selectedMugId=definition_->entry(0).mugId;proposedCopy_.lapTarget=definition_->lapTarget();proposedCopy_.finish=definition_->finishBehaviour();proposedCopy_.activeLanes=definition_->entryCount();
+      if(definition_->entryCount()==2){proposedCopy_.secondStartFinish=definition_->role(1);proposedCopy_.secondMugId=definition_->entry(1).mugId;}
+      proposedCopy_.startsBeforeStartFinish=true;proposedCopy_.optionalFeaturesEnabled=false;setup_=&proposedCopy_;active_.permitReplacement();state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;changed();result(request.correlation,RequestResult::Accepted);return;
+    }
     if(request.operation==SessionOperation::Pause){
       if(state_!=SessionLifecycle::Racing){reject(request.correlation,RequestRejection::LifecycleNotPausable);return;}
       pauseAt_=now;pauseSettled_=false;settledAt_=0;publishOperation(SessionOperation::Pause,RestartMethod::None,pauseAt_);
@@ -81,7 +88,9 @@ private:
     if(state_!=SessionLifecycle::Ready||startCommitted_){reject(request.correlation,RequestRejection::LifecycleNotStartable);return;}
     if(!setup_||!valid(*setup_)){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
     if(!requiredCapabilityAvailable_){reject(request.correlation,RequestRejection::RequiredCapabilityUnavailable);return;}
-    if(!active_.commit(*setup_,nextSessionId_++,nextRaceEntryId_++)){reject(request.correlation,RequestRejection::SessionDefinitionUnavailable);return;}
+    const uint32_t sessionId=nextSessionId_,firstEntryId=nextRaceEntryId_;
+    if(!active_.commit(*setup_,sessionId,firstEntryId)){reject(request.correlation,RequestRejection::SessionDefinitionUnavailable);return;}
+    ++nextSessionId_;nextRaceEntryId_+=setup_->activeLanes;
     definition_=active_.current();
     startCommitted_=true;
     // The fixed data exists before this externally visible acceptance result.
@@ -92,6 +101,7 @@ private:
   Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
   SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=true,startCommitted_=false,integrityFaulted_=false,pauseSettled_=false;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
   uint32_t nextSessionId_=1,nextRaceEntryId_=1;
+  ProposedRaceSetup proposedCopy_{};
 };
 
 } // namespace pp

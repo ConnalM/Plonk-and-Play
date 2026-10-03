@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "C:\Users\conna\Documents\Plonk-and-Play\acceptance\stage4\evaluate.py", line 7, in <module>
+    build=R/'firmware/.pio/build/stage4acceptance/firmware.elf';save('build-manifest.json',{'stage4acceptance/firmware.elf':{'sha256':hashlib.sha256(build.read_bytes()).hexdigest(),'bytes':build.stat().st_size}})
+                                                                                                                                                     ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\conna\.platformio\python3\Lib\pathlib.py", line 1050, in read_bytes
+    with self.open(mode='rb') as f:
+         ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\conna\.platformio\python3\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\conna\\Documents\\Plonk-and-Play\\firmware\\.pio\\build\\stage4acceptance\\firmware.elf'

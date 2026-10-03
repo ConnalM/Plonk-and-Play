@@ -1,0 +1,13 @@
+{
+  "stage": 12,
+  "result": "ACCEPTED",
+  "automated": {
+    "tests": "12.1-12.22 and 12.T PASS",
+    "http": "PASS",
+    "structural": "PASS",
+    "stress": "PASS seed=12012 runs=200",
+    "regressions": "Stage 1-11 PASS with authorised supersessions only"
+  },
+  "human_checkpoint": "human-checkpoint-2026-10-03.md",
+  "human_result": "PASS"
+}

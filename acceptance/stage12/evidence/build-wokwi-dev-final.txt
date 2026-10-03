@@ -1,0 +1,94 @@
+Processing wokwi-dev (platform: espressif32@6.9.0; board: esp32dev; framework: arduino)
+--------------------------------------------------------------------------------
+Verbose mode can be enabled via `-v, --verbose` option
+CONFIGURATION: https://docs.platformio.org/page/boards/espressif32/esp32dev.html
+PLATFORM: Espressif 32 (6.9.0) > Espressif ESP32 Dev Module
+HARDWARE: ESP32 240MHz, 320KB RAM, 4MB Flash
+DEBUG: Current (cmsis-dap) External (cmsis-dap, esp-bridge, esp-prog, iot-bus-jtag, jlink, minimodule, olimex-arm-usb-ocd, olimex-arm-usb-ocd-h, olimex-arm-usb-tiny-h, olimex-jtag-tiny, tumpa)
+PACKAGES: 
+ - framework-arduinoespressif32 @ 3.20017.241212+sha.dcc1105b 
+ - tool-esptoolpy @ 1.40501.0 (4.5.1) 
+ - toolchain-xtensa-esp32 @ 8.4.0+2021r2-patch5
+LDF: Library Dependency Finder -> https://bit.ly/configure-pio-ldf
+LDF Modes: Finder ~ chain, Compatibility ~ soft
+Found 34 compatible libraries
+Scanning dependencies...
+Dependency Graph
+|-- Preferences @ 2.0.0
+|-- WiFi @ 2.0.0
+Building in release mode
+Compiling .pio\build\wokwi-dev\src\main.cpp.o
+In file included from src/main.cpp:10:
+include/pp/browser_interface.h: In member function 'void pp::BrowserInterface::startServer()':
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+     };
+     ^
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:489:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+Linking .pio\build\wokwi-dev\firmware.elf
+Retrieving maximum program size .pio\build\wokwi-dev\firmware.elf
+Checking size .pio\build\wokwi-dev\firmware.elf
+Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
+RAM:   [==        ]  24.1% (used 78904 bytes from 327680 bytes)
+Flash: [======    ]  62.6% (used 821089 bytes from 1310720 bytes)
+Building .pio\build\wokwi-dev\firmware.bin
+esptool.py v4.5.1
+Creating esp32 image...
+Merged 27 ELF sections
+Successfully created esp32 image.
+========================= [SUCCESS] Took 7.49 seconds =========================
+
+Environment    Status    Duration
+-------------  --------  ------------
+wokwi-dev      SUCCESS   00:00:07.490
+========================= 1 succeeded in 00:00:07.490 =========================
+esptool.py v4.5.1
+Wrote 0xda110 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\wokwi-dev\firmware.merged.bin, ready to flash to offset 0x0
+Browser-loadable firmware: C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\wokwi-dev\firmware.merged.bin
+Wokwi development image is ready for Wokwi CLI or VS Code.
+For the web custom-firmware project, upload this image once after creating a simulation; use serial r for later development resets.

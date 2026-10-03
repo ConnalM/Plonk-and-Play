@@ -3,7 +3,7 @@
 #include <new>
 namespace pp {
 enum class InputRole : uint8_t { StartFinish };
-enum class LapFinishBehaviour : uint8_t { Immediate };
+enum class LapFinishBehaviour : uint8_t { Immediate, CompleteCurrentLap, CompleteFullRaceDistance };
 struct SessionInputRole { InputIdentity input; uint8_t lane; InputRole role; };
 struct RaceEntryDefinition { uint32_t raceEntryId,mugId; uint8_t lane; constexpr RaceEntryDefinition(uint32_t id=0,uint32_t mug=0,uint8_t laneValue=0):raceEntryId(id),mugId(mug),lane(laneValue){} };
 struct ProposedRaceSetup {
@@ -29,10 +29,10 @@ public:
   }
   bool resolve(InputIdentity input,SessionInputRole& role,RaceEntryDefinition& entry) const { for(uint8_t i=0;i<count_;++i)if(roles_[i].input==input){role=roles_[i];entry=entries_[i];return true;}return false; }
   bool resolve(InputIdentity input,SessionInputRole& role) const { RaceEntryDefinition ignored;return resolve(input,role,ignored); }
-  uint8_t entryCount()const{return count_;} const RaceEntryDefinition& entry(uint8_t i)const{return entries_[i];}
+  uint8_t entryCount()const{return count_;} const RaceEntryDefinition& entry(uint8_t i)const{return entries_[i];} const SessionInputRole& role(uint8_t i)const{return roles_[i];}
   uint32_t sessionId()const{return sessionId_;} uint32_t raceEntryId()const{return entries_[0].raceEntryId;} uint32_t mugId()const{return entries_[0].mugId;} uint32_t lapTarget()const{return lapTarget_;} LapFinishBehaviour finishBehaviour()const{return finish_;}
 private:
   SessionInputRole roles_[2]{}; RaceEntryDefinition entries_[2]{}; uint32_t sessionId_=0; uint8_t count_=1; uint32_t lapTarget_=0; LapFinishBehaviour finish_=LapFinishBehaviour::Immediate;
 };
-class ActiveSessionDefinition { public: void clearForFixture(){value_=nullptr;++revision_;} bool commit(const ProposedRaceSetup& s,uint32_t session,uint32_t entry){if(value_||!valid(s))return false;value_=new(storage_) SessionDefinition(s,session,entry);++revision_;return true;} const SessionDefinition* current()const{return value_;}uint32_t revision()const{return revision_;}private:alignas(SessionDefinition)uint8_t storage_[sizeof(SessionDefinition)]{};const SessionDefinition* value_=nullptr;uint32_t revision_=0;};
+class ActiveSessionDefinition { public: void clearForFixture(){value_=nullptr;replacementPermitted_=false;++revision_;} void permitReplacement(){replacementPermitted_=value_!=nullptr;} bool commit(const ProposedRaceSetup& s,uint32_t session,uint32_t entry){if((value_&&!replacementPermitted_)||!valid(s))return false;value_=new(storage_) SessionDefinition(s,session,entry);replacementPermitted_=false;++revision_;return true;} const SessionDefinition* current()const{return value_;}uint32_t revision()const{return revision_;}private:alignas(SessionDefinition)uint8_t storage_[sizeof(SessionDefinition)]{};const SessionDefinition* value_=nullptr;uint32_t revision_=0;bool replacementPermitted_=false;};
 } // namespace pp

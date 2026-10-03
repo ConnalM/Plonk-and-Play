@@ -1,0 +1,8 @@
+{
+  "new_types_appended": true,
+  "settlement_bus_path": true,
+  "no_browser_bus_participant": true,
+  "relevant_time_boundaries": true,
+  "fixed_restart_interval": true,
+  "browser_controls": true
+}
