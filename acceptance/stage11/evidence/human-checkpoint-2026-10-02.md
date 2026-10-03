@@ -44,3 +44,5 @@ Final evidence:
 - Previously recorded spectator reconstruction, Honour timing, Grid Restart, countdown, detector, reset, and reconnect observations remain retained as PASS.
 
 Result: PASS / ACCEPTED.
+
+Additional manual PASS: while RACING, LANE 1 PASS displayed “Lane 1 car triggered.”, replacing the engineering-style passage-accepted wording.
