@@ -324,3 +324,8 @@ This document deliberately does not yet specify:
 Those are defined only when required by implementation, while preserving the semantics above.
 
 **Design broadly. Implement narrowly.**
+
+
+## Stage 12 result messages (frozen design; implementation not yet authorised)
+
+Stage 12 proposes appending, without renumbering existing types: `FINISH_SETTLEMENT=18` (Race Engine requests an Input Module FIFO fence through the normal Message Bus) and `FINISH_SETTLED=19` (Input Module acknowledges delivery of locally accepted input covered by the fence). Race Engine remains the sole publisher of authoritative competition result data; no separate Browser result message is proposed. The proposed payloads carry candidate/settled Relevant Time F, finish behaviour and result identity; Race Engine remains the sole publisher of authoritative competition result data. Exact names, numeric values, payload fields, reliability and settlement ownership are constrained by the frozen Stage 12 design and acceptance plan; implementation remains unauthorised until separately approved.
