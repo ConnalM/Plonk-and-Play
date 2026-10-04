@@ -33,7 +33,7 @@
       "result": "PASS"
     },
     {
-      "requirement": "Session Definition holds two lane roles and entries",
+      "requirement": "Session Definition holds indexed roles and entries",
       "result": "PASS"
     }
   ]

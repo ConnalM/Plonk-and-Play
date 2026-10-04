@@ -1,10 +1,10 @@
 {
   "identity": {
-    "source_base_commit": "20469948784a64662ef96cb20637cfd6a59cc27b",
-    "project": "ConnalM/Plonk-and-Play",
-    "source_manifest_sha256": "158E352DF5D97694C4BDD567CCD5BDD1D80198EFE589693A83C890207F5A9129",
-    "stage8_elf_sha256": "A76957332D3631329B0B7797889706340B2D9F6ED2FF80A2AA15F0796BBE1698",
-    "frozen_acceptance_commit": "20469948784a64662ef96cb20637cfd6a59cc27b"
+    "stage8_elf_sha256": "898D270388D3B755B538CE0D68D7A37EF1F0B1F45EAB8A0439CF1F3E94A445F7",
+    "source_base_commit": "9e3bec69ffc2d9200c5e6dd59fc32b3e094899ea",
+    "source_manifest_sha256": "9551EAD42A29F58E6F62131A687DFACAF8B2ED8388596B4B431D9B689B5EE06C",
+    "frozen_acceptance_commit": "20469948784a64662ef96cb20637cfd6a59cc27b",
+    "project": "ConnalM/Plonk-and-Play"
   },
   "tests": {
     "8.1": {

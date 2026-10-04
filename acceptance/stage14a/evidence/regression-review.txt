@@ -1,0 +1,1 @@
+Stage 14A regression contract PASS: Stage 1�13 coverage declared

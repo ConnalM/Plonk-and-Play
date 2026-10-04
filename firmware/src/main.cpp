@@ -95,14 +95,14 @@ pp::Configuration workingConfiguration;
 pp::ProposedRaceSetup proposedRaceSetup{ {pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish}, 1, 10, pp::LapFinishBehaviour::Immediate, 1, true, false };
 bool ready=false,testsPassed=true,bootFailed=false;
 pp::Time nextStatus=0;
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
+#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
 // Human/demo fixture: a trigger is a momentary passage; production input semantics are unchanged.
 pp::Time simulatedARelease=0,simulatedBRelease=0;
 #endif
-#if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO)
+#if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE14A_DEMO)
 bool stage10ServerReported=false;
 #endif
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
+#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
 bool browserFixturePass(uint8_t lane){ if(raceControl.state()!=pp::SessionLifecycle::Racing)return false; if(lane==1){input.setSimulatedSource(true);simulatedARelease=systemTime()+150000;} else {input.setSimulatedSourceB(true);simulatedBRelease=systemTime()+150000;} return true; }
 void browserFixtureReset(){ activeSession.clearForFixture(); raceControl.resetRaceForFixture(); raceControl.setProposedRaceSetup(proposedRaceSetup); raceEngine.resetForFixture(); browser.clearRaceForFixture(); diagnostics.log("[DEV] TEST RESET READY (Race Director retained)"); }
 bool browserFixtureSetup(uint32_t laps){if(raceControl.state()!=pp::SessionLifecycle::Ready||!raceControl.proposedRaceSetup())return false;proposedRaceSetup=*raceControl.proposedRaceSetup();proposedRaceSetup.lapTarget=laps;raceControl.setProposedRaceSetup(proposedRaceSetup);return true;}
@@ -118,8 +118,12 @@ const char* buildIdentity(){
   return "P&P STAGE 12 ACCEPTANCE";
 #elif defined(PP_STAGE13_ACCEPTANCE)
   return "P&P STAGE 13 ACCEPTANCE";
+#elif defined(PP_STAGE14A_ACCEPTANCE)
+  return "P&P STAGE 14A ACCEPTANCE";
 #elif defined(PP_STAGE12_DEMO)
   return "P&P STAGE 12 DEMO";
+#elif defined(PP_STAGE14A_DEMO)
+   return "P&P STAGE 14A DEMO";
 #elif defined(PP_STAGE13_DEMO)
   return "P&P STAGE 13 DEMO";
 #elif defined(PP_STAGE11_ACCEPTANCE)
@@ -218,6 +222,9 @@ void status(){diagnostics.log("[DEV] %s %s system_us=%llu dropped=%lu; no sessio
 #ifdef PP_STAGE13_ACCEPTANCE
 #include "../tests/stage13_acceptance_probe.inc"
 #endif
+#ifdef PP_STAGE14A_ACCEPTANCE
+#include "../tests/stage14a_acceptance_probe.inc"
+#endif
 }
 void setup(){
   Serial.begin(115200);
@@ -266,11 +273,14 @@ void setup(){
 #ifdef PP_STAGE13_ACCEPTANCE
   stage13AcceptanceBeforeBoot();
 #endif
+#ifdef PP_STAGE14A_ACCEPTANCE
+  stage14aAcceptanceBeforeBoot();
+#endif
   diagnostics.log("[DEV] %s -- diagnostics are not product State",buildIdentity());
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
   storage.begin();browserAuthority.begin();
-#if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
+#if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
   browserAuthority.clearForFixture();
 #endif
   diagnostics.log("[INIT] Memory %s: NVS behind Memory boundary",storage.available()?"READY":"DEGRADED");
@@ -303,7 +313,7 @@ void setup(){
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::FalseStart);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::HistoryStored);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::StorageFault);
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
+#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
   browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset,browserFixtureSetup);
 #endif
   browser.begin();
@@ -339,7 +349,7 @@ void setup(){
 }
 void loop(){
   memoryModule.tick();
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
+#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
   const pp::Time fixtureNow=systemTime();
   if(simulatedARelease&&fixtureNow>=simulatedARelease){input.setSimulatedSource(false);simulatedARelease=0;}
   if(simulatedBRelease&&fixtureNow>=simulatedBRelease){input.setSimulatedSourceB(false);simulatedBRelease=0;}
@@ -360,7 +370,7 @@ void loop(){
     diagnostics.log("[DEV] Stage11 Browser server=%s error=%d",browser.serverReady()?"READY":"FAILED",browser.serverStartError());
   }
 #endif
-#if defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO)
+#if defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE14A_DEMO)
   if(!stage10ServerReported&&(browser.serverReady()||browser.serverStartError())){
     stage10ServerReported=true;
     diagnostics.log("[DEV] %s Browser server=%s error=%d",buildIdentity(),browser.serverReady()?"READY":"FAILED",browser.serverStartError());
@@ -373,7 +383,7 @@ void loop(){
       bootFailed=true;diagnostics.log("STAGE1_FAIL configuration response");
     }else{
       workingConfiguration=message.configuration;
-#if defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO)
+#if defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE14A_DEMO)
       proposedRaceSetup.startFinish={pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish};
       proposedRaceSetup.secondStartFinish={pp::InputModule::simulatedDetectorBIdentity(),2,pp::InputRole::StartFinish};
       proposedRaceSetup.selectedMugId=91;proposedRaceSetup.secondMugId=92;proposedRaceSetup.activeLanes=2;
@@ -420,7 +430,7 @@ void loop(){
     if(c=='q')diagnostics.enable(false);
     else if(c=='v'){diagnostics.enable(true);status();}
     else if(c=='?')status();
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
+#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
     else if(c=='x'){activeSession.clearForFixture();raceControl.resetForFixture();raceEngine.resetForFixture();browser.clearForFixture();browserAuthority.clearForFixture();diagnostics.log("[DEV] TEST RESET READY");}
 #endif
     else if(c=='t'){const bool ok=pp::busSelfTest(bus,testPublisher,testObserver,input.endpoint,report);diagnostics.log("[BUS SELF-TEST] %s",ok?"PASS":"FAIL");}
@@ -495,6 +505,9 @@ void loop(){
 #ifdef PP_STAGE13_ACCEPTANCE
     else stage13AcceptanceCommand(c);
 #endif
+#ifdef PP_STAGE14A_ACCEPTANCE
+    else stage14aAcceptanceCommand(c);
+#endif
   }
   if(ready&&systemTime()>=nextStatus){status();nextStatus=systemTime()+10000000;}
   diagnostics.flush();
@@ -546,6 +559,9 @@ void loop(){
 #endif
 #ifdef PP_STAGE13_ACCEPTANCE
   stage13AcceptanceTick();
+#endif
+#ifdef PP_STAGE14A_ACCEPTANCE
+  stage14aAcceptanceTick();
 #endif
 #ifdef PP_VERIFY
   if(verificationReboot&&systemTime()>=rebootAt)ESP.restart();

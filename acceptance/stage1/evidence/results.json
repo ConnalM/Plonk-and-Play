@@ -1,25 +1,25 @@
 {
   "project": "Plonk & Play",
   "repository": "ConnalM/Plonk-and-Play",
-  "source_base_commit": "ac6c73bce1fbfad374eee7409b974663647ce65a",
+  "source_base_commit": "9e3bec69ffc2d9200c5e6dd59fc32b3e094899ea",
   "acceptance_spec_commit": "ac6c73bce1fbfad374eee7409b974663647ce65a",
   "source_is_uncommitted_overlay": true,
   "builds": {
     "esp32dev/firmware.elf": {
-      "sha256": "20c45022e9c51ddb296ba5116da1d6c89dcf9a8b83b7ef2ef3106322edad06f6",
-      "bytes": 6127036
+      "sha256": "4795f2c4b453f491974c43dc8ca655e651fec1712d968401382a01fd001a82a3",
+      "bytes": 11431776
     },
     "esp32dev/firmware.merged.bin": {
-      "sha256": "c3008038789457b440ec5741dca0518d4afdee4d6f6bcb19751132c45dc0c67b",
-      "bytes": 362528
+      "sha256": "c063d84d1ecd0dd2fcfc8daea404d7bdb4f24ff725295667433c0c4fb17ec922",
+      "bytes": 903008
     },
     "acceptance/firmware.elf": {
-      "sha256": "dda4f3b5b3553d1cd42ba91111b13da0958f9c0930111e83fe0ea8e99bffd3f6",
-      "bytes": 6272812
+      "sha256": "a545b50e28c582031e988e39e4d259531ef08b12f792b83133488637da11e7fd",
+      "bytes": 11570400
     },
     "acceptance/firmware.merged.bin": {
-      "sha256": "b3ea01ced60d1c27a5f462e9dc726edfeae186f2b0ac749d1f31937bb84699ca",
-      "bytes": 376560
+      "sha256": "26016c0cbc9ed7a337fc382902e6cc025895ca28481ac94cfa37abbbf45f8f0b",
+      "bytes": 917392
     }
   },
   "tests": {
@@ -34,7 +34,7 @@
           "ready": "1",
           "fault": "0",
           "diag": "1",
-          "time": "836234",
+          "time": "1297513",
           "reads": "2"
         },
         "no_race_message": true
@@ -49,13 +49,13 @@
       "result": "PASS",
       "actual": {
         "system_us": [
-          836234,
-          1846234,
-          2851234
+          1297513,
+          2307518,
+          3312513
         ],
         "delta_us": [
-          1010000,
-          1005000
+          1010005,
+          1004995
         ]
       },
       "raw_evidence": "acceptance-serial.txt; source/firmware/src/system_time.cpp; source/firmware/src/acceptance_clock.cpp",
@@ -172,7 +172,7 @@
     },
     "1.7": {
       "frozen_criterion": "Message Bus \u2014 permitted delivery\n\n**Stimulus:** Have an authorised test publisher send a known test message to an authorised subscriber through the P&P Message Bus.\n\n**Expected:** The authorised subscriber receives exactly the permitted message through the real P&P Message Bus. No private point-to-point inter-component path is used.",
-      "predetermined_recipe": "Diagnostics publishes token=271828, relevantTime=1234567890123, eventId=73 on actual running bus. Both authorised subscribers receive type=2/source=publisher and exactly one identical payload.",
+      "predetermined_recipe": "Diagnostics publishes token=271828, relevantTime=1234567890123, eventId=73 on actual running bus. Both authorised subscribers receive the Diagnostics-only probe type/source and exactly one identical payload.",
       "result": "PASS",
       "actual": {
         "delivery": {
@@ -188,7 +188,7 @@
         "received": [
           {
             "who": "A",
-            "type": "2",
+            "type": "7",
             "source": "8",
             "token": "271828",
             "time": "1234567890123",
@@ -196,7 +196,7 @@
           },
           {
             "who": "B",
-            "type": "2",
+            "type": "7",
             "source": "8",
             "token": "271828",
             "time": "1234567890123",
@@ -204,7 +204,7 @@
           }
         ],
         "expected_payload": {
-          "type": "2",
+          "type": "7",
           "source": "8",
           "token": "271828",
           "time": "1234567890123",
@@ -290,7 +290,7 @@
           "ready": "1",
           "fault": "0",
           "diag": "0",
-          "time": "8400549",
+          "time": "9836419",
           "reads": "2"
         },
         "bus": {
@@ -304,7 +304,7 @@
           "publisher": "8"
         },
         "product_diagnostics_after_reset": false,
-        "same_ELF_for_all_phases": "dda4f3b5b3553d1cd42ba91111b13da0958f9c0930111e83fe0ea8e99bffd3f6"
+        "same_ELF_for_all_phases": "a545b50e28c582031e988e39e4d259531ef08b12f792b83133488637da11e7fd"
       },
       "raw_evidence": "acceptance-serial.txt",
       "source_manifest": "source-manifest.json",

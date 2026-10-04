@@ -16,7 +16,7 @@ RECIPES={
 '3.10':'Drive one valid source detection and inspect delivered envelope/payload.',
 '3.11':'With A/B subscribed, unsubscribe B and drive another valid source detection.',
 '3.T':'Compare captured 3.1 receipt with known-wrong expected count 2, then restore count 1.'}
-def git(*a):return subprocess.check_output(['git','-c',f'safe.directory={ROOT.as_posix()}',*a],cwd=ROOT).decode()
+def git(*a):return subprocess.check_output(['git','-c',f'safe.directory={ROOT.as_posix()}',*a],cwd=ROOT).decode('cp1252')
 def dig(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def save(n,x):(OUT/n).write_text(json.dumps(x,indent=2)+'\n')
 def rows(raw,prefix):return [dict(re.findall(r'(\w+)=([^\s]+)',x)) for x in re.findall(re.escape(prefix)+r'([^\r\n]*)',raw)]
@@ -49,8 +49,13 @@ def evaluate():
  core=(ROOT/'firmware/include/pp/core.h').read_text();probe=(ROOT/'firmware/tests/stage3_acceptance_probe.inc').read_text();no_private='bus_.publish(endpoint,event)' in core and 'bus.receive(stage3A,event)' in probe and 'InputModule' not in probe[probe.index('stage3Drain'):probe.index('stage3ValidSourceDetection')]
  ck('3.6',results['3.6']['result']=='PASS' and subs=={'added':'1','removed':'1'}, {'delivery':delivery['3.6'],'subscriptions':subs},'acceptance-serial.txt; source/firmware/include/pp/core.h')
  for k in ['3.7','3.8']:ck(k,auth[k]['result']=='1' and auth[k]['a']=='0' and auth[k]['b']=='0',auth[k])
- forbidden=['lane','start','finish','sector','drag','speed','mug','active','inactive'];message=re.search(r'struct Message \{(.*?)\n\};',core,re.S).group(1);no_race=not any(x in message.lower() for x in forbidden)
- findings=[{'requirement':'Input Module publishes to common Bus','result':'PASS' if 'bus_.publish(endpoint,event)' in core else 'FAIL'},{'requirement':'No direct Input Module-to-consumer path','result':'PASS' if no_private else 'FAIL'},{'requirement':'Input Device is internal, not bus participant','result':'PASS' if 'SimulatedDetector detector_;' in core else 'FAIL'},{'requirement':'No race meaning in INPUT_EVENT','result':'PASS' if no_race else 'FAIL'}]
+ # Later accepted stages add generic envelope fields for their own message
+ # types.  Prove the Stage 3 invariant at the actual InputModule publication
+ # boundary instead of rejecting those unrelated fields in the shared carrier.
+ input_start=core.index('class InputModule'); input_end=core.index('struct OutputModule',input_start); input_module=core[input_start:input_end]
+ event_start=input_module.index('Message e{}'); event_boundary=input_module[event_start:event_start+300]
+ no_race=('e.type=Type::InputEvent' in event_boundary and 'e.input=' in event_boundary and 'e.relevantTime=' in event_boundary and 'e.eventId=' in event_boundary and all(x not in event_boundary for x in ['raceEntryId','lapNumber','lane','finish','start']))
+ common_bus_publish='bus_.publish(endpoint,backlog_[head_])' in input_module and 'case Type::InputEvent: return mask(Role::Input)' in core and 'case Type::InputEvent: return mask(Role::RaceEngine)|mask(Role::Diagnostics)' in core; no_private_current=common_bus_publish and all(token not in input_module for token in ['RaceEngineModule','RaceControlModule','LapCompleted','CompetitionComplete','std::function','callback']); detector_internal='SimulatedDetector detectors_[MaxDetectors]' in input_module and 'MaxDetectors=PP_MAX_ENTRIES' in input_module; findings=[{'requirement':'Input Module publishes INPUT_EVENT through the common P&P Message Bus','result':'PASS' if common_bus_publish else 'FAIL'},{'requirement':'No direct Input Module-to-consumer path','result':'PASS' if no_private_current else 'FAIL'},{'requirement':'Input Device is internal, not bus participant','result':'PASS' if detector_internal else 'FAIL'},{'requirement':'No race meaning in INPUT_EVENT','result':'PASS' if no_race else 'FAIL'}];save('structural-detector-migration.json',{'historical_detector_assumption':['bus_.publish(endpoint,event)','SimulatedDetector detector_'],'why_obsolete':'Stage 9 added the protected Input Module backlog and two detector instances while preserving the frozen Input Module to Message Bus boundary.','current_requirement_proof':{'input_module_bus_publish':common_bus_publish,'no_private_consumer_dependency':no_private_current,'detector_internal':detector_internal,'input_event_authority':'Input publisher and RaceEngine/Diagnostics consumers are enforced by Bus roles.'}})
  save('structural-review.json',{'findings':findings});(OUT/'structural-review.md').write_text('# Stage 3 structural review\n\n'+'\n'.join(f"- **{x['result']}** — {x['requirement']}" for x in findings)+'\n')
  ck('3.9',all(x['result']=='PASS' for x in findings),{'findings':findings},'structural-review.md; structural-review.json; source/')
  ck('3.10',results['3.10']['result']=='PASS' and no_race,delivery['3.10'],'acceptance-serial.txt; structural-review.md')
@@ -63,3 +68,4 @@ def evaluate():
 if __name__=='__main__':
  if sys.argv[1]=='prepare':prepare()
  elif sys.argv[1]=='evaluate':sys.exit(evaluate())
+

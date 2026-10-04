@@ -1,0 +1,680 @@
+diff --git a/firmware/build.ps1 b/firmware/build.ps1
+index 1d41425..98eca8f 100644
+--- a/firmware/build.ps1
++++ b/firmware/build.ps1
+@@ -1,4 +1,4 @@
+-param([ValidateSet('esp32dev','verification','quiet','acceptance','stage2acceptance','stage3acceptance','stage4acceptance','stage5acceptance','stage6acceptance','stage6demo','stage7acceptance','stage7demo','stage8acceptance','stage9acceptance','stage9demo','stage10acceptance','stage10demo','stage11acceptance','stage11demo','stage12acceptance','stage12demo','stage13acceptance','stage13demo','wokwi-dev')][string]$Environment = 'esp32dev')
++param([ValidateSet('esp32dev','verification','quiet','acceptance','stage2acceptance','stage3acceptance','stage4acceptance','stage5acceptance','stage6acceptance','stage6demo','stage7acceptance','stage7demo','stage8acceptance','stage9acceptance','stage9demo','stage10acceptance','stage10demo','stage11acceptance','stage11demo','stage12acceptance','stage12demo','stage13acceptance','stage13demo','stage14aacceptance','stage14ademo','wokwi-dev')][string]$Environment = 'esp32dev')
+ $ErrorActionPreference = 'Stop'
+ $pioRoot = Join-Path $env:USERPROFILE '.platformio'
+ $python = Join-Path $pioRoot 'penv\Scripts\python.exe'
+diff --git a/firmware/include/pp/browser_interface.h b/firmware/include/pp/browser_interface.h
+index 8846f11..637e1dd 100644
+--- a/firmware/include/pp/browser_interface.h
++++ b/firmware/include/pp/browser_interface.h
+@@ -283,21 +283,17 @@ private:
+   static esp_err_t state(httpd_req_t* request) {
+     client(request);
+     const NoticeboardState value = instance()->current();
+-    char json[700];
+-    snprintf(json, sizeof(json),
+-      "{\"systemTime\":%llu,\"lifecycle\":\"%s\",\"raceEntryId\":%lu,\"laps\":%lu,\"lapTarget\":%lu,\"hasLap\":%s,\"lastLapTime\":%llu,\"scheduledGo\":%llu,\"redLightCount\":%u,\"redIntervalUs\":%llu,\"finalDelayUs\":%llu,\"startSignal\":%u,\"pauseEffectiveAt\":%llu,\"scheduledRestartAt\":%llu,\"restartMethod\":\"%s\",\"resultValid\":%s,\"raceIntegrity\":\"%s\",\"resultSealed\":%s,\"winningTime\":%llu,\"finishTime\":%llu,\"fastestLap\":%llu,\"historySequence\":%lu,\"persistencePending\":%s,\"persistenceFault\":%s,\"entries\":[{\"raceEntryId\":%lu,\"laps\":%lu},{\"raceEntryId\":%lu,\"laps\":%lu}]}",
+-      (unsigned long long)systemTime(),lifecycle(value.lifecycle), (unsigned long)value.raceEntryId, (unsigned long)value.laps,(unsigned long)value.lapTarget,
+-      value.hasLap ? "true" : "false", (unsigned long long)value.lastLapTime,
++    char chunk[768];
++    snprintf(chunk,sizeof(chunk),"{\"systemTime\":%llu,\"lifecycle\":\"%s\",\"entryCount\":%u,\"raceEntryId\":%lu,\"laps\":%lu,\"lapTarget\":%lu,\"hasLap\":%s,\"lastLapTime\":%llu,\"scheduledGo\":%llu,\"redLightCount\":%u,\"redIntervalUs\":%llu,\"finalDelayUs\":%llu,\"startSignal\":%u,\"pauseEffectiveAt\":%llu,\"scheduledRestartAt\":%llu,\"restartMethod\":\"%s\",\"resultValid\":%s,\"raceIntegrity\":\"%s\",\"resultSealed\":%s,\"winningTime\":%llu,\"finishTime\":%llu,\"fastestLap\":%llu,\"historySequence\":%lu,\"persistencePending\":%s,\"persistenceFault\":%s,\"entries\":[",
++      (unsigned long long)systemTime(),lifecycle(value.lifecycle),unsigned(value.entryCount),(unsigned long)value.raceEntryId,(unsigned long)value.laps,(unsigned long)value.lapTarget,value.hasLap?"true":"false",(unsigned long long)value.lastLapTime,
+       (unsigned long long)value.scheduledGo,unsigned(value.redLightCount),(unsigned long long)value.redIntervalUs,(unsigned long long)value.finalDelayUs,unsigned(value.startSignal),(unsigned long long)value.pauseEffectiveAt,(unsigned long long)value.scheduledRestartAt,
+-      value.restartMethod==RestartMethod::Honour?"HONOUR":value.restartMethod==RestartMethod::Grid?"GRID":"NONE", value.resultValid ? "true" : "false",
+-      value.raceIntegrityFaulted ? "FAULTED" : "OK", value.resultSealed?"true":"false",
+-      (unsigned long long)value.winningTime,(unsigned long long)value.finishTime,(unsigned long long)value.fastestLap,
+-      (unsigned long)value.historySequence, value.persistencePending?"true":"false", value.persistenceFault?"true":"false",
+-      (unsigned long)value.entries[0].raceEntryId, (unsigned long)value.entries[0].laps,
+-      (unsigned long)value.entries[1].raceEntryId, (unsigned long)value.entries[1].laps);
+-    httpd_resp_set_type(request, "application/json");
+-    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+-    return httpd_resp_sendstr(request, json);
++      value.restartMethod==RestartMethod::Honour?"HONOUR":value.restartMethod==RestartMethod::Grid?"GRID":"NONE",value.resultValid?"true":"false",value.raceIntegrityFaulted?"FAULTED":"OK",value.resultSealed?"true":"false",
++      (unsigned long long)value.winningTime,(unsigned long long)value.finishTime,(unsigned long long)value.fastestLap,(unsigned long)value.historySequence,value.persistencePending?"true":"false",value.persistenceFault?"true":"false");
++    httpd_resp_set_type(request,"application/json"); httpd_resp_set_hdr(request,"Cache-Control","no-store");
++    if(httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN)!=ESP_OK)return ESP_FAIL;
++    for(uint8_t i=0;i<value.entryCount;++i){const auto&e=value.entries[i];snprintf(chunk,sizeof(chunk),"%s{\"raceEntryId\":%lu,\"lane\":%u,\"laps\":%lu,\"lastLapTime\":%llu,\"hasLap\":%s}",i?",":"",(unsigned long)e.raceEntryId,unsigned(i+1),(unsigned long)e.laps,(unsigned long long)e.lastLapTime,e.hasLap?"true":"false");if(httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN)!=ESP_OK)return ESP_FAIL;}
++    if(httpd_resp_send_chunk(request,"]}",2)!=ESP_OK)return ESP_FAIL;
++    return httpd_resp_send_chunk(request,nullptr,0);
+   }
+   static const char* finishBehaviour(LapFinishBehaviour value) {
+     return value==LapFinishBehaviour::CompleteCurrentLap?"COMPLETE_CURRENT_LAP":value==LapFinishBehaviour::CompleteFullRaceDistance?"COMPLETE_FULL_RACE_DISTANCE":"IMMEDIATE";
+@@ -326,7 +322,9 @@ private:
+     const Time lane1=browser->records_?browser->records_->lanePb(1):0;
+     const Time lane2=browser->records_?browser->records_->lanePb(2):0;
+     const Time track=browser->records_?browser->records_->trackRecord():0;
+-    char json[224];snprintf(json,sizeof(json),"{\"track\":\"DEFAULT TRACK\",\"era\":%lu,\"lane1Pb\":%llu,\"lane2Pb\":%llu,\"trackRecord\":%llu}",(unsigned long)era,(unsigned long long)lane1,(unsigned long long)lane2,(unsigned long long)track);
++    char json[768];int n=snprintf(json,sizeof(json),"{\"track\":\"DEFAULT TRACK\",\"era\":%lu,\"lane1Pb\":%llu,\"lane2Pb\":%llu,\"trackRecord\":%llu,\"entries\":[",(unsigned long)era,(unsigned long long)lane1,(unsigned long long)lane2,(unsigned long long)track);
++    for(uint8_t i=1;i<=PP_MAX_ENTRIES&&n<int(sizeof(json));++i){const Time pb=browser->records_?browser->records_->lanePb(i):0;n+=snprintf(json+n,sizeof(json)-n,"%s{\"lane\":%u,\"pb\":%llu}",i==1?"":",",unsigned(i),(unsigned long long)pb);}
++    snprintf(json+n,sizeof(json)-n,"]}");
+     httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");return httpd_resp_sendstr(request,json);
+   }
+   static esp_err_t notice(httpd_req_t* request) {
+@@ -459,7 +457,7 @@ private:
+   static esp_err_t clearAllRecordsRoute(httpd_req_t* r){return openConfirmationRoute(r,SessionOperation::ClearAllRecords);}
+   static esp_err_t clearAllRecordsConfirmRoute(httpd_req_t* r){return confirmOperationRoute(r,SessionOperation::ClearAllRecords);}
+   static esp_err_t fixtureRoute(httpd_req_t* request){
+-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
++#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
+     char body[64]{}; int n=httpd_req_recv(request,body,sizeof(body)-1); if(n<=0){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"fixture action required");return ESP_FAIL;} body[n]=0;
+     if(instance()->context(client(request))!=ClientContext::RaceDirectorSmug){httpd_resp_send_err(request,HTTPD_403_FORBIDDEN,"Race Director required");return ESP_FAIL;}
+     if(strstr(body,"lane1")&&instance()->fixturePass_){if(!instance()->fixturePass_(1)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"Start the race before triggering a simulated car.");return ESP_FAIL;}}
+@@ -506,7 +504,7 @@ private:
+   }
+   static esp_err_t page(httpd_req_t* request) {
+     client(request);
+-    static const char html[] = R"HTML(<!doctype html><meta charset="utf-8"><title>P&amp;P diagnostic Browser</title><style>body{font:16px system-ui;max-width:52rem;margin:2rem auto;padding:0 1rem}pre{background:#eee;padding:1rem;white-space:pre-wrap}.summary{background:#f5f5f5;padding:1rem;border-radius:.35rem;line-height:1.5}.status{font-size:1.3rem;font-weight:600;margin:.5rem 0}button{font:inherit;padding:.5rem;margin:.15rem}.muted{color:#555}</style><h1>P&amp;P diagnostic Browser</h1><p id="connection">connecting</p><p id="role"></p><div id="human" class="summary">Loading race status...</div><p id="request"></p><button id="bootstrap">Make this Browser Race Director</button><button id="start">START</button><button id="pause">PAUSE</button><button id="honour">HONOUR RESTART</button><button id="grid">GRID RESTART</button><button id="raceAgain">RACE AGAIN</button><button id="restartRace">RESTART RACE</button><button id="endRace">END RACE</button><button id="results">RESULTS</button><button id="details">DETAILS</button><button id="history">HISTORY</button><button id="back">BACK</button><button id="home">HOME</button><button id="target3">NEXT RACE: 3 LAPS</button><div id="resultView" class="summary" hidden></div><h2>SIMULATED DETECTORS</h2><button id="lane1">LANE 1 PASS</button><button id="lane2">LANE 2 PASS</button><button id="resetTest">RESET TEST</button><h2>Engineering State</h2><pre id="state"></pre><h2>Latest Fact</h2><pre id="fact"></pre><script>let revision=null,hasState=false,nextCorrelation=1,polling=false,lastState=null;const $=x=>document.querySelector(x);async function get(path){const r=await fetch(path,{cache:'no-store'});if(r.status===204)return null;if(!r.ok)throw Error(r.status);return r.json()}function sec(us){return (Number(us||0)/1000000).toFixed(2)+' s'}function life(v){return ({READY:'Ready',STARTING:'Starting',RACING:'Racing',PAUSED:'Paused',RESTARTING:'Restarting',FINISHED:'Finished',FAULTED:'Faulted'})[v]||v}function meth(v){return v==='HONOUR'?'Honour Restart':v==='GRID'?'Grid Restart':'None'}function render(){const v=lastState;if(!v)return;let h='<div class="status">'+life(v.lifecycle)+'</div>';if(v.lifecycle==='PAUSED')h+='<div>Paused at the authoritative P&amp;P time.</div>';if(v.lifecycle==='RESTARTING')h+='<div>'+meth(v.restartMethod)+' - restart countdown active.</div>';if(v.lifecycle==='RACING')h+='<div>Race is running.</div>';if(v.lifecycle==='FINISHED')h+='<div>Race finished.</div>';h+='<div><b>Lane 1:</b> '+(v.entries[0]?.laps||0)+' laps; <b>Lane 2:</b> '+(v.entries[1]?.laps||0)+' laps.</div>';if(v.hasLap)h+='<div>Last completed lap: '+sec(v.lastLapTime)+'</div>';h+='<div class="muted">Race integrity: '+(v.raceIntegrity==='OK'?'OK':'FAULTED')+'; results: '+(v.resultValid?'valid':'invalid')+'</div>';if(v.resultSealed)h+='<div><b>Winning time:</b> '+sec(v.winningTime)+'; <b>finish settled:</b> '+sec(v.finishTime)+'; <b>fastest lap:</b> '+(v.fastestLap?sec(v.fastestLap):'—')+'</div>';if(v.scheduledRestartAt&&v.lifecycle==='RESTARTING')h+='<div id="countdown" class="status">Restart countdown</div>';$('#human').innerHTML=h;if(v.lifecycle==='RESTARTING'&&v.scheduledRestartAt){const deadline=performance.now()+3000;clearInterval(window.restartTimer);window.restartTimer=setInterval(()=>{const c=$('#countdown');if(!c||!lastState||lastState.lifecycle!=='RESTARTING'){clearInterval(window.restartTimer);return}const left=Math.max(0,(deadline-performance.now())/1000);c.textContent=left>0?'Restarting - '+left.toFixed(1)+' s remaining':'Restarting - GO'},100)}}async function poll(){if(polling)return;polling=true;try{const n=await get('/noticeboard');if(!hasState||n.revision!==revision){$('#connection').textContent='unsynchronised';lastState=await get('/state');$('#state').textContent=JSON.stringify(lastState,null,2);revision=n.revision;hasState=true;try{$('#fact').textContent=JSON.stringify(await get('/fact'),null,2)}catch(e){}render()}$('#connection').textContent='synchronised';const c=await get('/context');$('#role').textContent=c.hasMaster?c.role:'No Race Director';$('#bootstrap').hidden=c.hasMaster;['start','pause','honour','grid'].forEach(id=>$('#'+id).disabled=c.role!=='Race Director');$('#raceAgain').disabled=c.role!=='Race Director'||!lastState||lastState.lifecycle!=='FINISHED';$('#target3').disabled=c.role!=='Race Director'||!lastState||lastState.lifecycle!=='READY'}catch(e){$('#connection').textContent='unsynchronised'}finally{polling=false}}async function operation(path,name){const id=nextCorrelation++,started=performance.now();const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:id})});if(r.status!==202){$('#request').textContent='Request '+name+' was not accepted for submission.';return}const timer=setInterval(async()=>{const x=await get('/request-result?correlationId='+id);if(x){$('#request').textContent=(x.result==='ACCEPTED'?'Accepted: ':'Rejected: ')+(x.reason||'')+' ('+((performance.now()-started)/1000).toFixed(2)+' s; correlation '+id+')';clearInterval(timer)}},100)}$('#bootstrap').onclick=async()=>{await fetch('/bootstrap',{method:'POST'});poll()};$('#start').onclick=()=>operation('/request/start','START');$('#pause').onclick=()=>operation('/request/pause','PAUSE');$('#honour').onclick=()=>operation('/request/honour-restart','Honour Restart');$('#grid').onclick=()=>operation('/request/grid-restart','Grid Restart');$('#raceAgain').onclick=()=>operation('/request/race-again','Race Again');function rank(e){return(e.tied?'=':'')+e.rank}async function showResults(){const r=await get('/results');let h='<h2>Results</h2>';if(!r.sealed){h+='<p>No completed result.</p>'}else{h+='<p>Winning time '+sec(r.winningTime)+'; finish settled '+sec(r.finishTime)+'.</p>';h+='<p>Fastest lap: '+(r.fastestLap?sec(r.fastestLap)+(r.fastestLapTied?' (tie)':''):'—')+'</p>';r.entries.forEach((e,i)=>h+='<p><b>'+rank(e)+' — Lane '+e.lane+'</b>: '+e.laps+' laps'+(e.lapsBehind?' ('+e.lapsBehind+' behind)':'')+'; finish '+(e.completionTime?sec(e.completionTime):'—')+'; best lap '+(e.bestLap?sec(e.bestLap):'—')+'</p>')}$('#resultView').innerHTML=h;$('#resultView').hidden=false}async function showDetails(){const r=await get('/details');let h='<h2>Lap details</h2>';r.entries.forEach((e,i)=>{h+='<h3>Lane '+e.lane+' — entry '+e.raceEntryId+'</h3>';h+=e.records.length?'<ol>'+e.records.map(x=>'<li>Lap '+x.lapNumber+': '+sec(x.lapTime)+'</li>').join('')+'</ol>':'<p>No valid completed laps.</p>'});$('#resultView').innerHTML=h;$('#resultView').hidden=false}$('#results').onclick=showResults;$('#details').onclick=showDetails;$('#back').onclick=()=>{$('#resultView').hidden=true};$('#home').onclick=()=>{$('#resultView').hidden=true;$('#request').textContent='Home — race result remains available.'};async function fixture(action,name){const r=await fetch('/fixture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});$('#request').textContent=r.ok?(action==='lane1'?'Lane 1 car triggered':action==='lane2'?'Lane 2 car triggered':action==='target3'?'Next race set to 3 laps.':'TEST RESET complete'):(action==='lane1'||action==='lane2'?'Start the race before triggering a simulated car.':name+' unavailable')}$('#lane1').onclick=()=>fixture('lane1','Lane 1 passage');$('#lane2').onclick=()=>fixture('lane2','Lane 2 passage');$('#resetTest').onclick=()=>fixture('reset','TEST RESET');$('#target3').onclick=()=>fixture('target3','Next-race setup');poll();setInterval(poll,250)</script>)HTML";
++    static const char html[] = R"HTML(<!doctype html><meta charset="utf-8"><title>P&amp;P diagnostic Browser</title><style>body{font:16px system-ui;max-width:52rem;margin:2rem auto;padding:0 1rem}pre{background:#eee;padding:1rem;white-space:pre-wrap}.summary{background:#f5f5f5;padding:1rem;border-radius:.35rem;line-height:1.5}.status{font-size:1.3rem;font-weight:600;margin:.5rem 0}button{font:inherit;padding:.5rem;margin:.15rem}.muted{color:#555}</style><h1>P&amp;P diagnostic Browser</h1><p id="connection">connecting</p><p id="role"></p><div id="human" class="summary">Loading race status...</div><p id="request"></p><button id="bootstrap">Make this Browser Race Director</button><button id="start">START</button><button id="pause">PAUSE</button><button id="honour">HONOUR RESTART</button><button id="grid">GRID RESTART</button><button id="raceAgain">RACE AGAIN</button><button id="restartRace">RESTART RACE</button><button id="endRace">END RACE</button><button id="results">RESULTS</button><button id="details">DETAILS</button><button id="history">HISTORY</button><button id="back">BACK</button><button id="home">HOME</button><button id="target3">NEXT RACE: 3 LAPS</button><div id="resultView" class="summary" hidden></div><h2>SIMULATED DETECTORS</h2><button id="lane1">LANE 1 PASS</button><button id="lane2">LANE 2 PASS</button><button id="resetTest">RESET TEST</button><h2>Engineering State</h2><pre id="state"></pre><h2>Latest Fact</h2><pre id="fact"></pre><script>let revision=null,hasState=false,nextCorrelation=1,polling=false,lastState=null;const $=x=>document.querySelector(x);async function get(path){const r=await fetch(path,{cache:'no-store'});if(r.status===204)return null;if(!r.ok)throw Error(r.status);return r.json()}function sec(us){return (Number(us||0)/1000000).toFixed(2)+' s'}function life(v){return ({READY:'Ready',STARTING:'Starting',RACING:'Racing',PAUSED:'Paused',RESTARTING:'Restarting',FINISHED:'Finished',FAULTED:'Faulted'})[v]||v}function meth(v){return v==='HONOUR'?'Honour Restart':v==='GRID'?'Grid Restart':'None'}function render(){const v=lastState;if(!v)return;let h='<div class="status">'+life(v.lifecycle)+'</div>';if(v.lifecycle==='PAUSED')h+='<div>Paused at the authoritative P&amp;P time.</div>';if(v.lifecycle==='RESTARTING')h+='<div>'+meth(v.restartMethod)+' - restart countdown active.</div>';if(v.lifecycle==='RACING')h+='<div>Race is running.</div>';if(v.lifecycle==='FINISHED')h+='<div>Race finished.</div>';h+='<div>'+v.entries.map((e,i)=>'<b>Lane '+e.lane+':</b> '+(e.laps||0)+' laps').join('; ')+'.</div>';if(v.hasLap)h+='<div>Last completed lap: '+sec(v.lastLapTime)+'</div>';h+='<div class="muted">Race integrity: '+(v.raceIntegrity==='OK'?'OK':'FAULTED')+'; results: '+(v.resultValid?'valid':'invalid')+'</div>';if(v.resultSealed)h+='<div><b>Winning time:</b> '+sec(v.winningTime)+'; <b>finish settled:</b> '+sec(v.finishTime)+'; <b>fastest lap:</b> '+(v.fastestLap?sec(v.fastestLap):'—')+'</div>';if(v.scheduledRestartAt&&v.lifecycle==='RESTARTING')h+='<div id="countdown" class="status">Restart countdown</div>';$('#human').innerHTML=h;if(v.lifecycle==='RESTARTING'&&v.scheduledRestartAt){const deadline=performance.now()+3000;clearInterval(window.restartTimer);window.restartTimer=setInterval(()=>{const c=$('#countdown');if(!c||!lastState||lastState.lifecycle!=='RESTARTING'){clearInterval(window.restartTimer);return}const left=Math.max(0,(deadline-performance.now())/1000);c.textContent=left>0?'Restarting - '+left.toFixed(1)+' s remaining':'Restarting - GO'},100)}}async function poll(){if(polling)return;polling=true;try{const n=await get('/noticeboard');if(!hasState||n.revision!==revision){$('#connection').textContent='unsynchronised';lastState=await get('/state');$('#state').textContent=JSON.stringify(lastState,null,2);revision=n.revision;hasState=true;try{$('#fact').textContent=JSON.stringify(await get('/fact'),null,2)}catch(e){}render()}$('#connection').textContent='synchronised';const c=await get('/context');$('#role').textContent=c.hasMaster?c.role:'No Race Director';$('#bootstrap').hidden=c.hasMaster;['start','pause','honour','grid'].forEach(id=>$('#'+id).disabled=c.role!=='Race Director');$('#raceAgain').disabled=c.role!=='Race Director'||!lastState||lastState.lifecycle!=='FINISHED';$('#target3').disabled=c.role!=='Race Director'||!lastState||lastState.lifecycle!=='READY'}catch(e){$('#connection').textContent='unsynchronised'}finally{polling=false}}async function operation(path,name){const id=nextCorrelation++,started=performance.now();const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:id})});if(r.status!==202){$('#request').textContent='Request '+name+' was not accepted for submission.';return}const timer=setInterval(async()=>{const x=await get('/request-result?correlationId='+id);if(x){$('#request').textContent=(x.result==='ACCEPTED'?'Accepted: ':'Rejected: ')+(x.reason||'')+' ('+((performance.now()-started)/1000).toFixed(2)+' s; correlation '+id+')';clearInterval(timer)}},100)}$('#bootstrap').onclick=async()=>{await fetch('/bootstrap',{method:'POST'});poll()};$('#start').onclick=()=>operation('/request/start','START');$('#pause').onclick=()=>operation('/request/pause','PAUSE');$('#honour').onclick=()=>operation('/request/honour-restart','Honour Restart');$('#grid').onclick=()=>operation('/request/grid-restart','Grid Restart');$('#raceAgain').onclick=()=>operation('/request/race-again','Race Again');function rank(e){return(e.tied?'=':'')+e.rank}async function showResults(){const r=await get('/results');let h='<h2>Results</h2>';if(!r.sealed){h+='<p>No completed result.</p>'}else{h+='<p>Winning time '+sec(r.winningTime)+'; finish settled '+sec(r.finishTime)+'.</p>';h+='<p>Fastest lap: '+(r.fastestLap?sec(r.fastestLap)+(r.fastestLapTied?' (tie)':''):'—')+'</p>';r.entries.forEach((e,i)=>h+='<p><b>'+rank(e)+' — Lane '+e.lane+'</b>: '+e.laps+' laps'+(e.lapsBehind?' ('+e.lapsBehind+' behind)':'')+'; finish '+(e.completionTime?sec(e.completionTime):'—')+'; best lap '+(e.bestLap?sec(e.bestLap):'—')+'</p>')}$('#resultView').innerHTML=h;$('#resultView').hidden=false}async function showDetails(){const r=await get('/details');let h='<h2>Lap details</h2>';r.entries.forEach((e,i)=>{h+='<h3>Lane '+e.lane+' — entry '+e.raceEntryId+'</h3>';h+=e.records.length?'<ol>'+e.records.map(x=>'<li>Lap '+x.lapNumber+': '+sec(x.lapTime)+'</li>').join('')+'</ol>':'<p>No valid completed laps.</p>'});$('#resultView').innerHTML=h;$('#resultView').hidden=false}$('#results').onclick=showResults;$('#details').onclick=showDetails;$('#back').onclick=()=>{$('#resultView').hidden=true};$('#home').onclick=()=>{$('#resultView').hidden=true;$('#request').textContent='Home — race result remains available.'};async function fixture(action,name){const r=await fetch('/fixture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});$('#request').textContent=r.ok?(action==='lane1'?'Lane 1 car triggered':action==='lane2'?'Lane 2 car triggered':action==='target3'?'Next race set to 3 laps.':'TEST RESET complete'):(action==='lane1'||action==='lane2'?'Start the race before triggering a simulated car.':name+' unavailable')}$('#lane1').onclick=()=>fixture('lane1','Lane 1 passage');$('#lane2').onclick=()=>fixture('lane2','Lane 2 passage');$('#resetTest').onclick=()=>fixture('reset','TEST RESET');$('#target3').onclick=()=>fixture('target3','Next-race setup');poll();setInterval(poll,250)</script>)HTML";
+     static const char destructiveControls[] = R"HTML(<script>async function destructive(open,confirmPath,label){const id=Date.now()%4294967295;const opened=await fetch(open,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:id})});if(!opened.ok){document.querySelector('#request').textContent=label+' is unavailable.';return}if(!confirm('Confirm '+label+'?')){document.querySelector('#request').textContent=label+' cancelled.';return}const r=await fetch(confirmPath,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:id})});document.querySelector('#request').textContent=r.status===202?label+' submitted.':label+' was not accepted for submission.'}document.querySelector('#restartRace').onclick=()=>destructive('/request/restart-race','/request/restart-race/confirm','Restart Race');document.querySelector('#endRace').onclick=()=>destructive('/request/end-race','/request/end-race/confirm','End Race');document.querySelector('#history').onclick=async()=>{const r=await fetch('/history');const h=await r.json();const v=document.querySelector('#resultView');v.innerHTML='<h2>History</h2>'+(h.entries.length?h.entries.map(x=>'<p>Race '+x.sequence+': winning time '+(Number(x.winningTime)/1000000).toFixed(2)+' s</p>').join(''):'<p>No completed races.</p>');v.hidden=false};async function stage13Fact(){try{const f=await get('/fact');const old=document.querySelector('#stage13Fact');if(old)old.remove();if(f.type==='FALSE_START'){const msg=document.createElement('div');msg.id='stage13Fact';msg.className='status';msg.textContent='False start — Lane '+f.raceEntryId+' ('+f.policy+').';document.querySelector('#human').appendChild(msg)}}catch(e){}}function stage13Lights(){try{if(!lastState||lastState.lifecycle!=='STARTING'||!lastState.systemTime)return;const now=Number(lastState.systemTime)+(performance.now()-(lastState.sampledAt||performance.now()))*1000;const reds=Number(lastState.redLightCount||0),gap=Number(lastState.redIntervalUs||0),finalDelay=Number(lastState.finalDelayUs||0),first=Number(lastState.scheduledGo)-reds*gap-finalDelay;const lit=Math.max(0,Math.min(reds,Math.floor((now-first)/gap)+1));let line=document.querySelector('#stage13Lights');if(!line){line=document.createElement('div');line.id='stage13Lights';line.className='status';document.querySelector('#human').appendChild(line)}line.textContent=now>=Number(lastState.scheduledGo)?(lastState.startSignal===1?'GO — GREEN':'GO — LIGHTS OUT'):('Start sequence — '+lit+' of '+reds+' red lights');}catch(e){}}setInterval(stage13Lights,100);setInterval(stage13Fact,300);</script>)HTML";
+     static const char recordControls[] = R"HTML(<script>const recordButton=document.createElement('button');recordButton.id='records';recordButton.textContent='RECORDS';document.querySelector('#history').after(recordButton);function recordTime(v){return v?sec(v):'—'}async function showRecords(){const r=await get('/records');const v=document.querySelector('#resultView');v.innerHTML='<h2>Records — '+r.track+'</h2><p>Record era '+r.era+'. Lane 1 PB: '+recordTime(r.lane1Pb)+'; Lane 2 PB: '+recordTime(r.lane2Pb)+'; Track Record: '+recordTime(r.trackRecord)+'.</p><p><button id="clearHistory">CLEAR HISTORY</button><button id="clearLane1">CLEAR LANE 1 PB</button><button id="clearLane2">CLEAR LANE 2 PB</button><button id="clearTrack">CLEAR TRACK RECORD</button><button id="clearAll">CLEAR ALL RECORDS</button></p>';v.hidden=false;document.querySelector('#clearHistory').onclick=()=>destructive('/request/clear-history','/request/clear-history/confirm','Clear History');document.querySelector('#clearLane1').onclick=()=>destructive('/request/clear-lane-1-records','/request/clear-lane-1-records/confirm','Clear Lane 1 PB');document.querySelector('#clearLane2').onclick=()=>destructive('/request/clear-lane-2-records','/request/clear-lane-2-records/confirm','Clear Lane 2 PB');document.querySelector('#clearTrack').onclick=()=>destructive('/request/clear-track-record','/request/clear-track-record/confirm','Clear Track Record');document.querySelector('#clearAll').onclick=()=>destructive('/request/clear-all-records','/request/clear-all-records/confirm','Clear All Records')}recordButton.onclick=showRecords;</script>)HTML";
+     // The sampled browser monotonic instant is presentation-only.  It lets a
+diff --git a/firmware/include/pp/core.h b/firmware/include/pp/core.h
+index 3ff02b1..c5df1c4 100644
+--- a/firmware/include/pp/core.h
++++ b/firmware/include/pp/core.h
+@@ -3,6 +3,11 @@
+ #include <stddef.h>
+ #include <string.h>
+ 
++#ifndef PP_MAX_ENTRIES
++#define PP_MAX_ENTRIES 8
++#endif
++static_assert(PP_MAX_ENTRIES > 0 && PP_MAX_ENTRIES <= 255, "PP_MAX_ENTRIES must fit entry counts");
++
+ namespace pp {
+ using Time = uint64_t; // Monotonic microseconds in this controller boot's domain.
+ enum class Role : uint8_t { Lifecycle, Memory, Input, RaceControl, RaceEngine, Output, Presentation, Diagnostics };
+@@ -230,7 +235,9 @@ class SimulatedDetector {
+ public:
+   static constexpr Time DetectionStableUs = 20000;
+   static constexpr Time ClearStableUs = 20000;
++  SimulatedDetector()=default;
+   explicit SimulatedDetector(InputIdentity identity):identity_(identity) {}
++  void setIdentity(InputIdentity identity){identity_=identity;sourceActive_=false;armed_=true;stableSince_=0;}
+   // Returns a clean trigger only after the source has been stable long enough.
+   // The returned time is when recognition became true, rather than later polling.
+   bool sample(bool active, Time sampleTime, Time& triggerTime) {
+@@ -255,15 +262,17 @@ private:
+ class InputModule {
+ public:
+   static constexpr size_t ProtectedDepth=8;
+-  static constexpr InputIdentity simulatedDetectorIdentity(){return InputIdentity(0x50500001u,1);}
+-  static constexpr InputIdentity simulatedDetectorBIdentity(){return InputIdentity(0x50500001u,2);}
+-  InputModule(Bus& bus,Bus::Endpoint endpoint):endpoint(endpoint),bus_(bus),detectors_{SimulatedDetector(simulatedDetectorIdentity()),SimulatedDetector(simulatedDetectorBIdentity())}{}
++  static constexpr size_t MaxDetectors=PP_MAX_ENTRIES;
++  static constexpr InputIdentity simulatedDetectorIdentity(uint16_t index=0){return InputIdentity(0x50500001u,uint16_t(index+1));}
++  static constexpr InputIdentity simulatedDetectorBIdentity(){return simulatedDetectorIdentity(1);}
++  InputModule(Bus& bus,Bus::Endpoint endpoint):endpoint(endpoint),bus_(bus){for(uint8_t i=0;i<MaxDetectors;++i)detectors_[i].setIdentity(simulatedDetectorIdentity(i));}
+   Bus::Endpoint endpoint;
+-  void setSimulatedSource(bool active){sources_[0]=active;} void setSimulatedSourceB(bool active){sources_[1]=active;}
+-  void tick(Time now){drainOperations();sampleSource(0,sources_[0],now);sampleSource(1,sources_[1],now);flush();settleIfReady();finishSettleIfReady();}
++  void setSimulatedSource(bool active){setSimulatedSource(0,active);} void setSimulatedSourceB(bool active){setSimulatedSource(1,active);}
++  void setSimulatedSource(uint8_t which,bool active){if(which<MaxDetectors)sources_[which]=active;}
++  void tick(Time now){drainOperations();for(uint8_t i=0;i<MaxDetectors;++i)sampleSource(i,sources_[i],now);flush();settleIfReady();finishSettleIfReady();}
+   void sampleSource(bool active,Time at){sampleSource(0,active,at);}
+   void sampleSourceB(bool active,Time at){sampleSource(1,active,at);}
+-  void sampleSource(uint8_t which,bool active,Time at){Time trigger=0;if(!detectors_[which].sample(active,at,trigger))return;++cleanTriggers_;Message e{};e.type=Type::InputEvent;e.input=detectors_[which].identity();e.relevantTime=trigger;e.eventId=++nextEventId_;enqueue(e);flush();}
++  void sampleSource(uint8_t which,bool active,Time at){if(which>=MaxDetectors)return;Time trigger=0;if(!detectors_[which].sample(active,at,trigger))return;++cleanTriggers_;Message e{};e.type=Type::InputEvent;e.input=detectors_[which].identity();e.relevantTime=trigger;e.eventId=++nextEventId_;enqueue(e);flush();}
+   void flush(){if(faulted_)return;while(size_){Delivery d=bus_.publish(endpoint,backlog_[head_]);lastDelivery_=d;if(d==Delivery::Delivered){head_=(head_+1)%ProtectedDepth;--size_;continue;}if(d==Delivery::Full)return;fault(Time{});return;}}
+   void settleIfReady(){if(!settlementPending_||size_||settlementPublished_)return;Message s{};s.type=Type::InputSettlement;s.relevantTime=settlementAt_;Delivery d=bus_.publish(endpoint,s);lastDelivery_=d;if(d==Delivery::Delivered)settlementPublished_=true;else if(d!=Delivery::Full)fault(settlementAt_);}
+   void sessionOperation(const Message&m){if(m.operation==SessionOperation::Pause){settlementPending_=true;settlementAt_=m.relevantTime;settlementPublished_=false;settleIfReady();}else if(m.operation==SessionOperation::HonourRestart||m.operation==SessionOperation::GridRestart){settlementPending_=false;settlementPublished_=false;settlementAt_=0;}}
+@@ -272,7 +281,7 @@ public:
+ private:
+   void enqueue(const Message&e){if(faulted_)return;if(size_==ProtectedDepth){fault(e.relevantTime);return;}backlog_[(head_+size_)%ProtectedDepth]=e;++size_;if(size_>maxDepth_)maxDepth_=size_;}
+   void fault(Time at){if(faulted_)return;faulted_=true;Message f{};f.type=Type::RaceIntegrityFault;f.relevantTime=at;f.integrityReason=RaceIntegrityReason::InputEventDeliveryOverrun;bus_.publish(endpoint,f);}
+-  Bus& bus_;SimulatedDetector detectors_[2];bool sources_[2]{};Message backlog_[ProtectedDepth]{};size_t head_=0,size_=0,maxDepth_=0;uint32_t cleanTriggers_=0,nextEventId_=0;Delivery lastDelivery_=Delivery::NoSubscribers;bool faulted_=false;bool settlementPending_=false,settlementPublished_=false;Time settlementAt_=0;bool finishSettlementPending_=false,finishSettlementPublished_=false;Time finishSettlementAt_=0;
++  Bus& bus_;SimulatedDetector detectors_[MaxDetectors]{};bool sources_[MaxDetectors]{};Message backlog_[ProtectedDepth]{};size_t head_=0,size_=0,maxDepth_=0;uint32_t cleanTriggers_=0,nextEventId_=0;Delivery lastDelivery_=Delivery::NoSubscribers;bool faulted_=false;bool settlementPending_=false,settlementPublished_=false;Time settlementAt_=0;bool finishSettlementPending_=false,finishSettlementPublished_=false;Time finishSettlementAt_=0;
+ };
+ struct OutputModule { Bus::Endpoint endpoint; };
+ struct Presentation { Bus::Endpoint endpoint; };
+diff --git a/firmware/include/pp/history_store.h b/firmware/include/pp/history_store.h
+index 28299da..9b8dfb3 100644
+--- a/firmware/include/pp/history_store.h
++++ b/firmware/include/pp/history_store.h
+@@ -5,7 +5,7 @@ namespace pp {
+ class HistoryStore {
+ public:
+   static constexpr uint8_t Capacity = 4;
+-  static constexpr size_t MaxBytes = 2048;
++  static constexpr size_t MaxBytes = 8192;
+   struct Entry { uint32_t sequence=0; uint16_t bytes=0; uint8_t slot=0; };
+   virtual ~HistoryStore() = default;
+   virtual bool append(const uint8_t* bytes, size_t length, uint32_t& sequence) = 0;
+diff --git a/firmware/include/pp/noticeboard.h b/firmware/include/pp/noticeboard.h
+index 7c497d3..8d439b9 100644
+--- a/firmware/include/pp/noticeboard.h
++++ b/firmware/include/pp/noticeboard.h
+@@ -4,7 +4,7 @@
+ namespace pp {
+ struct NoticeboardEntryState { uint32_t raceEntryId,laps;Time lastLapTime;bool hasLap; constexpr NoticeboardEntryState(uint32_t id=0,uint32_t lap=0,Time time=0,bool present=false):raceEntryId(id),laps(lap),lastLapTime(time),hasLap(present){} };
+ struct NoticeboardState {
+-  SessionLifecycle lifecycle=SessionLifecycle::Ready;uint32_t raceEntryId=0,laps=0,lapTarget=0;Time lastLapTime=0,scheduledGo=0,pauseEffectiveAt=0,scheduledRestartAt=0;RestartMethod restartMethod=RestartMethod::None;bool hasLap=false;NoticeboardEntryState entries[2]{};uint8_t entryCount=0;bool deadHeat=false,raceIntegrityFaulted=false,resultValid=true;RaceIntegrityReason raceIntegrityReason=RaceIntegrityReason::None;bool resultSealed=false;Time winningTime=0,finishTime=0,fastestLap=0;uint32_t historySequence=0;bool persistencePending=false,persistenceFault=false;uint8_t redLightCount=0,startSignal=0;Time redIntervalUs=0,finalDelayUs=0;
++  SessionLifecycle lifecycle=SessionLifecycle::Ready;uint32_t raceEntryId=0,laps=0,lapTarget=0;Time lastLapTime=0,scheduledGo=0,pauseEffectiveAt=0,scheduledRestartAt=0;RestartMethod restartMethod=RestartMethod::None;bool hasLap=false;NoticeboardEntryState entries[PP_MAX_ENTRIES]{};uint8_t entryCount=0;bool deadHeat=false,raceIntegrityFaulted=false,resultValid=true;RaceIntegrityReason raceIntegrityReason=RaceIntegrityReason::None;bool resultSealed=false;Time winningTime=0,finishTime=0,fastestLap=0;uint32_t historySequence=0;bool persistencePending=false,persistenceFault=false;uint8_t redLightCount=0,startSignal=0;Time redIntervalUs=0,finalDelayUs=0;
+ };
+ class Noticeboard {
+ public:
+diff --git a/firmware/include/pp/race_control.h b/firmware/include/pp/race_control.h
+index d7489da..62f75e4 100644
+--- a/firmware/include/pp/race_control.h
++++ b/firmware/include/pp/race_control.h
+@@ -102,15 +102,13 @@ private:
+     }
+     if(request.operation==SessionOperation::RaceAgain){
+       if(state_!=SessionLifecycle::Finished||!definition_){reject(request.correlation,RequestRejection::LifecycleNotRaceAgain);return;}
+-      proposedCopy_={};proposedCopy_.startFinish=definition_->role(0);proposedCopy_.selectedMugId=definition_->entry(0).mugId;proposedCopy_.lapTarget=definition_->lapTarget();proposedCopy_.finish=definition_->finishBehaviour();proposedCopy_.activeLanes=definition_->entryCount();
+-      if(definition_->entryCount()==2){proposedCopy_.secondStartFinish=definition_->role(1);proposedCopy_.secondMugId=definition_->entry(1).mugId;}
+-      proposedCopy_.startsBeforeStartFinish=true;proposedCopy_.optionalFeaturesEnabled=false;proposedCopy_.redLightCount=definition_->redLightCount();proposedCopy_.startSignal=definition_->startSignal();proposedCopy_.startTiming=definition_->startTiming();proposedCopy_.redIntervalUs=definition_->redIntervalUs();proposedCopy_.fixedFinalDelayUs=definition_->fixedFinalDelayUs();proposedCopy_.falseStartCapability=definition_->falseStartCapability();proposedCopy_.falseStartPolicy=definition_->falseStartPolicy();setup_=&proposedCopy_;active_.permitReplacement();state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;changed();result(request.correlation,RequestResult::Accepted);return;
++      copySetupFromDefinition(); setup_=&proposedCopy_;active_.permitReplacement();state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;changed();result(request.correlation,RequestResult::Accepted);return;
+     }
+     if(request.operation==SessionOperation::RestartRace||request.operation==SessionOperation::EndRace){
+       if(request.probe!=1){reject(request.correlation,RequestRejection::ConfirmationRequired);return;}
+       if(state_!=SessionLifecycle::Paused||!pauseSettled_){reject(request.correlation,RequestRejection::LifecycleNotAbandonable);return;}
+       if(request.operation==SessionOperation::RestartRace){
+-        if(definition_){proposedCopy_={};proposedCopy_.startFinish=definition_->role(0);proposedCopy_.selectedMugId=definition_->entry(0).mugId;proposedCopy_.lapTarget=definition_->lapTarget();proposedCopy_.finish=definition_->finishBehaviour();proposedCopy_.activeLanes=definition_->entryCount();if(definition_->entryCount()==2){proposedCopy_.secondStartFinish=definition_->role(1);proposedCopy_.secondMugId=definition_->entry(1).mugId;}proposedCopy_.startsBeforeStartFinish=true;proposedCopy_.optionalFeaturesEnabled=false;proposedCopy_.redLightCount=definition_->redLightCount();proposedCopy_.startSignal=definition_->startSignal();proposedCopy_.startTiming=definition_->startTiming();proposedCopy_.redIntervalUs=definition_->redIntervalUs();proposedCopy_.fixedFinalDelayUs=definition_->fixedFinalDelayUs();proposedCopy_.falseStartCapability=definition_->falseStartCapability();proposedCopy_.falseStartPolicy=definition_->falseStartPolicy();setup_=&proposedCopy_;active_.permitReplacement();}
++        if(definition_){copySetupFromDefinition();setup_=&proposedCopy_;active_.permitReplacement();}
+         active_.clearForFixture();definition_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
+       }
+       active_.clearForFixture();definition_=nullptr;setup_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
+@@ -144,6 +142,19 @@ private:
+     result(request.correlation,RequestResult::Accepted);
+   }
+   void changed(){Message notice{};notice.type=Type::NoticeboardChanged;bus_.publish(endpoint_,notice);}
++  void copySetupFromDefinition(){
++    proposedCopy_={};
++    proposedCopy_.lapTarget=definition_->lapTarget(); proposedCopy_.finish=definition_->finishBehaviour(); proposedCopy_.activeLanes=definition_->entryCount();
++    proposedCopy_.startsBeforeStartFinish=true; proposedCopy_.optionalFeaturesEnabled=false;
++    proposedCopy_.redLightCount=definition_->redLightCount(); proposedCopy_.startSignal=definition_->startSignal(); proposedCopy_.startTiming=definition_->startTiming();
++    proposedCopy_.redIntervalUs=definition_->redIntervalUs(); proposedCopy_.fixedFinalDelayUs=definition_->fixedFinalDelayUs();
++    proposedCopy_.falseStartCapability=definition_->falseStartCapability(); proposedCopy_.falseStartPolicy=definition_->falseStartPolicy();
++    for(uint8_t i=0;i<definition_->entryCount();++i){proposedCopy_.entries[i].startFinish=definition_->role(i);proposedCopy_.entries[i].mugId=definition_->entry(i).mugId;}
++    // Keep accepted source-level aliases synchronized for legacy fixtures and
++    // two-entry Browser/demo compatibility; indexed entries are authoritative.
++    if(definition_->entryCount()>0){proposedCopy_.startFinish=definition_->role(0);proposedCopy_.selectedMugId=definition_->entry(0).mugId;}
++    if(definition_->entryCount()>1){proposedCopy_.secondStartFinish=definition_->role(1);proposedCopy_.secondMugId=definition_->entry(1).mugId;}
++  }
+   Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
+   SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0,finalDelay_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=true,startCommitted_=false,integrityFaulted_=false,pauseSettled_=false;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
+   uint32_t nextSessionId_=1,nextRaceEntryId_=1;
+diff --git a/firmware/include/pp/race_engine.h b/firmware/include/pp/race_engine.h
+index 9ec7127..d2b24c4 100644
+--- a/firmware/include/pp/race_engine.h
++++ b/firmware/include/pp/race_engine.h
+@@ -6,17 +6,18 @@
+ namespace pp {
+ class RaceEngineModule {
+ public:
+-  static constexpr uint8_t MaxEntries=2,MaxLaps=16;
++  static constexpr uint8_t MaxEntries=PP_MAX_ENTRIES,MaxLaps=16;
++  static constexpr uint16_t ResultFormatVersion=2;
+   struct LapRecord{uint32_t lapNumber=0;Time startTime=0,finishTime=0,lapTime=0;bool valid=false;};
+   struct EntryState{uint32_t raceEntryId=0,laps=0;Time lastCrossing=0,lastLapTime=0;bool hasLap=false;LapRecord records[MaxLaps]{};uint8_t recordCount=0;};
+   struct ResultEntry{uint32_t raceEntryId=0,laps=0,rank=0,lapsBehind=0;uint8_t lane=0;bool tied=false,completed=false;Time completionTime=0,bestLap=0;LapRecord records[MaxLaps]{};uint8_t recordCount=0;};
+-  struct CompletedRaceResult{bool sealed=false,valid=false,deadHeat=false,fastestLapTied=false;Time winningTime=0,finishTime=0;LapFinishBehaviour behaviour=LapFinishBehaviour::Immediate;ResultEntry entries[MaxEntries]{};uint8_t entryCount=0;Time fastestLap=0;uint32_t fastestEntryId=0;uint32_t lapTarget=0;};
++  struct CompletedRaceResult{uint16_t formatVersion=ResultFormatVersion;bool sealed=false,valid=false,deadHeat=false,fastestLapTied=false;Time winningTime=0,finishTime=0;LapFinishBehaviour behaviour=LapFinishBehaviour::Immediate;ResultEntry entries[MaxEntries]{};uint8_t entryCount=0;Time fastestLap=0;uint32_t fastestEntryId=0;uint32_t lapTarget=0;};
+   RaceEngineModule(Bus&b,Bus::Endpoint e,ActiveSessionDefinition&a,HistoryStore* history=nullptr,TrackRecordStore* records=nullptr):bus_(b),endpoint_(e),active_(a),history_(history),records_(records){}
+   void resetForFixture(){definition_=nullptr;reset(0);} void begin(const SessionDefinition&d,Time go){definition_=&d;observedRevision_=active_.revision();reset(go);} void prepare(const SessionDefinition&d){definition_=&d;observedRevision_=active_.revision();reset(0);}
+   void tick(){synchronise();Message m;while(bus_.receive(endpoint_,m)){if(m.type==Type::GoScheduled)scheduled(m);else if(m.type==Type::InputEvent)queue(m);else if(m.type==Type::SessionOperation)operation(m);else if(m.type==Type::InputSettlement){settlementSeen_=true;settlementAt_=m.relevantTime;}else if(m.type==Type::FinishSettled)finishSettled_=m.relevantTime==candidateF_;else if(m.type==Type::RaceIntegrityFault)faulted_=true;}process();publishPauseSettlement();publishFinishSettlement();completeAfterSettlement();persistResult();}
+   uint32_t laps()const{return entries_[0].laps;}Time lastLapTime()const{return entries_[0].lastLapTime;}bool complete()const{return complete_;}Time go()const{return go_;}uint8_t entryCount()const{return definition_?definition_->entryCount():0;}const EntryState&entryState(uint8_t i)const{return entries_[i];}bool deadHeat()const{return deadHeat_;}bool faulted()const{return faulted_;}const CompletedRaceResult&completedResult()const{return result_;} uint32_t historySequence()const{return historySequence_;} bool persistencePending()const{return result_.sealed&&!persisted_;}bool persistenceFault()const{return persistenceFault_;}
+ private:
+-  void reset(Time go){go_=go;pauseAt_=restartAt_=settlementAt_=winningTime_=candidateF_=0;winner_=0;observedMask_=requiredMask_=0;complete_=completionPublished_=deadHeat_=faulted_=paused_=restartScheduled_=gridRestart_=false;settlementSeen_=settlementPublished_=finishReady_=finishSettlementSent_=finishSettled_=false;persisted_=persistenceFault_=false;pendingCount_=seenAt_=0;for(auto&x:seen_)x=0;for(auto&e:entries_)e={};for(auto& p:penalties_)p=0;result_={};finishBehaviour_=definition_?definition_->finishBehaviour():LapFinishBehaviour::Immediate;recordEligible_=true;
++  void reset(Time go){go_=go;pauseAt_=restartAt_=settlementAt_=winningTime_=candidateF_=0;winner_=0;complete_=completionPublished_=deadHeat_=faulted_=paused_=restartScheduled_=gridRestart_=false;settlementSeen_=settlementPublished_=finishReady_=finishSettlementSent_=finishSettled_=false;persisted_=persistenceFault_=false;pendingCount_=seenAt_=0;for(auto&x:seen_)x=0;for(auto&e:entries_)e={};for(auto& p:penalties_)p=0;for(auto& o:observed_)o=false;result_={};finishBehaviour_=definition_?definition_->finishBehaviour():LapFinishBehaviour::Immediate;recordEligible_=true;
+ #if defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
+     recordEligible_=false;
+ #endif
+@@ -27,10 +28,11 @@ private:
+   void queue(const Message&m){if(!definition_||complete_||faulted_||!go_||!m.eventId||seen(m.eventId)||pendingCount_==16)return;seen_[seenAt_++%16]=m.eventId;pending_[pendingCount_++]=m;}
+   bool seen(uint32_t id)const{for(auto x:seen_)if(x==id)return true;return false;}
+   void process(){if(!definition_||complete_||faulted_)return;for(uint8_t i=1;i<pendingCount_;++i){Message x=pending_[i];int j=i-1;while(j>=0&&pending_[j].relevantTime>x.relevantTime){pending_[j+1]=pending_[j];--j;}pending_[j+1]=x;}for(uint8_t i=0;i<pendingCount_;++i)interpret(pending_[i]);pendingCount_=0;evaluateFinish();}
+-  uint8_t indexOf(uint32_t id)const{for(uint8_t i=0;i<entryCount();++i)if(entries_[i].raceEntryId==id)return i;return 0;}
+-  void interpret(const Message&m){if(finishReady_&&m.relevantTime>candidateF_)return;if(restartScheduled_&&m.relevantTime<restartAt_)return;if(definition_&&definition_->falseStartCapability()&&m.relevantTime<go_){SessionInputRole falseStartRole;RaceEntryDefinition falseStartEntry;if(!definition_->resolve(m.input,falseStartRole,falseStartEntry)||falseStartRole.role!=InputRole::StartFinish)return;Message fs{};fs.type=Type::FalseStart;fs.relevantTime=m.relevantTime;fs.input=m.input;fs.raceEntryId=falseStartEntry.raceEntryId;fs.probe=definition_->falseStartPolicy();bus_.publish(endpoint_,fs);if(definition_->falseStartPolicy()==2)++penalties_[indexOf(fs.raceEntryId)];publishNoticeboardChanged();return;}SessionInputRole role;RaceEntryDefinition def;if(!definition_->resolve(m.input,role,def)||role.role!=InputRole::StartFinish)return;const uint8_t i=indexOf(def.raceEntryId);EntryState&s=entries_[i];if(m.relevantTime<s.lastCrossing||(paused_&&m.relevantTime>=pauseAt_))return;const Time lapStart=s.lastCrossing;Time lap=m.relevantTime-lapStart;if(restartScheduled_&&!gridRestart_&&m.relevantTime>=restartAt_&&s.lastCrossing<pauseAt_){const Time stopped=restartAt_-pauseAt_;lap=lap>stopped?lap-stopped:0;}s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;++s.laps;if(s.recordCount<MaxLaps){LapRecord&r=s.records[s.recordCount++];r.lapNumber=s.laps;r.startTime=lapStart;r.finishTime=m.relevantTime;r.lapTime=lap;r.valid=true;}if(recordEligible_&&records_)records_->observe(def.lane,lap);Message f{};f.type=Type::LapCompleted;f.relevantTime=m.relevantTime;f.raceEntryId=def.raceEntryId;f.lapNumber=s.laps;f.lapTime=lap;f.eventId=m.eventId;bus_.publish(endpoint_,f);publishNoticeboardChanged();applyFinish(i,m.relevantTime);}
+-  void applyFinish(uint8_t i,Time at){EntryState&s=entries_[i];const bool target=s.laps>=definition_->lapTarget()+penalties_[i];if(!winningTime_&&target){winningTime_=at;winner_=s.raceEntryId;observedMask_|=uint8_t(1u<<i);requiredMask_=uint8_t((1u<<entryCount())-1u);if(finishBehaviour_==LapFinishBehaviour::Immediate){candidateF_=at;finishReady_=true;}return;}if(!winningTime_)return;if(at==winningTime_&&target){observedMask_|=uint8_t(1u<<i);deadHeat_=true;return;}if(at<=winningTime_||(observedMask_&uint8_t(1u<<i)))return;if(finishBehaviour_==LapFinishBehaviour::CompleteCurrentLap||(finishBehaviour_==LapFinishBehaviour::CompleteFullRaceDistance&&target)){observedMask_|=uint8_t(1u<<i);candidateF_=at;if(observedMask_==requiredMask_)finishReady_=true;}}
+-  void evaluateFinish(){if(!winningTime_||finishReady_)return;if(finishBehaviour_==LapFinishBehaviour::Immediate){candidateF_=winningTime_;finishReady_=true;}else if(observedMask_==requiredMask_){if(candidateF_<winningTime_)candidateF_=winningTime_;finishReady_=true;}}
++  uint8_t indexOf(uint32_t id)const{for(uint8_t i=0;i<entryCount();++i)if(entries_[i].raceEntryId==id)return i;return MaxEntries;}
++  void interpret(const Message&m){if(finishReady_&&m.relevantTime>candidateF_)return;if(restartScheduled_&&m.relevantTime<restartAt_)return;if(definition_&&definition_->falseStartCapability()&&m.relevantTime<go_){SessionInputRole falseStartRole;RaceEntryDefinition falseStartEntry;if(!definition_->resolve(m.input,falseStartRole,falseStartEntry)||falseStartRole.role!=InputRole::StartFinish)return;Message fs{};fs.type=Type::FalseStart;fs.relevantTime=m.relevantTime;fs.input=m.input;fs.raceEntryId=falseStartEntry.raceEntryId;fs.probe=definition_->falseStartPolicy();bus_.publish(endpoint_,fs);if(definition_->falseStartPolicy()==2){const uint8_t penaltyIndex=indexOf(fs.raceEntryId);if(penaltyIndex<entryCount())++penalties_[penaltyIndex];}publishNoticeboardChanged();return;}SessionInputRole role;RaceEntryDefinition def;if(!definition_->resolve(m.input,role,def)||role.role!=InputRole::StartFinish)return;const uint8_t i=indexOf(def.raceEntryId);if(i>=entryCount())return;EntryState&s=entries_[i];if(m.relevantTime<s.lastCrossing||(paused_&&m.relevantTime>=pauseAt_))return;const Time lapStart=s.lastCrossing;Time lap=m.relevantTime-lapStart;if(restartScheduled_&&!gridRestart_&&m.relevantTime>=restartAt_&&s.lastCrossing<pauseAt_){const Time stopped=restartAt_-pauseAt_;lap=lap>stopped?lap-stopped:0;}s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;++s.laps;if(s.recordCount<MaxLaps){LapRecord&r=s.records[s.recordCount++];r.lapNumber=s.laps;r.startTime=lapStart;r.finishTime=m.relevantTime;r.lapTime=lap;r.valid=true;}if(recordEligible_&&records_)records_->observe(def.lane,lap);Message f{};f.type=Type::LapCompleted;f.relevantTime=m.relevantTime;f.raceEntryId=def.raceEntryId;f.lapNumber=s.laps;f.lapTime=lap;f.eventId=m.eventId;bus_.publish(endpoint_,f);publishNoticeboardChanged();applyFinish(i,m.relevantTime);}
++  bool allObserved()const{for(uint8_t i=0;i<entryCount();++i)if(!observed_[i])return false;return true;}
++  void applyFinish(uint8_t i,Time at){EntryState&s=entries_[i];const bool target=s.laps>=definition_->lapTarget()+penalties_[i];if(!winningTime_&&target){winningTime_=at;winner_=s.raceEntryId;observed_[i]=true;if(finishBehaviour_==LapFinishBehaviour::Immediate){candidateF_=at;finishReady_=true;}return;}if(!winningTime_)return;if(at==winningTime_&&target){observed_[i]=true;deadHeat_=true;return;}if(at<=winningTime_||observed_[i])return;if(finishBehaviour_==LapFinishBehaviour::CompleteCurrentLap||(finishBehaviour_==LapFinishBehaviour::CompleteFullRaceDistance&&target)){observed_[i]=true;candidateF_=at;if(allObserved())finishReady_=true;}}
++  void evaluateFinish(){if(!winningTime_||finishReady_)return;if(finishBehaviour_==LapFinishBehaviour::Immediate){candidateF_=winningTime_;finishReady_=true;}else if(allObserved()){if(candidateF_<winningTime_)candidateF_=winningTime_;finishReady_=true;}}
+   void publishPauseSettlement(){if(!settlementSeen_||settlementPublished_||pendingCount_)return;Message m{};m.type=Type::PauseSettled;m.relevantTime=settlementAt_;if(bus_.publish(endpoint_,m)==Delivery::Delivered)settlementPublished_=true;}
+   void publishFinishSettlement(){if(!finishReady_||finishSettlementSent_||pendingCount_)return;Message m{};m.type=Type::FinishSettlement;m.relevantTime=candidateF_;if(bus_.publish(endpoint_,m)==Delivery::Delivered)finishSettlementSent_=true;}
+   void completeAfterSettlement(){
+@@ -41,7 +43,7 @@ private:
+ #endif
+     if(!finishSettled_||completionPublished_||!finishSettlementSent_||!winningTime_||!definition_)return;
+     const uint8_t winnerIndex=indexOf(winner_);
+-    if(entries_[winnerIndex].laps<definition_->lapTarget()+penalties_[winnerIndex])return;
++    if(winnerIndex>=entryCount() || entries_[winnerIndex].laps<definition_->lapTarget()+penalties_[winnerIndex])return;
+     if(!result_.sealed)seal();
+     Message m{};m.type=Type::CompetitionComplete;m.relevantTime=result_.finishTime;m.raceEntryId=winner_;m.probe=deadHeat_?1:0;
+     if(bus_.publish(endpoint_,m)==Delivery::Delivered){completionPublished_=true;complete_=true;}
+@@ -60,7 +62,9 @@ private:
+   static bool before(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){if(a.laps!=b.laps)return a.laps>b.laps;if(f==LapFinishBehaviour::Immediate)return false;if(!a.completionTime)return false;if(!b.completionTime)return true;return a.completionTime<b.completionTime;}
+   void publishNoticeboardChanged(){Message n{};n.type=Type::NoticeboardChanged;bus_.publish(endpoint_,n);}
+   static bool samePlace(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){return a.laps==b.laps&&(f==LapFinishBehaviour::Immediate||a.completionTime==b.completionTime);}
+-  void seal(){result_={};result_.sealed=true;result_.valid=!faulted_;result_.deadHeat=deadHeat_;result_.winningTime=winningTime_;result_.finishTime=candidateF_;result_.behaviour=finishBehaviour_;result_.entryCount=entryCount();result_.lapTarget=definition_?definition_->lapTarget():0;uint32_t leaderLaps=0;for(uint8_t i=0;i<entryCount();++i){auto&t=result_.entries[i];const auto&s=entries_[i];t.raceEntryId=s.raceEntryId;t.lane=definition_->entry(i).lane;t.laps=s.laps;t.completed=(observedMask_&uint8_t(1u<<i))!=0;t.completionTime=t.completed?s.lastCrossing:0;t.recordCount=s.recordCount;if(t.laps>leaderLaps)leaderLaps=t.laps;for(uint8_t j=0;j<s.recordCount;++j){t.records[j]=s.records[j];if(s.records[j].valid&&(!t.bestLap||s.records[j].lapTime<t.bestLap))t.bestLap=s.records[j].lapTime;}}if(entryCount()==2&&before(result_.entries[1],result_.entries[0],finishBehaviour_)){auto t=result_.entries[0];result_.entries[0]=result_.entries[1];result_.entries[1]=t;}uint32_t rank=1;for(uint8_t i=0;i<entryCount();++i){if(i&&!samePlace(result_.entries[i-1],result_.entries[i],finishBehaviour_))rank=i+1;auto&t=result_.entries[i];t.rank=rank;t.tied=i&&result_.entries[i-1].rank==rank;if(t.tied)result_.entries[i-1].tied=true;t.lapsBehind=leaderLaps-t.laps;for(uint8_t j=0;j<t.recordCount;++j){const auto&lap=t.records[j];if(!lap.valid)continue;if(!result_.fastestLap||lap.lapTime<result_.fastestLap){result_.fastestLap=lap.lapTime;result_.fastestEntryId=t.raceEntryId;result_.fastestLapTied=false;}else if(lap.lapTime==result_.fastestLap&&result_.fastestEntryId!=t.raceEntryId)result_.fastestLapTied=true;}}}
+-  Bus&bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition&active_;HistoryStore*history_=nullptr;TrackRecordStore*records_=nullptr;const SessionDefinition*definition_=nullptr; SessionInputRole fsRole_{}; RaceEntryDefinition fsDef_{}; uint8_t penalties_[MaxEntries]{};uint32_t observedRevision_=0;Time go_=0,pauseAt_=0,restartAt_=0,settlementAt_=0,winningTime_=0,candidateF_=0;EntryState entries_[MaxEntries]{};LapFinishBehaviour finishBehaviour_=LapFinishBehaviour::Immediate;uint8_t observedMask_=0,requiredMask_=0;bool complete_=false,completionPublished_=false,deadHeat_=false,faulted_=false,paused_=false,restartScheduled_=false,gridRestart_=false,settlementSeen_=false,settlementPublished_=false,finishReady_=false,finishSettlementSent_=false,finishSettled_=false,persisted_=false,persistenceFault_=false,recordEligible_=true;CompletedRaceResult result_{};uint32_t winner_=0,historySequence_=0;Message pending_[16]{};uint8_t pendingCount_=0;uint32_t seen_[16]{};uint8_t seenAt_=0;
++  void seal(){result_={};result_.formatVersion=ResultFormatVersion;result_.sealed=true;result_.valid=!faulted_;result_.deadHeat=deadHeat_;result_.winningTime=winningTime_;result_.finishTime=candidateF_;result_.behaviour=finishBehaviour_;result_.entryCount=entryCount();result_.lapTarget=definition_?definition_->lapTarget():0;uint32_t leaderLaps=0;for(uint8_t i=0;i<entryCount();++i){auto&t=result_.entries[i];const auto&s=entries_[i];t.raceEntryId=s.raceEntryId;t.lane=definition_->entry(i).lane;t.laps=s.laps;t.completed=observed_[i];t.completionTime=t.completed?s.lastCrossing:0;t.recordCount=s.recordCount;if(t.laps>leaderLaps)leaderLaps=t.laps;for(uint8_t j=0;j<s.recordCount;++j){t.records[j]=s.records[j];if(s.records[j].valid&&(!t.bestLap||s.records[j].lapTime<t.bestLap))t.bestLap=s.records[j].lapTime;}}
++    for(uint8_t i=1;i<entryCount();++i){ResultEntry value=result_.entries[i];int j=int(i)-1;while(j>=0&&before(value,result_.entries[j],finishBehaviour_)){result_.entries[j+1]=result_.entries[j];--j;}result_.entries[j+1]=value;}
++    uint32_t rank=1;for(uint8_t i=0;i<entryCount();++i){if(i&&!samePlace(result_.entries[i-1],result_.entries[i],finishBehaviour_))rank=i+1;auto&t=result_.entries[i];t.rank=rank;t.tied=i&&result_.entries[i-1].rank==rank;if(t.tied)result_.entries[i-1].tied=true;t.lapsBehind=leaderLaps-t.laps;for(uint8_t j=0;j<t.recordCount;++j){const auto&lap=t.records[j];if(!lap.valid)continue;if(!result_.fastestLap||lap.lapTime<result_.fastestLap){result_.fastestLap=lap.lapTime;result_.fastestEntryId=t.raceEntryId;result_.fastestLapTied=false;}else if(lap.lapTime==result_.fastestLap&&result_.fastestEntryId!=t.raceEntryId)result_.fastestLapTied=true;}}}
++  Bus&bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition&active_;HistoryStore*history_=nullptr;TrackRecordStore*records_=nullptr;const SessionDefinition*definition_=nullptr; SessionInputRole fsRole_{}; RaceEntryDefinition fsDef_{}; uint8_t penalties_[MaxEntries]{};bool observed_[MaxEntries]{};uint32_t observedRevision_=0;Time go_=0,pauseAt_=0,restartAt_=0,settlementAt_=0,winningTime_=0,candidateF_=0;EntryState entries_[MaxEntries]{};LapFinishBehaviour finishBehaviour_=LapFinishBehaviour::Immediate;bool complete_=false,completionPublished_=false,deadHeat_=false,faulted_=false,paused_=false,restartScheduled_=false,gridRestart_=false,settlementSeen_=false,settlementPublished_=false,finishReady_=false,finishSettlementSent_=false,finishSettled_=false,persisted_=false,persistenceFault_=false,recordEligible_=true;CompletedRaceResult result_{};uint32_t winner_=0,historySequence_=0;Message pending_[16]{};uint8_t pendingCount_=0;uint32_t seen_[16]{};uint8_t seenAt_=0;
+ };
+ } // namespace pp
+diff --git a/firmware/include/pp/record_store.h b/firmware/include/pp/record_store.h
+index c7ddf2d..a523e1e 100644
+--- a/firmware/include/pp/record_store.h
++++ b/firmware/include/pp/record_store.h
+@@ -16,21 +16,23 @@ public:
+ };
+ class SlotTrackRecordStore final : public TrackRecordStore {
+ public:
++  static constexpr uint8_t MaxEntries=PP_MAX_ENTRIES;
+   explicit SlotTrackRecordStore(Store& store):store_(store){}
+-  bool observe(uint8_t lane,Time lapTime) override {if(lane<1||lane>2||!lapTime||!ensure())return false;bool changed=false;if(!data_.pb[lane-1]||lapTime<data_.pb[lane-1]){data_.pb[lane-1]=lapTime;changed=true;}if(!data_.track||lapTime<data_.track){data_.track=lapTime;data_.trackLane=lane;changed=true;}return !changed||write();}
+-  Time lanePb(uint8_t lane) override{return lane>=1&&lane<=2&&ensure()?data_.pb[lane-1]:0;}
++  bool observe(uint8_t lane,Time lapTime) override {if(lane<1||lane>MaxEntries||!lapTime||!ensure())return false;bool changed=false;if(!data_.pb[lane-1]||lapTime<data_.pb[lane-1]){data_.pb[lane-1]=lapTime;changed=true;}if(!data_.track||lapTime<data_.track){data_.track=lapTime;data_.trackLane=lane;changed=true;}return !changed||write();}
++  Time lanePb(uint8_t lane) override{return lane>=1&&lane<=MaxEntries&&ensure()?data_.pb[lane-1]:0;}
+   Time trackRecord() override{return ensure()?data_.track:0;}
+   uint32_t era() override{return ensure()?data_.era:0;}
+-  bool clearLane(uint8_t lane) override{if(lane<1||lane>2||!ensure())return false;data_.pb[lane-1]=0;recomputeTrack();++data_.era;return write();}
++  bool clearLane(uint8_t lane) override{if(lane<1||lane>MaxEntries||!ensure())return false;data_.pb[lane-1]=0;recomputeTrack();++data_.era;return write();}
+   bool clearTrack() override{if(!ensure())return false;data_.track=0;data_.trackLane=0;++data_.era;return write();}
+-  bool clearAll() override{if(!ensure())return false;data_.pb[0]=data_.pb[1]=data_.track=0;data_.trackLane=0;++data_.era;return write();}
++  bool clearAll() override{if(!ensure())return false;for(uint8_t i=0;i<MaxEntries;++i)data_.pb[i]=0;data_.track=0;data_.trackLane=0;++data_.era;return write();}
+ private:
+   static constexpr unsigned Slot=7;
+-  struct Data{uint32_t magic=0x50505231u,era=1;Time pb[2]{};Time track=0;uint8_t trackLane=0;uint8_t reserved[7]{};uint32_t checksum=0;};
++  static constexpr uint32_t FormatVersion=2;
++  struct Data{uint32_t magic=0x50505231u,format=FormatVersion,era=1;Time pb[MaxEntries]{};Time track=0;uint8_t trackLane=0;uint8_t reserved[7]{};uint32_t checksum=0;};
+   Store&store_;Data data_{};bool loaded_=false;
+   static uint32_t sum(const uint8_t*p,size_t n){uint32_t h=2166136261u;while(n--)h=(h^*p++)*16777619u;return h;}
+-  bool ensure(){if(loaded_)return store_.available();loaded_=true;if(!store_.available())return false;Data candidate{};if(!store_.read(Slot,reinterpret_cast<uint8_t*>(&candidate),sizeof(candidate)))return true;const auto expected=sum(reinterpret_cast<const uint8_t*>(&candidate),offsetof(Data,checksum));if(candidate.magic==0x50505231u&&candidate.era&&candidate.checksum==expected)data_=candidate;return true;}
++  bool ensure(){if(loaded_)return store_.available();loaded_=true;if(!store_.available())return false;Data candidate{};if(!store_.read(Slot,reinterpret_cast<uint8_t*>(&candidate),sizeof(candidate)))return true;const auto expected=sum(reinterpret_cast<const uint8_t*>(&candidate),offsetof(Data,checksum));if(candidate.magic==0x50505231u&&candidate.format==FormatVersion&&candidate.era&&candidate.checksum==expected)data_=candidate;return true;}
+   bool write(){data_.checksum=sum(reinterpret_cast<const uint8_t*>(&data_),offsetof(Data,checksum));return store_.write(Slot,reinterpret_cast<const uint8_t*>(&data_),sizeof(data_));}
+-  void recomputeTrack(){data_.track=0;data_.trackLane=0;for(uint8_t i=0;i<2;++i)if(data_.pb[i]&&(!data_.track||data_.pb[i]<data_.track)){data_.track=data_.pb[i];data_.trackLane=i+1;}}
++  void recomputeTrack(){data_.track=0;data_.trackLane=0;for(uint8_t i=0;i<MaxEntries;++i)if(data_.pb[i]&&(!data_.track||data_.pb[i]<data_.track)){data_.track=data_.pb[i];data_.trackLane=i+1;}}
+ };
+ }
+diff --git a/firmware/include/pp/session_definition.h b/firmware/include/pp/session_definition.h
+index f4f1a60..fc25ae5 100644
+--- a/firmware/include/pp/session_definition.h
++++ b/firmware/include/pp/session_definition.h
+@@ -1,47 +1,112 @@
+ #pragma once
+ #include "core.h"
+ #include <new>
++
+ namespace pp {
+ enum class InputRole : uint8_t { StartFinish };
+ enum class LapFinishBehaviour : uint8_t { Immediate, CompleteCurrentLap, CompleteFullRaceDistance };
+ struct SessionInputRole { InputIdentity input; uint8_t lane; InputRole role; };
+-struct RaceEntryDefinition { uint32_t raceEntryId,mugId; uint8_t lane; constexpr RaceEntryDefinition(uint32_t id=0,uint32_t mug=0,uint8_t laneValue=0):raceEntryId(id),mugId(mug),lane(laneValue){} };
++struct RaceEntryDefinition {
++  uint32_t raceEntryId,mugId; uint8_t lane;
++  constexpr RaceEntryDefinition(uint32_t id=0,uint32_t mug=0,uint8_t laneValue=0):raceEntryId(id),mugId(mug),lane(laneValue){}
++};
++struct ProposedRaceEntry { SessionInputRole startFinish{InputIdentity{},0,InputRole::StartFinish}; uint32_t mugId=0; };
++
+ struct ProposedRaceSetup {
++  ProposedRaceEntry entries[PP_MAX_ENTRIES]{};
++  uint8_t activeLanes=1;
++  uint32_t lapTarget=0;
++  LapFinishBehaviour finish=LapFinishBehaviour::Immediate;
++  bool startsBeforeStartFinish=true,optionalFeaturesEnabled=false;
++  // Legacy aliases remain source-compatible with accepted Stage 1–13
++  // fixtures. Core code normalises them into entries[] before validation.
+   SessionInputRole startFinish{InputIdentity{},1,InputRole::StartFinish};
+   SessionInputRole secondStartFinish{InputIdentity{},2,InputRole::StartFinish};
+-  uint32_t selectedMugId=0,secondMugId=0,lapTarget=0;
+-  LapFinishBehaviour finish=LapFinishBehaviour::Immediate;
+-  uint8_t activeLanes=1; bool startsBeforeStartFinish=true,optionalFeaturesEnabled=false;
++  uint32_t selectedMugId=0,secondMugId=0;
+   // 0=Lights Out / Immediate / false-start OFF; 1=Green / Fixed / WARNING;
+-  // 2=Random / +1 LAP.  These are fixed into a Session Definition at START.
+-  uint8_t redLightCount=5, startSignal=0, startTiming=2, falseStartPolicy=0;
++  // 2=Random / +1 LAP. These are fixed into a Session Definition at START.
++  uint8_t redLightCount=5,startSignal=0,startTiming=2,falseStartPolicy=0;
+   Time redIntervalUs=1000000, fixedFinalDelayUs=1000000;
+   bool falseStartCapability=false;
++
+   ProposedRaceSetup()=default;
+-  ProposedRaceSetup(SessionInputRole assignment,uint32_t mug,uint32_t target,LapFinishBehaviour f,uint8_t lanes,bool startsBefore,bool optional):startFinish(assignment),selectedMugId(mug),lapTarget(target),finish(f),activeLanes(lanes),startsBeforeStartFinish(startsBefore),optionalFeaturesEnabled(optional) {}
++  ProposedRaceSetup(SessionInputRole assignment,uint32_t mug,uint32_t target,LapFinishBehaviour f,uint8_t lanes,bool startsBefore,bool optional):
++    activeLanes(lanes),lapTarget(target),finish(f),startsBeforeStartFinish(startsBefore),optionalFeaturesEnabled(optional),startFinish(assignment),selectedMugId(mug) {}
++
++  void normaliseLegacyAliases() {
++    if (entries[0].startFinish.input.device==0 && startFinish.input.device) {
++      entries[0].startFinish=startFinish; entries[0].mugId=selectedMugId;
++    }
++#if PP_MAX_ENTRIES > 1
++    if (entries[1].startFinish.input.device==0 && secondStartFinish.input.device) {
++      entries[1].startFinish=secondStartFinish; entries[1].mugId=secondMugId;
++    }
++#endif
++  }
+ };
+-inline bool valid(const ProposedRaceSetup& s) {
+-  const bool first=s.startFinish.input.device&&s.startFinish.input.capability&&s.startFinish.lane==1&&s.startFinish.role==InputRole::StartFinish&&s.selectedMugId;
+-  const bool second=s.activeLanes!=2 || (s.secondStartFinish.input.device&&s.secondStartFinish.input.capability&&s.secondStartFinish.lane==2&&s.secondStartFinish.role==InputRole::StartFinish&&s.secondMugId&&!(s.secondStartFinish.input==s.startFinish.input));
+-  return first&&second&&s.lapTarget>0&&(s.activeLanes==1||s.activeLanes==2)&&
+-      (s.redLightCount==3||s.redLightCount==5)&&s.redIntervalUs>0&&
+-      s.startsBeforeStartFinish&&!s.optionalFeaturesEnabled;
++
++inline ProposedRaceSetup normalised(const ProposedRaceSetup& setup) {
++  ProposedRaceSetup copy=setup; copy.normaliseLegacyAliases(); return copy;
++}
++
++inline bool valid(const ProposedRaceSetup& original) {
++  const ProposedRaceSetup s=normalised(original);
++  if (!s.activeLanes || s.activeLanes>PP_MAX_ENTRIES || !s.lapTarget ||
++      (s.redLightCount!=3 && s.redLightCount!=5) || !s.redIntervalUs ||
++      !s.startsBeforeStartFinish || s.optionalFeaturesEnabled) return false;
++  for (uint8_t i=0;i<s.activeLanes;++i) {
++    const auto& assignment=s.entries[i].startFinish;
++    if (!assignment.input.device || !assignment.input.capability || assignment.lane!=uint8_t(i+1) || assignment.role!=InputRole::StartFinish || !s.entries[i].mugId) return false;
++    for (uint8_t j=0;j<i;++j) {
++      if (assignment.input==s.entries[j].startFinish.input || assignment.lane==s.entries[j].startFinish.lane || s.entries[i].mugId==s.entries[j].mugId) return false;
++    }
++  }
++  return true;
+ }
++
+ class SessionDefinition {
+ public:
+-  explicit SessionDefinition(SessionInputRole a,uint32_t id=1,uint32_t target=0,LapFinishBehaviour f=LapFinishBehaviour::Immediate):roles_{a,{}},entries_{RaceEntryDefinition{id,0,a.lane},RaceEntryDefinition{}},count_(1),lapTarget_(target),finish_(f) {}
+-  SessionDefinition(const ProposedRaceSetup& s,uint32_t session,uint32_t firstId):sessionId_(session),count_(s.activeLanes),lapTarget_(s.lapTarget),finish_(s.finish) {
+-    redLightCount_=s.redLightCount; startSignal_=s.startSignal; startTiming_=s.startTiming; redIntervalUs_=s.redIntervalUs; fixedFinalDelayUs_=s.fixedFinalDelayUs; falseStartCapability_=s.falseStartCapability; falseStartPolicy_=s.falseStartPolicy;
+-    roles_[0]=s.startFinish;entries_[0]=RaceEntryDefinition{firstId,s.selectedMugId,1};
+-    if(count_==2){roles_[1]=s.secondStartFinish;entries_[1]=RaceEntryDefinition{firstId+1,s.secondMugId,2};}
++  explicit SessionDefinition(SessionInputRole a,uint32_t id=1,uint32_t target=0,LapFinishBehaviour f=LapFinishBehaviour::Immediate):sessionId_(0),count_(1),lapTarget_(target),finish_(f) {
++    roles_[0]=a; entries_[0]=RaceEntryDefinition{id,0,a.lane};
++  }
++  SessionDefinition(const ProposedRaceSetup& original,uint32_t session,uint32_t firstId):sessionId_(session),lapTarget_(original.lapTarget),finish_(original.finish) {
++    const ProposedRaceSetup s=normalised(original); count_=s.activeLanes;
++    redLightCount_=s.redLightCount; startSignal_=s.startSignal; startTiming_=s.startTiming; redIntervalUs_=s.redIntervalUs;
++    fixedFinalDelayUs_=s.fixedFinalDelayUs; falseStartCapability_=s.falseStartCapability; falseStartPolicy_=s.falseStartPolicy;
++    for(uint8_t i=0;i<count_;++i){ roles_[i]=s.entries[i].startFinish; entries_[i]=RaceEntryDefinition{firstId+uint32_t(i),s.entries[i].mugId,s.entries[i].startFinish.lane}; }
+   }
+   bool resolve(InputIdentity input,SessionInputRole& role,RaceEntryDefinition& entry) const { for(uint8_t i=0;i<count_;++i)if(roles_[i].input==input){role=roles_[i];entry=entries_[i];return true;}return false; }
+   bool resolve(InputIdentity input,SessionInputRole& role) const { RaceEntryDefinition ignored;return resolve(input,role,ignored); }
+-  uint8_t entryCount()const{return count_;} const RaceEntryDefinition& entry(uint8_t i)const{return entries_[i];} const SessionInputRole& role(uint8_t i)const{return roles_[i];}
+-  uint32_t sessionId()const{return sessionId_;} uint32_t raceEntryId()const{return entries_[0].raceEntryId;} uint32_t mugId()const{return entries_[0].mugId;} uint32_t lapTarget()const{return lapTarget_;} LapFinishBehaviour finishBehaviour()const{return finish_;}
+-  uint8_t redLightCount()const{return redLightCount_;} uint8_t startSignal()const{return startSignal_;} uint8_t startTiming()const{return startTiming_;} Time redIntervalUs()const{return redIntervalUs_;} Time fixedFinalDelayUs()const{return fixedFinalDelayUs_;} bool falseStartCapability()const{return falseStartCapability_;} uint8_t falseStartPolicy()const{return falseStartPolicy_;}
++  uint8_t entryCount()const{return count_;}
++  const RaceEntryDefinition& entry(uint8_t i)const{return entries_[i];}
++  const SessionInputRole& role(uint8_t i)const{return roles_[i];}
++  uint32_t sessionId()const{return sessionId_;}
++  uint32_t raceEntryId()const{return entries_[0].raceEntryId;}
++  uint32_t mugId()const{return entries_[0].mugId;}
++  uint32_t lapTarget()const{return lapTarget_;}
++  LapFinishBehaviour finishBehaviour()const{return finish_;}
++  uint8_t redLightCount()const{return redLightCount_;}
++  uint8_t startSignal()const{return startSignal_;}
++  uint8_t startTiming()const{return startTiming_;}
++  Time redIntervalUs()const{return redIntervalUs_;}
++  Time fixedFinalDelayUs()const{return fixedFinalDelayUs_;}
++  bool falseStartCapability()const{return falseStartCapability_;}
++  uint8_t falseStartPolicy()const{return falseStartPolicy_;}
++private:
++  SessionInputRole roles_[PP_MAX_ENTRIES]{}; RaceEntryDefinition entries_[PP_MAX_ENTRIES]{};
++  uint32_t sessionId_=0; uint8_t count_=1; uint32_t lapTarget_=0; LapFinishBehaviour finish_=LapFinishBehaviour::Immediate;
++  uint8_t redLightCount_=5,startSignal_=0,startTiming_=2,falseStartPolicy_=0;
++  Time redIntervalUs_=1000000,fixedFinalDelayUs_=1000000; bool falseStartCapability_=false;
++};
++
++class ActiveSessionDefinition {
++public:
++  void clearForFixture(){value_=nullptr;replacementPermitted_=false;++revision_;}
++  void permitReplacement(){replacementPermitted_=value_!=nullptr;}
++  bool commit(const ProposedRaceSetup& s,uint32_t session,uint32_t entry){if((value_&&!replacementPermitted_)||!valid(s))return false;value_=new(storage_) SessionDefinition(s,session,entry);replacementPermitted_=false;++revision_;return true;}
++  const SessionDefinition* current()const{return value_;}
++  uint32_t revision()const{return revision_;}
+ private:
+-  SessionInputRole roles_[2]{}; RaceEntryDefinition entries_[2]{}; uint32_t sessionId_=0; uint8_t count_=1; uint32_t lapTarget_=0; LapFinishBehaviour finish_=LapFinishBehaviour::Immediate; uint8_t redLightCount_=5,startSignal_=0,startTiming_=2,falseStartPolicy_=0; Time redIntervalUs_=1000000,fixedFinalDelayUs_=1000000; bool falseStartCapability_=false;
++  alignas(SessionDefinition) uint8_t storage_[sizeof(SessionDefinition)]{}; const SessionDefinition* value_=nullptr; uint32_t revision_=0; bool replacementPermitted_=false;
+ };
+-class ActiveSessionDefinition { public: void clearForFixture(){value_=nullptr;replacementPermitted_=false;++revision_;} void permitReplacement(){replacementPermitted_=value_!=nullptr;} bool commit(const ProposedRaceSetup& s,uint32_t session,uint32_t entry){if((value_&&!replacementPermitted_)||!valid(s))return false;value_=new(storage_) SessionDefinition(s,session,entry);replacementPermitted_=false;++revision_;return true;} const SessionDefinition* current()const{return value_;}uint32_t revision()const{return revision_;}private:alignas(SessionDefinition)uint8_t storage_[sizeof(SessionDefinition)]{};const SessionDefinition* value_=nullptr;uint32_t revision_=0;bool replacementPermitted_=false;};
+ } // namespace pp
+diff --git a/firmware/platformio.ini b/firmware/platformio.ini
+index 2ca26c3..f196f05 100644
+--- a/firmware/platformio.ini
++++ b/firmware/platformio.ini
+@@ -54,11 +54,16 @@ build_flags = ${env:esp32dev.build_flags} -DPP_STAGE7_DEMO=1
+ 
+ [env:stage8acceptance]
+ extends = env:esp32dev
+-build_flags = ${env:esp32dev.build_flags} -DPP_STAGE8_ACCEPTANCE=1
++; Stage 8's historical Browser fixture has a large in-image static fixture and
++; is a two-entry regression. Keep that legacy test image within ESP32 DRAM;
++; the product/default and Stage 14A acceptance images use PP_MAX_ENTRIES=8.
++build_flags = ${env:esp32dev.build_flags} -DPP_STAGE8_ACCEPTANCE=1 -DPP_MAX_ENTRIES=2
+ 
+ [env:stage9acceptance]
+ extends = env:esp32dev
+-build_flags = ${env:esp32dev.build_flags} -DPP_STAGE9_ACCEPTANCE=1
++; Historical Stage 9 acceptance embeds a large two-entry fixture; keep that
++; regression image bounded while the normal and Stage 14A images use capacity 8.
++build_flags = ${env:esp32dev.build_flags} -DPP_STAGE9_ACCEPTANCE=1 -DPP_MAX_ENTRIES=2
+ 
+ [env:stage9demo]
+ extends = env:esp32dev
+@@ -66,7 +71,9 @@ build_flags = ${env:esp32dev.build_flags} -DPP_STAGE9_DEMO=1
+ 
+ [env:stage10acceptance]
+ extends = env:esp32dev
+-build_flags = ${env:esp32dev.build_flags} -DPP_STAGE10_ACCEPTANCE=1
++; Stage 10's historical Browser fixture is a two-entry regression and has a
++; large in-image authority/presentation harness; keep that image within DRAM.
++build_flags = ${env:esp32dev.build_flags} -DPP_STAGE10_ACCEPTANCE=1 -DPP_MAX_ENTRIES=2
+ 
+ [env:stage10demo]
+ extends = env:esp32dev
+@@ -74,7 +81,9 @@ build_flags = ${env:esp32dev.build_flags} -DPP_STAGE10_DEMO=1
+ 
+ [env:stage11acceptance]
+ extends = env:esp32dev
+-build_flags = ${env:esp32dev.build_flags} -DPP_STAGE11_ACCEPTANCE=1
++; Stage 11's acceptance fixture is intentionally the historical two-entry
++; scenario. The Stage 14A image is the capacity-8 multi-entry proof.
++build_flags = ${env:esp32dev.build_flags} -DPP_STAGE11_ACCEPTANCE=1 -DPP_MAX_ENTRIES=2
+ 
+ [env:stage11demo]
+ extends = env:esp32dev
+@@ -88,7 +97,9 @@ build_flags = ${env:esp32dev.build_flags} -DPP_STAGE13_DEMO=1 -DPP_WOKWI_DEV=1
+ 
+ [env:stage12acceptance]
+ extends = env:esp32dev
+-build_flags = ${env:esp32dev.build_flags} -DPP_STAGE12_ACCEPTANCE=1
++; Stage 12's historical fixture constructs several complete two-entry
++; harnesses simultaneously; keep that regression image within ESP32 DRAM.
++build_flags = ${env:esp32dev.build_flags} -DPP_STAGE12_ACCEPTANCE=1 -DPP_MAX_ENTRIES=2
+ 
+ [env:stage12demo]
+ extends = env:esp32dev
+@@ -96,8 +107,18 @@ build_flags = ${env:esp32dev.build_flags} -DPP_STAGE12_DEMO=1 -DPP_WOKWI_DEV=1
+ 
+ [env:stage13acceptance]
+ extends = env:esp32dev
+-build_flags = ${env:esp32dev.build_flags} -DPP_STAGE13_ACCEPTANCE=1
++; Stage 13's historical fixture also constructs several two-entry harnesses;
++; Stage 14A proves the capacity-8 implementation separately.
++build_flags = ${env:esp32dev.build_flags} -DPP_STAGE13_ACCEPTANCE=1 -DPP_MAX_ENTRIES=2
+ 
+ [env:stage13demo]
+ extends = env:esp32dev
+ build_flags = ${env:esp32dev.build_flags} -DPP_STAGE13_DEMO=1 -DPP_WOKWI_DEV=1
++
++[env:stage14aacceptance]
++extends = env:esp32dev
++build_flags = ${env:esp32dev.build_flags} -DPP_STAGE14A_ACCEPTANCE=1
++
++[env:stage14ademo]
++extends = env:esp32dev
++build_flags = ${env:esp32dev.build_flags} -DPP_STAGE14A_DEMO=1 -DPP_WOKWI_DEV=1
+diff --git a/firmware/src/main.cpp b/firmware/src/main.cpp
+index 92bd054..b90bc4d 100644
+--- a/firmware/src/main.cpp
++++ b/firmware/src/main.cpp
+@@ -95,14 +95,14 @@ pp::Configuration workingConfiguration;
+ pp::ProposedRaceSetup proposedRaceSetup{ {pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish}, 1, 10, pp::LapFinishBehaviour::Immediate, 1, true, false };
+ bool ready=false,testsPassed=true,bootFailed=false;
+ pp::Time nextStatus=0;
+-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
++#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
+ // Human/demo fixture: a trigger is a momentary passage; production input semantics are unchanged.
+ pp::Time simulatedARelease=0,simulatedBRelease=0;
+ #endif
+-#if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO)
++#if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE14A_DEMO)
+ bool stage10ServerReported=false;
+ #endif
+-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
++#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
+ bool browserFixturePass(uint8_t lane){ if(raceControl.state()!=pp::SessionLifecycle::Racing)return false; if(lane==1){input.setSimulatedSource(true);simulatedARelease=systemTime()+150000;} else {input.setSimulatedSourceB(true);simulatedBRelease=systemTime()+150000;} return true; }
+ void browserFixtureReset(){ activeSession.clearForFixture(); raceControl.resetRaceForFixture(); raceControl.setProposedRaceSetup(proposedRaceSetup); raceEngine.resetForFixture(); browser.clearRaceForFixture(); diagnostics.log("[DEV] TEST RESET READY (Race Director retained)"); }
+ bool browserFixtureSetup(uint32_t laps){if(raceControl.state()!=pp::SessionLifecycle::Ready||!raceControl.proposedRaceSetup())return false;proposedRaceSetup=*raceControl.proposedRaceSetup();proposedRaceSetup.lapTarget=laps;raceControl.setProposedRaceSetup(proposedRaceSetup);return true;}
+@@ -118,8 +118,12 @@ const char* buildIdentity(){
+   return "P&P STAGE 12 ACCEPTANCE";
+ #elif defined(PP_STAGE13_ACCEPTANCE)
+   return "P&P STAGE 13 ACCEPTANCE";
++#elif defined(PP_STAGE14A_ACCEPTANCE)
++  return "P&P STAGE 14A ACCEPTANCE";
+ #elif defined(PP_STAGE12_DEMO)
+   return "P&P STAGE 12 DEMO";
++#elif defined(PP_STAGE14A_DEMO)
++   return "P&P STAGE 14A DEMO";
+ #elif defined(PP_STAGE13_DEMO)
+   return "P&P STAGE 13 DEMO";
+ #elif defined(PP_STAGE11_ACCEPTANCE)
+@@ -218,6 +222,9 @@ void status(){diagnostics.log("[DEV] %s %s system_us=%llu dropped=%lu; no sessio
+ #ifdef PP_STAGE13_ACCEPTANCE
+ #include "../tests/stage13_acceptance_probe.inc"
+ #endif
++#ifdef PP_STAGE14A_ACCEPTANCE
++#include "../tests/stage14a_acceptance_probe.inc"
++#endif
+ }
+ void setup(){
+   Serial.begin(115200);
+@@ -265,12 +272,15 @@ void setup(){
+ #endif
+ #ifdef PP_STAGE13_ACCEPTANCE
+   stage13AcceptanceBeforeBoot();
++#endif
++#ifdef PP_STAGE14A_ACCEPTANCE
++  stage14aAcceptanceBeforeBoot();
+ #endif
+   diagnostics.log("[DEV] %s -- diagnostics are not product State",buildIdentity());
+   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
+   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
+   storage.begin();browserAuthority.begin();
+-#if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
++#if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
+   browserAuthority.clearForFixture();
+ #endif
+   diagnostics.log("[INIT] Memory %s: NVS behind Memory boundary",storage.available()?"READY":"DEGRADED");
+@@ -303,7 +313,7 @@ void setup(){
+   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::FalseStart);
+   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::HistoryStored);
+   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::StorageFault);
+-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
++#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
+   browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset,browserFixtureSetup);
+ #endif
+   browser.begin();
+@@ -360,7 +370,7 @@ void loop(){
+     diagnostics.log("[DEV] Stage11 Browser server=%s error=%d",browser.serverReady()?"READY":"FAILED",browser.serverStartError());
+   }
+ #endif
+-#if defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO)
++#if defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE14A_DEMO)
+   if(!stage10ServerReported&&(browser.serverReady()||browser.serverStartError())){
+     stage10ServerReported=true;
+     diagnostics.log("[DEV] %s Browser server=%s error=%d",buildIdentity(),browser.serverReady()?"READY":"FAILED",browser.serverStartError());
+@@ -373,7 +383,7 @@ void loop(){
+       bootFailed=true;diagnostics.log("STAGE1_FAIL configuration response");
+     }else{
+       workingConfiguration=message.configuration;
+-#if defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO)
++#if defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE14A_DEMO)
+       proposedRaceSetup.startFinish={pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish};
+       proposedRaceSetup.secondStartFinish={pp::InputModule::simulatedDetectorBIdentity(),2,pp::InputRole::StartFinish};
+       proposedRaceSetup.selectedMugId=91;proposedRaceSetup.secondMugId=92;proposedRaceSetup.activeLanes=2;
+@@ -420,7 +430,7 @@ void loop(){
+     if(c=='q')diagnostics.enable(false);
+     else if(c=='v'){diagnostics.enable(true);status();}
+     else if(c=='?')status();
+-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
++#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
+     else if(c=='x'){activeSession.clearForFixture();raceControl.resetForFixture();raceEngine.resetForFixture();browser.clearForFixture();browserAuthority.clearForFixture();diagnostics.log("[DEV] TEST RESET READY");}
+ #endif
+     else if(c=='t'){const bool ok=pp::busSelfTest(bus,testPublisher,testObserver,input.endpoint,report);diagnostics.log("[BUS SELF-TEST] %s",ok?"PASS":"FAIL");}
+@@ -494,6 +504,9 @@ void loop(){
+ #endif
+ #ifdef PP_STAGE13_ACCEPTANCE
+     else stage13AcceptanceCommand(c);
++#endif
++#ifdef PP_STAGE14A_ACCEPTANCE
++    else stage14aAcceptanceCommand(c);
+ #endif
+   }
+   if(ready&&systemTime()>=nextStatus){status();nextStatus=systemTime()+10000000;}
+@@ -547,6 +560,9 @@ void loop(){
+ #ifdef PP_STAGE13_ACCEPTANCE
+   stage13AcceptanceTick();
+ #endif
++#ifdef PP_STAGE14A_ACCEPTANCE
++  stage14aAcceptanceTick();
++#endif
+ #ifdef PP_VERIFY
+   if(verificationReboot&&systemTime()>=rebootAt)ESP.restart();
+ #endif
+diff --git a/firmware/tests/stage11_acceptance_probe.inc b/firmware/tests/stage11_acceptance_probe.inc
+index d73ba73..3d2a364 100644
+--- a/firmware/tests/stage11_acceptance_probe.inc
++++ b/firmware/tests/stage11_acceptance_probe.inc
+@@ -21,8 +21,8 @@ struct Stage11Fixture {
+     setup.startFinish={pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish};
+     setup.secondStartFinish={pp::InputModule::simulatedDetectorBIdentity(),2,pp::InputRole::StartFinish};
+     setup.selectedMugId=91;setup.secondMugId=92;setup.activeLanes=2;setup.lapTarget=3;setup.startsBeforeStartFinish=true;
+-    bus.subscribe(inputEndpoint,pp::Type::SessionOperation);
+-    bus.subscribe(engineEndpoint,pp::Type::GoScheduled);bus.subscribe(engineEndpoint,pp::Type::InputEvent);bus.subscribe(engineEndpoint,pp::Type::SessionOperation);bus.subscribe(engineEndpoint,pp::Type::InputSettlement);bus.subscribe(engineEndpoint,pp::Type::RaceIntegrityFault);
++    bus.subscribe(inputEndpoint,pp::Type::SessionOperation);bus.subscribe(inputEndpoint,pp::Type::FinishSettlement);
++    bus.subscribe(engineEndpoint,pp::Type::GoScheduled);bus.subscribe(engineEndpoint,pp::Type::InputEvent);bus.subscribe(engineEndpoint,pp::Type::SessionOperation);bus.subscribe(engineEndpoint,pp::Type::InputSettlement);bus.subscribe(engineEndpoint,pp::Type::FinishSettled);bus.subscribe(engineEndpoint,pp::Type::RaceIntegrityFault);
+     bus.subscribe(controlEndpoint,pp::Type::StartRequest);bus.subscribe(controlEndpoint,pp::Type::SessionOperationRequest);bus.subscribe(controlEndpoint,pp::Type::PauseSettled);bus.subscribe(controlEndpoint,pp::Type::CompetitionComplete);bus.subscribe(controlEndpoint,pp::Type::RaceIntegrityFault);
+     bus.subscribe(presentation,pp::Type::RequestResult);bus.subscribe(presentation,pp::Type::NoticeboardChanged);bus.subscribe(presentation,pp::Type::Paused);bus.subscribe(presentation,pp::Type::RestartScheduled);bus.subscribe(presentation,pp::Type::Resumed);
+     bus.subscribe(observer,pp::Type::Paused);bus.subscribe(observer,pp::Type::RestartScheduled);bus.subscribe(observer,pp::Type::Resumed);
+@@ -80,9 +80,12 @@ void stage11Run(){
+   h.browser.submitOperation(3100,pp::SessionOperation::Pause,h.browser.context(0x1111111111111111ULL),0x1111111111111111ULL); h.control.tick(base+2000000); h.browser.tick(); auto hp=h.noticeboard.current();
+   h.engine.tick();
+   const auto beforeDelayed=h.engine.entryState(0).laps; h.raw(1,hp.pauseEffectiveAt-1,9101); const bool delayedPreP=h.engine.entryState(0).laps==beforeDelayed+1;
+-  h.control.tick(hp.pauseEffectiveAt+1); const bool delayedFinish=h.control.state()==pp::SessionLifecycle::Finished;
++  // Complete the normal finish-settlement round trip before observing the
++  // authoritative lifecycle; the delayed pre-P event may itself win the race.
++  for(unsigned n=0;n<8;++n){const pp::Time settleNow=hp.pauseEffectiveAt+2+n;h.input.tick(settleNow);h.engine.tick();h.control.tick(settleNow);h.browser.tick();}
++  const bool delayedFinish=h.control.state()==pp::SessionLifecycle::Finished;
+   stage11Output.log("ACC S11 test=11.4 delayed_pre_pause=%u",delayedPreP?1:0);
+-  stage11Output.log("ACC S11 test=11.6 delayed_completion=%u",delayedFinish?1:0);
++  stage11Output.log("ACC S11 test=11.6 delayed_completion=%u engine_complete=%u state=%u laps=%lu",delayedFinish?1:0,h.engine.complete()?1:0,unsigned(h.control.state()),(unsigned long)h.engine.entryState(0).laps);
+   Stage11Fixture& i=stage11Fixture(); i.browser.submitStart(4000,pp::ClientContext::RaceDirectorSmug,0x1111111111111111ULL); i.control.tick(base); i.engine.tick(); i.control.tick(i.control.scheduledGo()); i.engine.tick();
+   i.browser.submitOperation(4100,pp::SessionOperation::Pause,i.browser.context(0x1111111111111111ULL),0x1111111111111111ULL); i.control.tick(base+2000000); i.browser.tick(); auto ip=i.noticeboard.current(); i.engine.tick();
+   const auto pBefore=i.engine.entryState(0).laps; i.raw(1,ip.pauseEffectiveAt,9201); i.raw(1,ip.pauseEffectiveAt-1,9202); const bool pBoundary=i.engine.entryState(0).laps==pBefore+1;
+diff --git a/firmware/tests/stage13_acceptance_probe.inc b/firmware/tests/stage13_acceptance_probe.inc
+index 3f793e3..05b659c 100644
+--- a/firmware/tests/stage13_acceptance_probe.inc
++++ b/firmware/tests/stage13_acceptance_probe.inc
+@@ -8,7 +8,10 @@ bool stage13Ran=false;
+ // persistence and controller-restart tests deterministic without depending on
+ // Wokwi's retained flash image.
+ struct Stage13Store final : pp::Store {
+-  static constexpr size_t Slots=16,Bytes=pp::HistoryStore::MaxBytes;
++  // Keep the in-image store bounded for the ESP32 acceptance image while
++  // retaining enough slots for metadata, four history records and records.
++  static constexpr size_t Slots=12;
++  static constexpr size_t Bytes=sizeof(pp::RaceEngineModule::CompletedRaceResult)>sizeof(uint32_t)*32?sizeof(pp::RaceEngineModule::CompletedRaceResult):sizeof(uint32_t)*32;
+   uint8_t bytes[Slots][Bytes]{};size_t lengths[Slots]{};bool online=true;
+   bool available()const override{return online;}
+   bool read(unsigned slot,uint8_t* out,size_t count)override{if(!online||slot>=Slots||lengths[slot]!=count)return false;memcpy(out,bytes[slot],count);return true;}

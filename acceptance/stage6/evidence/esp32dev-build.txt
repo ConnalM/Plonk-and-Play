@@ -15,18 +15,19 @@ Found 34 compatible libraries
 Scanning dependencies...
 Dependency Graph
 |-- Preferences @ 2.0.0
+|-- WiFi @ 2.0.0
 Building in release mode
 Retrieving maximum program size .pio\build\esp32dev\firmware.elf
 Checking size .pio\build\esp32dev\firmware.elf
 Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
-RAM:   [=         ]  12.0% (used 39208 bytes from 327680 bytes)
-Flash: [==        ]  22.9% (used 300545 bytes from 1310720 bytes)
-========================= [SUCCESS] Took 2.20 seconds =========================
+RAM:   [===       ]  26.9% (used 88016 bytes from 327680 bytes)
+Flash: [======    ]  63.4% (used 830893 bytes from 1310720 bytes)
+========================= [SUCCESS] Took 2.81 seconds =========================
 
 Environment    Status    Duration
 -------------  --------  ------------
-esp32dev       SUCCESS   00:00:02.197
-========================= 1 succeeded in 00:00:02.197 =========================
+esp32dev       SUCCESS   00:00:02.811
+========================= 1 succeeded in 00:00:02.811 =========================
 esptool.py v4.5.1
-Wrote 0x59770 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\esp32dev\firmware.merged.bin, ready to flash to offset 0x0
+Wrote 0xdc760 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\esp32dev\firmware.merged.bin, ready to flash to offset 0x0
 Browser-loadable firmware: C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\esp32dev\firmware.merged.bin

@@ -1,9 +1,9 @@
 {
   "project": "Plonk & Play",
   "repository": "ConnalM/Plonk-and-Play",
-  "source_base_commit": "ac6c73bce1fbfad374eee7409b974663647ce65a",
+  "source_base_commit": "9e3bec69ffc2d9200c5e6dd59fc32b3e094899ea",
   "acceptance_spec_commit": "ac6c73bce1fbfad374eee7409b974663647ce65a",
-  "prepared_utc": "2026-09-30T17:37:11.446372+00:00",
+  "prepared_utc": "2026-10-04T16:40:40.168178+00:00",
   "frozen_spec_sha256": "cb75ad1bf697cbf2b86e2267c5cf5097d4dcb9d03ec5dd5a259ed19c6d13f642",
   "tests": {
     "1.1": {
@@ -32,7 +32,7 @@
     },
     "1.7": {
       "frozen_criterion": "Message Bus \u2014 permitted delivery\n\n**Stimulus:** Have an authorised test publisher send a known test message to an authorised subscriber through the P&P Message Bus.\n\n**Expected:** The authorised subscriber receives exactly the permitted message through the real P&P Message Bus. No private point-to-point inter-component path is used.",
-      "predetermined_recipe": "Diagnostics publishes token=271828, relevantTime=1234567890123, eventId=73 on actual running bus. Both authorised subscribers receive type=2/source=publisher and exactly one identical payload."
+      "predetermined_recipe": "Diagnostics publishes token=271828, relevantTime=1234567890123, eventId=73 on actual running bus. Both authorised subscribers receive the Diagnostics-only probe type/source and exactly one identical payload."
     },
     "1.8": {
       "frozen_criterion": "Message Bus \u2014 authority\n\n**Stimulus:** Attempt publication of a Message Type from a component not permitted to publish that type.\n\n**Expected:** The unauthorised publication is rejected/not delivered. Attachment to the bus grants connectivity, not authority.",

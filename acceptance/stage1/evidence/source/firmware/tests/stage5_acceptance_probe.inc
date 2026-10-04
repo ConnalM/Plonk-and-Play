@@ -1,0 +1,10 @@
+// Stage 5 GO/session setup is acceptance scaffolding only; it is not Race Control.
+Diagnostics stage5Output;pp::Bus::Endpoint stage5Facts;bool stage5Ready=false;
+pp::SessionDefinition stage5Session({pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish},71);
+void stage5AcceptanceBeforeBoot(){stage5Facts=bus.attach(pp::Role::Diagnostics);bus.subscribe(stage5Facts,pp::Type::LapCompleted);diagnostics.enable(false);stage5Output.enable(true);}
+void stage5Cross(pp::Time t){input.sampleSource(false,t-141000);input.sampleSource(false,t-121000);input.sampleSource(true,t-20000);input.sampleSource(true,t);input.sampleSource(false,t+1000);input.sampleSource(false,t+21000);raceEngine.tick();}
+void stage5Log(const char* test){pp::Message f{};unsigned n=0;while(bus.receive(stage5Facts,f))++n;stage5Output.log("ACC S5 test=%s laps=%lu lap=%llu facts=%u entry=%lu number=%lu relevant=%llu",test,(unsigned long)raceEngine.laps(),(unsigned long long)raceEngine.lastLapTime(),n,(unsigned long)f.raceEntryId,(unsigned long)f.lapNumber,(unsigned long long)f.relevantTime);}
+void stage5Input(pp::InputIdentity identity,pp::Time time,uint32_t id){pp::Message e{};e.type=pp::Type::InputEvent;e.input=identity;e.relevantTime=time;e.eventId=id;bus.publish(input.endpoint,e);raceEngine.tick();}
+void stage5Run(){raceEngine.begin(stage5Session,1000000);stage5Cross(1500000);stage5Log("5.1");stage5Cross(2100000);stage5Log("5.5");stage5Cross(2800000);stage5Log("5.6");stage5Input({0x50500002u,1},3000000,901);stage5Log("5.8");stage5Input(pp::InputModule::simulatedDetectorIdentity(),3200000,902);stage5Input(pp::InputModule::simulatedDetectorIdentity(),3500000,903);stage5Input(pp::InputModule::simulatedDetectorIdentity(),3200000,902);stage5Log("5.9");stage5Output.log("ACC ORDER a=3200000 b=3500000 delayed_duplicate_a=3200000 laps=%lu lap=%llu",(unsigned long)raceEngine.laps(),(unsigned long long)raceEngine.lastLapTime());stage5Output.log("ACC DONE");}
+void stage5AcceptanceCommand(char c){if(c=='s')stage5Run();}
+void stage5AcceptanceTick(){stage5Output.flush();if(ready&&!stage5Ready){stage5Ready=true;stage5Output.log("ACC READY");}}

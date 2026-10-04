@@ -1,0 +1,6 @@
+name: Stage 14A variable entry capacity
+version: 1
+steps:
+  - wait-serial: 'ACC READY'
+  - write-serial: 's'
+  - wait-serial: 'ACC DONE'

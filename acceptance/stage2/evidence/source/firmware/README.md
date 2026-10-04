@@ -1,4 +1,4 @@
-# P&P Stages 1–2 — skeleton and one simulated Input Device
+# P&P Stages 1–3 — skeleton, Input Device and Message Bus delivery
 
 Stage 1 is **ACCEPTED**. It passed the frozen acceptance campaign defined by
 `docs/ACCEPTANCE_TESTS_STAGE_1.md` at
@@ -16,6 +16,10 @@ remains a separate disposable transport experiment. Accepted specification files
 are unchanged. Stage 2 adds one simulated detector only; no race logic, session
 creation, role assignment, browser interface, networking or output operation is
 implemented.
+
+Stage 3 proves delivery of the genuine Stage 2 `INPUT_EVENT` through the common
+P&P Message Bus to authorised Test/Diagnostics subscribers. It adds no race,
+session, browser or role-assignment behaviour.
 
 ## What exists
 
@@ -38,6 +42,10 @@ implemented.
   its local stable interval, and re-arms only after a local stable clear. The
   module publishes `INPUT_EVENT` containing only that identity and Relevant Time.
   ACTIVE/INACTIVE and all racing roles remain internal or unimplemented.
+- The Input Module is the sole publisher of `INPUT_EVENT`. The Bus stamps its
+  source, fans out to permitted subscribed consumers, and rejects attempts by
+  Diagnostics/Test consumers to publish that event. Consumers may unsubscribe;
+  the Input Module does not address or otherwise know them.
 - Race Control, Race Engine, Output and Presentation retain separate dormant
   endpoints. Registry, Session Definition and configuration are not extra modules.
 - Diagnostics are bounded (64 lines, 160 bytes each), UART writes use available
@@ -166,6 +174,34 @@ development controls only; the Input Device performs its normal conditioning
 before the Input Module can publish an event. Serial diagnostics show only
 `device`, `capability` and `relevant_us` for a resulting INPUT_EVENT.
 
+## Stage 3 frozen acceptance — ACCEPTED
+
+Stage 3 is **ACCEPTED**. Frozen acceptance tests 3.1–3.11 and harness sanity
+test 3.T passed against
+`docs/ACCEPTANCE_TESTS_STAGE_3.md` at
+`a715c2653a08b6112565f8f1b83d1218b059827b`. The repeatable harness, raw Wokwi
+output, source and build manifests, structural review, and deliberate-failure evidence are in
+`acceptance/stage3/`; repeat it with:
+
+```powershell
+./acceptance/stage3/run.ps1
+```
+
+## Stage 4 frozen acceptance — ACCEPTED
+
+Stage 4 is **ACCEPTED**. Frozen acceptance tests 4.1–4.10 and harness sanity
+test 4.T passed against `docs/ACCEPTANCE_TESTS_STAGE_4.md` at
+`eb6a1b8a4e7912c1d3b471ede96578c978f0a909`. The minimal fixed working-data
+implementation is in `include/pp/session_definition.h`: it maps a stable input
+identity to a session role and remains neither a module nor a Message Bus
+participant. Test/session-preparation scaffolding is separate from future Race
+Control ownership. The repeatable harness and retained evidence are in
+`acceptance/stage4/`; repeat it with:
+
+```powershell
+./acceptance/stage4/run.ps1
+```
+
 ## See Stages 1–2 in the Wokwi browser
 
 In the existing ESP32 custom-firmware project, stop the old plumbing simulation.
@@ -183,5 +219,15 @@ Every ten seconds an IDLE line shows advancing `system_us` and diagnostic drops.
 Send `?` for status, `t` to repeat the Message Bus self-test, `q` to silence
 diagnostics, or `v` to resume them. These are development controls, not P&P product
 Requests or authoritative State. No browser race screen or race behaviour is
-implemented. Wokwi's Restart button can rebuild the template; use Upload Firmware
-again to restart this local image.
+implemented. For the restartable local development workflow, see
+`../docs/WOKWI_DEVELOPMENT_WORKFLOW.md`.
+
+## Stage 7 frozen acceptance — ACCEPTED
+
+Stage 7 is **ACCEPTED**. Frozen acceptance tests 7.1–7.16 and deliberate
+harness test 7.T passed against `docs/ACCEPTANCE_TESTS_STAGE_7.md` at
+`4b6722a663bd1365c49a7dd279dcc721d3d14806`. The real Browser checkpoint also
+passed: it synchronised and displayed authoritative State and LAP_COMPLETED
+Facts through a complete two-lap race to FINISHED, then reconstructed current
+FINISHED State after a Ctrl+F5 reload. Retained automated, human-checkpoint and
+historical gateway evidence are in `acceptance/stage7/`.

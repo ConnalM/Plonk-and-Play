@@ -30,7 +30,9 @@ void stage2Drain(const char* test, unsigned expected, pp::Time observedAt) {
     static_cast<unsigned long long>(first.relevantTime),static_cast<unsigned long long>(observedAt));
 }
 
-void stage2Sample(bool active, pp::Time at) { input.sampleSource(active,at); }
+// The production Race Engine is a normal INPUT_EVENT subscriber. Advance it here
+// so this dense source fixture cannot fill its bounded mailbox between samples.
+void stage2Sample(bool active, pp::Time at) { input.sampleSource(active,at); raceEngine.tick(); }
 void stage2Rearm(pp::Time start) {
   stage2Sample(false,start); stage2Sample(false,start+pp::SimulatedDetector::ClearStableUs);
 }

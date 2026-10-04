@@ -1,7 +1,7 @@
 {
   "findings": [
     {
-      "requirement": "Input Module publishes to common Bus",
+      "requirement": "Input Module publishes INPUT_EVENT through the common P&P Message Bus",
       "result": "PASS"
     },
     {

@@ -1,9 +1,9 @@
 {
   "project": "Plonk & Play",
   "repository": "ConnalM/Plonk-and-Play",
-  "source_base_commit": "773c4a164c3b14ebda5fc12d9ce4fc1cf4fd9dff",
+  "source_base_commit": "9e3bec69ffc2d9200c5e6dd59fc32b3e094899ea",
   "acceptance_spec_commit": "a715c2653a08b6112565f8f1b83d1218b059827b",
-  "prepared_utc": "2026-09-30T19:14:02.434334+00:00",
+  "prepared_utc": "2026-10-04T16:44:32.206393+00:00",
   "frozen_spec_sha256": "2a36647f376074f34356c50e02b185ebef9d3412d8c4d6a64bf03863aead5790",
   "tests": {
     "3.1": {

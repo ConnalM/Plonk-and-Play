@@ -21,8 +21,8 @@ struct Stage11Fixture {
     setup.startFinish={pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish};
     setup.secondStartFinish={pp::InputModule::simulatedDetectorBIdentity(),2,pp::InputRole::StartFinish};
     setup.selectedMugId=91;setup.secondMugId=92;setup.activeLanes=2;setup.lapTarget=3;setup.startsBeforeStartFinish=true;
-    bus.subscribe(inputEndpoint,pp::Type::SessionOperation);
-    bus.subscribe(engineEndpoint,pp::Type::GoScheduled);bus.subscribe(engineEndpoint,pp::Type::InputEvent);bus.subscribe(engineEndpoint,pp::Type::SessionOperation);bus.subscribe(engineEndpoint,pp::Type::InputSettlement);bus.subscribe(engineEndpoint,pp::Type::RaceIntegrityFault);
+    bus.subscribe(inputEndpoint,pp::Type::SessionOperation);bus.subscribe(inputEndpoint,pp::Type::FinishSettlement);
+    bus.subscribe(engineEndpoint,pp::Type::GoScheduled);bus.subscribe(engineEndpoint,pp::Type::InputEvent);bus.subscribe(engineEndpoint,pp::Type::SessionOperation);bus.subscribe(engineEndpoint,pp::Type::InputSettlement);bus.subscribe(engineEndpoint,pp::Type::FinishSettled);bus.subscribe(engineEndpoint,pp::Type::RaceIntegrityFault);
     bus.subscribe(controlEndpoint,pp::Type::StartRequest);bus.subscribe(controlEndpoint,pp::Type::SessionOperationRequest);bus.subscribe(controlEndpoint,pp::Type::PauseSettled);bus.subscribe(controlEndpoint,pp::Type::CompetitionComplete);bus.subscribe(controlEndpoint,pp::Type::RaceIntegrityFault);
     bus.subscribe(presentation,pp::Type::RequestResult);bus.subscribe(presentation,pp::Type::NoticeboardChanged);bus.subscribe(presentation,pp::Type::Paused);bus.subscribe(presentation,pp::Type::RestartScheduled);bus.subscribe(presentation,pp::Type::Resumed);
     bus.subscribe(observer,pp::Type::Paused);bus.subscribe(observer,pp::Type::RestartScheduled);bus.subscribe(observer,pp::Type::Resumed);
@@ -50,7 +50,6 @@ void stage11Run(){
   f.control.tick(paused.pauseEffectiveAt+1);
   f.browser.tick();
   f.browser.requestResult(1102,0x1111111111111111ULL,result);
-  const bool early=earlySubmitted;
   const bool earlyRejected=earlySubmitted&&result.result==pp::RequestResult::Rejected&&result.rejection==pp::RequestRejection::PauseSettlementPending;
   f.tick(paused.pauseEffectiveAt+2);
   const bool restart=f.request(pp::SessionOperation::HonourRestart,1103,paused.pauseEffectiveAt+10);
@@ -80,9 +79,12 @@ void stage11Run(){
   h.browser.submitOperation(3100,pp::SessionOperation::Pause,h.browser.context(0x1111111111111111ULL),0x1111111111111111ULL); h.control.tick(base+2000000); h.browser.tick(); auto hp=h.noticeboard.current();
   h.engine.tick();
   const auto beforeDelayed=h.engine.entryState(0).laps; h.raw(1,hp.pauseEffectiveAt-1,9101); const bool delayedPreP=h.engine.entryState(0).laps==beforeDelayed+1;
-  h.control.tick(hp.pauseEffectiveAt+1); const bool delayedFinish=h.control.state()==pp::SessionLifecycle::Finished;
+  // Complete the normal finish-settlement round trip before observing the
+  // authoritative lifecycle; the delayed pre-P event may itself win the race.
+  for(unsigned n=0;n<8;++n){const pp::Time settleNow=hp.pauseEffectiveAt+2+n;h.input.tick(settleNow);h.engine.tick();h.control.tick(settleNow);h.browser.tick();}
+  const bool delayedFinish=h.control.state()==pp::SessionLifecycle::Finished;
   stage11Output.log("ACC S11 test=11.4 delayed_pre_pause=%u",delayedPreP?1:0);
-  stage11Output.log("ACC S11 test=11.6 delayed_completion=%u",delayedFinish?1:0);
+  stage11Output.log("ACC S11 test=11.6 delayed_completion=%u engine_complete=%u state=%u laps=%lu",delayedFinish?1:0,h.engine.complete()?1:0,unsigned(h.control.state()),(unsigned long)h.engine.entryState(0).laps);
   Stage11Fixture& i=stage11Fixture(); i.browser.submitStart(4000,pp::ClientContext::RaceDirectorSmug,0x1111111111111111ULL); i.control.tick(base); i.engine.tick(); i.control.tick(i.control.scheduledGo()); i.engine.tick();
   i.browser.submitOperation(4100,pp::SessionOperation::Pause,i.browser.context(0x1111111111111111ULL),0x1111111111111111ULL); i.control.tick(base+2000000); i.browser.tick(); auto ip=i.noticeboard.current(); i.engine.tick();
   const auto pBefore=i.engine.entryState(0).laps; i.raw(1,ip.pauseEffectiveAt,9201); i.raw(1,ip.pauseEffectiveAt-1,9202); const bool pBoundary=i.engine.entryState(0).laps==pBefore+1;

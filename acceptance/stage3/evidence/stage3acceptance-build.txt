@@ -15,18 +15,19 @@ Found 34 compatible libraries
 Scanning dependencies...
 Dependency Graph
 |-- Preferences @ 2.0.0
+|-- WiFi @ 2.0.0
 Building in release mode
 Retrieving maximum program size .pio\build\stage3acceptance\firmware.elf
 Checking size .pio\build\stage3acceptance\firmware.elf
 Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
-RAM:   [=         ]  14.6% (used 47832 bytes from 327680 bytes)
-Flash: [==        ]  23.7% (used 310017 bytes from 1310720 bytes)
-========================= [SUCCESS] Took 2.27 seconds =========================
+RAM:   [===       ]  30.0% (used 98280 bytes from 327680 bytes)
+Flash: [======    ]  64.3% (used 842725 bytes from 1310720 bytes)
+========================= [SUCCESS] Took 9.67 seconds =========================
 
 Environment       Status    Duration
 ----------------  --------  ------------
-stage3acceptance  SUCCESS   00:00:02.275
-========================= 1 succeeded in 00:00:02.275 =========================
+stage3acceptance  SUCCESS   00:00:09.667
+========================= 1 succeeded in 00:00:09.667 =========================
 esptool.py v4.5.1
-Wrote 0x5bc70 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\stage3acceptance\firmware.merged.bin, ready to flash to offset 0x0
+Wrote 0xdf590 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\stage3acceptance\firmware.merged.bin, ready to flash to offset 0x0
 Browser-loadable firmware: C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\stage3acceptance\firmware.merged.bin

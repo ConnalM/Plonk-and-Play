@@ -29,7 +29,7 @@ RECIPES = {
  '1.4': 'Save laps=37 through real Memory in pp-stage1, ESP.restart, then observe normal lifecycle-loaded RAM and Remembered=0.',
  '1.5': 'Overwrite both pp-stage1 slots with 32 bytes of 0xa5 at Store fault-injection seam; ESP.restart; expect defaults, DefaultsInvalid=2 and ready=1.',
  '1.6': 'After startup, read RAM lap count 10,000 times; sum=100000 and persistent read count unchanged; repeated idle snapshots also must not add reads.',
- '1.7': 'Diagnostics publishes token=271828, relevantTime=1234567890123, eventId=73 on actual running bus. Both authorised subscribers receive type=2/source=publisher and exactly one identical payload.',
+ '1.7': 'Diagnostics publishes token=271828, relevantTime=1234567890123, eventId=73 on actual running bus. Both authorised subscribers receive the Diagnostics-only probe type/source and exactly one identical payload.',
  '1.8': 'Input endpoint attempts the same Diagnostics-only publication; expect Forbidden=1 and neither authorised subscriber receives it.',
  '1.9': 'Same publication with an attached Diagnostics participant that has not subscribed; expect no receipt for it, while subscribed participants receive.',
  '1.10': 'Run boot self-test and repeat using serial t; retain individual actual check results, raw bus observations, and exact self-test source.',
@@ -112,7 +112,9 @@ def evaluate():
         check(key,result['result']=='PASS' and number(snap(phase)[0],'ready')==1 and fixture_ok,result)
     ram=lines(raw,'ACC RAM ')[0]
     check('1.6',number(ram,'sum')==100000 and number(ram,'readsBefore')==number(ram,'readsAfter') and len({s['reads'] for s in snap(0)})==1,{'ram_reads':ram,'idle_read_counts':[s['reads'] for s in snap(0)]})
-    b=bus[0];expected={'type':'2','source':b['publisher'],'token':'271828','time':'1234567890123','id':'73'}
+    # This fixture deliberately uses the Diagnostics-only probe, whose
+    # accepted numeric value is 7; it is not an INPUT_EVENT (type 2).
+    b=bus[0];expected={'type':'7','source':b['publisher'],'token':'271828','time':'1234567890123','id':'73'}
     correct_receipts=all(all(r[k]==v for k,v in expected.items()) for r in received[:2]) and len(received[:2])==2
     check('1.7',correct_receipts and all(b[k]==v for k,v in {'result':'0','a':'1','b':'1','extraA':'0','extraB':'0'}.items()),{'delivery':b,'received':received[:2],'expected_payload':expected})
     check('1.8',auth[0]==dict(result='1',receivedA='0',receivedB='0'),auth[0])

@@ -1,0 +1,1 @@
+Stage 14A structural PASS: shared_capacity, engine_not_two, session_indexed, noticeboard_indexed, records_capacity, input_capacity, browser_dynamic_records, browser_dynamic_collections, no_new_practice, message_values_unchanged

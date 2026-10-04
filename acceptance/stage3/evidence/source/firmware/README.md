@@ -187,6 +187,21 @@ output, source and build manifests, structural review, and deliberate-failure ev
 ./acceptance/stage3/run.ps1
 ```
 
+## Stage 4 frozen acceptance — ACCEPTED
+
+Stage 4 is **ACCEPTED**. Frozen acceptance tests 4.1–4.10 and harness sanity
+test 4.T passed against `docs/ACCEPTANCE_TESTS_STAGE_4.md` at
+`eb6a1b8a4e7912c1d3b471ede96578c978f0a909`. The minimal fixed working-data
+implementation is in `include/pp/session_definition.h`: it maps a stable input
+identity to a session role and remains neither a module nor a Message Bus
+participant. Test/session-preparation scaffolding is separate from future Race
+Control ownership. The repeatable harness and retained evidence are in
+`acceptance/stage4/`; repeat it with:
+
+```powershell
+./acceptance/stage4/run.ps1
+```
+
 ## See Stages 1–2 in the Wokwi browser
 
 In the existing ESP32 custom-firmware project, stop the old plumbing simulation.
@@ -204,5 +219,15 @@ Every ten seconds an IDLE line shows advancing `system_us` and diagnostic drops.
 Send `?` for status, `t` to repeat the Message Bus self-test, `q` to silence
 diagnostics, or `v` to resume them. These are development controls, not P&P product
 Requests or authoritative State. No browser race screen or race behaviour is
-implemented. Wokwi's Restart button can rebuild the template; use Upload Firmware
-again to restart this local image.
+implemented. For the restartable local development workflow, see
+`../docs/WOKWI_DEVELOPMENT_WORKFLOW.md`.
+
+## Stage 7 frozen acceptance — ACCEPTED
+
+Stage 7 is **ACCEPTED**. Frozen acceptance tests 7.1–7.16 and deliberate
+harness test 7.T passed against `docs/ACCEPTANCE_TESTS_STAGE_7.md` at
+`4b6722a663bd1365c49a7dd279dcc721d3d14806`. The real Browser checkpoint also
+passed: it synchronised and displayed authoritative State and LAP_COMPLETED
+Facts through a complete two-lap race to FINISHED, then reconstructed current
+FINISHED State after a Ctrl+F5 reload. Retained automated, human-checkpoint and
+historical gateway evidence are in `acceptance/stage7/`.

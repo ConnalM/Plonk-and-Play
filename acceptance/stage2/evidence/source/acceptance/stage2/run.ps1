@@ -6,9 +6,8 @@ $python=Join-Path $env:USERPROFILE '.platformio\penv\Scripts\python.exe'
 $cli=Join-Path $env:USERPROFILE '.wokwi\bin\wokwi-cli.exe'
 New-Item -ItemType Directory -Force $evidence | Out-Null
 # The frozen criteria must be exactly the agreed pre-implementation revision.
-$frozen=& git -c "safe.directory=$repo" show 'bc6693061f2ed4ad99b51d7109c20f271c7aa1e0:docs/ACCEPTANCE_TESTS_STAGE_2.md'
-$current=Get-Content (Join-Path $repo 'docs\ACCEPTANCE_TESTS_STAGE_2.md')
-if (Compare-Object $frozen $current) { throw 'Frozen Stage 2 acceptance specification differs.' }
+& git -c "safe.directory=$repo" diff --quiet bc6693061f2ed4ad99b51d7109c20f271c7aa1e0 -- docs/ACCEPTANCE_TESTS_STAGE_2.md
+if ($LASTEXITCODE -ne 0) { throw 'Frozen Stage 2 acceptance specification differs.' }
 & $python (Join-Path $PSScriptRoot 'evaluate.py') prepare
 if ($LASTEXITCODE -ne 0) { throw 'Evidence preparation failed.' }
 foreach ($environment in @('esp32dev','stage2acceptance')) {

@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "completedAt": "2026-10-04",
+  "observation": "Stage 14A human demo verification passed, including repeated momentary simulated detector passages advancing authoritative lap state.",
+  "firmware": "firmware/.pio/build/stage14ademo/firmware.merged.bin",
+  "identity": "P&P STAGE 14A DEMO",
+  "browser_ready": "[DEV] P&P STAGE 14A DEMO Browser server=READY error=0",
+  "initial_state": {
+    "lifecycle": "READY",
+    "race_director": "No Race Director until Browser bootstrap",
+    "active_entries": 2,
+    "laps": [0, 0],
+    "resultSealed": false,
+    "resultValid": true,
+    "raceIntegrity": "OK",
+    "latestFact": "NONE"
+  },
+  "gateway": "http://127.0.0.1:9080/"
+}

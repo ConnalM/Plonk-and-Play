@@ -1,4 +1,4 @@
-# P&P Stage 1 — ESP32 skeleton
+# P&P Stages 1–3 — skeleton, Input Device and Message Bus delivery
 
 Stage 1 is **ACCEPTED**. It passed the frozen acceptance campaign defined by
 `docs/ACCEPTANCE_TESTS_STAGE_1.md` at
@@ -13,8 +13,13 @@ microsecond source and does not alter Stage 1 product behaviour.
 
 This directory is the real firmware skeleton. `experiments/wokwi-plumbing`
 remains a separate disposable transport experiment. Accepted specification files
-are unchanged. No race logic, session creation, detector simulation, browser
-interface, networking or output operation is introduced in Stage 1.
+are unchanged. Stage 2 adds one simulated detector only; no race logic, session
+creation, role assignment, browser interface, networking or output operation is
+implemented.
+
+Stage 3 proves delivery of the genuine Stage 2 `INPUT_EVENT` through the common
+P&P Message Bus to authorised Test/Diagnostics subscribers. It adds no race,
+session, browser or role-assignment behaviour.
 
 ## What exists
 
@@ -32,9 +37,17 @@ interface, networking or output operation is introduced in Stage 1.
 - Proposed defaults: two lanes, Lap Race, ten laps, optional race features off,
   sound and power if available. No equipment is claimed available, no physical
   roles are guessed, and skeleton IDLE does not mean a race can start.
-- Input, Race Control, Race Engine, Output and Presentation have separate dormant
+- The Input Module contains one simulated Input Device with stable identity
+  `50500001:1`. It filters source state changes, recognises a clean trigger after
+  its local stable interval, and re-arms only after a local stable clear. The
+  module publishes `INPUT_EVENT` containing only that identity and Relevant Time.
+  ACTIVE/INACTIVE and all racing roles remain internal or unimplemented.
+- The Input Module is the sole publisher of `INPUT_EVENT`. The Bus stamps its
+  source, fans out to permitted subscribed consumers, and rejects attempts by
+  Diagnostics/Test consumers to publish that event. Consumers may unsubscribe;
+  the Input Module does not address or otherwise know them.
+- Race Control, Race Engine, Output and Presentation retain separate dormant
   endpoints. Registry, Session Definition and configuration are not extra modules.
-  Discovery and actual device operation start in later stages.
 - Diagnostics are bounded (64 lines, 160 bytes each), UART writes use available
   space only, and idle status is limited to once per ten seconds. Saturation drops
   diagnostic lines with an observable counter rather than waiting for serial.
@@ -61,6 +74,7 @@ The implemented internal contracts are deliberately narrow:
 |---|---|---|---|
 | LoadConfiguration | Lifecycle | Memory | Boot-time request; nonzero correlation required |
 | ConfigurationLoaded | Memory | Lifecycle | Correlated configuration snapshot and load status |
+| INPUT_EVENT | Input Module | Race Engine; authorised Diagnostics/Test | Clean stable input capability and Relevant Time |
 | DiagnosticProbe | Diagnostics | Diagnostics | Development-only test token, time and ID; no product/race meaning |
 
 These are in-process encodings, not new public wire protocols. Permission checks
@@ -68,7 +82,8 @@ do not decide race validity or grant external-client authority. Endpoints are
 trusted internal handles, not a security boundary against hostile C++ code.
 The bus self-test uses the **running common bus**, two authorised diagnostic
 subscribers and an unauthorised Input endpoint; it emits no fake INPUT_EVENT,
-GO or LAP_COMPLETED and does not implement Stage 2/3 ahead of their scope.
+GO or LAP_COMPLETED. The Stage 2 fixture stimulates the Input Device's source
+side and never constructs an INPUT_EVENT itself.
 
 ## Build and automated Wokwi tests
 
@@ -140,7 +155,54 @@ It checks that the frozen acceptance specification has not changed before it
 builds and runs the normal and instrumented images. The simulated test fixture
 intentionally writes only Wokwi NVS; it never writes credentials or hardware.
 
-## See Stage 1 in the Wokwi browser
+## Stage 2 acceptance run — awaiting approval
+
+Frozen acceptance tests 2.1–2.10 and harness sanity test 2.T passed on the
+uncommitted Stage 2 implementation against
+`docs/ACCEPTANCE_TESTS_STAGE_2.md` at
+`bc6693061f2ed4ad99b51d7109c20f271c7aa1e0`. This is a completed test run, not
+an acceptance declaration. The repeatable harness and retained evidence are in
+`acceptance/stage2/`; repeat it with:
+
+```powershell
+./acceptance/stage2/run.ps1
+```
+
+The normal firmware accepts `1` and `0` on its development serial interface to
+set the simulated detector source ACTIVE or INACTIVE. They are source-side
+development controls only; the Input Device performs its normal conditioning
+before the Input Module can publish an event. Serial diagnostics show only
+`device`, `capability` and `relevant_us` for a resulting INPUT_EVENT.
+
+## Stage 3 frozen acceptance — ACCEPTED
+
+Stage 3 is **ACCEPTED**. Frozen acceptance tests 3.1–3.11 and harness sanity
+test 3.T passed against
+`docs/ACCEPTANCE_TESTS_STAGE_3.md` at
+`a715c2653a08b6112565f8f1b83d1218b059827b`. The repeatable harness, raw Wokwi
+output, source and build manifests, structural review, and deliberate-failure evidence are in
+`acceptance/stage3/`; repeat it with:
+
+```powershell
+./acceptance/stage3/run.ps1
+```
+
+## Stage 4 frozen acceptance — ACCEPTED
+
+Stage 4 is **ACCEPTED**. Frozen acceptance tests 4.1–4.10 and harness sanity
+test 4.T passed against `docs/ACCEPTANCE_TESTS_STAGE_4.md` at
+`eb6a1b8a4e7912c1d3b471ede96578c978f0a909`. The minimal fixed working-data
+implementation is in `include/pp/session_definition.h`: it maps a stable input
+identity to a session role and remains neither a module nor a Message Bus
+participant. Test/session-preparation scaffolding is separate from future Race
+Control ownership. The repeatable harness and retained evidence are in
+`acceptance/stage4/`; repeat it with:
+
+```powershell
+./acceptance/stage4/run.ps1
+```
+
+## See Stages 1–2 in the Wokwi browser
 
 In the existing ESP32 custom-firmware project, stop the old plumbing simulation.
 Click the editor, press F1, choose **Upload Firmware and Start Simulation…**, and
@@ -150,11 +212,22 @@ unproven tooling step; the automated tests above load firmware through Wokwi CLI
 
 Watch the **Serial Monitor at 115200 baud** for System Time, Memory, Message Bus
 and working configuration READY lines, individual `[TEST] PASS` lines,
-`[BUS SELF-TEST] PASS`, and `STAGE1_PASS skeleton initialised; no race behaviour`.
+`[BUS SELF-TEST] PASS`, `STAGE1_PASS`, and `STAGE2_PASS`. Send `1`, wait at
+least 20 milliseconds, then send `0` and watch for one `[INPUT EVENT]` line.
 Every ten seconds an IDLE line shows advancing `system_us` and diagnostic drops.
 
 Send `?` for status, `t` to repeat the Message Bus self-test, `q` to silence
 diagnostics, or `v` to resume them. These are development controls, not P&P product
-Requests or authoritative State. No browser race screen or sensor activity is
-expected in Stage 1. Wokwi's Restart button can rebuild the template; use Upload
-Firmware again to restart this local image.
+Requests or authoritative State. No browser race screen or race behaviour is
+implemented. For the restartable local development workflow, see
+`../docs/WOKWI_DEVELOPMENT_WORKFLOW.md`.
+
+## Stage 7 frozen acceptance — ACCEPTED
+
+Stage 7 is **ACCEPTED**. Frozen acceptance tests 7.1–7.16 and deliberate
+harness test 7.T passed against `docs/ACCEPTANCE_TESTS_STAGE_7.md` at
+`4b6722a663bd1365c49a7dd279dcc721d3d14806`. The real Browser checkpoint also
+passed: it synchronised and displayed authoritative State and LAP_COMPLETED
+Facts through a complete two-lap race to FINISHED, then reconstructed current
+FINISHED State after a Ctrl+F5 reload. Retained automated, human-checkpoint and
+historical gateway evidence are in `acceptance/stage7/`.
