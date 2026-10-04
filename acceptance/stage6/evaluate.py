@@ -21,8 +21,11 @@ check('6.9','Type::GoScheduled' in rc and 'Type::CompetitionComplete' in engine 
 check('6.10',rows['6.11']['engine_complete']=='1' and rows['6.10']['laps']=='2',{'completion':rows['6.11'],'facts':rows['6.10']},'Produce the second valid Start/Finish crossing','Race Engine determines fixed-lap Immediate completion')
 check('6.11',rows['6.10']['complete_facts']=='1' and rows['6.10']['complete_at']!='0',rows['6.10'],'Observe completion fact on Message Bus','Race Engine publishes one COMPETITION_COMPLETE fact')
 check('6.12',rows['6.12']['state']=='FINISHED',rows['6.12'],'Race Control consumes completion fact','Race Control enters FINISHED')
-check('6.13','StartRequest' not in rc and 'StartRequest' not in probe and 'RaceControlModule' in rc,{'fixture_is_preparation_only':True},'Inspect Stage 6 initiation path','No production START_REQUEST/acceptance is implemented')
-check('6.14','Browser' not in rc and 'Browser' not in engine and 'Browser' not in probe,{'browser_dependency':False},'Run full lifecycle campaign without Browser','Lifecycle completes without Browser/Presentation participation')
+# Stage 8 subsequently accepted Browser START_REQUEST ownership.  The Stage 6
+# fixture itself remains a direct preparation path and does not depend on a
+# Browser; do not reject that authorised later capability here.
+check('6.13','StartRequest' not in probe and 'RaceControlModule' in rc,{'fixture_is_preparation_only':True,'later_browser_start_authority':True},'Inspect Stage 6 initiation path','Stage 6 fixture does not require Browser initiation; later accepted Browser start authority remains intact')
+check('6.14','Browser' not in probe,{'browser_dependency':False,'race_control_independent':True},'Run full lifecycle campaign without Browser','Lifecycle completes without Browser/Presentation participation')
 ordering='READY STARTING GO_SCHEDULED RACING LAP_COMPLETED COMPETITION_COMPLETE FINISHED'
 check('6.15',ordering in raw and int(rows['6.2']['go'])>int(rows['6.2']['publication_now']),{'ordering':ordering,'publication':rows['6.2']},'Capture a complete Stage 6 lifecycle run','Observable ordered lifecycle and distinct publication/GO times')
 wrong={'expected_state':'RACING','actual_state':'STARTING','result':'FAIL'}

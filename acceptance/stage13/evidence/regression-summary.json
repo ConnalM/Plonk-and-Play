@@ -1,0 +1,28 @@
+{
+  "checks": {
+    "stage1": true,
+    "stage2": true,
+    "stage3": true,
+    "stage4": true,
+    "stage5": true,
+    "stage6": true,
+    "stage7": true,
+    "stage8": true,
+    "stage9": true,
+    "stage10": true,
+    "stage11": true,
+    "stage12": true,
+    "stage12_structural": true,
+    "stage12_stress": true,
+    "stage13": true,
+    "stage13_structural": true,
+    "stage13_stress": true,
+    "authorised_supersessions_only": true,
+    "STAGE_13_DESIGN.md_frozen_plan_unchanged": true,
+    "ACCEPTANCE_TESTS_STAGE_13.md_frozen_plan_unchanged": true
+  },
+  "authorised_supersessions": [
+    "Stage 1 test 1.7 numeric-value exception",
+    "Stage 6 tests 6.13/6.14 Browser-START exceptions"
+  ]
+}

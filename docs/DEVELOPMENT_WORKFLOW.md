@@ -75,6 +75,29 @@ Rendered multi-browser behaviour should be proved when the P&P browser implement
 6. Stage work should begin from a clean repository and should not silently alter accepted architecture to make implementation easier.
 7. Startup diagnostics must identify the actual build environment accurately. A normal, acceptance, verification, quiet or demonstration image must never present itself as a different stage. These labels are diagnostic only and do not form product State.
 
+### Hardware revalidation rule
+
+Before any physical P&P implementation is considered validated, all applicable
+acceptance tests from every previously accepted stage must be rerun against the
+real hardware implementation. Simulator/Wokwi acceptance does not waive this
+hardware revalidation.
+
+This applies to automated and manual acceptance tests. The purpose is to verify
+that assumptions accepted in simulation remain valid with real ESP32 hardware,
+sensors, wiring, controls, displays, communications and other physical P&P
+modules. Where a simulator test can be executed meaningfully on real hardware,
+it must be rerun. Where its simulator mechanism cannot be used unchanged, an
+equivalent hardware acceptance test must preserve and verify the same frozen
+requirement; the test must not be silently omitted because its original
+mechanism was simulator-specific.
+
+Hardware revalidation is cumulative. At the real-hardware phase, the complete
+applicable acceptance programme from Stage 1 onward must be rerun, rather than
+only the tests belonging to the stage that introduces the hardware. A failure
+during hardware revalidation is a genuine acceptance failure and must be
+diagnosed and corrected; previously passing simulator evidence does not
+override it.
+
 ## Stage 7 gateway investigation and completed checkpoint
 
 The Stage 7 human Browser checkpoint is **PASSED**. The Stage 7 ESP32 demo was

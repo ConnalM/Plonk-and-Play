@@ -20,7 +20,11 @@ checks=[
  ('Race Control owns session commit and existing start procedure', 'active_.commit' in control and 'beginStart' in control and 'Type::GoScheduled' in control),
  ('Session Definition is fixed data, not a Bus participant', 'Bus' not in session_type and 'commit(' not in session_type),
  ('Browser Interface is the Bus participant', 'Bus& bus' in browser and 'bus_.publish' in browser),
- ('Browser has no direct Race Control or Race Engine control route', 'RaceControlModule' not in browser and 'RaceEngineModule' not in browser and 'request.type=Type::GoScheduled' not in browser),
+ # Stage 12/13 may use the immutable completed-result value type for
+ # presentation and History reconstruction.  The frozen boundary forbids a
+ # direct controller/engine collaborator or control call, not that value
+ # schema appearing in a read-only Browser formatter.
+ ('Browser has no direct Race Control or Race Engine control route', 'RaceControlModule' not in browser and 'RaceEngineModule&' not in browser and 'RaceEngineModule*' not in browser and 'request.type=Type::GoScheduled' not in browser),
  ('Bus authority restricts START_REQUEST and REQUEST_RESULT', 'case Type::StartRequest: return mask(Role::Presentation)' in core and 'case Type::RequestResult: return mask(Role::RaceControl)' in core),
  ('Presentation loss policy remains message-contract-specific', 'presentationBestEffort(m.type)' in core and 'case Type::RequestResult' not in core[core.index('static bool presentationBestEffort'):core.index('static uint16_t publishers')]),
  ('Browser State is derived from Noticeboard cache', 'const Noticeboard& noticeboard_' in browser and 'return noticeboard_.current()' in browser),

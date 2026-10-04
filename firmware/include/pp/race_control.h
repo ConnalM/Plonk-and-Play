@@ -1,6 +1,8 @@
 #pragma once
 #include "core.h"
 #include "session_definition.h"
+#include "history_store.h"
+#include "record_store.h"
 
 namespace pp {
 
@@ -9,7 +11,10 @@ enum class SessionLifecycle : uint8_t { Ready, Starting, Racing, Paused, Restart
 class RaceControlModule {
 public:
   static constexpr Time StartLeadUs=1000000;
-  RaceControlModule(Bus& bus,Bus::Endpoint endpoint,ActiveSessionDefinition& active):bus_(bus),endpoint_(endpoint),active_(active) {}
+  static constexpr Time DefaultRedIntervalUs=1000000;
+  static constexpr Time DefaultFinalDelayMinUs=500000;
+  static constexpr Time DefaultFinalDelayMaxUs=2000000;
+  RaceControlModule(Bus& bus,Bus::Endpoint endpoint,ActiveSessionDefinition& active, HistoryStore* history=nullptr, TrackRecordStore* records=nullptr):bus_(bus),endpoint_(endpoint),active_(active),history_(history),records_(records) {}
   // Stage 6/7 preparation supplies an already-fixed external definition. It
   // does not exercise Browser START acceptance or create a competing path.
   void resetForFixture(){definition_=nullptr;setup_=nullptr;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;changed();}
@@ -45,12 +50,32 @@ public:
   const SessionDefinition* definition()const{return definition_;}
   const ProposedRaceSetup* proposedRaceSetup()const{return setup_;}
   bool startCommitted()const{return startCommitted_;} bool integrityFaulted()const{return integrityFaulted_;} RaceIntegrityReason integrityReason()const{return integrityReason_;}
+  uint8_t redLightCount()const{return definition_?definition_->redLightCount():5;} uint8_t startSignal()const{return definition_?definition_->startSignal():0;} uint8_t startTiming()const{return definition_?definition_->startTiming():2;} Time finalDelay()const{return finalDelay_;}
 private:
   bool beginStart(Time now){
+#if defined(PP_STAGE8_ACCEPTANCE) || defined(PP_STAGE9_ACCEPTANCE) || defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_ACCEPTANCE) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE12_DEMO)
     const Time scheduledGo=now+StartLeadUs;
     Message scheduled{};scheduled.type=Type::GoScheduled;scheduled.relevantTime=scheduledGo;
     if(bus_.publish(endpoint_,scheduled)!=Delivery::Delivered)return false;
-    go_=scheduledGo;state_=SessionLifecycle::Starting;changed();return true;
+    go_=scheduledGo; finalDelay_=StartLeadUs; state_=SessionLifecycle::Starting; changed();return true;
+#else
+    if(!definition_) return false;
+    const uint8_t reds=definition_->redLightCount();
+    const Time interval=definition_->redIntervalUs();
+    Time delay=0;
+    if(definition_->startTiming()==1) delay=definition_->fixedFinalDelayUs();
+    else if(definition_->startTiming()==2) {
+      // A single deterministic selection is committed into the schedule. The
+      // product build seeds this from the controller clock; acceptance tests
+      // may drive the clock deterministically.
+      const Time span=DefaultFinalDelayMaxUs-DefaultFinalDelayMinUs;
+      delay=DefaultFinalDelayMinUs+((now^uint64_t(nextSessionId_)*1103515245u)% (span+1));
+    }
+    const Time scheduledGo=now+Time(reds)*interval+delay;
+    Message scheduled{};scheduled.type=Type::GoScheduled;scheduled.relevantTime=scheduledGo;
+    if(bus_.publish(endpoint_,scheduled)!=Delivery::Delivered)return false;
+    go_=scheduledGo; finalDelay_=delay; state_=SessionLifecycle::Starting; changed();return true;
+#endif
   }
   void result(uint32_t correlation,RequestResult value,RequestRejection reason=RequestRejection::None){
     Message response{};response.type=Type::RequestResult;response.correlation=correlation;response.requestResult=value;response.rejection=reason;
@@ -64,11 +89,31 @@ private:
   void publishFact(Type type,Time at){Message f{};f.type=type;f.relevantTime=at;f.restartMethod=restartMethod_;lastFactDelivery_=bus_.publish(endpoint_,f);}
   void handleOperation(const Message& request,Time now){
     if(request.clientContext!=ClientContext::RaceDirectorSmug){reject(request.correlation,RequestRejection::PermissionDenied);return;}
+    if(request.operation==SessionOperation::ClearHistory||request.operation==SessionOperation::ClearLane1Records||request.operation==SessionOperation::ClearLane2Records||request.operation==SessionOperation::ClearTrackRecord||request.operation==SessionOperation::ClearAllRecords){
+      if(request.probe!=1){reject(request.correlation,RequestRejection::ConfirmationRequired);return;}
+      bool cleared=false;
+      if(request.operation==SessionOperation::ClearHistory)cleared=history_&&history_->clear();
+      else if(request.operation==SessionOperation::ClearLane1Records)cleared=records_&&records_->clearLane(1);
+      else if(request.operation==SessionOperation::ClearLane2Records)cleared=records_&&records_->clearLane(2);
+      else if(request.operation==SessionOperation::ClearTrackRecord)cleared=records_&&records_->clearTrack();
+      else cleared=records_&&records_->clearAll();
+      if(!cleared){reject(request.correlation,RequestRejection::StorageUnavailable);return;}
+      changed();result(request.correlation,RequestResult::Accepted);return;
+    }
     if(request.operation==SessionOperation::RaceAgain){
       if(state_!=SessionLifecycle::Finished||!definition_){reject(request.correlation,RequestRejection::LifecycleNotRaceAgain);return;}
       proposedCopy_={};proposedCopy_.startFinish=definition_->role(0);proposedCopy_.selectedMugId=definition_->entry(0).mugId;proposedCopy_.lapTarget=definition_->lapTarget();proposedCopy_.finish=definition_->finishBehaviour();proposedCopy_.activeLanes=definition_->entryCount();
       if(definition_->entryCount()==2){proposedCopy_.secondStartFinish=definition_->role(1);proposedCopy_.secondMugId=definition_->entry(1).mugId;}
-      proposedCopy_.startsBeforeStartFinish=true;proposedCopy_.optionalFeaturesEnabled=false;setup_=&proposedCopy_;active_.permitReplacement();state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;changed();result(request.correlation,RequestResult::Accepted);return;
+      proposedCopy_.startsBeforeStartFinish=true;proposedCopy_.optionalFeaturesEnabled=false;proposedCopy_.redLightCount=definition_->redLightCount();proposedCopy_.startSignal=definition_->startSignal();proposedCopy_.startTiming=definition_->startTiming();proposedCopy_.redIntervalUs=definition_->redIntervalUs();proposedCopy_.fixedFinalDelayUs=definition_->fixedFinalDelayUs();proposedCopy_.falseStartCapability=definition_->falseStartCapability();proposedCopy_.falseStartPolicy=definition_->falseStartPolicy();setup_=&proposedCopy_;active_.permitReplacement();state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;changed();result(request.correlation,RequestResult::Accepted);return;
+    }
+    if(request.operation==SessionOperation::RestartRace||request.operation==SessionOperation::EndRace){
+      if(request.probe!=1){reject(request.correlation,RequestRejection::ConfirmationRequired);return;}
+      if(state_!=SessionLifecycle::Paused||!pauseSettled_){reject(request.correlation,RequestRejection::LifecycleNotAbandonable);return;}
+      if(request.operation==SessionOperation::RestartRace){
+        if(definition_){proposedCopy_={};proposedCopy_.startFinish=definition_->role(0);proposedCopy_.selectedMugId=definition_->entry(0).mugId;proposedCopy_.lapTarget=definition_->lapTarget();proposedCopy_.finish=definition_->finishBehaviour();proposedCopy_.activeLanes=definition_->entryCount();if(definition_->entryCount()==2){proposedCopy_.secondStartFinish=definition_->role(1);proposedCopy_.secondMugId=definition_->entry(1).mugId;}proposedCopy_.startsBeforeStartFinish=true;proposedCopy_.optionalFeaturesEnabled=false;proposedCopy_.redLightCount=definition_->redLightCount();proposedCopy_.startSignal=definition_->startSignal();proposedCopy_.startTiming=definition_->startTiming();proposedCopy_.redIntervalUs=definition_->redIntervalUs();proposedCopy_.fixedFinalDelayUs=definition_->fixedFinalDelayUs();proposedCopy_.falseStartCapability=definition_->falseStartCapability();proposedCopy_.falseStartPolicy=definition_->falseStartPolicy();setup_=&proposedCopy_;active_.permitReplacement();}
+        active_.clearForFixture();definition_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
+      }
+      active_.clearForFixture();definition_=nullptr;setup_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
     }
     if(request.operation==SessionOperation::Pause){
       if(state_!=SessionLifecycle::Racing){reject(request.correlation,RequestRejection::LifecycleNotPausable);return;}
@@ -93,13 +138,14 @@ private:
     ++nextSessionId_;nextRaceEntryId_+=setup_->activeLanes;
     definition_=active_.current();
     startCommitted_=true;
-    // The fixed data exists before this externally visible acceptance result.
+    // The fixed data and one authoritative GO schedule exist before this
+    // externally visible acceptance result.
+    if(!beginStart(now)){startCommitted_=false;reject(request.correlation,RequestRejection::SessionDefinitionUnavailable);return;}
     result(request.correlation,RequestResult::Accepted);
-    beginStart(now);
   }
   void changed(){Message notice{};notice.type=Type::NoticeboardChanged;bus_.publish(endpoint_,notice);}
-  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
-  SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=true,startCommitted_=false,integrityFaulted_=false,pauseSettled_=false;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
+  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
+  SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0,finalDelay_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=true,startCommitted_=false,integrityFaulted_=false,pauseSettled_=false;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
   uint32_t nextSessionId_=1,nextRaceEntryId_=1;
   ProposedRaceSetup proposedCopy_{};
 };

@@ -1,0 +1,7 @@
+name: Stage 13 Start Procedure, Race Control, and History
+version: 1
+steps:
+  - wait-serial: 'ACC READY'
+  - write-serial: 's'
+  - wait-serial: 'ACC DONE'
+

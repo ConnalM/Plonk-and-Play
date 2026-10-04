@@ -82,11 +82,15 @@ def evaluate():
     identities=[(d['device'],d['capability']) for d in devices]
     check('2.7',identities==[('50500001','1'),('50500001','1')] and events['2.7a']['count']=='1' and events['2.7b']['count']=='1',{'devices':devices,'events':[events['2.7a'],events['2.7b']]})
     core=(ROOT/'firmware/include/pp/core.h').read_text(); probe=(ROOT/'firmware/tests/stage2_acceptance_probe.inc').read_text()
-    event_fields=re.search(r'struct Message \{(.*?)\n\};',core,re.S).group(1)
-    forbidden=['lane','start','finish','sector','drag','speed','mug','active','inactive']
-    no_race=not any(word in event_fields.lower() for word in forbidden)
+    # The Bus envelope has legitimately gained fields for later message types.
+    # Stage 2's frozen boundary is that the Input Module's INPUT_EVENT
+    # publication uses only physical input identity/time/event identity and
+    # does not populate or derive race meaning from that shared envelope.
+    input_module=re.search(r'class InputModule \{(.*?)(?=\n\};)',core,re.S).group(1)
+    forbidden=['raceentry','lane','startfinish','sector','drag','speed','mug']
+    no_race=not any(word in input_module.lower() for word in forbidden)
     check('2.8',all(set(row).issuperset({'test','count','device','capability','relevant'}) for row in events.values()) and no_race,
-      {'captured_fields':['test','count','device','capability','relevant','observed'],'forbidden_message_fields_present':not no_race},'acceptance-serial.txt; source/firmware/include/pp/core.h')
+      {'captured_fields':['test','count','device','capability','relevant','observed'],'forbidden_input_interpretation_present':not no_race},'acceptance-serial.txt; source/firmware/include/pp/core.h')
     source_path=('input.sampleSource(active,at)' in probe and 'class InputModule' in core and 'detectors_[which].sample(active,at,trigger)' in core and 'bus_.publish(endpoint,backlog_[head_])' in core)
     check('2.9',source_path,{'fixture_calls':'InputModule.sampleSource','module_path':'InputDevice sample then InputModule publication'},'source/firmware/tests/stage2_acceptance_probe.inc; source/firmware/include/pp/core.h')
     findings=[

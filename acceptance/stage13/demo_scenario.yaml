@@ -1,0 +1,5 @@
+name: Stage 12 demo boot
+version: 1
+steps:
+  - wait-serial: '[DEV] P&P STAGE 12 DEMO'
+  - wait-serial: '[DEV] Stage12 Browser server=READY error=0'

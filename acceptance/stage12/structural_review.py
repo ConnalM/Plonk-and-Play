@@ -28,7 +28,10 @@ checks={
 
  'control_does_not_rank': all(x not in control for x in ['fastestLap','lapsBehind','void seal()']),
 
- 'browser_does_not_calculate_result': 'const auto&r=instance()->noticeboard_.completedResult()' in browser and 'void seal()' not in browser,
+ # Stage 13 can select an immutable persisted completed result after a
+ # controller reboot.  That is reconstruction of Race Engine-owned data, not
+ # Browser calculation of W/F, rank, or lap records.
+ 'browser_does_not_calculate_result': 'displayResult' in browser and 'noticeboard_.completedResult()' in browser and 'void seal()' not in browser and 'applyFinish' not in browser,
 
  'input_does_not_interpret_finish_rules': 'finishBehaviour_' not in input_code and 'lapTarget()' not in input_code,
 

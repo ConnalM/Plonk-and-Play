@@ -10,7 +10,10 @@ struct Stage7BrowserClient {
   bool refresh(uint32_t revision){if(!connected||!stateAvailable)return false;cache=browser.current();++stateReads;synchronisedNotice=revision;hasState=true;synchronised=true;return true;}
   void poll(){if(!connected)return;const uint32_t revision=browser.noticeRevision();if(!hasState||revision!=synchronisedNotice){synchronised=false;refresh(revision);}if(consumeFacts&&factAvailable){pp::Message observed{};if(browser.lastFact(observed)){fact=observed;hasFact=true;}}}
 };
-void stage7Tick(){raceEngine.tick();raceControl.tick(systemTime());browser.tick();}
+// Completion now has the accepted Stage 12 finish-settlement round trip:
+// Engine -> Input -> Engine -> Race Control.  The Browser client remains an
+// observer throughout, so this preserves the Stage 7 reconstruction proof.
+void stage7Tick(){raceEngine.tick();raceControl.tick(systemTime());input.tick(systemTime());raceEngine.tick();raceControl.tick(systemTime());browser.tick();}
 void stage7Cross(pp::Time t){input.sampleSource(false,t-141000);input.sampleSource(false,t-121000);input.sampleSource(true,t-20000);input.sampleSource(true,t);input.sampleSource(false,t+1000);input.sampleSource(false,t+21000);stage7Tick();}
 void stage7AcceptanceBeforeBoot(){diagnostics.enable(false);stage7Output.enable(true);}
 void stage7Run(){

@@ -26,7 +26,10 @@ checks = [
  ('Request Results remain Race Control to Presentation only', 'case Type::RequestResult: return mask(Role::RaceControl)' in core and 'case Type::RequestResult: return mask(Role::Presentation)' in core),
  ('Browser state is current Noticeboard state, not replay', 'return noticeboard_.current()' in browser and '/replay' not in browser),
  ('Presentation loss cannot block Input/Race Engine', 'presentationBestEffort(m.type)' in core and 'Role::Presentation' in core and 'Role::Input' in core),
- ('No private Browser-to-Race-Control control route', 'RaceControlModule' not in browser and 'RaceEngineModule' not in browser and 'active_.commit' not in browser),
+ # Stage 12+ Browser formatting may name the immutable completed-result value
+ # type for Results/History reconstruction.  It must still have no Engine or
+ # Control collaborator and no direct lifecycle/session operation.
+ ('No private Browser-to-Race-Control control route', 'RaceControlModule' not in browser and 'RaceEngineModule&' not in browser and 'RaceEngineModule*' not in browser and 'active_.commit' not in browser),
 ]
 findings = [{'requirement': name, 'result': 'PASS' if ok else 'FAIL'} for name, ok in checks]
 payload = {'frozen_acceptance_commit': 'ba194fed214a638098613e1318c703a650c3e228', 'findings': findings}

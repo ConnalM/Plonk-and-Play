@@ -11,6 +11,9 @@ void stage6AcceptanceBeforeBoot(){
   bus.subscribe(stage6Facts,pp::Type::GoScheduled);
   bus.subscribe(stage6Facts,pp::Type::LapCompleted);
   bus.subscribe(stage6Facts,pp::Type::CompetitionComplete);
+  // Finish settlement is the normal Stage 12 boundary and is also exercised
+  // here so this historical lifecycle fixture remains compatible with it.
+  bus.subscribe(input.endpoint,pp::Type::FinishSettlement);
   diagnostics.enable(false);stage6Output.enable(true);
 }
 void stage6Cross(pp::Time t){
@@ -44,6 +47,7 @@ void stage6Run(){
   stage6Cross(go+500000);raceControl.tick(go+500000);
   stage6Output.log("ACC S6 test=6.7 laps=%lu lap=%llu",(unsigned long)raceEngine.laps(),(unsigned long long)raceEngine.lastLapTime());
   stage6Cross(go+900000);raceControl.tick(go+900000);
+  input.tick(go+900001);raceEngine.tick();raceControl.tick(go+900001);
   stage6Drain("6.10");
   stage6Output.log("ACC S6 test=6.11 engine_complete=%u",raceEngine.complete()?1:0);
   stage6Output.log("ACC S6 test=6.12 state=%s",stage6State(raceControl.state()));

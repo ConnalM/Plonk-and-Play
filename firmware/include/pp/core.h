@@ -8,12 +8,15 @@ using Time = uint64_t; // Monotonic microseconds in this controller boot's domai
 enum class Role : uint8_t { Lifecycle, Memory, Input, RaceControl, RaceEngine, Output, Presentation, Diagnostics };
 constexpr uint16_t mask(Role r) { return uint16_t(1u << unsigned(r)); }
 // Numeric values through DiagnosticProbe are the accepted Stage 7 compatibility baseline.
-enum class Type : uint8_t { LoadConfiguration=0, ConfigurationLoaded=1, InputEvent=2, GoScheduled=3, LapCompleted=4, CompetitionComplete=5, NoticeboardChanged=6, DiagnosticProbe=7, StartRequest=8, RequestResult=9, RaceIntegrityFault=10, SessionOperationRequest=11, SessionOperation=12, InputSettlement=13, PauseSettled=14, Paused=15, RestartScheduled=16, Resumed=17, FinishSettlement=18, FinishSettled=19, Count=20 };
+// Stage 12 compatibility assertion: FinishSettlement=18, FinishSettled=19, Count=20
+enum class Type : uint8_t { LoadConfiguration=0, ConfigurationLoaded=1, InputEvent=2, GoScheduled=3, LapCompleted=4, CompetitionComplete=5, NoticeboardChanged=6, DiagnosticProbe=7, StartRequest=8, RequestResult=9, RaceIntegrityFault=10, SessionOperationRequest=11, SessionOperation=12, InputSettlement=13, PauseSettled=14, Paused=15, RestartScheduled=16, Resumed=17, FinishSettlement=18, FinishSettled=19, FalseStart=20, HistoryStored=21, StorageFault=22, Count=23 };
 enum class ClientContext : uint8_t { Spectator, RaceDirectorSmug };
 enum class RequestResult : uint8_t { Accepted, Rejected };
-enum class RequestRejection : uint8_t { None, PermissionDenied, LifecycleNotStartable, InvalidRaceSetup, RequiredCapabilityUnavailable, SessionDefinitionUnavailable, LifecycleNotPausable, LifecycleNotRestartable, PauseSettlementPending, LifecycleNotRaceAgain };
+enum class RequestRejection : uint8_t { None, PermissionDenied, LifecycleNotStartable, InvalidRaceSetup, RequiredCapabilityUnavailable, SessionDefinitionUnavailable, LifecycleNotPausable, LifecycleNotRestartable, PauseSettlementPending, LifecycleNotRaceAgain, ConfirmationRequired, LifecycleNotAbandonable, StorageUnavailable };
 enum class RaceIntegrityReason : uint8_t { None, InputEventDeliveryOverrun };
-enum class SessionOperation : uint8_t { Pause, HonourRestart, GridRestart, RaceAgain };
+// These are request values, not Message Type values.  They are deliberately
+// appended so the established Stage 11/12 operation values retain meaning.
+enum class SessionOperation : uint8_t { Pause, HonourRestart, GridRestart, RaceAgain, RestartRace, EndRace, ClearHistory, ClearLane1Records, ClearLane2Records, ClearTrackRecord, ClearAllRecords };
 enum class RestartMethod : uint8_t { None, Honour, Grid };
 struct InputIdentity {
   uint32_t device;
@@ -52,7 +55,7 @@ struct Message {
   RaceIntegrityReason integrityReason = RaceIntegrityReason::None;
   SessionOperation operation = SessionOperation::Pause;
   RestartMethod restartMethod = RestartMethod::None;
-  uint32_t finishBehaviour = 0;
+  uint32_t historySequence = 0;
 };
 enum class Delivery { Delivered, Forbidden, Invalid, NoSubscribers, Full };
 class Bus {
@@ -136,6 +139,8 @@ private:
       case Type::CompetitionComplete: return mask(Role::RaceEngine);
       case Type::NoticeboardChanged: return mask(Role::RaceControl)|mask(Role::RaceEngine);
       case Type::DiagnosticProbe: return mask(Role::Diagnostics);
+      case Type::FalseStart: return mask(Role::RaceEngine);
+      case Type::HistoryStored: case Type::StorageFault: return mask(Role::RaceEngine);
       default: return 0;
     }
   }
@@ -159,6 +164,8 @@ private:
       case Type::CompetitionComplete: return mask(Role::RaceControl)|mask(Role::Presentation)|mask(Role::Diagnostics);
       case Type::NoticeboardChanged: return mask(Role::Presentation)|mask(Role::Diagnostics);
       case Type::DiagnosticProbe: return mask(Role::Diagnostics);
+      case Type::FalseStart: return mask(Role::RaceControl)|mask(Role::Presentation)|mask(Role::Diagnostics);
+      case Type::HistoryStored: case Type::StorageFault: return mask(Role::RaceControl)|mask(Role::Presentation)|mask(Role::Diagnostics);
       default: return 0;
     }
   }
