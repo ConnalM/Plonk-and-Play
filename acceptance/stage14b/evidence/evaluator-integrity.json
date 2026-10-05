@@ -1,0 +1,7 @@
+{
+  "corruption": "practice timing-state member renamed in isolated source copy",
+  "corrupted_evaluator": "FAIL",
+  "restored_evaluator": "PASS",
+  "corrupted_output": "Stage 14B structural FAIL: practice_engine",
+  "restored_output": "Stage 14B structural PASS: mode_contract, generic_operations, indexed_entries, practice_engine, noticeboard_practice, browser_routes, no_practice_records, message_compatibility"
+}

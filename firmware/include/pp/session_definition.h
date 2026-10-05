@@ -18,6 +18,7 @@ struct ProposedRaceSetup {
   uint32_t lapTarget=0;
   LapFinishBehaviour finish=LapFinishBehaviour::Immediate;
   bool startsBeforeStartFinish=true,optionalFeaturesEnabled=false;
+  SessionMode mode=SessionMode::LapRace;
   // Legacy aliases remain source-compatible with accepted Stage 1–13
   // fixtures. Core code normalises them into entries[] before validation.
   SessionInputRole startFinish{InputIdentity{},1,InputRole::StartFinish};
@@ -51,7 +52,9 @@ inline ProposedRaceSetup normalised(const ProposedRaceSetup& setup) {
 
 inline bool valid(const ProposedRaceSetup& original) {
   const ProposedRaceSetup s=normalised(original);
-  if (!s.activeLanes || s.activeLanes>PP_MAX_ENTRIES || !s.lapTarget ||
+  if (!s.activeLanes || s.activeLanes>PP_MAX_ENTRIES ||
+      (s.mode==SessionMode::LapRace && !s.lapTarget) ||
+      (s.mode!=SessionMode::LapRace && s.mode!=SessionMode::OpenPractice) ||
       (s.redLightCount!=3 && s.redLightCount!=5) || !s.redIntervalUs ||
       !s.startsBeforeStartFinish || s.optionalFeaturesEnabled) return false;
   for (uint8_t i=0;i<s.activeLanes;++i) {
@@ -69,7 +72,7 @@ public:
   explicit SessionDefinition(SessionInputRole a,uint32_t id=1,uint32_t target=0,LapFinishBehaviour f=LapFinishBehaviour::Immediate):sessionId_(0),count_(1),lapTarget_(target),finish_(f) {
     roles_[0]=a; entries_[0]=RaceEntryDefinition{id,0,a.lane};
   }
-  SessionDefinition(const ProposedRaceSetup& original,uint32_t session,uint32_t firstId):sessionId_(session),lapTarget_(original.lapTarget),finish_(original.finish) {
+  SessionDefinition(const ProposedRaceSetup& original,uint32_t session,uint32_t firstId):sessionId_(session),lapTarget_(original.lapTarget),finish_(original.finish),mode_(original.mode) {
     const ProposedRaceSetup s=normalised(original); count_=s.activeLanes;
     redLightCount_=s.redLightCount; startSignal_=s.startSignal; startTiming_=s.startTiming; redIntervalUs_=s.redIntervalUs;
     fixedFinalDelayUs_=s.fixedFinalDelayUs; falseStartCapability_=s.falseStartCapability; falseStartPolicy_=s.falseStartPolicy;
@@ -84,6 +87,7 @@ public:
   uint32_t raceEntryId()const{return entries_[0].raceEntryId;}
   uint32_t mugId()const{return entries_[0].mugId;}
   uint32_t lapTarget()const{return lapTarget_;}
+  SessionMode mode()const{return mode_;}
   LapFinishBehaviour finishBehaviour()const{return finish_;}
   uint8_t redLightCount()const{return redLightCount_;}
   uint8_t startSignal()const{return startSignal_;}
@@ -94,7 +98,7 @@ public:
   uint8_t falseStartPolicy()const{return falseStartPolicy_;}
 private:
   SessionInputRole roles_[PP_MAX_ENTRIES]{}; RaceEntryDefinition entries_[PP_MAX_ENTRIES]{};
-  uint32_t sessionId_=0; uint8_t count_=1; uint32_t lapTarget_=0; LapFinishBehaviour finish_=LapFinishBehaviour::Immediate;
+  uint32_t sessionId_=0; uint8_t count_=1; uint32_t lapTarget_=0; LapFinishBehaviour finish_=LapFinishBehaviour::Immediate; SessionMode mode_=SessionMode::LapRace;
   uint8_t redLightCount_=5,startSignal_=0,startTiming_=2,falseStartPolicy_=0;
   Time redIntervalUs_=1000000,fixedFinalDelayUs_=1000000; bool falseStartCapability_=false;
 };

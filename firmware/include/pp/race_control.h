@@ -41,6 +41,7 @@ public:
     if(state_==SessionLifecycle::Restarting&&now>=scheduledRestart_){state_=SessionLifecycle::Racing;publishFact(Type::Resumed,now);changed();}
   }
   SessionLifecycle state()const{return state_;}
+  SessionMode mode()const{return definition_?definition_->mode():(setup_?setup_->mode:SessionMode::LapRace);}
   Time scheduledGo()const{return go_;}
   Time pauseEffectiveAt()const{return pauseAt_;}
   Time scheduledRestartAt()const{return scheduledRestart_;}
@@ -53,6 +54,9 @@ public:
   uint8_t redLightCount()const{return definition_?definition_->redLightCount():5;} uint8_t startSignal()const{return definition_?definition_->startSignal():0;} uint8_t startTiming()const{return definition_?definition_->startTiming():2;} Time finalDelay()const{return finalDelay_;}
 private:
   bool beginStart(Time now){
+    if (definition_ && definition_->mode()==SessionMode::OpenPractice) {
+      go_=0; finalDelay_=0; state_=SessionLifecycle::Racing; changed(); return true;
+    }
 #if defined(PP_STAGE8_ACCEPTANCE) || defined(PP_STAGE9_ACCEPTANCE) || defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_ACCEPTANCE) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE12_DEMO)
     const Time scheduledGo=now+StartLeadUs;
     Message scheduled{};scheduled.type=Type::GoScheduled;scheduled.relevantTime=scheduledGo;
@@ -104,6 +108,18 @@ private:
       if(state_!=SessionLifecycle::Finished||!definition_){reject(request.correlation,RequestRejection::LifecycleNotRaceAgain);return;}
       copySetupFromDefinition(); setup_=&proposedCopy_;active_.permitReplacement();state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;changed();result(request.correlation,RequestResult::Accepted);return;
     }
+    if(request.operation==SessionOperation::Resume){
+      if(state_!=SessionLifecycle::Paused){reject(request.correlation,RequestRejection::LifecycleNotResumable);return;}
+      if(!pauseSettled_){reject(request.correlation,RequestRejection::PauseSettlementPending);return;}
+      publishOperation(SessionOperation::Resume,RestartMethod::None,now);
+      state_=SessionLifecycle::Racing;publishFact(Type::Resumed,now);changed();result(request.correlation,RequestResult::Accepted);return;
+    }
+    if(request.operation==SessionOperation::EndSession){
+      if(mode()!=SessionMode::OpenPractice || (state_!=SessionLifecycle::Racing&&state_!=SessionLifecycle::Paused)){reject(request.correlation,RequestRejection::LifecycleNotEndable);return;}
+      if(state_==SessionLifecycle::Paused&&!pauseSettled_){reject(request.correlation,RequestRejection::PauseSettlementPending);return;}
+      publishOperation(SessionOperation::EndSession,RestartMethod::None,now);
+      active_.clearForFixture();definition_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
+    }
     if(request.operation==SessionOperation::RestartRace||request.operation==SessionOperation::EndRace){
       if(request.probe!=1){reject(request.correlation,RequestRejection::ConfirmationRequired);return;}
       if(state_!=SessionLifecycle::Paused||!pauseSettled_){reject(request.correlation,RequestRejection::LifecycleNotAbandonable);return;}
@@ -129,11 +145,13 @@ private:
     // startCommitted_ reserves the race before a second closely arriving
     // request can be accepted, even if presentation has not yet refreshed.
     if(state_!=SessionLifecycle::Ready||startCommitted_){reject(request.correlation,RequestRejection::LifecycleNotStartable);return;}
-    if(!setup_||!valid(*setup_)){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
+    if(!setup_){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
+    ProposedRaceSetup requested=*setup_; requested.mode=request.sessionMode;
+    if(!valid(requested)){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
     if(!requiredCapabilityAvailable_){reject(request.correlation,RequestRejection::RequiredCapabilityUnavailable);return;}
     const uint32_t sessionId=nextSessionId_,firstEntryId=nextRaceEntryId_;
-    if(!active_.commit(*setup_,sessionId,firstEntryId)){reject(request.correlation,RequestRejection::SessionDefinitionUnavailable);return;}
-    ++nextSessionId_;nextRaceEntryId_+=setup_->activeLanes;
+    if(!active_.commit(requested,sessionId,firstEntryId)){reject(request.correlation,RequestRejection::SessionDefinitionUnavailable);return;}
+    ++nextSessionId_;nextRaceEntryId_+=requested.activeLanes;
     definition_=active_.current();
     startCommitted_=true;
     // The fixed data and one authoritative GO schedule exist before this
@@ -145,6 +163,7 @@ private:
   void copySetupFromDefinition(){
     proposedCopy_={};
     proposedCopy_.lapTarget=definition_->lapTarget(); proposedCopy_.finish=definition_->finishBehaviour(); proposedCopy_.activeLanes=definition_->entryCount();
+    proposedCopy_.mode=definition_->mode();
     proposedCopy_.startsBeforeStartFinish=true; proposedCopy_.optionalFeaturesEnabled=false;
     proposedCopy_.redLightCount=definition_->redLightCount(); proposedCopy_.startSignal=definition_->startSignal(); proposedCopy_.startTiming=definition_->startTiming();
     proposedCopy_.redIntervalUs=definition_->redIntervalUs(); proposedCopy_.fixedFinalDelayUs=definition_->fixedFinalDelayUs();
