@@ -1,8 +1,8 @@
 # Stage 14C Design — Endurance
 
-**Status: PROPOSED / REVIEW REQUIRED**
+**Status: ACCEPTED / FROZEN**
 
-This document proposes the Endurance implementation slice after accepted Stage 14B. It is not a frozen implementation authorisation. Stages 1–14B remain frozen and unchanged.
+This document defines the frozen Endurance implementation slice after accepted Stage 14B. It does not by itself authorize implementation. Stages 1–14B remain frozen and unchanged.
 
 ## Product boundary
 

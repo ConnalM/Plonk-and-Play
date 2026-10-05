@@ -1,8 +1,8 @@
 # Stage 14C Acceptance Tests — Endurance
 
-**Status: PROPOSED / REVIEW REQUIRED**
+**Status: ACCEPTED / FROZEN**
 
-These tests are proposed for the Endurance implementation slice. They do not freeze Stage 14C or authorise production implementation. Stages 1–14B remain frozen.
+These tests define the frozen acceptance requirements for the Endurance implementation slice. They do not by themselves authorize production implementation. Stages 1–14B remain frozen.
 
 Every automated result must be bound to the final source/build identity and retain deterministic setup, seed, Relevant Times, ordered delivery evidence, Message Bus traces, authoritative State, Facts, Request Results and production Browser/API responses.
 
