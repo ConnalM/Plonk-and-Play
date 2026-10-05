@@ -1,0 +1,27 @@
+{
+  "stage": "14B",
+  "status": "PASS",
+  "date": "2026-10-05",
+  "image": "firmware/.pio/build/stage14bdemo/firmware.merged.bin",
+  "identity": "[DEV] P&P STAGE 14B DEMO",
+  "checks": [
+    "Open Practice selected and started through the real ESP32 Browser path without countdown or GO",
+    "Lane 1 and Lane 2 timed independently",
+    "Pause retained completed laps and statistics and discarded incomplete timing",
+    "Resume became available and returned immediately to RACING",
+    "Post-Resume timing origins and subsequent lap completions worked for both lanes",
+    "Browser refresh reconstructed authoritative live Practice state",
+    "End Session returned cleanly to READY",
+    "resultSealed remained false",
+    "History remained empty",
+    "PB and Track Records remained empty",
+    "Race integrity remained OK"
+  ],
+  "automated": {
+    "stage14b": "PASS — 14B.1–14B.29 and 14B.T",
+    "evaluatorIntegrity": "PASS — deliberate corruption FAIL, restored condition PASS",
+    "stage14a": "PASS",
+    "stage1To13": "PASS — complete applicable regression manifest"
+  },
+  "implementationCommits": ["c49ffbe", "2770a04", "870998a", "d3e9ae6"]
+}

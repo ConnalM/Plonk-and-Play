@@ -1,8 +1,12 @@
 # Stage 14B Design — Open Practice
 
-**Status: PROPOSED / REVIEWED**
+**Status: ACCEPTED / FROZEN**
 
-**Implementation status: NOT STARTED**
+**Implementation status: ACCEPTED — automated, regression and real-ESP32 Browser checkpoint passed on 2026-10-05.**
+
+Final implementation/evidence close-out: commits `c49ffbe`, `2770a04`, `870998a` and `d3e9ae6`.
+
+The human checkpoint verified real Browser selection/start, independent multi-lane timing, pause/resume, reconnect reconstruction, and non-official End Session behaviour. No Stage 14B acceptance blockers remain. Stage 14C is not included.
 
 Stage 14B is the next implementation slice after the accepted Stage 14A variable-entry refactor. It implements Open Practice only. It does not implement Timed Practice, Endurance, Timed Stage/Rally, Drag, or any other new mode.
 

@@ -1,8 +1,12 @@
 # Stage 14B Acceptance Tests — Open Practice
 
-**Status: PROPOSED / REVIEWED**
+**Status: ACCEPTED / FROZEN**
 
-**Implementation status: NOT STARTED**
+**Implementation status: ACCEPTED — all automated tests, cumulative regressions and the real-ESP32 Browser checkpoint passed on 2026-10-05.**
+
+Final acceptance/evidence commits: `c49ffbe`, `2770a04`, `870998a` and `d3e9ae6`.
+
+Human checkpoint evidence recorded in `acceptance/stage14b/evidence/human-checkpoint.json`. No Stage 14B acceptance blockers remain. Stage 14C is not begun.
 
 Stage 14B implements Open Practice only. These tests do not authorise Timed Practice, Endurance, Timed Stage/Rally, Drag or any other Stage 14 behaviour.
 
