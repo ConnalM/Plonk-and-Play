@@ -1,14 +1,14 @@
 {
   "campaign": "Stage 14B applicable Stage 1-13 regressions",
-  "generatedAt": "2026-10-05T13:17:58.429355+00:00",
-  "sourceCommit": "c49ffbe",
-  "workingTreeSourceSha256": "6fb7074716e98f9a572efd73a072bfefa42011850e0c38b5aeda4d8fa1b9fcb7",
+  "generatedAt": "2026-10-05T13:42:48.407185+00:00",
+  "sourceCommit": "2770a0424a57cb00a15ca7e25c08fb3c2128727a",
+  "workingTreeSourceSha256": "b1fecec7f40f7f83afe0ae6eb1cd1194a2dcc3b41598aa87fa64edc84dcbe66b",
   "results": [
     {
       "stage": 1,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:11:10.555075+00:00",
+      "started": "2026-10-05T13:35:29.129236+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage1.log",
       "log_sha256": "35b5a5eaf2f93583f483e3e1f7d36cb84689c412982a651d43130d50f5ad1625"
     },
@@ -16,7 +16,7 @@
       "stage": 2,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:12:17.476404+00:00",
+      "started": "2026-10-05T13:36:45.363924+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage2.log",
       "log_sha256": "12b47d60fc96ac68fbab49bdc984024dbc027c6a549db554baf927c09297117a"
     },
@@ -24,7 +24,7 @@
       "stage": 3,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:13:03.860369+00:00",
+      "started": "2026-10-05T13:37:32.906258+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage3.log",
       "log_sha256": "8f36b9682415beb8983c52de8a1c8c8aabce9127f71fcc6052b463bac95f0ef9"
     },
@@ -32,7 +32,7 @@
       "stage": 4,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:13:46.423463+00:00",
+      "started": "2026-10-05T13:38:17.918090+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage4.log",
       "log_sha256": "5317b95a009c375696bb04edb31217e7155a778679a17f2748572dd113182ed0"
     },
@@ -40,7 +40,7 @@
       "stage": 5,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:14:13.916629+00:00",
+      "started": "2026-10-05T13:38:53.127812+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage5.log",
       "log_sha256": "fcd0a3428f154f3e00b826412c694812c3404ce0ce71a8557bdc2730d96bb4f3"
     },
@@ -48,15 +48,15 @@
       "stage": 6,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:14:14.073752+00:00",
+      "started": "2026-10-05T13:38:53.275919+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage6.log",
-      "log_sha256": "677c850144406e0bd1492ee1e7714d9e004b01fbbe18ea2429580ef5b7236bc9"
+      "log_sha256": "e73bb1c10f45a2900c9a99081e7690c0fa572620115b524dd782e54609f9fa84"
     },
     {
       "stage": 7,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:15:10.411215+00:00",
+      "started": "2026-10-05T13:39:27.273352+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage7.log",
       "log_sha256": "e204d4b28792e6ae2b1f41f8456266f17b78e9dc128534612243344d3ac31a23"
     },
@@ -64,7 +64,7 @@
       "stage": 8,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:15:40.893220+00:00",
+      "started": "2026-10-05T13:39:59.553681+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage8.log",
       "log_sha256": "fcbf92074267ddfd0e026c6b8cf0f98686bcaccd1707cad46f872816d6ba5da5"
     },
@@ -72,7 +72,7 @@
       "stage": 9,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:16:14.601365+00:00",
+      "started": "2026-10-05T13:40:33.998271+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage9.log",
       "log_sha256": "1b446290874e99ff6974d3bcc2ff92d5ea93512f6af1895efc9e7ca090ed2dae"
     },
@@ -80,7 +80,7 @@
       "stage": 10,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:16:51.880873+00:00",
+      "started": "2026-10-05T13:41:24.014771+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage10.log",
       "log_sha256": "5c1469bbe529827d09a28c94bf6d70c852927e169caa1354a98df3b7bc5c02d0"
     },
@@ -88,7 +88,7 @@
       "stage": 11,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:17:03.080032+00:00",
+      "started": "2026-10-05T13:41:42.332630+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage11.log",
       "log_sha256": "a1edbbf3fa1ad1c79043411feb2b107d3449d88b06c9181d747ed4ca9a956ac7"
     },
@@ -96,17 +96,17 @@
       "stage": 12,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:17:14.687948+00:00",
+      "started": "2026-10-05T13:41:53.006961+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage12.log",
-      "log_sha256": "b0f88aa1402083f367cc90c1722e31517e28979dc5e02b4469331703b719ec58"
+      "log_sha256": "4d7823be6f2c6b4d3e671c3d3a08370dd68180c88462ace238acdcb4e879570f"
     },
     {
       "stage": 13,
       "status": "PASS",
       "returncode": 0,
-      "started": "2026-10-05T13:17:35.828747+00:00",
+      "started": "2026-10-05T13:42:19.909770+00:00",
       "log": "acceptance\\stage14b\\evidence\\regressions\\stage13.log",
-      "log_sha256": "5c88e0b535c45d1eba8f0502208c73699c396c7d78568be4f542ca30dc9c16f4"
+      "log_sha256": "5e074a993c0002beee68d3658e1da4d830a95cbf40bcb00db0b0984817b8312b"
     }
   ]
 }

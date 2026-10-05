@@ -1,10 +1,10 @@
 {
-  "sourceCommit": "c49ffbe",
+  "sourceCommit": "870998a",
   "acceptance": {
     "environment": "stage14bacceptance",
     "image": "firmware/.pio/build/stage14bacceptance/firmware.merged.bin",
     "bytes": 916800,
-    "sha256": "FBC04D488B711CDA1DD59B310F27A91BC98DC06495A5E0DA585F65C8A87F034C",
+    "sha256": "BFAB2D9A195F947EFA8CDF308CB5C7C0F0D6C6D6B5ACBE457571844D0F2F8F77",
     "ramBytes": 105208,
     "ramCapacityBytes": 327680,
     "flashBytes": 844681,
@@ -14,8 +14,8 @@
     "environment": "stage14bdemo",
     "image": "firmware/.pio/build/stage14bdemo/firmware.merged.bin",
     "bytes": 909936,
-    "sha256": "BF8FD6BBE7A5D317736FA330C29ECE3605B4D679C8E718D1B587BFBD4A61310A",
-    "builtUtc": "2026-10-05T13:10:42.3007945Z",
+    "sha256": "4D3E3996243BB4283281B8722B3475923D1CB7C529CC1AD5F0AE53F1AC1167C2",
+    "builtUtc": "2026-10-05T13:34:55.5417350Z",
     "ramBytes": 88112,
     "ramCapacityBytes": 327680,
     "flashBytes": 837817,
