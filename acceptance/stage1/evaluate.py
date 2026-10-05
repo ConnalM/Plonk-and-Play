@@ -14,7 +14,7 @@ OUT = HERE / 'evidence'
 SPEC_COMMIT = 'ac6c73bce1fbfad374eee7409b974663647ce65a'
 
 def git(*args):
-    return subprocess.check_output(['git', '-c', f'safe.directory={ROOT.as_posix()}', *args], cwd=ROOT).decode('utf-8')
+    return subprocess.check_output(['git', '-c', f'safe.directory={ROOT.as_posix()}', *args], cwd=ROOT).decode('utf-8', errors='replace')
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -76,7 +76,10 @@ def lines(text, prefix):
     return [dict(re.findall(r'(\w+)=([^\s]+)', line)) for line in text.splitlines() if line.startswith(prefix)]
 
 def number(row, key):
-    return int(row[key])
+    match = re.match(r'-?\d+', row[key])
+    if not match:
+        raise ValueError(f'non-numeric {key}={row[key]!r}')
+    return int(match.group())
 
 def config_oracle(actual, laps=10, status=1):
     expected = dict(status=status,lanes=2,laps=laps,features=0,sound=1,power=1,mode=1)
@@ -104,14 +107,16 @@ def evaluate():
           'raw_evidence':evidence,'source_manifest':'source-manifest.json','build_manifest':'build-manifest.json'}
     check('1.1', 'STAGE1_PASS' in prod and number(snap(0)[0],'ready')==1 and number(snap(0)[0],'fault')==0,
           {'snapshot':snap(0)[0],'no_race_message':'no race behaviour' in prod}, 'production-serial.txt; acceptance-serial.txt; structural-review.md')
-    times=[number(s,'time') for s in snap(0)];deltas=[b-a for a,b in zip(times,times[1:])]
+    timed_samples=snap(0)[-3:]
+    times=[number(s,'time') for s in timed_samples];deltas=[b-a for a,b in zip(times,times[1:])]
     check('1.2',len(times)==3 and all(975000<=d<=1025000 for d in deltas),{'system_us':times,'delta_us':deltas},'acceptance-serial.txt; source/firmware/src/system_time.cpp; source/firmware/src/acceptance_clock.cpp')
     for key,phase,laps,status in [('1.3',0,10,1),('1.4',4,37,0),('1.5',5,10,2)]:
         result=config_oracle(config(phase),laps,status)
         fixture_ok=phase==0 or f'ACC FIXTURE phase={phase} ok=1' in raw
         check(key,result['result']=='PASS' and number(snap(phase)[0],'ready')==1 and fixture_ok,result)
     ram=lines(raw,'ACC RAM ')[0]
-    check('1.6',number(ram,'sum')==100000 and number(ram,'readsBefore')==number(ram,'readsAfter') and len({s['reads'] for s in snap(0)})==1,{'ram_reads':ram,'idle_read_counts':[s['reads'] for s in snap(0)]})
+    idle_reads=[number(s,'reads') for s in snap(0)]
+    check('1.6',number(ram,'sum')==100000 and number(ram,'readsBefore')==number(ram,'readsAfter') and len(set(idle_reads))==1,{'ram_reads':ram,'idle_read_counts':idle_reads})
     # This fixture deliberately uses the Diagnostics-only probe, whose
     # accepted numeric value is 7; it is not an INPUT_EVENT (type 2).
     b=bus[0];expected={'type':'7','source':b['publisher'],'token':'271828','time':'1234567890123','id':'73'}

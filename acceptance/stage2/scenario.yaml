@@ -6,6 +6,7 @@ steps:
   - delay: 300ms
   - write-serial: 's'
   - wait-serial: 'ACC INPUT test=2.6'
+  - wait-serial: 'ACC INPUT test=2.7a'
   - delay: 100ms
   - write-serial: 'i'
   - wait-serial: 'ACC FIXTURE identity_restart=1'

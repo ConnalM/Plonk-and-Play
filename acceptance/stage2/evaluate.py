@@ -28,7 +28,7 @@ RECIPES = {
 }
 
 def git(*args):
-    return subprocess.check_output(['git','-c',f'safe.directory={ROOT.as_posix()}',*args],cwd=ROOT).decode()
+    return subprocess.check_output(['git','-c',f'safe.directory={ROOT.as_posix()}',*args],cwd=ROOT).decode(errors='replace')
 def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
 def save(name,data): (OUT/name).write_text(json.dumps(data,indent=2)+'\n',encoding='utf-8')
 def fields(text,prefix):

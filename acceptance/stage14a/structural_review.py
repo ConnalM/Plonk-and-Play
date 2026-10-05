@@ -15,7 +15,10 @@ checks={
  'input_capacity':'MaxDetectors=PP_MAX_ENTRIES' in core and 'detectors_[MaxDetectors]' in core,
  'browser_dynamic_records':"r.entries.map(e=>'Lane '+e.lane" in browser,
  'browser_dynamic_collections':('value.entryCount>PP_MAX_ENTRIES' in browser and 'const uint8_t count=' in browser and 'for(uint8_t i=0;i<r.entryCount' in browser and 'v.entries.map' in browser and 'r.entries.forEach' in browser),
- 'no_new_practice':'Practice' not in ''.join(files.values()) and 'Endurance' not in ''.join(files.values()),
+ # Stage 14A's historical guard prevented premature Practice/Endurance code.
+ # Stage 14B is the approved later extension, so cumulative checks now verify
+ # that Practice is an explicit session mode while Endurance remains absent.
+ 'no_unapproved_future_mode':(('OpenPractice' in ''.join(files.values()) and 'SessionMode' in core) or 'Practice' not in ''.join(files.values())) and 'Endurance' not in ''.join(files.values()),
  'message_values_unchanged':'FinishSettlement=18' in core and 'FinishSettled=19' in core,
 }
 failed=[k for k,v in checks.items() if not v]

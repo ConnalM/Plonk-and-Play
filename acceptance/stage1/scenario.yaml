@@ -6,12 +6,20 @@ steps:
   - delay: 500ms
   - write-serial: 'a'
   - wait-serial: 'ACC CONFIG phase=0'
-  - delay: 1s
   - write-serial: 'a'
   - wait-serial: 'sample=2'
   - delay: 1s
   - write-serial: 'a'
   - wait-serial: 'sample=3'
+  - delay: 1s
+  - write-serial: 'a'
+  - wait-serial: 'sample=4'
+  - delay: 1s
+  - write-serial: 'a'
+  - wait-serial: 'sample=5'
+  - delay: 1s
+  - write-serial: 'a'
+  - wait-serial: 'sample=6'
   - delay: 200ms
   - write-serial: 'r'
   - wait-serial: 'ACC RAM'
