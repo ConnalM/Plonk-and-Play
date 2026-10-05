@@ -1,10 +1,10 @@
 {
-  "sourceCommit": "7fe1faa",
+  "sourceCommit": "pending-browser-handler-capacity-fix",
   "acceptance": {
     "environment": "stage14bacceptance",
     "image": "firmware/.pio/build/stage14bacceptance/firmware.merged.bin",
     "bytes": 916336,
-    "sha256": "58B45F1A25D3B28900EF2945AC8011FE71AAADFE6C5A20F93443B50B1D3C4457",
+    "sha256": "142B61269E042B57E27D92484D766A456F85819280E3AF97F28F5C594C71D6C0",
     "ramBytes": 105208,
     "ramCapacityBytes": 327680,
     "flashBytes": 844221,
@@ -14,8 +14,8 @@
     "environment": "stage14bdemo",
     "image": "firmware/.pio/build/stage14bdemo/firmware.merged.bin",
     "bytes": 909456,
-    "sha256": "EB4B8CD365151485763120C1764845CAF6B35FDF600957697D0DE4912AB7AB07",
-    "builtUtc": "2026-10-05T12:25:37.3443706Z",
+    "sha256": "365144547AF20B7566B2A8B454BA99D1508CA02A6954D716DFAEBA8C8D8CB2E8",
+    "builtUtc": "2026-10-05T12:41:43.4924485Z",
     "ramBytes": 88112,
     "ramCapacityBytes": 327680,
     "flashBytes": 837349,
@@ -23,7 +23,7 @@
     "identity": "[DEV] P&P STAGE 14B DEMO",
     "browserRoute": "http://127.0.0.1:9080/",
     "gatewayForward": "9080:10.13.37.2:80",
-    "directWokwiWithoutGateway": "boot identity and diagnostics verified; Browser server reports expected gateway-unavailable error"
+    "directWokwiBoot": "boot identity and diagnostics verified; Browser server=READY error=0"
   },
   "stage14aRegressionImage": {
     "environment": "stage14aacceptance",

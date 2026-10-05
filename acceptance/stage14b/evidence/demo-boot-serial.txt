@@ -31,5 +31,4 @@ STAGE2_PASS one simulated Input Device ready; no race behaviour
 STAGE3_PASS Message Bus delivery boundary ready; no race behaviour
 STAGE4_PASS Session Definition scaffold ready; no race behaviour
 [DEV] Serial: ? status, t bus self-test, q quiet, v diagnostics on
-[DEV] P&P STAGE 14B DEMO Browser server=FAILED error=45057
-[DEV] P&P STAGE 14B DEMO IDLE system_us=10753230 dropped=0; no session, no race
+[DEV] P&P STAGE 14B DEMO Browser server=READY error=0

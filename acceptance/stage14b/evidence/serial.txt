@@ -15,6 +15,22 @@ entry 0x400805dc
 [INIT] Message Bus READY: bounded mailboxes; authority checked
 [TEST] PASS bus.authority.publish
 [TEST] PASS bus.authority.subscribe
+[TEST] PASS bus.fanout.publish
+[TEST] PASS bus.fanout.identical
+[TEST] PASS bus.no.duplicate
+[TEST] PASS bus.backpressure.atomic
+[TEST] PASS bus.fifo
+[TEST] PASS bus.recovery
+[BUS SELF-TEST] PASS
+[INIT] Working configuration READY in RAM (factory: no saved configuration)
+[CONFIG] Lap Race proposed; lanes=2 laps=10 optional_features=off
+[INIT] Input Module READY: one simulated detector; Race Control / Race Engine / Output / Presentation dormant
+[INIT] No capabilities discovered or assigned; session readiness not claimed
+STAGE1_PASS skeleton initialised; no race behaviour
+STAGE2_PASS one simulated Input Device ready; no race behaviour
+STAGE3_PASS Message Bus delivery boundary ready; no race behaviour
+STAGE4_PASS Session Definition scaffold ready; no race behaviour
+[DEV] Serial: ? status, t bus self-test, q quiet, v diagnostics on
 ACC S14B test=14B.1 pass=1 browser_start_selects_open_practice=1
 ACC S14B test=14B.2 pass=1 immutable_definition_entries=2
 ACC S14B test=14B.3 pass=1 immediate_no_go=1

@@ -572,7 +572,9 @@ private:
     // LRU eviction keeps sleeping presentation clients from exhausting them.
     config.max_open_sockets = 13;
     config.lru_purge_enable = true;
-    config.max_uri_handlers = 32;
+    // Stage 14B adds generic Resume/End Session and Practice-facing routes;
+    // keep enough handler slots for the complete diagnostic Browser surface.
+    config.max_uri_handlers = 48;
     const esp_err_t started = httpd_start(&server_, &config);
     if (started != ESP_OK) {
       serverStartError_ = int(started);

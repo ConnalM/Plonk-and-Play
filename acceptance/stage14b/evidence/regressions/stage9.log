@@ -1,11 +1,4 @@
 ATTEMPT 1
-Exception: C:\Users\conna\Documents\Plonk-and-Play\acceptance\stage9\run.ps1:34
-Line |
-  34 |    if($LASTEXITCODE -ne 0){throw 'Stage 9 Wokwi simulation failed.'}
-     |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     | Stage 9 Wokwi simulation failed.
-
-ATTEMPT 2
 PASS Input Module owns bounded protected backlog
 PASS Input Module publishes standard INPUT_EVENT
 PASS No direct Input Module to Race Engine call

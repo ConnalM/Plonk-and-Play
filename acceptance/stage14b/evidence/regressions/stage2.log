@@ -10,8 +10,6 @@ ATTEMPT 1
 2.9 PASS
 2.10 PASS
 2.T PASS
-warning: in the working copy of 'acceptance/stage2/evidence/acceptance-serial.txt', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage2/evidence/production-serial.txt', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage2/evidence/source/acceptance/stage2/evaluate.py', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage2/evidence/source/acceptance/stage2/scenario.yaml', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/.gitignore', LF will be replaced by CRLF the next time Git touches it
