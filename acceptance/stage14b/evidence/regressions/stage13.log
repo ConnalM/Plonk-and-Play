@@ -1,0 +1,76 @@
+ATTEMPT 1
+Processing stage13acceptance (platform: espressif32@6.9.0; board: esp32dev; framework: arduino)
+--------------------------------------------------------------------------------
+Verbose mode can be enabled via `-v, --verbose` option
+CONFIGURATION: https://docs.platformio.org/page/boards/espressif32/esp32dev.html
+PLATFORM: Espressif 32 (6.9.0) > Espressif ESP32 Dev Module
+HARDWARE: ESP32 240MHz, 320KB RAM, 4MB Flash
+DEBUG: Current (cmsis-dap) External (cmsis-dap, esp-bridge, esp-prog, iot-bus-jtag, jlink, minimodule, olimex-arm-usb-ocd, olimex-arm-usb-ocd-h, olimex-arm-usb-tiny-h, olimex-jtag-tiny, tumpa)
+PACKAGES: 
+ - framework-arduinoespressif32 @ 3.20017.241212+sha.dcc1105b 
+ - tool-esptoolpy @ 1.40501.0 (4.5.1) 
+ - toolchain-xtensa-esp32 @ 8.4.0+2021r2-patch5
+LDF: Library Dependency Finder -> https://bit.ly/configure-pio-ldf
+LDF Modes: Finder ~ chain, Compatibility ~ soft
+Found 34 compatible libraries
+Scanning dependencies...
+Dependency Graph
+|-- Preferences @ 2.0.0
+|-- WiFi @ 2.0.0
+Building in release mode
+Retrieving maximum program size .pio\build\stage13acceptance\firmware.elf
+Checking size .pio\build\stage13acceptance\firmware.elf
+Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
+RAM:   [===       ]  27.3% (used 89568 bytes from 327680 bytes)
+Flash: [=======   ]  66.6% (used 873493 bytes from 1310720 bytes)
+========================= [SUCCESS] Took 4.51 seconds =========================
+
+Environment        Status    Duration
+-----------------  --------  ------------
+stage13acceptance  SUCCESS   00:00:04.507
+========================= 1 succeeded in 00:00:04.507 =========================
+esptool.py v4.5.1
+Wrote 0xe6dc0 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\stage13acceptance\firmware.merged.bin, ready to flash to offset 0x0
+Browser-loadable firmware: C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\stage13acceptance\firmware.merged.bin
+Stage 13 evaluator PASS: 13.1-13.25 and 13.T
+{
+  "append_types": true,
+  "stage13_envs": true,
+  "start_configuration": true,
+  "committed_go_schedule": true,
+  "false_start_capability": true,
+  "false_start_bus_fact": true,
+  "destructive_routes": true,
+  "records_reconstruct_and_clear": true,
+  "record_admin_bus_authority": true,
+  "settlement_gate": true,
+  "destructive_confirmation_gate": true,
+  "normal_bus_authority": true,
+  "lap_target_visible_and_persisted": true,
+  "stage13_demo_defaults_three_laps": true,
+  "demo_simulated_laps_excluded_from_records": true
+}
+Stage 13 deterministic stress PASS seed=13013 runs=200
+{
+  "stage1": true,
+  "stage2": true,
+  "stage3": true,
+  "stage4": true,
+  "stage5": true,
+  "stage6": true,
+  "stage7": true,
+  "stage8": true,
+  "stage9": true,
+  "stage10": true,
+  "stage11": true,
+  "stage12": true,
+  "stage12_structural": true,
+  "stage12_stress": true,
+  "stage13": true,
+  "stage13_structural": true,
+  "stage13_stress": true,
+  "authorised_supersessions_only": true,
+  "STAGE_13_DESIGN.md_frozen_plan_unchanged": true,
+  "ACCEPTANCE_TESTS_STAGE_13.md_frozen_plan_unchanged": true
+}
+Stage 1-12 regression review and Stage 13 campaign review PASS

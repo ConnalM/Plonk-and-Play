@@ -1,0 +1,34 @@
+ATTEMPT 1
+2.1 PASS
+2.2 PASS
+2.3 PASS
+2.4 PASS
+2.5 PASS
+2.6 PASS
+2.7 PASS
+2.8 PASS
+2.9 PASS
+2.10 PASS
+2.T PASS
+warning: in the working copy of 'acceptance/stage2/evidence/acceptance-serial.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/production-serial.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/acceptance/stage2/evaluate.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/acceptance/stage2/scenario.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/diagram.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/include/pp/race_engine.h', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/include/pp/session_definition.h', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/include/pp/verification.h', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/test.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/tests/assert-logs.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/tests/quiet.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/tests/serial.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/tests/stage14a_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/tests/stage3_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/tests/stage4_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/tests/stage5_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/tests/stage6_demo_probe.inc', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/tests/stage7_demo_probe.inc', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/tests/stage9_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/wokwi-dev.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage2/evidence/source/firmware/wokwi.toml', LF will be replaced by CRLF the next time Git touches it

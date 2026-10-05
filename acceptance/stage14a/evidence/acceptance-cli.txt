@@ -1,5 +1,5 @@
 Wokwi CLI v0.27.1 (ffde06bde1ae)
-Connected to Wokwi Simulation API 1.0.0-20261002-gd6cd65f4
+Connected to Wokwi Simulation API 1.0.0-20261005-g5ecfab70
 Starting simulation...
 ets Jul 29 2019 12:21:46
 
@@ -17,7 +17,8 @@ entry 0x400805dc
 [Stage 14A variable entry capacity] Expected text matched: "ACC READY"
 
 [INIT] Memory READY: NVS behind Memory boundary
-[INIT] Message Bus READY: bounded mailboxes; authority checkedACC S14A test=14A.SIZE pass=1 result_size=5560 history_max=8192 engine=12624 notice=304
+[INIT] Message Bus READY: bounded mailboxes; authority checked
+ACC S14A test=14A.SIZE pass=1 result_size=5560 history_max=8192 engine=12696 notice=376
 ACC S14A test=14A.1 pass=1 one_entry_sealed=1
 ACC S14A test=14A.2 pass=1 two_entry_lap_race_unchanged=1
 ACC S14A test=14A.3 pass=1 entry_count=4 indexed_roles=1

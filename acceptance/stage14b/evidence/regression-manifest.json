@@ -1,0 +1,120 @@
+{
+  "campaign": "Stage 14B applicable Stage 1-13 regressions",
+  "generatedAt": "2026-10-05T12:23:43.113407+00:00",
+  "sourceCommit": "0cfeb088e17f582253d1635aea5cf56af0650d25",
+  "workingTreeSourceSha256": "cda6262fd8d058b35c6040c81386a2bf02f00e2ac654d1d118f572891097a034",
+  "results": [
+    {
+      "stage": 1,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:17:02.227389+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage1.log",
+      "log_sha256": "35b5a5eaf2f93583f483e3e1f7d36cb84689c412982a651d43130d50f5ad1625"
+    },
+    {
+      "stage": 2,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:18:11.558945+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage2.log",
+      "log_sha256": "bbdb859b49c33a9343154ab5be4f1906177f4cf3a6c341d3ecfc6a2f2875ac93"
+    },
+    {
+      "stage": 3,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:18:47.392618+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage3.log",
+      "log_sha256": "0a222611bd0c2c39395212db65a55cedc7aa60c0430b4a14e3bc2d7ceac7a817"
+    },
+    {
+      "stage": 4,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:19:27.925908+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage4.log",
+      "log_sha256": "5317b95a009c375696bb04edb31217e7155a778679a17f2748572dd113182ed0"
+    },
+    {
+      "stage": 5,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:19:53.024819+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage5.log",
+      "log_sha256": "fcd0a3428f154f3e00b826412c694812c3404ce0ce71a8557bdc2730d96bb4f3"
+    },
+    {
+      "stage": 6,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:19:53.214444+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage6.log",
+      "log_sha256": "e73bb1c10f45a2900c9a99081e7690c0fa572620115b524dd782e54609f9fa84"
+    },
+    {
+      "stage": 7,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:20:23.586558+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage7.log",
+      "log_sha256": "e204d4b28792e6ae2b1f41f8456266f17b78e9dc128534612243344d3ac31a23"
+    },
+    {
+      "stage": 8,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:21:01.260008+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage8.log",
+      "log_sha256": "fcbf92074267ddfd0e026c6b8cf0f98686bcaccd1707cad46f872816d6ba5da5"
+    },
+    {
+      "stage": 9,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:21:31.872394+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage9.log",
+      "log_sha256": "a520c23f99eade8b35ce23cec7f367c2e99813b122dfd080fadad5949a4b7900"
+    },
+    {
+      "stage": 10,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:22:30.589670+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage10.log",
+      "log_sha256": "5c1469bbe529827d09a28c94bf6d70c852927e169caa1354a98df3b7bc5c02d0"
+    },
+    {
+      "stage": 11,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:22:37.424602+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage11.log",
+      "log_sha256": "a1edbbf3fa1ad1c79043411feb2b107d3449d88b06c9181d747ed4ca9a956ac7"
+    },
+    {
+      "stage": 12,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:22:51.021243+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage12.log",
+      "log_sha256": "5eaa9535be080f8464c0ca2a0f83d1e4643243be9e733792c7aa25a7abe75354"
+    },
+    {
+      "stage": 13,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:23:17.928654+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage13.log",
+      "log_sha256": "a42da4ae08227730f6ca7b62833cd2fd23a2b05f2dc29a93266f484fcd89018b"
+    },
+    {
+      "stage": "14A",
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-05T12:23:42.398324+00:00",
+      "log": "acceptance\\stage14b\\evidence\\regressions\\stage14a.log",
+      "log_sha256": "76e9b9044afd95b8e1e29a08fc494b16ce74d5aa0595457e4ef8804e8aedec4b"
+    }
+  ]
+}
