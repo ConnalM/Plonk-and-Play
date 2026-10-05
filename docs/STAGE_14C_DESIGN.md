@@ -52,7 +52,7 @@ The initial Endurance choices are:
 
 - OFF — a diagnostic false-start event may be recorded, but it produces no warning, penalty or outcome change.
 - WARNING — the event is recorded and presented without changing classified distance.
-- -1 LAP — the penalty is applied to the final classified lap count.
+- -1 LAP — the penalty is applied to the final classified lap count. The factual completed-lap count remains unchanged, the classified count is `max(0, completed laps - 1)`, and Results/History preserve enough information to show both counts and the applied penalty.
 
 The Lap Race `+1 LAP` required-distance rule is not reused for Endurance. Stop/Go is reserved for a later slice shared by Lap and Endurance.
 
@@ -72,6 +72,8 @@ At the authoritative expiry boundary, the race ends immediately. Only laps whose
 
 ### Finish Current Lap
 
+Eligibility is determined at the expiry boundary: the entry must already have a legitimate timing origin and be on that lap before expiry. A crossing exactly at expiry may complete that already-in-progress lap, but cannot establish a new timing origin or grant another post-expiry completion.
+
 At expiry, an entry that had established a legitimate timing origin and was already on a lap may complete that lap at its first eligible post-expiry Start/Finish crossing. It cannot begin another counted lap. An entry without a legitimate pre-expiry timing origin/lap receives no post-expiry lap. Different entries may finish with different totals. Classification is by final classified lap count; equal totals are ordered by post-expiry finishing Relevant Time.
 
 The main duration display reaches and remains at `00:00`. Finish Current Lap also exposes a separate authoritative overtime value beginning at expiry and counting upward until the last eligible entry completes.
@@ -80,16 +82,16 @@ The main duration display reaches and remains at `00:00`. Finish Current Lap als
 
 - A crossing with Relevant Time before expiry is normal-time input.
 - A crossing exactly at expiry completes a normal-time lap.
-- A crossing exactly at expiry does not begin a new post-expiry lap under Finish Current Lap.
+- A crossing exactly at expiry may complete the lap that was already legitimately in progress before expiry, but does not begin a new post-expiry lap or establish a new timing origin for one.
 - A crossing delivered after expiry but carrying Relevant Time less than or equal to expiry is classified by that Relevant Time.
 - A crossing with Relevant Time greater than expiry is post-expiry input.
-- Each eligible entry receives at most one post-expiry completion crossing under Finish Current Lap.
+- Each eligible entry receives at most one post-expiry completion crossing under Finish Current Lap, and eligibility requires a legitimate timing origin/lap established before expiry.
 - PAUSE settlement and all existing event-boundary rules remain authoritative.
 - Paused time does not advance the Endurance duration or overtime clock.
 
 ## PAUSE, RESUME and END RACE
 
-Endurance reuses the frozen PAUSE settlement/fence and Relevant-Time rules. Completed laps and valid statistics remain. The duration clock stops while PAUSED and resumes with the remaining duration after generic RESUME. An END RACE request is a manual abandonment and does not manufacture a normal result or History entry.
+Endurance reuses the frozen LAP PAUSE settlement/fence and Relevant-Time timing semantics, including preservation of interrupted-lap timing across the normal resume path. Completed laps and valid statistics remain. The duration clock stops while PAUSED and resumes with the remaining duration after generic RESUME. Endurance does not import Open Practice's discard-partial-lap rule. An END RACE request is a manual abandonment and does not manufacture a normal result or History entry.
 
 ## State, Browser and Taster
 
