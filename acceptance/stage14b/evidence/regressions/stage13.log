@@ -19,23 +19,17 @@ Dependency Graph
 |-- WiFi @ 2.0.0
 Building in release mode
 Compiling .pio\build\stage13acceptance\src\main.cpp.o
-Linking .pio\build\stage13acceptance\firmware.elf
 Retrieving maximum program size .pio\build\stage13acceptance\firmware.elf
 Checking size .pio\build\stage13acceptance\firmware.elf
 Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
 RAM:   [===       ]  27.3% (used 89568 bytes from 327680 bytes)
 Flash: [=======   ]  66.6% (used 873493 bytes from 1310720 bytes)
-Building .pio\build\stage13acceptance\firmware.bin
-esptool.py v4.5.1
-Creating esp32 image...
-Merged 27 ELF sections
-Successfully created esp32 image.
-========================= [SUCCESS] Took 11.87 seconds =========================
+========================= [SUCCESS] Took 8.13 seconds =========================
 
 Environment        Status    Duration
 -----------------  --------  ------------
-stage13acceptance  SUCCESS   00:00:11.867
-========================= 1 succeeded in 00:00:11.867 =========================
+stage13acceptance  SUCCESS   00:00:08.134
+========================= 1 succeeded in 00:00:08.134 =========================
 esptool.py v4.5.1
 Wrote 0xe6dc0 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\stage13acceptance\firmware.merged.bin, ready to flash to offset 0x0
 Browser-loadable firmware: C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\stage13acceptance\firmware.merged.bin
