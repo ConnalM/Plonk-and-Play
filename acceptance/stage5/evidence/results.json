@@ -155,7 +155,7 @@
       "predetermined_stimulus": "Frozen Stage 5 acceptance fixture",
       "expected_result": "PASS",
       "actual_result": {
-        "engine_owns_state": true
+        "engine_owns_per_entry_lap_state": true
       },
       "result": "PASS",
       "raw_evidence": "serial.txt"

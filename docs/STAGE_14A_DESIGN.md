@@ -2,6 +2,8 @@
 
 **Status: ACCEPTED / FROZEN**
 
+**Implementation status: ACCEPTED — automated, regression and real-ESP32 hardware verification passed on 2026-10-05.**
+
 Stage 14A removes the current hard-coded two-entry implementation limitation before Practice or Endurance is implemented. It generalises the existing Lap Race data model and execution paths to support a variable number of active Race Entries while preserving all accepted Stage 1–13 behaviour.
 
 Stage 14A does not implement Practice, Endurance, open-ended running, timed races, new finish rules, retirement, withdrawal, DNF, or any other new race mode.
@@ -166,4 +168,4 @@ Relevant governing constraints are in `docs/SYSTEM_REQUIREMENTS.md`, `docs/SYSTE
 - Default Taster and two-entry behaviour must not be changed by generalized storage.
 - The full Stage 1–13 automated/regression suite must remain passing.
 
-No Practice or Endurance design is introduced by this document.
+No Practice or Endurance design is introduced by this document. Stage 14A implementation is complete; Practice and Endurance remain outside this stage.

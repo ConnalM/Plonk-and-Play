@@ -1,0 +1,112 @@
+{
+  "campaign": "Stage 14A applicable Stage 1-13 regressions",
+  "generatedAt": "2026-10-04T22:37:30.295483+00:00",
+  "sourceCommit": "a1af33d11ff797b445afeab2d0daf815aa70a4ec",
+  "workingTreeSourceSha256": "accea2a0fa199ea2a4726fe8faa0f5a68faa05793d82967dfd8476feda71b15a",
+  "results": [
+    {
+      "stage": 1,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:29:41.701551+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage1.log",
+      "log_sha256": "e6cf6a25d446040322db580baa2f6e9f61abbab796d7816690ed449874a3f87a"
+    },
+    {
+      "stage": 2,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:30:58.121234+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage2.log",
+      "log_sha256": "d6a1ebe996e93f6878de70911effc2476037b2959ae45d5896913b21ad5b76fa"
+    },
+    {
+      "stage": 3,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:31:43.047877+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage3.log",
+      "log_sha256": "b5bc31b040ee491db5bf9cb8d74af27ce58ae7cdd44d444b20408de5fb01e784"
+    },
+    {
+      "stage": 4,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:32:35.015866+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage4.log",
+      "log_sha256": "5317b95a009c375696bb04edb31217e7155a778679a17f2748572dd113182ed0"
+    },
+    {
+      "stage": 5,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:33:19.869433+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage5.log",
+      "log_sha256": "fcd0a3428f154f3e00b826412c694812c3404ce0ce71a8557bdc2730d96bb4f3"
+    },
+    {
+      "stage": 6,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:33:19.981259+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage6.log",
+      "log_sha256": "e73bb1c10f45a2900c9a99081e7690c0fa572620115b524dd782e54609f9fa84"
+    },
+    {
+      "stage": 7,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:33:54.017984+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage7.log",
+      "log_sha256": "e204d4b28792e6ae2b1f41f8456266f17b78e9dc128534612243344d3ac31a23"
+    },
+    {
+      "stage": 8,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:34:36.366441+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage8.log",
+      "log_sha256": "fcbf92074267ddfd0e026c6b8cf0f98686bcaccd1707cad46f872816d6ba5da5"
+    },
+    {
+      "stage": 9,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:35:12.892314+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage9.log",
+      "log_sha256": "1b446290874e99ff6974d3bcc2ff92d5ea93512f6af1895efc9e7ca090ed2dae"
+    },
+    {
+      "stage": 10,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:36:10.740601+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage10.log",
+      "log_sha256": "5c1469bbe529827d09a28c94bf6d70c852927e169caa1354a98df3b7bc5c02d0"
+    },
+    {
+      "stage": 11,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:36:25.678686+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage11.log",
+      "log_sha256": "e80b9ce4e3f6fe05c4688339bffa0e723e3117adfd7229e50a21ef43d358eda1"
+    },
+    {
+      "stage": 12,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:36:36.730114+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage12.log",
+      "log_sha256": "48db082869686ee0276dbe5ff94543e5fb51a4a6d5e572685429a68e02e09f5d"
+    },
+    {
+      "stage": 13,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-04T22:37:01.367552+00:00",
+      "log": "acceptance\\stage14a\\evidence\\regressions\\stage13.log",
+      "log_sha256": "59dacc0eb4b1753b79db26a3b98f902b9acbdc4231ac8c059263e1257b2a20f5"
+    }
+  ]
+}

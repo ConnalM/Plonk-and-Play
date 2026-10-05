@@ -12,8 +12,7 @@ entry 0x400805dc
 [DEV] P&P STAGE 12 ACCEPTANCE -- diagnostics are not product State
 [INIT] System Time READY: monotonic 64-bit microsecondsACC READY
 [INIT] Memory READY: NVS behind Memory boundary
-[INIT] Message Bus READY: bounded mailboxes; authority checked
-ACC S12 test=12.1 pass=1 W=4000000 F=4000000
+[INIT] Message Bus READY: bounded mailboxes; authority checkedACC S12 test=12.1 pass=1 W=4000000 F=4000000
 ACC S12 test=12.5 pass=1 post_F_immutable=1
 ACC S12 test=12.7 pass=1 incomplete_immediate_progress_ranked=1,2
 ACC S12 test=12.8 pass=1 non_finisher_time=0

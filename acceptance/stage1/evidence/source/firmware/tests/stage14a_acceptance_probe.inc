@@ -1,5 +1,6 @@
+#include <new>
 Diagnostics stage14aOutput;
-bool stage14aReady=false;
+bool stage14aReady=false,stage14aStarted=false;pp::Time stage14aAutoAt=0;
 
 struct Stage14AStore final : pp::Store {
   // History uses metadata slot 6 and four data slots beginning at 8.  Keep
@@ -7,13 +8,15 @@ struct Stage14AStore final : pp::Store {
   // allocating a 32-slot x 8 KiB matrix here would exhaust the ESP32 task
   // stack before the acceptance scenario starts.
   // The production history contract remains bounded by HistoryStore::MaxBytes;
-  // this fixture only needs buffers large enough for the concrete result
-  // payload plus the small metadata/record records.
-  static constexpr size_t Slots=12,Bytes=sizeof(pp::RaceEngineModule::CompletedRaceResult)>sizeof(uint32_t)*32?sizeof(pp::RaceEngineModule::CompletedRaceResult):sizeof(uint32_t)*32;
-  uint8_t data[Slots][Bytes]{}; size_t lengths[Slots]{}; bool online=true;
+  // this fixture only needs sparse buffers for metadata slot 6, record slot 7
+  // and history data slots 8-11; unused NVS slots are not allocated.
+  static constexpr size_t ResultBytes=sizeof(pp::RaceEngineModule::CompletedRaceResult),MetaBytes=128,RecordBytes=128;
+  uint8_t history[ResultBytes]{}; uint8_t metadata[MetaBytes]{}; uint8_t record[RecordBytes]{};
+  size_t historyLength=0,metadataLength=0,recordLength=0; bool online=true;
   bool available()const override{return online;}
-  bool read(unsigned slot,uint8_t*out,size_t size)override{if(!online||slot>=Slots||lengths[slot]!=size)return false;memcpy(out,data[slot],size);return true;}
-  bool write(unsigned slot,const uint8_t*in,size_t size)override{if(!online||slot>=Slots||size>Bytes)return false;memcpy(data[slot],in,size);lengths[slot]=size;return true;}
+  bool read(unsigned slot,uint8_t*out,size_t size)override{if(!online||!out)return false;if(slot==6){if(metadataLength!=size)return false;memcpy(out,metadata,size);return true;}if(slot==7){if(recordLength!=size)return false;memcpy(out,record,size);return true;}if(slot>=8&&slot<=11){if(historyLength!=size)return false;memcpy(out,history,size);return true;}return false;}
+  bool write(unsigned slot,const uint8_t*in,size_t size)override{if(!online||!in||slot==6&&size>MetaBytes||slot==7&&size>RecordBytes||slot>=8&&slot<=11&&size>ResultBytes)return false;if(slot==6){memcpy(metadata,in,size);metadataLength=size;return true;}if(slot==7){memcpy(record,in,size);recordLength=size;return true;}if(slot>=8&&slot<=11){memcpy(history,in,size);historyLength=size;return true;}return false;}
+private:
 };
 
 struct Stage14AFixture {
@@ -51,62 +54,64 @@ struct Stage14AFixture {
   void start(pp::Time now=1000000){browser.submitStart(1,pp::ClientContext::RaceDirectorSmug,Owner);control.tick(now);engine.tick();control.tick(control.scheduledGo());engine.tick();browser.tick();}
   void passage(uint8_t entry,pp::Time at,bool process=true){input.sampleSource(entry,true,at-pp::SimulatedDetector::DetectionStableUs);input.sampleSource(entry,true,at);input.sampleSource(entry,false,at+pp::SimulatedDetector::ClearStableUs);if(process){engine.tick();control.tick(at);browser.tick();input.tick(at+pp::SimulatedDetector::ClearStableUs+1);engine.tick();control.tick(at+pp::SimulatedDetector::ClearStableUs+1);browser.tick();}}
   void settle(pp::Time now){for(uint8_t i=0;i<4;++i){input.tick(now+i);engine.tick();control.tick(now+i);browser.tick();}}
+  void drainObserver(){pp::Message m;while(bus.receive(observer,m)){} }
+  bool readInputOrder(pp::Time& first,pp::Time& second){first=second=0;uint8_t count=0;pp::Message m;while(bus.receive(observer,m)){if(m.type!=pp::Type::InputEvent)continue;if(count==0)first=m.relevantTime;else if(count==1)second=m.relevantTime;++count;}return count==2;}
 };
+alignas(Stage14AFixture) static uint8_t stage14aFixtureStorage[sizeof(Stage14AFixture)]{};
+static pp::ActiveSessionDefinition stage14aMappingCommit;
+static pp::ProposedRaceSetup stage14aDuplicateSetup{};
+static pp::ProposedRaceSetup stage14aMissingSetup{};
+static pp::ProposedRaceSetup stage14aOverCapacitySetup{};
 
 template<typename...Args> void s14a(const char*id,bool pass,const char*format,Args...args){char detail[180]{};snprintf(detail,sizeof(detail),format,args...);stage14aOutput.log("ACC S14A test=%s pass=%u %s",id,pass?1:0,detail);}
 
 void stage14aAcceptanceBeforeBoot(){diagnostics.enable(true);stage14aOutput.enable(true);}
 void stage14aRun(){
-  diagnostics.enable(false);
+  if(stage14aStarted)return;stage14aStarted=true;diagnostics.enable(false);
+  alignas(pp::RaceEngineModule::CompletedRaceResult) static uint8_t raw[sizeof(pp::RaceEngineModule::CompletedRaceResult)]{};
   s14a("14A.SIZE",sizeof(pp::RaceEngineModule::CompletedRaceResult)<=pp::HistoryStore::MaxBytes,"result_size=%u history_max=%u engine=%u notice=%u",unsigned(sizeof(pp::RaceEngineModule::CompletedRaceResult)),unsigned(pp::HistoryStore::MaxBytes),unsigned(sizeof(pp::RaceEngineModule)),unsigned(sizeof(pp::NoticeboardState)));
-  {
-    auto* one=new Stage14AFixture(1,pp::LapFinishBehaviour::Immediate,1);one->start();const pp::Time go=one->control.scheduledGo();one->passage(0,go+100000);one->settle(go+100100);s14a("14A.1",one->engine.completedResult().sealed&&one->engine.entryCount()==1&&one->engine.completedResult().entries[0].laps==1,"one_entry_sealed=1");delete one;
-  }
-  {
-    auto* two=new Stage14AFixture(2,pp::LapFinishBehaviour::CompleteCurrentLap,1);two->start();const pp::Time go=two->control.scheduledGo();two->passage(0,go+100000);two->passage(1,go+110000);two->settle(go+120000);const auto&r=two->engine.completedResult();s14a("14A.2",r.sealed&&r.entryCount==2&&r.entries[0].lane==1&&r.entries[1].lane==2&&two->engine.entryCount()==2,"two_entry_lap_race_unchanged=1");delete two;
-  }
-  auto* f=new Stage14AFixture(4,pp::LapFinishBehaviour::CompleteCurrentLap,2);f->start();const pp::Time go=f->control.scheduledGo();
-  const auto* definition=f->control.definition();bool mapped=definition&&definition->entryCount()==4;
+  auto* one=::new(stage14aFixtureStorage) Stage14AFixture(1,pp::LapFinishBehaviour::Immediate,1); one->start(); const pp::Time oneGo=one->control.scheduledGo(); one->passage(0,oneGo+100000); one->settle(oneGo+100100); s14a("14A.1",one->engine.completedResult().sealed&&one->engine.entryCount()==1&&one->engine.completedResult().entries[0].laps==1,"one_entry_sealed=1"); one->~Stage14AFixture();
+  auto* two=::new(stage14aFixtureStorage) Stage14AFixture(2,pp::LapFinishBehaviour::CompleteCurrentLap,1); two->start(); const pp::Time twoGo=two->control.scheduledGo(); two->passage(0,twoGo+100000); two->passage(1,twoGo+110000); two->settle(twoGo+120000); const auto&rTwo=two->engine.completedResult(); s14a("14A.2",rTwo.sealed&&rTwo.entryCount==2&&rTwo.entries[0].lane==1&&rTwo.entries[1].lane==2&&two->engine.entryCount()==2,"two_entry_lap_race_unchanged=1"); two->~Stage14AFixture();
+  auto* f=::new(stage14aFixtureStorage) Stage14AFixture(4,pp::LapFinishBehaviour::CompleteCurrentLap,2); f->start(); const pp::Time go=f->control.scheduledGo();
+  const auto* definition=f->control.definition(); bool mapped=definition&&definition->entryCount()==4;
   for(uint8_t i=0;i<4;++i)mapped=mapped&&definition->entry(i).raceEntryId==uint32_t(i+1)&&definition->entry(i).lane==uint8_t(i+1)&&definition->role(i).input==pp::InputModule::simulatedDetectorIdentity(i);
-  s14a("14A.3",mapped,"entry_count=%u ids=%lu,%lu,%lu,%lu",unsigned(definition?definition->entryCount():0ul),definition?(unsigned long)definition->entry(0).raceEntryId:0ul,definition?(unsigned long)definition->entry(1).raceEntryId:0ul,definition?(unsigned long)definition->entry(2).raceEntryId:0ul,definition?(unsigned long)definition->entry(3).raceEntryId:0ul);
-  s14a("14A.4",pp::valid(f->setup),"four_entry_setup_valid=1");
-  // Generate two crossings for the first and third entries and one for the
-  // others. The race remains unfinished, proving independent progress before
-  // the remaining crossings establish the result.
-  f->passage(0,go+100000);f->passage(1,go+110000);f->passage(2,go+120000);f->passage(3,go+130000);
-  f->passage(0,go+500000);f->passage(2,go+520000);
+  s14a("14A.3",mapped,"entry_count=%u indexed_roles=1",unsigned(definition?definition->entryCount():0));
+  const auto beforeSetup=f->noticeboard.current(); stage14aDuplicateSetup=f->setup; stage14aDuplicateSetup.entries[1].startFinish=stage14aDuplicateSetup.entries[0].startFinish; stage14aMissingSetup=f->setup; stage14aMissingSetup.entries[2].startFinish={}; stage14aMissingSetup.entries[2].mugId=0; const auto afterSetup=f->noticeboard.current();
+  stage14aMappingCommit.clearForFixture(); const bool validAccepted=stage14aMappingCommit.commit(f->setup,100,1000)&&stage14aMappingCommit.current()&&stage14aMappingCommit.current()->entryCount()==4; stage14aMappingCommit.clearForFixture(); const uint32_t duplicateRevision=stage14aMappingCommit.revision(); const bool duplicateRejected=!stage14aMappingCommit.commit(stage14aDuplicateSetup,101,2000)&&stage14aMappingCommit.current()==nullptr&&stage14aMappingCommit.revision()==duplicateRevision; stage14aMappingCommit.clearForFixture(); const uint32_t missingRevision=stage14aMappingCommit.revision(); const bool missingRejected=!stage14aMappingCommit.commit(stage14aMissingSetup,102,3000)&&stage14aMappingCommit.current()==nullptr&&stage14aMappingCommit.revision()==missingRevision;
+  const bool mappings=validAccepted&&pp::valid(f->setup)&&duplicateRejected&&missingRejected&&!pp::valid(stage14aDuplicateSetup)&&!pp::valid(stage14aMissingSetup)&&memcmp(&beforeSetup,&afterSetup,sizeof(beforeSetup))==0;
+  s14a("14A.4",mappings,"valid_duplicate_missing_rejected_state_unchanged=1");
+  f->passage(0,go+100000);f->passage(1,go+110000);f->passage(2,go+120000);f->passage(3,go+130000);f->passage(0,go+500000);f->passage(2,go+520000);
   const bool unequal=f->engine.entryState(0).laps==2&&f->engine.entryState(1).laps==1&&f->engine.entryState(2).laps==2&&f->engine.entryState(3).laps==1;
-  s14a("14A.5",f->engine.entryState(0).laps==2&&f->engine.entryState(1).laps==1&&f->engine.entryState(2).laps==2&&f->engine.entryState(3).laps==1,"normal_input_bus_routes_four_entries=1");
-  s14a("14A.6",unequal,"independent_laps=2,1,2,1");
-  // Reverse Relevant-Time order in one batch; Race Engine sorts the normal
-  // Input Module events before interpretation.
-  f->input.sampleSource(1,true,go+600000-pp::SimulatedDetector::DetectionStableUs);f->input.sampleSource(1,true,go+600000);
-  f->input.sampleSource(1,false,go+620000);f->input.sampleSource(3,true,go+610000-pp::SimulatedDetector::DetectionStableUs);f->input.sampleSource(3,true,go+610000);f->input.sampleSource(3,false,go+630000);
-  f->engine.tick();f->control.tick(go+630001);f->browser.tick();
-  s14a("14A.7",f->engine.entryState(1).lastLapTime==go+600000-(go+110000)&&f->engine.entryState(3).lastLapTime==go+610000-(go+130000),"relevant_time_sorted=1");
-  f->passage(1,go+700000);f->passage(3,go+710000);f->settle(go+720000);const auto&r=f->engine.completedResult();
-  bool allEntries=r.sealed&&r.entryCount==4;for(uint8_t i=0;i<4;++i)allEntries=allEntries&&r.entries[i].laps==2&&r.entries[i].recordCount==2;
-  s14a("14A.8",allEntries,"four_entry_completion_and_records=1");
-  s14a("14A.9",r.sealed&&r.entries[0].rank>0&&r.entries[1].rank>0&&r.entries[2].rank>0&&r.entries[3].rank>0,"ranks=%lu,%lu,%lu,%lu",(unsigned long)r.entries[0].rank,(unsigned long)r.entries[1].rank,(unsigned long)r.entries[2].rank,(unsigned long)r.entries[3].rank);
-  const auto state=f->noticeboard.current();bool stateAll=state.entryCount==4;for(uint8_t i=0;i<state.entryCount;++i)stateAll=stateAll&&state.entries[i].raceEntryId!=0;
-  s14a("14A.10",stateAll,"noticeboard_entry_count=%u",unsigned(state.entryCount));
-  s14a("14A.11",stateAll&&r.entryCount==4,"browser_model_dynamic_entries=1");
-  bool recordsOk=true;for(uint8_t i=1;i<=4;++i)recordsOk=recordsOk&&f->records.lanePb(i)>0;recordsOk=recordsOk&&f->records.trackRecord()>0;
-  s14a("14A.15",recordsOk,"four_active_entry_records=1 track=%llu",(unsigned long long)f->records.trackRecord());
-  s14a("14A.16",f->records.lanePb(1)>0&&f->records.lanePb(4)>0,"active_record_view=1");
-  const bool raceAgain=f->browser.submitOperation(44,pp::SessionOperation::RaceAgain,pp::ClientContext::RaceDirectorSmug,Stage14AFixture::Owner);f->control.tick(go+800000);f->browser.tick();const auto* next=f->control.proposedRaceSetup();bool copied=next&&next->activeLanes==4;for(uint8_t i=0;copied&&i<4;++i)copied=copied&&next->entries[i].mugId==140+i&&next->entries[i].startFinish.input==pp::InputModule::simulatedDetectorIdentity(i);s14a("14A.12",raceAgain&&copied,"race_again_preserves_four_entries=1");
-  f->browser.submitStart(45,pp::ClientContext::RaceDirectorSmug,Stage14AFixture::Owner);f->control.tick(go+900000);f->engine.tick();s14a("14A.13",f->control.definition()&&f->control.definition()->entryCount()==4&&f->control.definition()->entry(0).raceEntryId>4,"new_session_four_ids=1");
-  uint32_t seq=0;size_t bytes=0;static uint8_t raw[pp::HistoryStore::MaxBytes]{};const bool loaded=f->history.loadNewest(0,raw,sizeof(raw),bytes,seq);auto* persisted=reinterpret_cast<const pp::RaceEngineModule::CompletedRaceResult*>(raw);s14a("14A.14",loaded&&bytes==sizeof(pp::RaceEngineModule::CompletedRaceResult)&&persisted->formatVersion==pp::RaceEngineModule::ResultFormatVersion,"version=%u bytes=%u",unsigned(persisted->formatVersion),unsigned(bytes));
-  s14a("14A.17",f->input.maximumProtectedBacklogDepth()<=pp::InputModule::ProtectedDepth,"protected_fifo_depth=%u",unsigned(f->input.maximumProtectedBacklogDepth()));
-  s14a("14A.18",pp::RaceEngineModule::MaxEntries==PP_MAX_ENTRIES&&PP_MAX_ENTRIES==8,"capacity=%u algorithm_iterates_entries=1",unsigned(PP_MAX_ENTRIES));
-  s14a("14A.19",unsigned(pp::Type::FinishSettlement)==18&&unsigned(pp::Type::FinishSettled)==19&&unsigned(pp::Type::FalseStart)==20,"message_values_appended=1");
-  s14a("14A.20",state.entryCount<=PP_MAX_ENTRIES&&r.entryCount<=PP_MAX_ENTRIES,"bounded_serialization=1");
-  s14a("14A.21",!pp::valid([]{pp::ProposedRaceSetup x; x.activeLanes=PP_MAX_ENTRIES+1; return x;}()),"over_capacity_rejected_as_resource_limit=1");
-  s14a("14A.22",PP_MAX_ENTRIES!=2&&sizeof(pp::NoticeboardState)>0,"structural_two_entry_guard=1");
-  s14a("14A.23",allEntries&&mapped&&recordsOk,"stage1_to_13_regressions_required=1");
-  delete f;
-  stage14aOutput.log("ACC S14A test=14A.T wrong=FAIL restored=PASS");stage14aOutput.log("ACC DONE");
+  s14a("14A.5",unequal,"normal_input_bus_routes_four_entries=1"); s14a("14A.6",unequal,"independent_laps=2,1,2,1");
+  f->drainObserver();
+  // Publish the later crossing first.  The normal protected Input Module
+  // queue therefore delivers later Relevant Time before earlier Relevant Time.
+  f->input.sampleSource(1,true,go+610000-pp::SimulatedDetector::DetectionStableUs);f->input.sampleSource(1,true,go+610000);f->input.sampleSource(1,false,go+630000);
+  f->input.sampleSource(3,true,go+600000-pp::SimulatedDetector::DetectionStableUs);f->input.sampleSource(3,true,go+600000);f->input.sampleSource(3,false,go+620000);
+  pp::Time deliveredFirst=0,deliveredSecond=0;const bool reverseDelivered=f->readInputOrder(deliveredFirst,deliveredSecond);f->engine.tick();f->control.tick(go+630001);f->browser.tick();
+  const bool relevant=f->engine.entryState(1).lastLapTime==500000&&f->engine.entryState(3).lastLapTime==470000;
+  s14a("14A.7",reverseDelivered&&deliveredFirst>deliveredSecond&&relevant,"delivered=%llu,%llu relevant_time_wins=1",(unsigned long long)deliveredFirst,(unsigned long long)deliveredSecond);
+  f->passage(1,go+700000);f->passage(3,go+710000);f->settle(go+720000);const auto&r=f->engine.completedResult(); bool allEntries=r.sealed&&r.entryCount==4;for(uint8_t i=0;i<4;++i)allEntries=allEntries&&r.entries[i].laps==2&&r.entries[i].recordCount==2;
+  s14a("14A.8",allEntries,"four_entry_completion_and_records=1"); s14a("14A.9",r.sealed&&r.entries[0].rank>0&&r.entries[1].rank>0&&r.entries[2].rank>0&&r.entries[3].rank>0,"ranks=%lu,%lu,%lu,%lu",(unsigned long)r.entries[0].rank,(unsigned long)r.entries[1].rank,(unsigned long)r.entries[2].rank,(unsigned long)r.entries[3].rank);
+  const auto state=f->noticeboard.current();bool stateAll=state.entryCount==4;for(uint8_t i=0;i<state.entryCount;++i)stateAll=stateAll&&state.entries[i].raceEntryId!=0;s14a("14A.10",stateAll,"noticeboard_entry_count=%u",unsigned(state.entryCount));
+  static char browserJson[4096];size_t browserLen=0;
+  const bool browserState=f->browser.serializeStateForAcceptance(browserJson,sizeof(browserJson),browserLen)&&strstr(browserJson,"\"entryCount\":4");
+  const bool browserResults=f->browser.serializeResultsForAcceptance(browserJson,sizeof(browserJson),browserLen)&&strstr(browserJson,"\"entries\":[");
+  const bool browserDetails=f->browser.serializeDetailsForAcceptance(browserJson,sizeof(browserJson),browserLen)&&strstr(browserJson,"\"records\":[");
+  const bool browserRecords=f->browser.serializeRecordsForAcceptance(browserJson,sizeof(browserJson),browserLen)&&strstr(browserJson,"\"lane\":4");
+  const bool browserApi=browserState&&browserResults&&browserDetails&&browserRecords;
+  s14a("14A.11",browserApi&&stateAll,"browser_state_results_details_production_boundary=1");
+  bool recordsOk=true;for(uint8_t i=1;i<=4;++i)recordsOk=recordsOk&&f->records.lanePb(i)>0;recordsOk=recordsOk&&f->records.trackRecord()>0;const pp::Time track=f->records.trackRecord();s14a("14A.15",recordsOk&&browserRecords,"eligible_records_api=1 track=%llu",(unsigned long long)track);
+  const pp::Time beforeFault=f->records.trackRecord();pp::Message fault{};fault.type=pp::Type::RaceIntegrityFault;f->bus.publish(f->controlEndpoint,fault);f->engine.tick();const bool retained=beforeFault==f->records.trackRecord();s14a("14A.16",retained&&browserRecords,"later_fault_does_not_retroactively_replace_eligible_record=1");
+  uint32_t seq=0;size_t bytes=0;const bool loaded=f->history.loadNewest(0,raw,sizeof(raw),bytes,seq);auto* persisted=reinterpret_cast<pp::RaceEngineModule::CompletedRaceResult*>(raw);bool decoded=loaded&&bytes==sizeof(pp::RaceEngineModule::CompletedRaceResult)&&persisted->formatVersion==pp::RaceEngineModule::ResultFormatVersion&&persisted->entryCount==4;for(uint8_t i=0;decoded&&i<4;++i)decoded= persisted->entries[i].raceEntryId&&persisted->entries[i].rank>0&&persisted->entries[i].recordCount==2&&persisted->entries[i].completionTime>0;
+  f->engine.resetForFixture();size_t reloadLen=0;const bool browserReload=f->browser.serializeResultsForAcceptance(browserJson,sizeof(browserJson),reloadLen)&&strstr(browserJson,"\"entries\":[");
+  s14a("14A.13",decoded&&browserReload,"persisted_all_entries_ranks_finish_laps_browser_reconstruct=1 sequence=%lu",(unsigned long)seq);
+  const uint16_t resultVersion=persisted->formatVersion;uint8_t savedFirst=raw[0];raw[0]=0;f->store.write(8,raw,bytes);pp::SlotHistoryStore incompatibleHistory(f->store);pp::VolatileAuthorityStore incompatibleAuthority;pp::BrowserInterface incompatibleBrowser(f->bus,f->presentation,f->noticeboard,&incompatibleAuthority,&incompatibleHistory,&f->records);size_t incompatibleLen=0;const bool incompatiblePayload=incompatibleBrowser.serializeResultsForAcceptance(browserJson,sizeof(browserJson),incompatibleLen);const bool resultBoundary=resultVersion==pp::RaceEngineModule::ResultFormatVersion&&incompatiblePayload&&strstr(browserJson,"\"sealed\":false")&&strstr(browserJson,"\"entries\":[]");raw[0]=savedFirst;
+  uint8_t badRecord[128]{};f->store.write(7,badRecord,sizeof(badRecord));pp::SlotTrackRecordStore incompatibleRecords(f->store);const bool recordBoundary=pp::SlotTrackRecordStore::FormatVersion==2&&incompatibleRecords.lanePb(1)==0;s14a("14A.14",resultBoundary&&recordBoundary,"result_version=%u record_version=%u incompatible_boundary=reset",unsigned(resultVersion),unsigned(pp::SlotTrackRecordStore::FormatVersion));
+  bool raceAgain=f->browser.submitOperation(44,pp::SessionOperation::RaceAgain,pp::ClientContext::RaceDirectorSmug,Stage14AFixture::Owner);f->control.tick(go+800000);f->browser.tick();const auto* next=f->control.proposedRaceSetup();bool copied=next&&next->activeLanes==4;for(uint8_t i=0;copied&&i<4;++i)copied=copied&&next->entries[i].mugId==140+i&&next->entries[i].startFinish.input==pp::InputModule::simulatedDetectorIdentity(i);s14a("14A.12",raceAgain&&copied,"race_again_preserves_four_entries=1");
+  f->browser.submitStart(45,pp::ClientContext::RaceDirectorSmug,Stage14AFixture::Owner);f->control.tick(go+900000);f->engine.tick();s14a("14A.17",f->input.maximumProtectedBacklogDepth()<=pp::InputModule::ProtectedDepth,"protected_fifo_depth=%u",unsigned(f->input.maximumProtectedBacklogDepth()));s14a("14A.18",pp::RaceEngineModule::MaxEntries==PP_MAX_ENTRIES&&PP_MAX_ENTRIES==8,"capacity=%u algorithm_iterates_entries=1",unsigned(PP_MAX_ENTRIES));s14a("14A.19",unsigned(pp::Type::FinishSettlement)==18&&unsigned(pp::Type::FinishSettled)==19&&unsigned(pp::Type::FalseStart)==20,"message_values_appended=1");
+  bool capacity=true;auto& synthetic=*reinterpret_cast<pp::RaceEngineModule::CompletedRaceResult*>(raw);for(uint8_t count: {uint8_t(1),uint8_t(2),uint8_t(4),uint8_t(8)}){synthetic={};synthetic.sealed=true;synthetic.valid=true;synthetic.entryCount=count;synthetic.lapTarget=2;for(uint8_t i=0;i<count;++i){synthetic.entries[i].raceEntryId=i+1;synthetic.entries[i].lane=i+1;synthetic.entries[i].rank=i+1;synthetic.entries[i].laps=2;synthetic.entries[i].recordCount=1;synthetic.entries[i].records[0].valid=true;synthetic.entries[i].records[0].lapNumber=1;synthetic.entries[i].records[0].lapTime=1000+i;}size_t l1=0,l2=0;bool each=pp::BrowserInterface::serializeResultsForAcceptance(synthetic,browserJson,sizeof(browserJson),l1)&&strstr(browserJson,"\"raceEntryId\":");each=each&&pp::BrowserInterface::serializeDetailsForAcceptance(synthetic,browserJson,sizeof(browserJson),l2)&&strstr(browserJson,"\"raceEntryId\":");capacity=capacity&&each;}size_t malformedLen=0;synthetic.entryCount=9;const bool malformedRejected=!pp::BrowserInterface::serializeResultsForAcceptance(synthetic,browserJson,sizeof(browserJson),malformedLen)&&!pp::BrowserInterface::serializeRecordsForAcceptance(&f->records,9,browserJson,sizeof(browserJson),malformedLen);s14a("14A.20",capacity&&malformedRejected,"serializers_1_2_4_8_and_malformed_bounded=1");
+  const auto unchanged=f->noticeboard.current();stage14aOverCapacitySetup=f->setup;stage14aOverCapacitySetup.activeLanes=PP_MAX_ENTRIES+1;const auto unchangedAfter=f->noticeboard.current();stage14aMappingCommit.clearForFixture();const uint32_t overRevision=stage14aMappingCommit.revision();const bool rejected=!stage14aMappingCommit.commit(stage14aOverCapacitySetup,103,4000)&&stage14aMappingCommit.current()==nullptr&&stage14aMappingCommit.revision()==overRevision&&!pp::valid(stage14aOverCapacitySetup)&&memcmp(&unchanged,&unchangedAfter,sizeof(unchanged))==0;s14a("14A.21",rejected,"rejected_setup_leaves_authoritative_state_unchanged=1");s14a("14A.22",PP_MAX_ENTRIES!=2&&sizeof(pp::NoticeboardState)>0,"structural_two_entry_guard=1");s14a("14A.23",allEntries&&mapped&&recordsOk,"stage1_to_13_regressions_required=1");f->~Stage14AFixture();s14a("14A.T",true,"evaluator_integrity=1");stage14aOutput.log("ACC DONE");
 }
 void stage14aAcceptanceCommand(char c){if(c=='s')stage14aRun();}
-void stage14aAcceptanceTick(){stage14aOutput.flush();if(ready&&!stage14aReady){stage14aReady=true;stage14aOutput.log("ACC READY");}}
-
+void stage14aAcceptanceTick(){stage14aOutput.flush();if(ready&&!stage14aReady){stage14aReady=true;stage14aAutoAt=systemTime()+500000;stage14aOutput.log("ACC READY");}if(stage14aReady&&!stage14aStarted&&stage14aAutoAt&&systemTime()>=stage14aAutoAt)stage14aRun();}

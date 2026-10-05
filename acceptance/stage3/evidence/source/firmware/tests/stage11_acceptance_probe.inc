@@ -50,7 +50,6 @@ void stage11Run(){
   f.control.tick(paused.pauseEffectiveAt+1);
   f.browser.tick();
   f.browser.requestResult(1102,0x1111111111111111ULL,result);
-  const bool early=earlySubmitted;
   const bool earlyRejected=earlySubmitted&&result.result==pp::RequestResult::Rejected&&result.rejection==pp::RequestRejection::PauseSettlementPending;
   f.tick(paused.pauseEffectiveAt+2);
   const bool restart=f.request(pp::SessionOperation::HonourRestart,1103,paused.pauseEffectiveAt+10);

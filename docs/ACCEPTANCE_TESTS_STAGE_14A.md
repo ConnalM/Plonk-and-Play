@@ -2,6 +2,10 @@
 
 **Status: ACCEPTED / FROZEN**
 
+**Final acceptance status: ACCEPTED — automated, regression and real-ESP32 hardware checkpoint passed on 2026-10-05.**
+
+The final hardware checkpoint recorded two deferred Browser/UI observations: END RACE remains available for confirmation after FINISHED, and the FINISHED presentation does not clearly name the winning entry/lane. Neither observation changes the Stage 14A capacity refactor or violates a frozen Stage 1–13 requirement.
+
 This plan covers only the variable-entry refactor. It does not authorize Practice, Endurance, open-ended races, timed races or any other Stage 14 mode. It does not alter frozen Stage 1–13 tests or behaviour.
 
 `PP_MAX_ENTRIES = 8` is an implementation/build capacity used by the tests. The four-entry fixture is evidence of generality, not a product maximum.
@@ -82,4 +86,4 @@ The following remain deliberately deferred:
 - polished multi-lane Browser controls;
 - physical multi-lane hardware validation beyond the project-wide Hardware Revalidation Rule.
 
-No implementation is authorized by this proposal. It must be reviewed and frozen separately before firmware changes begin.
+The Stage 14A implementation and acceptance evidence are complete. This acceptance does not authorize Practice or Endurance implementation.

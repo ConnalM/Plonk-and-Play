@@ -1,24 +1,24 @@
 {
   "project": "Plonk & Play",
-  "source_base_commit": "9e3bec69ffc2d9200c5e6dd59fc32b3e094899ea",
+  "source_base_commit": "a1af33d11ff797b445afeab2d0daf815aa70a4ec",
   "acceptance_spec_commit": "a715c2653a08b6112565f8f1b83d1218b059827b",
   "source_is_uncommitted_overlay": true,
   "builds": {
     "esp32dev/firmware.elf": {
-      "sha256": "4795f2c4b453f491974c43dc8ca655e651fec1712d968401382a01fd001a82a3",
-      "bytes": 11431776
+      "sha256": "cf918d0539c65e20bbf9778a0b4274497998f5fa3d9a022560b43221e5a6465e",
+      "bytes": 11439600
     },
     "esp32dev/firmware.merged.bin": {
-      "sha256": "c063d84d1ecd0dd2fcfc8daea404d7bdb4f24ff725295667433c0c4fb17ec922",
-      "bytes": 903008
+      "sha256": "b7e13062c6b164754f35e2732a61fc0de8e459e4860eefffe15a535f6e911b1e",
+      "bytes": 903440
     },
     "stage3acceptance/firmware.elf": {
-      "sha256": "e9760137f05a7b1c8652a81c37a2168a521556d645c5f50aa235e2c8319637cf",
-      "bytes": 11450668
+      "sha256": "964d5eb24ff928d6bb975ea3803f5c3a3f6e3dda836063328b7286477f32dd65",
+      "bytes": 11458476
     },
     "stage3acceptance/firmware.merged.bin": {
-      "sha256": "d2102f88ff24039691b276c361d1d46ee4be592ff6d0c4e727b73953ce93d84e",
-      "bytes": 914832
+      "sha256": "27f4070a8cd88d63e638ab89da16b726328142477216b65a6d17e9ff0bfee81f",
+      "bytes": 915280
     }
   },
   "tests": {

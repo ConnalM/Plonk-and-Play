@@ -21,13 +21,13 @@ Retrieving maximum program size .pio\build\esp32dev\firmware.elf
 Checking size .pio\build\esp32dev\firmware.elf
 Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
 RAM:   [===       ]  26.9% (used 88016 bytes from 327680 bytes)
-Flash: [======    ]  63.4% (used 830893 bytes from 1310720 bytes)
-========================= [SUCCESS] Took 3.15 seconds =========================
+Flash: [======    ]  63.4% (used 831325 bytes from 1310720 bytes)
+========================= [SUCCESS] Took 9.76 seconds =========================
 
 Environment    Status    Duration
 -------------  --------  ------------
-esp32dev       SUCCESS   00:00:03.155
-========================= 1 succeeded in 00:00:03.155 =========================
+esp32dev       SUCCESS   00:00:09.755
+========================= 1 succeeded in 00:00:09.755 =========================
 esptool.py v4.5.1
-Wrote 0xdc760 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\esp32dev\firmware.merged.bin, ready to flash to offset 0x0
+Wrote 0xdc910 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\esp32dev\firmware.merged.bin, ready to flash to offset 0x0
 Browser-loadable firmware: C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\esp32dev\firmware.merged.bin

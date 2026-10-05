@@ -349,7 +349,7 @@ void setup(){
 }
 void loop(){
   memoryModule.tick();
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
+#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE)
   const pp::Time fixtureNow=systemTime();
   if(simulatedARelease&&fixtureNow>=simulatedARelease){input.setSimulatedSource(false);simulatedARelease=0;}
   if(simulatedBRelease&&fixtureNow>=simulatedBRelease){input.setSimulatedSourceB(false);simulatedBRelease=0;}

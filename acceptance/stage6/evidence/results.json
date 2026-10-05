@@ -1,10 +1,10 @@
 {
   "identity": {
-    "stage6_elf_sha256": "03DC6FAA53759202C7E4720ADAD96FFA39CDFD11AB03E4D396F160BF13780D07",
-    "source_base_commit": "9e3bec69ffc2d9200c5e6dd59fc32b3e094899ea",
-    "source_manifest_sha256": "9AF8CA8A00B4597EF2047889094DB142449BB4261ACC44A6E1FAA347417EBA45",
+    "source_manifest_sha256": "5DB77AD7EE924F115D3334DAC99D06B377165A1EA48689B3CC3910C70327D7A1",
+    "project": "ConnalM/Plonk-and-Play",
     "frozen_acceptance_commit": "cff214d6cb43d3e1367f703fc5ccd06be1d2642a",
-    "project": "ConnalM/Plonk-and-Play"
+    "stage6_elf_sha256": "2D18D55599A965DDD42D08574A2123480A8D16489942995C1DA5CC81DDD814D6",
+    "source_base_commit": "a1af33d11ff797b445afeab2d0daf815aa70a4ec"
   },
   "tests": {
     "6.1": {
@@ -23,8 +23,8 @@
       "actual_result": {
         "test": "6.2",
         "started": "1",
-        "publication_now": "722848",
-        "go": "7694926",
+        "publication_now": "722908",
+        "go": "7694958",
         "future": "1",
         "state": "STARTING"
       },
@@ -44,7 +44,7 @@
         "complete_at": "0",
         "laps": "0",
         "lap": "0",
-        "engine_go": "7694926"
+        "engine_go": "7694958"
       },
       "result": "PASS",
       "raw_evidence": "acceptance-serial.txt"
@@ -74,8 +74,8 @@
       "expected_result": "Race Engine uses the bus-delivered GO",
       "actual_result": {
         "test": "6.6",
-        "engine_go": "7694926",
-        "scheduled_go": "7694926"
+        "engine_go": "7694958",
+        "scheduled_go": "7694958"
       },
       "result": "PASS",
       "raw_evidence": "acceptance-serial.txt"
@@ -125,10 +125,10 @@
           "go_source": "0",
           "lap_facts": "2",
           "complete_facts": "1",
-          "complete_at": "8594926",
+          "complete_at": "8594958",
           "laps": "2",
           "lap": "400000",
-          "engine_go": "7694926"
+          "engine_go": "7694958"
         }
       },
       "result": "PASS",
@@ -144,10 +144,10 @@
         "go_source": "0",
         "lap_facts": "2",
         "complete_facts": "1",
-        "complete_at": "8594926",
+        "complete_at": "8594958",
         "laps": "2",
         "lap": "400000",
-        "engine_go": "7694926"
+        "engine_go": "7694958"
       },
       "result": "PASS",
       "raw_evidence": "acceptance-serial.txt"
@@ -190,8 +190,8 @@
         "publication": {
           "test": "6.2",
           "started": "1",
-          "publication_now": "722848",
-          "go": "7694926",
+          "publication_now": "722908",
+          "go": "7694958",
           "future": "1",
           "state": "STARTING"
         }

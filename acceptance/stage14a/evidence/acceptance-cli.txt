@@ -17,32 +17,31 @@ entry 0x400805dc
 [Stage 14A variable entry capacity] Expected text matched: "ACC READY"
 
 [INIT] Memory READY: NVS behind Memory boundary
-[INIT] Message Bus READY: bounded mailboxes; authority checked
-ACC S14A test=14A.SIZE pass=1 result_size=5560 history_max=8192 engine=12624 notice=304
+[INIT] Message Bus READY: bounded mailboxes; authority checkedACC S14A test=14A.SIZE pass=1 result_size=5560 history_max=8192 engine=12624 notice=304
 ACC S14A test=14A.1 pass=1 one_entry_sealed=1
 ACC S14A test=14A.2 pass=1 two_entry_lap_race_unchanged=1
-ACC S14A test=14A.3 pass=1 entry_count=4 ids=1,2,3,4
-ACC S14A test=14A.4 pass=1 four_entry_setup_valid=1
+ACC S14A test=14A.3 pass=1 entry_count=4 indexed_roles=1
+ACC S14A test=14A.4 pass=1 valid_duplicate_missing_rejected_state_unchanged=1
 ACC S14A test=14A.5 pass=1 normal_input_bus_routes_four_entries=1
 ACC S14A test=14A.6 pass=1 independent_laps=2,1,2,1
-ACC S14A test=14A.7 pass=1 relevant_time_sorted=1
+ACC S14A test=14A.7 pass=1 delivered=7110000,7100000 relevant_time_wins=1
 ACC S14A test=14A.8 pass=1 four_entry_completion_and_records=1
 ACC S14A test=14A.9 pass=1 ranks=1,2,3,4
 ACC S14A test=14A.10 pass=1 noticeboard_entry_count=4
-ACC S14A test=14A.11 pass=1 browser_model_dynamic_entries=1
-ACC S14A test=14A.15 pass=1 four_active_entry_records=1 track=100000
-ACC S14A test=14A.16 pass=1 active_record_view=1
+ACC S14A test=14A.11 pass=1 browser_state_results_details_production_boundary=1
+ACC S14A test=14A.15 pass=1 eligible_records_api=1 track=100000
+ACC S14A test=14A.16 pass=1 later_fault_does_not_retroactively_replace_eligible_record=1
+ACC S14A test=14A.13 pass=1 persisted_all_entries_ranks_finish_laps_browser_reconstruct=1 sequence=1
+ACC S14A test=14A.14 pass=1 result_version=2 record_version=2 incompatible_boundary=reset
 ACC S14A test=14A.12 pass=1 race_again_preserves_four_entries=1
-ACC S14A test=14A.13 pass=1 new_session_four_ids=1
-ACC S14A test=14A.14 pass=1 version=2 bytes=5560
 ACC S14A test=14A.17 pass=1 protected_fifo_depth=1
 ACC S14A test=14A.18 pass=1 capacity=8 algorithm_iterates_entries=1
 ACC S14A test=14A.19 pass=1 message_values_appended=1
-ACC S14A test=14A.20 pass=1 bounded_serialization=1
-ACC S14A test=14A.21 pass=1 over_capacity_rejected_as_resource_limit=1
+ACC S14A test=14A.20 pass=1 serializers_1_2_4_8_and_malformed_bounded=1
+ACC S14A test=14A.21 pass=1 rejected_setup_leaves_authoritative_state_unchanged=1
 ACC S14A test=14A.22 pass=1 structural_two_entry_guard=1
 ACC S14A test=14A.23 pass=1 stage1_to_13_regressions_required=1
-ACC S14A test=14A.T wrong=FAIL restored=PASS
+ACC S14A test=14A.T pass=1 evaluator_integrity=1
 ACC DONE
 [Stage 14A variable entry capacity] Expected text matched: "ACC DONE"
 [Stage 14A variable entry capacity] Scenario completed successfully

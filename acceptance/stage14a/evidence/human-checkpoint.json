@@ -8,12 +8,33 @@
   "initial_state": {
     "lifecycle": "READY",
     "race_director": "No Race Director until Browser bootstrap",
-    "active_entries": 2,
-    "laps": [0, 0],
+    "committed_entry_count": 0,
+    "entries": [],
+    "session_state_after_bootstrap": {
+      "entry_count": 2,
+      "laps": [0, 0]
+    },
     "resultSealed": false,
     "resultValid": true,
     "raceIntegrity": "OK",
     "latestFact": "NONE"
   },
-  "gateway": "http://127.0.0.1:9080/"
+  "gateway": "http://127.0.0.1:9080/",
+  "hardware_checkpoint": {
+    "status": "PASS",
+    "completedAt": "2026-10-05",
+    "firmware": "firmware/.pio/build/stage14ademo/firmware.merged.bin",
+    "identity": "P&P STAGE 14A DEMO",
+    "observations": [
+      "Browser remained synchronised on the real ESP32.",
+      "Browser routes and simulated detector passages operated normally.",
+      "A race reached FINISHED with valid results and race integrity OK.",
+      "The previous httpd task stack overflow did not recur during the idle and race verification.",
+      "No watchdog reset or unexpected reboot occurred."
+    ],
+    "deferred_ui_observations": [
+      "END RACE remains available and asks for confirmation after FINISHED.",
+      "FINISHED presentation shows a winning time without clearly naming the winning entry/lane."
+    ]
+  }
 }

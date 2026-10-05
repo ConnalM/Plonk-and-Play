@@ -1,0 +1,8 @@
+{
+  "corrupted_condition": "RaceEngine MaxEntries forced to 2 in an isolated copy",
+  "corrupted_evaluator": "FAIL",
+  "restored_evaluator": "PASS",
+  "source_hash": "67c55059dee24c4b553d5026192122a44c28b694921e85205b7dd37a2b9631a0",
+  "corrupted_output": "Stage 14A structural FAIL: shared_capacity, engine_not_two",
+  "restored_output": "Stage 14A structural PASS: shared_capacity, engine_not_two, session_indexed, noticeboard_indexed, records_capacity, input_capacity, browser_dynamic_records, browser_dynamic_collections, no_new_practice, message_values_unchanged"
+}

@@ -31,11 +31,11 @@ STAGE2_PASS one simulated Input Device ready; no race behaviour
 STAGE3_PASS Message Bus delivery boundary ready; no race behaviour
 STAGE4_PASS Session Definition scaffold ready; no race behaviour
 [DEV] Serial: ? status, t bus self-test, q quiet, v diagnostics on
-ACC SNAP phase=0 sample=1 ready=1 fault=0 diag=1 time=1297513 reads=2
+ACC SNAP phase=0 sample=1 ready=1 fault=0 diag=1 time=1297616 reads=2
 ACC CONFIG phase=0 status=1 lanes=2 laps=10 features=0 sound=1 power=1 mode=1
-ACC SNAP phase=0 sample=2 ready=1 fault=0 diag=1 time=2307518 reads=2
+ACC SNAP phase=0 sample=2 ready=1 fault=0 diag=1 time=2307621 reads=2
 ACC CONFIG phase=0 status=1 lanes=2 laps=10 features=0 sound=1 power=1 mode=1
-ACC SNAP phase=0 sample=3 ready=1 fault=0 diag=1 time=3312513 reads=2
+ACC SNAP phase=0 sample=3 ready=1 fault=0 diag=1 time=3312616 reads=2
 ACC CONFIG phase=0 status=1 lanes=2 laps=10 features=0 sound=1 power=1 mode=1
 ACC RAM iterations=10000 sum=100000 readsBefore=2 readsAfter=2
 ACC BUS phase=0 result=0 a=1 b=1 extraA=0 extraB=0 unrelated=0 publisher=8
@@ -83,7 +83,7 @@ STAGE2_PASS one simulated Input Device ready; no race behaviour
 STAGE3_PASS Message Bus delivery boundary ready; no race behaviour
 STAGE4_PASS Session Definition scaffold ready; no race behaviour
 [DEV] Serial: ? status, t bus self-test, q quiet, v diagnostics on
-ACC SNAP phase=4 sample=1 ready=1 fault=0 diag=1 time=5787359 reads=2
+ACC SNAP phase=4 sample=1 ready=1 fault=0 diag=1 time=5786805 reads=2
 ACC CONFIG phase=4 status=0 lanes=2 laps=37 features=0 sound=1 power=1 mode=1
 ACC FIXTURE phase=5 ok=1ets Jul 29 2019 12:21:46
 
@@ -118,7 +118,7 @@ STAGE2_PASS one simulated Input Device ready; no race behaviour
 STAGE3_PASS Message Bus delivery boundary ready; no race behaviour
 STAGE4_PASS Session Definition scaffold ready; no race behaviour
 [DEV] Serial: ? status, t bus self-test, q quiet, v diagnostics on
-ACC SNAP phase=5 sample=1 ready=1 fault=0 diag=1 time=7617391 reads=2
+ACC SNAP phase=5 sample=1 ready=1 fault=0 diag=1 time=7617024 reads=2
 ACC CONFIG phase=5 status=2 lanes=2 laps=10 features=0 sound=1 power=1 mode=1
 ACC FIXTURE phase=12 ok=1ets Jul 29 2019 12:21:46
 
@@ -131,7 +131,7 @@ load:0x40078000,len:11456
 ho 0 tail 12 room 4
 load:0x40080400,len:2972
 entry 0x400805dc
-ACC SNAP phase=12 sample=1 ready=1 fault=0 diag=0 time=9836419 reads=2
+ACC SNAP phase=12 sample=1 ready=1 fault=0 diag=0 time=9836172 reads=2
 ACC CONFIG phase=12 status=2 lanes=2 laps=10 features=0 sound=1 power=1 mode=1
 ACC BUS phase=12 result=0 a=1 b=1 extraA=0 extraB=0 unrelated=0 publisher=8
 ACC RECEIVED who=A type=7 source=8 token=271828 time=1234567890123 id=73

@@ -65,7 +65,15 @@ struct Message {
 enum class Delivery { Delivered, Forbidden, Invalid, NoSubscribers, Full };
 class Bus {
 public:
-  static constexpr size_t Participants = 12, Depth = 16;
+  static constexpr size_t Participants = 12;
+#if defined(PP_STAGE14A_ACCEPTANCE)
+  // The deterministic four-entry acceptance image has a reduced queue depth
+  // solely to keep its diagnostic fixture within the ESP32 DRAM budget.  The
+  // production/default bus contract remains Depth=16.
+  static constexpr size_t Depth = 4;
+#else
+  static constexpr size_t Depth = 16;
+#endif
   struct Endpoint { uint16_t id; Endpoint(uint16_t value=0):id(value) {} };
   Endpoint attach(Role role) {
     if (count_ == Participants) return {};

@@ -1,14 +1,22 @@
-Stage 14A measured resources
+Stage 14A final-build resource evidence
+Generated: 2026-10-04
 
-Capacity: PP_MAX_ENTRIES=8 (implementation capacity)
+Capacity: PP_MAX_ENTRIES=8 (implementation capacity only)
 CompletedRaceResult: 5560 bytes
 HistoryStore::MaxBytes: 8192 bytes
 RaceEngineModule: 12624 bytes
 NoticeboardState: 304 bytes
 
-stage14aacceptance image: RAM 106472 / 327680 (32.5%); flash 866501 / 1310720 (66.1%)
-stage14ademo image: RAM 88024 / 327680 (26.9%); flash 833393 / 1310720 (63.6%)
-esp32dev image: RAM 88016 / 327680 (26.9%); flash 830893 / 1310720 (63.4%)
-stage5acceptance image: RAM 98520 / 327680 (30.1%); flash 842241 / 1310720 (64.3%)
+stage14aacceptance
+  RAM: 121600 / 327680 bytes (37.1%)
+  Flash: 843833 / 1310720 bytes (64.4%)
+  merged image: firmware/.pio/build/stage14aacceptance/firmware.merged.bin
+  merged image bytes: 915952
+  SHA-256: E24EB9B74FA03CAF14CF7A7F27730972ACE74CFE9BEDAA6A980EC90642B200E7
 
-Demo boot probe: P&P STAGE 14A DEMO Browser server=READY error=0
+stage14ademo
+  RAM: 88040 / 327680 bytes (26.9%)
+  Flash: 833905 / 1310720 bytes (63.6%)
+  merged image: firmware/.pio/build/stage14ademo/firmware.merged.bin
+  merged image bytes: 906016
+  SHA-256: F62E90190AD57AE540F0AD174958B3D12603AA8D990B29582E7011C9FDF3145D

@@ -17,6 +17,7 @@ public:
 class SlotTrackRecordStore final : public TrackRecordStore {
 public:
   static constexpr uint8_t MaxEntries=PP_MAX_ENTRIES;
+  static constexpr uint32_t FormatVersion=2;
   explicit SlotTrackRecordStore(Store& store):store_(store){}
   bool observe(uint8_t lane,Time lapTime) override {if(lane<1||lane>MaxEntries||!lapTime||!ensure())return false;bool changed=false;if(!data_.pb[lane-1]||lapTime<data_.pb[lane-1]){data_.pb[lane-1]=lapTime;changed=true;}if(!data_.track||lapTime<data_.track){data_.track=lapTime;data_.trackLane=lane;changed=true;}return !changed||write();}
   Time lanePb(uint8_t lane) override{return lane>=1&&lane<=MaxEntries&&ensure()?data_.pb[lane-1]:0;}
@@ -27,7 +28,6 @@ public:
   bool clearAll() override{if(!ensure())return false;for(uint8_t i=0;i<MaxEntries;++i)data_.pb[i]=0;data_.track=0;data_.trackLane=0;++data_.era;return write();}
 private:
   static constexpr unsigned Slot=7;
-  static constexpr uint32_t FormatVersion=2;
   struct Data{uint32_t magic=0x50505231u,format=FormatVersion,era=1;Time pb[MaxEntries]{};Time track=0;uint8_t trackLane=0;uint8_t reserved[7]{};uint32_t checksum=0;};
   Store&store_;Data data_{};bool loaded_=false;
   static uint32_t sum(const uint8_t*p,size_t n){uint32_t h=2166136261u;while(n--)h=(h^*p++)*16777619u;return h;}

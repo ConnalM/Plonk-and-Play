@@ -1,25 +1,25 @@
 {
   "project": "Plonk & Play",
   "repository": "ConnalM/Plonk-and-Play",
-  "source_base_commit": "9e3bec69ffc2d9200c5e6dd59fc32b3e094899ea",
+  "source_base_commit": "a1af33d11ff797b445afeab2d0daf815aa70a4ec",
   "acceptance_spec_commit": "ac6c73bce1fbfad374eee7409b974663647ce65a",
   "source_is_uncommitted_overlay": true,
   "builds": {
     "esp32dev/firmware.elf": {
-      "sha256": "4795f2c4b453f491974c43dc8ca655e651fec1712d968401382a01fd001a82a3",
-      "bytes": 11431776
+      "sha256": "cf918d0539c65e20bbf9778a0b4274497998f5fa3d9a022560b43221e5a6465e",
+      "bytes": 11439600
     },
     "esp32dev/firmware.merged.bin": {
-      "sha256": "c063d84d1ecd0dd2fcfc8daea404d7bdb4f24ff725295667433c0c4fb17ec922",
-      "bytes": 903008
+      "sha256": "b7e13062c6b164754f35e2732a61fc0de8e459e4860eefffe15a535f6e911b1e",
+      "bytes": 903440
     },
     "acceptance/firmware.elf": {
-      "sha256": "a545b50e28c582031e988e39e4d259531ef08b12f792b83133488637da11e7fd",
-      "bytes": 11570400
+      "sha256": "0321595b57f04abf334758390421acbe0b795c3a46ff9cd7452581052f754864",
+      "bytes": 11578288
     },
     "acceptance/firmware.merged.bin": {
-      "sha256": "26016c0cbc9ed7a337fc382902e6cc025895ca28481ac94cfa37abbbf45f8f0b",
-      "bytes": 917392
+      "sha256": "112095ce81c329d3847c6b91e434ef8fc971e4da1eccd40f35a9f1e11462b54a",
+      "bytes": 917824
     }
   },
   "tests": {
@@ -34,7 +34,7 @@
           "ready": "1",
           "fault": "0",
           "diag": "1",
-          "time": "1297513",
+          "time": "1297616",
           "reads": "2"
         },
         "no_race_message": true
@@ -49,9 +49,9 @@
       "result": "PASS",
       "actual": {
         "system_us": [
-          1297513,
-          2307518,
-          3312513
+          1297616,
+          2307621,
+          3312616
         ],
         "delta_us": [
           1010005,
@@ -290,7 +290,7 @@
           "ready": "1",
           "fault": "0",
           "diag": "0",
-          "time": "9836419",
+          "time": "9836172",
           "reads": "2"
         },
         "bus": {
@@ -304,7 +304,7 @@
           "publisher": "8"
         },
         "product_diagnostics_after_reset": false,
-        "same_ELF_for_all_phases": "a545b50e28c582031e988e39e4d259531ef08b12f792b83133488637da11e7fd"
+        "same_ELF_for_all_phases": "0321595b57f04abf334758390421acbe0b795c3a46ff9cd7452581052f754864"
       },
       "raw_evidence": "acceptance-serial.txt",
       "source_manifest": "source-manifest.json",

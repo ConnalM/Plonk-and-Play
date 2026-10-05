@@ -17,194 +17,156 @@ Dependency Graph
 |-- Preferences @ 2.0.0
 |-- WiFi @ 2.0.0
 Building in release mode
-Compiling .pio\build\esp32dev\src\acceptance_clock.cpp.o
 Compiling .pio\build\esp32dev\src\main.cpp.o
-Compiling .pio\build\esp32dev\src\system_time.cpp.o
-Building .pio\build\esp32dev\bootloader.bin
-Generating partitions .pio\build\esp32dev\partitions.bin
-esptool.py v4.5.1
-Creating esp32 image...
-Merged 1 ELF section
-Successfully created esp32 image.
-Compiling .pio\build\esp32dev\libfea\Preferences\Preferences.cpp.o
-Compiling .pio\build\esp32dev\libb75\WiFi\WiFi.cpp.o
-Compiling .pio\build\esp32dev\libb75\WiFi\WiFiAP.cpp.o
-Compiling .pio\build\esp32dev\libb75\WiFi\WiFiClient.cpp.o
-Compiling .pio\build\esp32dev\libb75\WiFi\WiFiGeneric.cpp.o
-Compiling .pio\build\esp32dev\libb75\WiFi\WiFiMulti.cpp.o
-Compiling .pio\build\esp32dev\libb75\WiFi\WiFiSTA.cpp.o
-Compiling .pio\build\esp32dev\libb75\WiFi\WiFiScan.cpp.o
-Compiling .pio\build\esp32dev\libb75\WiFi\WiFiServer.cpp.o
-Compiling .pio\build\esp32dev\libb75\WiFi\WiFiUdp.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\Esp.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\FirmwareMSC.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\FunctionalInterrupt.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\HWCDC.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\HardwareSerial.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\IPAddress.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\IPv6Address.cpp.o
+In file included from src/main.cpp:12:
+include/pp/browser_interface.h: In static member function 'static bool pp::BrowserInterface::appendJson(char*, size_t, size_t&, const char*, ...)':
+include/pp/browser_interface.h:299:5: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+     if(!out||n>=cap)return false;va_list args;va_start(args,format);const int written=vsnprintf(out+n,cap-n,format,args);va_end(args);
+     ^~
+include/pp/browser_interface.h:299:34: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+     if(!out||n>=cap)return false;va_list args;va_start(args,format);const int written=vsnprintf(out+n,cap-n,format,args);va_end(args);
+                                  ^~~~~~~
+In file included from src/main.cpp:12:
+include/pp/browser_interface.h: In static member function 'static bool pp::BrowserInterface::serializeState(const pp::NoticeboardState&, pp::Time, char*, size_t, size_t&)':
+include/pp/browser_interface.h:305:5: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+     if(value.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=value.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:value.entryCount;
+     ^~
+include/pp/browser_interface.h:305:49: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+     if(value.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=value.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:value.entryCount;
+                                                 ^~~~~
+In file included from src/main.cpp:12:
+include/pp/browser_interface.h: In static member function 'static bool pp::BrowserInterface::serializeResults(const pp::RaceEngineModule::CompletedRaceResult&, char*, size_t, size_t&)':
+include/pp/browser_interface.h:311:5: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+     if(r.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=r.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:r.entryCount;
+     ^~
+include/pp/browser_interface.h:311:45: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+     if(r.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=r.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:r.entryCount;
+                                             ^~~~~
+In file included from src/main.cpp:12:
+include/pp/browser_interface.h: In static member function 'static bool pp::BrowserInterface::serializeDetails(const pp::RaceEngineModule::CompletedRaceResult&, char*, size_t, size_t&)':
+include/pp/browser_interface.h:317:5: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+     if(r.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=r.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:r.entryCount;
+     ^~
+include/pp/browser_interface.h:317:45: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+     if(r.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=r.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:r.entryCount;
+                                             ^~~~~
 In file included from src/main.cpp:12:
 include/pp/browser_interface.h: In member function 'void pp::BrowserInterface::startServer()':
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
      };
      ^
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
-include/pp/browser_interface.h:575:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
-Archiving .pio\build\esp32dev\libfea\libPreferences.a
-Indexing .pio\build\esp32dev\libfea\libPreferences.a
-Compiling .pio\build\esp32dev\FrameworkArduino\MD5Builder.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\Print.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\Stream.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\StreamString.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\Tone.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\USB.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\USBCDC.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\USBMSC.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\WMath.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\WString.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\base64.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\cbuf.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-adc.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-bt.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-cpu.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-dac.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-gpio.c.o
-Archiving .pio\build\esp32dev\libb75\libWiFi.a
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-i2c-slave.c.o
-Indexing .pio\build\esp32dev\libb75\libWiFi.a
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-i2c.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-ledc.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-matrix.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-misc.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-psram.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-rgb-led.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-rmt.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-sigmadelta.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-spi.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-time.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-timer.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-tinyusb.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-touch.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\esp32-hal-uart.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\firmware_msc_fat.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\libb64\cdecode.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\libb64\cencode.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\main.cpp.o
-Compiling .pio\build\esp32dev\FrameworkArduino\stdlib_noniso.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\wiring_pulse.c.o
-Compiling .pio\build\esp32dev\FrameworkArduino\wiring_shift.c.o
-Archiving .pio\build\esp32dev\libFrameworkArduino.a
-Indexing .pio\build\esp32dev\libFrameworkArduino.a
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::is_websocket' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::handle_ws_control_frames' [-Wmissing-field-initializers]
+include/pp/browser_interface.h:606:5: warning: missing initializer for member 'httpd_uri::supported_subprotocol' [-Wmissing-field-initializers]
 Linking .pio\build\esp32dev\firmware.elf
 Retrieving maximum program size .pio\build\esp32dev\firmware.elf
 Checking size .pio\build\esp32dev\firmware.elf
 Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
 RAM:   [===       ]  26.9% (used 88016 bytes from 327680 bytes)
-Flash: [======    ]  63.4% (used 830893 bytes from 1310720 bytes)
+Flash: [======    ]  63.4% (used 831325 bytes from 1310720 bytes)
 Building .pio\build\esp32dev\firmware.bin
 esptool.py v4.5.1
 Creating esp32 image...
 Merged 27 ELF sections
 Successfully created esp32 image.
-========================= [SUCCESS] Took 28.74 seconds =========================
+========================= [SUCCESS] Took 21.09 seconds =========================
 
 Environment    Status    Duration
 -------------  --------  ------------
-esp32dev       SUCCESS   00:00:28.744
-========================= 1 succeeded in 00:00:28.744 =========================
+esp32dev       SUCCESS   00:00:21.094
+========================= 1 succeeded in 00:00:21.094 =========================
 esptool.py v4.5.1
-Wrote 0xdc760 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\esp32dev\firmware.merged.bin, ready to flash to offset 0x0
+Wrote 0xdc910 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\esp32dev\firmware.merged.bin, ready to flash to offset 0x0
 Browser-loadable firmware: C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\esp32dev\firmware.merged.bin
