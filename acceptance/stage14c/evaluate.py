@@ -6,6 +6,9 @@ for ident in ids:
  rows=re.findall(rf'ACC S14C test={re.escape(ident)}[^\r\n]*',text)
  if not rows or not any('pass=1' in row for row in rows): failed.append(ident)
 if 'pass=0' in text or 'ACC DONE' not in text: failed.append('campaign')
+if not re.search(r'ACC S14C regression=finish_current_lap_one_crossing pass=1',text): failed.append('finish_current_lap_regression')
+if not re.search(r'ACC S14C regression=finish_current_lap_reversed_delivery pass=1',text): failed.append('finish_current_lap_reversed_delivery')
+if not re.search(r'ACC S14C regression=finish_current_lap_no_origin pass=1',text): failed.append('finish_current_lap_no_origin')
 try:
  p=json.loads((root/'evidence'/'evaluator-integrity.json').read_text())
  if p.get('corrupted_evaluator')!='FAIL' or p.get('restored_evaluator')!='PASS':failed.append('14C.27')

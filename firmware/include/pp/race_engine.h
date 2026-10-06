@@ -53,6 +53,11 @@ public:
   const CompletedRaceResult&completedResult()const{return result_;} uint32_t historySequence()const{return historySequence_;}
   bool persistencePending()const{return result_.sealed&&!persisted_;} bool persistenceFault()const{return persistenceFault_;}
   bool settlementSeen()const{return settlementSeen_;} bool settlementPublished()const{return settlementPublished_;}
+#if defined(PP_STAGE14C_ACCEPTANCE)
+  // Acceptance-only boundary hook: model an entry with no legitimate timing
+  // origin at expiry without adding a production operation or timing path.
+  void acceptanceClearTimingOrigin(uint8_t i){if(i<entryCount())entries_[i].timingOriginEstablished=false;}
+#endif
 
 private:
   void reset(Time go){
@@ -93,13 +98,27 @@ private:
     if(paused_&&m.relevantTime>=pauseAt_)return;if(m.relevantTime<s.lastCrossing)return;
     if(resumeAt_&&m.relevantTime<resumeAt_)return;
     const bool after=expiryTime_&&m.relevantTime>expiryTime_, at=expiryTime_&&m.relevantTime==expiryTime_;
-    if(enduranceExpired_&&after){if(finishBehaviour_!=LapFinishBehaviour::CompleteCurrentLap||!s.timingOriginEstablished||s.postExpiryCompleted)return;s.postExpiryCompleted=true;s.lastCrossing=m.relevantTime;completeEnduranceEntry(s,m.relevantTime,def);return;}
+    if(enduranceExpired_&&after){if(finishBehaviour_!=LapFinishBehaviour::CompleteCurrentLap||!s.timingOriginEstablished||s.postExpiryCompleted)return;s.postExpiryCompleted=true;completeEnduranceEntry(s,m,def);return;}
     if(enduranceExpired_&&!at)return;if(after&&finishBehaviour_!=LapFinishBehaviour::CompleteCurrentLap)return;
     Time lap=m.relevantTime-s.lastCrossing;if(resumeAt_&&s.lastCrossing<pauseAt_){const Time stopped=resumeAt_-pauseAt_;lap=lap>stopped?lap-stopped:0;}
     s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;++s.laps;storeLap(s,lap,m.relevantTime);if(recordEligible_&&records_)records_->observe(def.lane,lap);publishLap(def,s,lap,m);
     if(after||at){if(after)s.postExpiryCompleted=true;if(enduranceExpired_&&finishBehaviour_==LapFinishBehaviour::CompleteCurrentLap){observed_[indexOf(s.raceEntryId)]=true;candidateF_=m.relevantTime;finishReady_=allObserved();}return;}
   }
-  void completeEnduranceEntry(EntryState&s,Time at,const RaceEntryDefinition&def){if(recordEligible_&&records_&&s.lastLapTime)records_->observe(def.lane,s.lastLapTime);publishNoticeboardChanged();uint8_t i=indexOf(s.raceEntryId);if(i<entryCount())observed_[i]=true;candidateF_=at;finishReady_=allObserved();}
+  // The first eligible crossing after expiry completes the lap that was in
+  // progress.  It is a real factual lap, so it must update the same counters,
+  // immutable detail record, PB/record path and Browser fact as an ordinary
+  // lap.  The per-entry postExpiryCompleted fence prevents any later crossing
+  // from starting or completing another lap.
+  void completeEnduranceEntry(EntryState&s,const Message&m,const RaceEntryDefinition&def){
+    if(m.relevantTime<s.lastCrossing)return;
+    const Time lap=m.relevantTime-s.lastCrossing;
+    s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;++s.laps;
+    storeLap(s,lap,m.relevantTime);
+    if(recordEligible_&&records_&&lap)records_->observe(def.lane,lap);
+    publishLap(def,s,lap,m);
+    uint8_t i=indexOf(s.raceEntryId);if(i<entryCount())observed_[i]=true;
+    candidateF_=m.relevantTime;finishReady_=allObserved();
+  }
   void storeLap(EntryState&s,Time lap,Time at){if(s.recordCount<MaxLaps){LapRecord&r=s.records[s.recordCount++];r.lapNumber=s.laps;r.startTime=at-lap;r.finishTime=at;r.lapTime=lap;r.valid=true;}if(!s.bestLapTime||lap<s.bestLapTime)s.bestLapTime=lap;}
   void publishLap(const RaceEntryDefinition&def,const EntryState&s,Time lap,const Message&m){Message f{};f.type=Type::LapCompleted;f.relevantTime=m.relevantTime;f.raceEntryId=def.raceEntryId;f.lapNumber=s.laps;f.lapTime=lap;f.eventId=m.eventId;bus_.publish(endpoint_,f);publishNoticeboardChanged();}
   bool allObserved()const{for(uint8_t i=0;i<entryCount();++i)if(!observed_[i])return false;return true;}

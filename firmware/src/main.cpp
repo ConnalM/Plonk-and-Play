@@ -386,9 +386,12 @@ void loop(){
   if(simulatedARelease&&fixtureNow>=simulatedARelease){input.setSimulatedSource(false);simulatedARelease=0;}
   if(simulatedBRelease&&fixtureNow>=simulatedBRelease){input.setSimulatedSourceB(false);simulatedBRelease=0;}
 #endif
+  // Race Control owns authoritative time boundaries.  Publish an Endurance
+  // expiry before sampling a same-loop detector passage so Race Engine sees
+  // the expiry marker before classifying any post-expiry input.
+  raceControl.tick(systemTime());
   input.tick(systemTime());
   raceEngine.tick();
-  raceControl.tick(systemTime());
   browser.tick();
 #ifdef PP_STAGE10_DEMO
   if(!stage10ServerReported&&(browser.serverReady()||browser.serverStartError())){
