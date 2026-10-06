@@ -75,29 +75,31 @@ private:
     if (definition_ && definition_->mode()==SessionMode::OpenPractice) {
       go_=0; finalDelay_=0; state_=SessionLifecycle::Racing; changed(); return true;
     }
-#if defined(PP_STAGE8_ACCEPTANCE) || defined(PP_STAGE9_ACCEPTANCE) || defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_ACCEPTANCE) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE12_DEMO)
-    const Time scheduledGo=now+StartLeadUs;
+    Time scheduledGo=0, delay=0;
+    if(!calculateStartSchedule(now,scheduledGo,delay))return false;
     Message scheduled{};scheduled.type=Type::GoScheduled;scheduled.relevantTime=scheduledGo;
     if(bus_.publish(endpoint_,scheduled)!=Delivery::Delivered)return false;
-    go_=scheduledGo; finalDelay_=StartLeadUs; state_=SessionLifecycle::Starting; changed();return true;
+    go_=scheduledGo; finalDelay_=delay; state_=SessionLifecycle::Starting; changed();return true;
+  }
+  bool calculateStartSchedule(Time now,Time& scheduledGo,Time& delay)const{
+    if(!definition_)return false;
+#if defined(PP_STAGE8_ACCEPTANCE) || defined(PP_STAGE9_ACCEPTANCE) || defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_ACCEPTANCE) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE12_DEMO)
+    scheduledGo=now+StartLeadUs; delay=StartLeadUs;
 #else
-    if(!definition_) return false;
     const uint8_t reds=definition_->redLightCount();
     const Time interval=definition_->redIntervalUs();
-    Time delay=0;
+    delay=0;
     if(definition_->startTiming()==1) delay=definition_->fixedFinalDelayUs();
     else if(definition_->startTiming()==2) {
       // A single deterministic selection is committed into the schedule. The
       // product build seeds this from the controller clock; acceptance tests
       // may drive the clock deterministically.
       const Time span=DefaultFinalDelayMaxUs-DefaultFinalDelayMinUs;
-      delay=DefaultFinalDelayMinUs+((now^uint64_t(nextSessionId_)*1103515245u)% (span+1));
+      delay=DefaultFinalDelayMinUs+((now^uint64_t(nextSessionId_)*1103515245u)%(span+1));
     }
-    const Time scheduledGo=now+Time(reds)*interval+delay;
-    Message scheduled{};scheduled.type=Type::GoScheduled;scheduled.relevantTime=scheduledGo;
-    if(bus_.publish(endpoint_,scheduled)!=Delivery::Delivered)return false;
-    go_=scheduledGo; finalDelay_=delay; state_=SessionLifecycle::Starting; changed();return true;
+    scheduledGo=now+Time(reds)*interval+delay;
 #endif
+    return true;
   }
   void result(uint32_t correlation,RequestResult value,RequestRejection reason=RequestRejection::None){
     Message response{};response.type=Type::RequestResult;response.correlation=correlation;response.requestResult=value;response.rejection=reason;
@@ -131,12 +133,13 @@ private:
       if(!pauseSettled_){reject(request.correlation,RequestRejection::PauseSettlementPending);return;}
       if(mode()==SessionMode::Endurance&&durationExpired_){reject(request.correlation,RequestRejection::LifecycleNotResumable);return;}
       if(mode()!=SessionMode::OpenPractice){
-        const Time resumeGo=now+StartLeadUs;
+        Time resumeGo=0,resumeDelay=0;
+        if(!calculateStartSchedule(now,resumeGo,resumeDelay)){reject(request.correlation,RequestRejection::SessionDefinitionUnavailable);return;}
         // Keep paused duration frozen until authoritative GO. Race Engine
         // receives the future Relevant-Time operation immediately, preventing
-        // pre-GO crossings while the normal countdown is presented.
+        // pre-GO crossings while the normal configured countdown is presented.
         publishOperation(SessionOperation::Resume,RestartMethod::None,resumeGo);
-        go_=resumeGo;finalDelay_=StartLeadUs;resumeScheduled_=true;state_=SessionLifecycle::Starting;changed();result(request.correlation,RequestResult::Accepted);return;
+        go_=resumeGo;finalDelay_=resumeDelay;resumeScheduled_=true;state_=SessionLifecycle::Starting;changed();result(request.correlation,RequestResult::Accepted);return;
       }
       publishOperation(SessionOperation::Resume,RestartMethod::None,now);
       state_=SessionLifecycle::Racing;publishFact(Type::Resumed,now);changed();result(request.correlation,RequestResult::Accepted);return;

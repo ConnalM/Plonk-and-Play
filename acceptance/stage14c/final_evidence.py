@@ -48,8 +48,8 @@ def main() -> int:
     (OUT / "final-builds.json").write_text(json.dumps(build, indent=2) + "\n", encoding="utf-8")
     (OUT / "resource-evidence.json").write_text(json.dumps({
         "generatedAt": build["generatedAt"],
-        "stage14cacceptance": {"ramBytes": 116464, "ramCapacityBytes": 327680, "flashBytes": 879397, "flashCapacityBytes": 1310720},
-        "stage14cdemo": {"ramBytes": 88224, "ramCapacityBytes": 327680, "flashBytes": 846985, "flashCapacityBytes": 1310720},
+        "stage14cacceptance": {"ramBytes": 116464, "ramCapacityBytes": 327680, "flashBytes": 880021, "flashCapacityBytes": 1310720},
+        "stage14cdemo": {"ramBytes": 88224, "ramCapacityBytes": 327680, "flashBytes": 847197, "flashCapacityBytes": 1310720},
         "retention": build["capacity"],
         "source": build["workingTreeSourceSha256"],
     }, indent=2) + "\n", encoding="utf-8")

@@ -26,7 +26,7 @@ ACC S14C test=14C.9 pass=1 expiry_settled=1 sealed=1
 ACC S14C test=14C.10 pass=1 classification_relevant_time=1
 ACC S14C test=14C.11 pass=1 zero_and_overtime_boundaries=1
 ACC S14C test=14C.12 pass=1 pause_resume_duration_fence=1 paused_laps=1
-ACC S14C test=14C.13 pass=1 lap_resume_countdown=1 repeated_cycles=1 paused_laps=1 final_laps=3
+ACC S14C test=14C.13 pass=1 lap_resume_countdown=1 intermediate_lights=1 repeated_cycles=1 paused_laps=1 final_laps=3
 ACC S14C test=14C.14 pass=1 end_race_abandonment_boundary=1
 ACC S14C test=14C.15 pass=1 results_api=1
 ACC S14C test=14C.16 pass=1 results_history_api_reconstruct=1
