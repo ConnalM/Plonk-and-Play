@@ -30,11 +30,17 @@ global.window = global;
 global.browserHasMaster = true;
 global.nextCorrelation = 1;
 global.lastState = { lifecycle: 'READY', sessionMode: 'LAP_RACE', durationMinutes: 0, finishBehaviour: 'STOP_AT_ZERO' };
+global.polledState = global.lastState;
 global.poll = async () => {
   // This is the production Browser's normal refresh/reconciliation boundary.
-  global.lastState = { lifecycle: 'READY', sessionMode: 'LAP_RACE', durationMinutes: 0, finishBehaviour: 'STOP_AT_ZERO' };
+  global.lastState = global.polledState;
 };
-global.operation = () => {};
+global.operation = path => {
+  if (path === '/request/race-again') {
+    global.polledState = { lifecycle: 'READY', sessionMode: 'ENDURANCE', durationMinutes: 1, finishBehaviour: 'IMMEDIATE' };
+  }
+};
+document.elements.raceAgain.onclick = () => global.operation('/request/race-again');
 const starts = [];
 global.fetch = async (path, options = {}) => {
   if (path === '/request/start') starts.push(JSON.parse(options.body));
@@ -52,8 +58,9 @@ async function endurance() {
   const select = document.elements.enduranceSelect;
   const minutes = document.elements.enduranceMinutes;
   const finish = document.elements.enduranceFinish;
-  minutes.value = '7'; finish.value = '1';
+  minutes.value = '7';
   select.onclick();
+  finish.value = '1'; finish.onchange();
   await refresh();
   requireValue(select.textContent === 'ENDURANCE SELECTED', 'Endurance proposal was cleared during READY refresh');
   requireValue(document.elements.practiceSelect.textContent === 'SELECT OPEN PRACTICE', 'Practice proposal was not cleared');
@@ -61,18 +68,32 @@ async function endurance() {
   requireValue(starts.length === 1, 'Endurance START was not submitted');
   requireValue(starts[0].mode === 'ENDURANCE' && starts[0].durationMinutes === 7 && starts[0].finishPolicy === 1,
                'Endurance START payload did not preserve the proposal');
+
+  // Reproduce the real post-RACE AGAIN path: authoritative READY is still
+  // reconstructed from the completed Endurance definition, then the local
+  // finish proposal is edited and must survive the next poll.
+  global.polledState = { lifecycle: 'FINISHED', sessionMode: 'ENDURANCE', durationMinutes: 1, finishBehaviour: 'IMMEDIATE' };
+  await refresh();
+  document.elements.raceAgain.onclick();
+  await refresh();
+  finish.value = '1'; finish.onchange();
+  await refresh();
+  requireValue(finish.value === '1', 'Finish Current Lap proposal was overwritten after RACE AGAIN');
+  document.elements.start.onclick();
+  requireValue(starts.length === 2 && starts[1].mode === 'ENDURANCE' && starts[1].finishPolicy === 1,
+               'RACE AGAIN Endurance START did not preserve Finish Current Lap');
 }
 
 async function practice() {
   // A fresh page has no selected mode; the same production scripts are then exercised.
   for (const id of ['practiceSelect', 'practiceResume', 'practiceEnd']) document.elements[id].textContent = id === 'practiceSelect' ? 'SELECT OPEN PRACTICE' : '';
-  global.lastState = { lifecycle: 'READY', sessionMode: 'LAP_RACE', durationMinutes: 0, finishBehaviour: 'STOP_AT_ZERO' };
+  global.polledState = { lifecycle: 'READY', sessionMode: 'LAP_RACE', durationMinutes: 0, finishBehaviour: 'STOP_AT_ZERO' };
   document.elements.practiceSelect.onclick();
   await refresh();
   requireValue(document.elements.practiceSelect.textContent === 'OPEN PRACTICE SELECTED', 'Practice proposal was cleared during READY refresh');
   requireValue(document.elements.enduranceSelect.textContent === 'SELECT ENDURANCE', 'Endurance proposal was not cleared');
   document.elements.start.onclick();
-  requireValue(starts.length === 2 && starts[1].mode === 'OPEN_PRACTICE', 'Practice START payload did not preserve the proposal');
+  requireValue(starts.length === 3 && starts[2].mode === 'OPEN_PRACTICE', 'Practice START payload did not preserve the proposal');
 }
 
 (async () => {
