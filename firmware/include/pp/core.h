@@ -122,10 +122,12 @@ public:
     auto* s=slot(e); if (!s || !s->size) return false;
     out=s->queue[s->head]; s->head=(s->head+1)%Depth; --s->size; return true;
   }
+  size_t queued(Endpoint e) const { const auto* s=slot(e); return s?s->size:0; }
 private:
   struct Slot { Role role=Role::Diagnostics; uint32_t subscriptions=0; Message queue[Depth]{}; size_t head=0,size=0; };
   Slot slots_[Participants]{}; size_t count_=0;
   Slot* slot(Endpoint e) { return e.id && e.id<=count_ ? &slots_[e.id-1] : nullptr; }
+  const Slot* slot(Endpoint e) const { return e.id && e.id<=count_ ? &slots_[e.id-1] : nullptr; }
   static bool interested(const Slot& s, Type t) { return s.subscriptions & (1u << unsigned(t)); }
   static bool presentationBestEffort(Type t) {
     switch(t) {
