@@ -103,7 +103,17 @@ pp::Time simulatedARelease=0,simulatedBRelease=0;
 bool stage10ServerReported=false;
 #endif
 #if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
-bool browserFixturePass(uint8_t lane){ if(raceControl.state()!=pp::SessionLifecycle::Racing)return false; if(lane==1){input.setSimulatedSource(true);simulatedARelease=systemTime()+150000;} else {input.setSimulatedSourceB(true);simulatedBRelease=systemTime()+150000;} return true; }
+bool browserFixturePass(uint8_t lane){
+  // The demo trigger is only a momentary source at the normal Input Module
+  // boundary.  Every active timing mode uses the same eligibility rule.
+  if(raceControl.state()!=pp::SessionLifecycle::Racing)return false;
+  const auto mode=raceControl.mode();
+  if(mode!=pp::SessionMode::LapRace&&mode!=pp::SessionMode::OpenPractice&&mode!=pp::SessionMode::Endurance)return false;
+  if(lane==1){input.setSimulatedSource(true);simulatedARelease=systemTime()+150000;}
+  else if(lane==2){input.setSimulatedSourceB(true);simulatedBRelease=systemTime()+150000;}
+  else return false;
+  return true;
+}
 void browserFixtureReset(){ activeSession.clearForFixture(); raceControl.resetRaceForFixture(); raceControl.setProposedRaceSetup(proposedRaceSetup); raceEngine.resetForFixture(); browser.clearRaceForFixture(); diagnostics.log("[DEV] TEST RESET READY (Race Director retained)"); }
 bool browserFixtureSetup(uint32_t laps){if(raceControl.state()!=pp::SessionLifecycle::Ready||!raceControl.proposedRaceSetup())return false;proposedRaceSetup=*raceControl.proposedRaceSetup();proposedRaceSetup.lapTarget=laps;raceControl.setProposedRaceSetup(proposedRaceSetup);return true;}
 #endif

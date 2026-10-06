@@ -15,7 +15,13 @@ public:
     for(uint8_t i=0;i<s.entryCount;i++){const auto&e=engine_.entryState(i);s.entries[i]=NoticeboardEntryState(e.raceEntryId,e.laps,e.lastLapTime,e.hasLap,e.bestLapTime,e.waitingForTimingOrigin,e.laps>e.lapPenalty?e.laps-e.lapPenalty:0,e.lapPenalty);if(e.bestLapTime&&(!s.sessionFastestLap||e.bestLapTime<s.sessionFastestLap))s.sessionFastestLap=e.bestLapTime;}
     if(s.entryCount){s.raceEntryId=s.entries[0].raceEntryId;s.laps=s.entries[0].laps;s.lastLapTime=s.entries[0].lastLapTime;s.hasLap=s.entries[0].hasLap;}
     s.deadHeat=engine_.deadHeat();s.raceIntegrityFaulted=control_.integrityFaulted();s.raceIntegrityReason=control_.integrityReason();s.resultValid=!s.raceIntegrityFaulted;
-    const auto&r=engine_.completedResult();s.resultSealed=r.sealed;s.winningTime=r.winningTime;s.finishTime=r.finishTime;s.fastestLap=r.fastestLap;s.overtime=r.overtime&&r.finishTime>r.expiryTime?r.finishTime-r.expiryTime:0;s.historySequence=engine_.historySequence();s.persistencePending=engine_.persistencePending();s.persistenceFault=engine_.persistenceFault();return s;
+    const auto&r=engine_.completedResult();s.resultSealed=r.sealed;s.winningTime=r.winningTime;s.finishTime=r.finishTime;s.fastestLap=r.fastestLap;s.overtime=r.overtime&&r.finishTime>r.expiryTime?r.finishTime-r.expiryTime:0;
+    // During Finish Current Lap the authoritative expiry boundary is already
+    // settled, but the result is not sealed until the eligible lap arrives.
+    // Expose live overtime from the same P&P clock so Browser presentation can
+    // show it without creating a second timing authority.
+    if(s.sessionMode==SessionMode::Endurance&&s.finishBehaviour==LapFinishBehaviour::CompleteCurrentLap&&s.durationExpired&&!s.resultSealed&&s.durationExpiryAt){const Time now=systemTime();s.overtime=now>s.durationExpiryAt?now-s.durationExpiryAt:0;}
+    s.historySequence=engine_.historySequence();s.persistencePending=engine_.persistencePending();s.persistenceFault=engine_.persistenceFault();return s;
   }
   const RaceEngineModule::CompletedRaceResult& completedResult() const{return engine_.completedResult();}
 private:
