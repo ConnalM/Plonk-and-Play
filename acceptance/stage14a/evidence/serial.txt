@@ -13,7 +13,7 @@ entry 0x400805dc
 [INIT] System Time READY: monotonic 64-bit microsecondsACC READY
 [INIT] Memory READY: NVS behind Memory boundary
 [INIT] Message Bus READY: bounded mailboxes; authority checked
-ACC S14A test=14A.SIZE pass=1 result_size=5560 history_max=8192 engine=12696 notice=376
+ACC S14A test=14A.SIZE pass=1 result_size=5640 history_max=8192 engine=12776 notice=464
 ACC S14A test=14A.1 pass=1 one_entry_sealed=1
 ACC S14A test=14A.2 pass=1 two_entry_lap_race_unchanged=1
 ACC S14A test=14A.3 pass=1 entry_count=4 indexed_roles=1
@@ -28,7 +28,7 @@ ACC S14A test=14A.11 pass=1 browser_state_results_details_production_boundary=1
 ACC S14A test=14A.15 pass=1 eligible_records_api=1 track=100000
 ACC S14A test=14A.16 pass=1 later_fault_does_not_retroactively_replace_eligible_record=1
 ACC S14A test=14A.13 pass=1 persisted_all_entries_ranks_finish_laps_browser_reconstruct=1 sequence=1
-ACC S14A test=14A.14 pass=1 result_version=2 record_version=2 incompatible_boundary=reset
+ACC S14A test=14A.14 pass=1 result_version=3 record_version=2 incompatible_boundary=reset
 ACC S14A test=14A.12 pass=1 race_again_preserves_four_entries=1
 ACC S14A test=14A.17 pass=1 protected_fifo_depth=1
 ACC S14A test=14A.18 pass=1 capacity=8 algorithm_iterates_entries=1

@@ -1,3 +1,5 @@
+ATTEMPT 1
+
 Stage 11 smoke/evidence evaluator PASS
 
 {
@@ -8,3 +10,5 @@ Stage 11 smoke/evidence evaluator PASS
   "fixed_restart_interval": true,
   "browser_controls": true
 }
+
+seed=11011 cycles=12 events=64 ledger=C:\Users\conna\Documents\Plonk-and-Play\acceptance\stage11\evidence\stress-regression-stage14b.jsonl
