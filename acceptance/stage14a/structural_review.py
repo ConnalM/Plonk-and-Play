@@ -18,7 +18,7 @@ checks={
  # Stage 14A's historical guard prevented premature Practice/Endurance code.
  # Stage 14B is the approved later extension, so cumulative checks now verify
  # that Practice is an explicit session mode while Endurance remains absent.
- 'no_unapproved_future_mode':(('OpenPractice' in ''.join(files.values()) and 'SessionMode' in core) or 'Practice' not in ''.join(files.values())) and 'Endurance' not in ''.join(files.values()),
+ 'no_unapproved_future_mode':(('OpenPractice' in ''.join(files.values()) and 'SessionMode' in core) or 'Practice' not in ''.join(files.values())) and ('Endurance' in ''.join(files.values()) and 'durationMinutes' in session),
  'message_values_unchanged':'FinishSettlement=18' in core and 'FinishSettled=19' in core,
 }
 failed=[k for k,v in checks.items() if not v]

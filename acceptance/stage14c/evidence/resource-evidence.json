@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-10-06T07:51:32.418869+00:00",
+  "stage14cacceptance": {
+    "ramBytes": 116464,
+    "ramCapacityBytes": 327680,
+    "flashBytes": 873033,
+    "flashCapacityBytes": 1310720
+  },
+  "stage14cdemo": {
+    "ramBytes": 88224,
+    "ramCapacityBytes": 327680,
+    "flashBytes": 841837,
+    "flashCapacityBytes": 1310720
+  },
+  "retention": {
+    "PP_MAX_ENTRIES": 8,
+    "authoritativeLapCount": "unbounded by detail retention",
+    "retainedDetailedLapsPerEntry": 16
+  },
+  "source": "4336598df52592cbc50e000026185967bdce2e3613c8394d8e2202ceb49efdbe"
+}

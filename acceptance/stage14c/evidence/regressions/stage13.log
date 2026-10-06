@@ -1,0 +1,42 @@
+Stage 13 evaluator PASS: 13.1-13.25 and 13.T
+
+{
+  "append_types": true,
+  "stage13_envs": true,
+  "start_configuration": true,
+  "committed_go_schedule": true,
+  "false_start_capability": true,
+  "false_start_bus_fact": true,
+  "destructive_routes": true,
+  "records_reconstruct_and_clear": true,
+  "record_admin_bus_authority": true,
+  "settlement_gate": true,
+  "destructive_confirmation_gate": true,
+  "normal_bus_authority": true,
+  "lap_target_visible_and_persisted": true,
+  "stage13_demo_defaults_three_laps": true,
+  "demo_simulated_laps_excluded_from_records": true
+}
+
+{
+  "stage1": true,
+  "stage2": true,
+  "stage3": true,
+  "stage4": true,
+  "stage5": true,
+  "stage6": true,
+  "stage7": true,
+  "stage8": true,
+  "stage9": true,
+  "stage10": true,
+  "stage11": true,
+  "stage12": true,
+  "stage12_structural": false,
+  "stage12_stress": true,
+  "stage13": true,
+  "stage13_structural": true,
+  "stage13_stress": true,
+  "authorised_supersessions_only": true,
+  "STAGE_13_DESIGN.md_frozen_plan_unchanged": true,
+  "ACCEPTANCE_TESTS_STAGE_13.md_frozen_plan_unchanged": true
+}

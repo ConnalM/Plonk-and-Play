@@ -77,13 +77,15 @@ public:
   bool submitStart(uint32_t visibleCorrelation, ClientContext context) {
     return submitStart(visibleCorrelation, context, 0);
   }
-  bool submitStart(uint32_t visibleCorrelation, ClientContext context, uint64_t owner, SessionMode mode=SessionMode::LapRace) {
+  bool submitStart(uint32_t visibleCorrelation, ClientContext context, uint64_t owner, SessionMode mode=SessionMode::LapRace, uint16_t durationMinutes=0, uint8_t finishPolicy=0) {
     if (!visibleCorrelation) return false;
     Message request{};
     request.type = Type::StartRequest;
     request.correlation = nextInternalCorrelation();
     request.clientContext = context;
     request.sessionMode = mode;
+    request.durationMinutes = durationMinutes;
+    request.finishPolicy = finishPolicy;
     if (bus_.publish(endpoint_, request) != Delivery::Delivered) return false;
     Pending& pending = pending_[nextPending_++ % ResultCapacity];
     pending.internal = request.correlation;
@@ -303,16 +305,16 @@ private:
     if(written<0||size_t(written)>=cap-n){n=cap;return false;}n+=size_t(written);return true;
   }
   static bool serializeState(const NoticeboardState& value,Time now,char*out,size_t cap,size_t&length){
-    size_t n=0;bool ok=appendJson(out,cap,n,"{\"systemTime\":%llu,\"lifecycle\":\"%s\",\"sessionMode\":\"%s\",\"entryCount\":%u,\"raceEntryId\":%lu,\"laps\":%lu,\"lapTarget\":%lu,\"hasLap\":%s,\"lastLapTime\":%llu,\"sessionFastestLap\":%llu,\"scheduledGo\":%llu,\"redLightCount\":%u,\"redIntervalUs\":%llu,\"finalDelayUs\":%llu,\"startSignal\":%u,\"pauseEffectiveAt\":%llu,\"scheduledRestartAt\":%llu,\"restartMethod\":\"%s\",\"resultValid\":%s,\"raceIntegrity\":\"%s\",\"resultSealed\":%s,\"winningTime\":%llu,\"finishTime\":%llu,\"fastestLap\":%llu,\"historySequence\":%lu,\"persistencePending\":%s,\"persistenceFault\":%s,\"entries\":[",
-      (unsigned long long)now,lifecycle(value.lifecycle),value.sessionMode==SessionMode::OpenPractice?"OPEN_PRACTICE":"LAP_RACE",unsigned(value.entryCount),(unsigned long)value.raceEntryId,(unsigned long)value.laps,(unsigned long)value.lapTarget,value.hasLap?"true":"false",(unsigned long long)value.lastLapTime,(unsigned long long)value.sessionFastestLap,(unsigned long long)value.scheduledGo,unsigned(value.redLightCount),(unsigned long long)value.redIntervalUs,(unsigned long long)value.finalDelayUs,unsigned(value.startSignal),(unsigned long long)value.pauseEffectiveAt,(unsigned long long)value.scheduledRestartAt,value.restartMethod==RestartMethod::Honour?"HONOUR":value.restartMethod==RestartMethod::Grid?"GRID":"NONE",value.resultValid?"true":"false",value.raceIntegrityFaulted?"FAULTED":"OK",value.resultSealed?"true":"false",(unsigned long long)value.winningTime,(unsigned long long)value.finishTime,(unsigned long long)value.fastestLap,(unsigned long)value.historySequence,value.persistencePending?"true":"false",value.persistenceFault?"true":"false");
+    size_t n=0;const char* mode=value.sessionMode==SessionMode::OpenPractice?"OPEN_PRACTICE":value.sessionMode==SessionMode::Endurance?"ENDURANCE":"LAP_RACE";bool ok=appendJson(out,cap,n,"{\"systemTime\":%llu,\"lifecycle\":\"%s\",\"sessionMode\":\"%s\",\"entryCount\":%u,\"raceEntryId\":%lu,\"laps\":%lu,\"lapTarget\":%lu,\"durationMinutes\":%u,\"durationExpiryAt\":%llu,\"remainingDuration\":%llu,\"durationExpired\":%s,\"overtime\":%llu,\"finishBehaviour\":\"%s\",\"hasLap\":%s,\"lastLapTime\":%llu,\"sessionFastestLap\":%llu,\"scheduledGo\":%llu,\"redLightCount\":%u,\"redIntervalUs\":%llu,\"finalDelayUs\":%llu,\"startSignal\":%u,\"pauseEffectiveAt\":%llu,\"scheduledRestartAt\":%llu,\"restartMethod\":\"%s\",\"resultValid\":%s,\"raceIntegrity\":\"%s\",\"resultSealed\":%s,\"winningTime\":%llu,\"finishTime\":%llu,\"fastestLap\":%llu,\"historySequence\":%lu,\"persistencePending\":%s,\"persistenceFault\":%s,\"entries\":[",
+      (unsigned long long)now,lifecycle(value.lifecycle),mode,unsigned(value.entryCount),(unsigned long)value.raceEntryId,(unsigned long)value.laps,(unsigned long)value.lapTarget,unsigned(value.durationMinutes),(unsigned long long)value.durationExpiryAt,(unsigned long long)value.remainingDuration,value.durationExpired?"true":"false",(unsigned long long)value.overtime,finishBehaviour(value.finishBehaviour),value.hasLap?"true":"false",(unsigned long long)value.lastLapTime,(unsigned long long)value.sessionFastestLap,(unsigned long long)value.scheduledGo,unsigned(value.redLightCount),(unsigned long long)value.redIntervalUs,(unsigned long long)value.finalDelayUs,unsigned(value.startSignal),(unsigned long long)value.pauseEffectiveAt,(unsigned long long)value.scheduledRestartAt,value.restartMethod==RestartMethod::Honour?"HONOUR":value.restartMethod==RestartMethod::Grid?"GRID":"NONE",value.resultValid?"true":"false",value.raceIntegrityFaulted?"FAULTED":"OK",value.resultSealed?"true":"false",(unsigned long long)value.winningTime,(unsigned long long)value.finishTime,(unsigned long long)value.fastestLap,(unsigned long)value.historySequence,value.persistencePending?"true":"false",value.persistenceFault?"true":"false");
     if(value.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=value.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:value.entryCount;
-    for(uint8_t i=0;i<count;++i){const auto&e=value.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"lane\":%u,\"laps\":%lu,\"lastLapTime\":%llu,\"bestLapTime\":%llu,\"hasLap\":%s,\"waitingForTimingOrigin\":%s}",i?",":"",(unsigned long)e.raceEntryId,unsigned(i+1),(unsigned long)e.laps,(unsigned long long)e.lastLapTime,(unsigned long long)e.bestLapTime,e.hasLap?"true":"false",e.waitingForTimingOrigin?"true":"false")&&ok;}
+    for(uint8_t i=0;i<count;++i){const auto&e=value.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"lastLapTime\":%llu,\"bestLapTime\":%llu,\"hasLap\":%s,\"waitingForTimingOrigin\":%s}",i?",":"",(unsigned long)e.raceEntryId,unsigned(i+1),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long long)e.lastLapTime,(unsigned long long)e.bestLapTime,e.hasLap?"true":"false",e.waitingForTimingOrigin?"true":"false")&&ok;}
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
   }
   static bool serializeResults(const RaceEngineModule::CompletedRaceResult&r,char*out,size_t cap,size_t&length){
-    size_t n=0;bool ok=appendJson(out,cap,n,"{\"sealed\":%s,\"valid\":%s,\"lapTarget\":%lu,\"winningTime\":%llu,\"finishTime\":%llu,\"finishBehaviour\":\"%s\",\"deadHeat\":%s,\"fastestLap\":%llu,\"fastestEntryId\":%lu,\"fastestLapTied\":%s,\"entries\":[",r.sealed?"true":"false",r.valid?"true":"false",(unsigned long)r.lapTarget,(unsigned long long)r.winningTime,(unsigned long long)r.finishTime,finishBehaviour(r.behaviour),r.deadHeat?"true":"false",(unsigned long long)r.fastestLap,(unsigned long)r.fastestEntryId,r.fastestLapTied?"true":"false");
+    size_t n=0;const char* mode=r.mode==SessionMode::Endurance?"ENDURANCE":r.mode==SessionMode::OpenPractice?"OPEN_PRACTICE":"LAP_RACE";bool ok=appendJson(out,cap,n,"{\"sealed\":%s,\"valid\":%s,\"mode\":\"%s\",\"lapTarget\":%lu,\"durationMinutes\":%u,\"durationUs\":%llu,\"expiryTime\":%llu,\"overtime\":%s,\"winningTime\":%llu,\"finishTime\":%llu,\"finishBehaviour\":\"%s\",\"deadHeat\":%s,\"fastestLap\":%llu,\"fastestEntryId\":%lu,\"fastestLapTied\":%s,\"entries\":[",r.sealed?"true":"false",r.valid?"true":"false",mode,(unsigned long)r.lapTarget,unsigned(r.durationMinutes),(unsigned long long)r.durationUs,(unsigned long long)r.expiryTime,r.overtime?"true":"false",(unsigned long long)r.winningTime,(unsigned long long)r.finishTime,finishBehaviour(r.behaviour),r.deadHeat?"true":"false",(unsigned long long)r.fastestLap,(unsigned long)r.fastestEntryId,r.fastestLapTied?"true":"false");
     if(r.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=r.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:r.entryCount;
-    for(uint8_t i=0;i<count;++i){const auto&e=r.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"lane\":%u,\"laps\":%lu,\"rank\":%lu,\"tied\":%s,\"lapsBehind\":%lu,\"completed\":%s,\"completionTime\":%llu,\"bestLap\":%llu}",i?",":"",(unsigned long)e.raceEntryId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.rank,e.tied?"true":"false",(unsigned long)e.lapsBehind,e.completed?"true":"false",(unsigned long long)e.completionTime,(unsigned long long)e.bestLap)&&ok;}
+    for(uint8_t i=0;i<count;++i){const auto&e=r.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"tied\":%s,\"lapsBehind\":%lu,\"completed\":%s,\"completionTime\":%llu,\"bestLap\":%llu}",i?",":"",(unsigned long)e.raceEntryId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,e.tied?"true":"false",(unsigned long)e.lapsBehind,e.completed?"true":"false",(unsigned long long)e.completionTime,(unsigned long long)e.bestLap)&&ok;}
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
   }
   static bool serializeDetails(const RaceEngineModule::CompletedRaceResult&r,char*out,size_t cap,size_t&length){
@@ -349,9 +351,9 @@ private:
   }
   static esp_err_t historyRoute(httpd_req_t* request) {
      client(request); BrowserInterface* browser=instance();
-    char* json=static_cast<char*>(malloc(768));auto* stored=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));if(!json||!stored){free(json);free(stored);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"history buffer unavailable");return ESP_FAIL;}int n=snprintf(json,768,"{\"entries\":[");
-     if(browser->history_)for(uint8_t i=0;i<browser->history_->count()&&n<768;++i){size_t bytes=0;uint32_t sequence=0;if(browser->history_->loadNewest(i,reinterpret_cast<uint8_t*>(stored),sizeof(*stored),bytes,sequence)&&bytes==sizeof(*stored)&&stored->sealed)n+=snprintf(json+n,768-n,"%s{\"sequence\":%lu,\"sealed\":true,\"lapTarget\":%lu,\"winningTime\":%llu,\"finishTime\":%llu}",i?",":"",(unsigned long)sequence,(unsigned long)stored->lapTarget,(unsigned long long)stored->winningTime,(unsigned long long)stored->finishTime);}
-    snprintf(json+n,768-n,"]}");
+    constexpr size_t HistoryJsonCapacity=4096;char* json=static_cast<char*>(malloc(HistoryJsonCapacity));auto* stored=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));if(!json||!stored){free(json);free(stored);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"history buffer unavailable");return ESP_FAIL;}int n=snprintf(json,HistoryJsonCapacity,"{\"entries\":[");
+     if(browser->history_)for(uint8_t i=0;i<browser->history_->count()&&n>0&&size_t(n)<HistoryJsonCapacity;++i){size_t bytes=0;uint32_t sequence=0;if(browser->history_->loadNewest(i,reinterpret_cast<uint8_t*>(stored),sizeof(*stored),bytes,sequence)&&bytes==sizeof(*stored)&&stored->sealed)n+=snprintf(json+n,HistoryJsonCapacity-size_t(n),"%s{\"sequence\":%lu,\"sealed\":true,\"mode\":%u,\"durationMinutes\":%u,\"lapTarget\":%lu,\"winningTime\":%llu,\"finishTime\":%llu,\"expiryTime\":%llu,\"overtime\":%s,\"entryCount\":%u}",i?",":"",(unsigned long)sequence,unsigned(stored->mode),unsigned(stored->durationMinutes),(unsigned long)stored->lapTarget,(unsigned long long)stored->winningTime,(unsigned long long)stored->finishTime,(unsigned long long)stored->expiryTime,stored->overtime?"true":"false",unsigned(stored->entryCount));}
+    if(n<0||size_t(n)>=HistoryJsonCapacity)n=HistoryJsonCapacity-1;snprintf(json+n,HistoryJsonCapacity-size_t(n),"]}");
     httpd_resp_set_type(request,"application/json"); const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);free(stored);return sent;
   }
   static esp_err_t recordsRoute(httpd_req_t* request) {
@@ -394,7 +396,7 @@ private:
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
     return httpd_resp_sendstr(request, json);
   }
-  static bool correlationFromBody(httpd_req_t* request, uint32_t& correlation, SessionMode* requestedMode=nullptr) {
+  static bool correlationFromBody(httpd_req_t* request, uint32_t& correlation, SessionMode* requestedMode=nullptr, uint16_t* durationMinutes=nullptr, uint8_t* finishPolicy=nullptr) {
     if (request->content_len <= 0 || request->content_len >= 256) return false;
     char body[256]{};
     int received = 0;
@@ -410,7 +412,9 @@ private:
     const unsigned long value = strtoul(colon + 1, &end, 10);
     if (!end || end == colon + 1 || value == 0 || value > UINT32_MAX) return false;
     correlation = uint32_t(value);
-    if(requestedMode){const char* mode=strstr(body,"OPEN_PRACTICE");*requestedMode=mode?SessionMode::OpenPractice:SessionMode::LapRace;}
+    if(requestedMode){const char* mode=strstr(body,"OPEN_PRACTICE");const char* endurance=strstr(body,"ENDURANCE");*requestedMode=endurance?SessionMode::Endurance:(mode?SessionMode::OpenPractice:SessionMode::LapRace);}
+    if(durationMinutes){const char* p=strstr(body,"durationMinutes");*durationMinutes=p?uint16_t(strtoul(strchr(p,':')+1,nullptr,10)):0;}
+    if(finishPolicy){const char* named=strstr(body,"COMPLETE_CURRENT_LAP");const char* full=strstr(body,"COMPLETE_FULL_RACE_DISTANCE");const char* raw=strstr(body,"finishPolicy");*finishPolicy=named?1:full?2:(raw?uint8_t(strtoul(strchr(raw,':')+1,nullptr,10)):0);}
     return true;
   }
   static esp_err_t bootstrapRoute(httpd_req_t* request) {
@@ -438,13 +442,13 @@ private:
   }
   static esp_err_t startRoute(httpd_req_t* request) {
     uint32_t correlation = 0;
-    SessionMode requestedMode=SessionMode::LapRace;
-    if (!correlationFromBody(request, correlation, &requestedMode)) {
+    SessionMode requestedMode=SessionMode::LapRace;uint16_t durationMinutes=0;uint8_t finishPolicy=0;
+    if (!correlationFromBody(request, correlation, &requestedMode, &durationMinutes, &finishPolicy)) {
       httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "correlationId required");
       return ESP_FAIL;
     }
     const uint64_t owner = client(request);
-    if (!instance()->submitStart(correlation, instance()->context(owner), owner, requestedMode)) {
+    if (!instance()->submitStart(correlation, instance()->context(owner), owner, requestedMode, durationMinutes, finishPolicy)) {
       httpd_resp_set_status(request, "503 Service Unavailable");
       return httpd_resp_sendstr(request, "request unavailable");
     }
@@ -550,6 +554,11 @@ private:
     // deciding GO or sending a timing value back to P&P.
     static const char stage13Presentation[] = R"HTML(<script>setInterval(()=>{try{if(lastState&&!lastState.sampledAt)lastState.sampledAt=performance.now()}catch(e){}},25);</script>)HTML";
     static const char stage14bPresentation[] = R"HTML(<script>(function(){const start=document.querySelector('#start');const pause=document.querySelector('#pause');const raceAgain=document.querySelector('#raceAgain');const target=document.querySelector('#target3');const lane1=document.querySelector('#lane1');const lane2=document.querySelector('#lane2');const reset=document.querySelector('#resetTest');const controls=document.createElement('div');controls.id='practiceControls';controls.innerHTML='<h2>OPEN PRACTICE</h2><button id="practiceSelect">SELECT OPEN PRACTICE</button><button id="practiceResume">RESUME</button><button id="practiceEnd">END SESSION</button>';document.querySelector('#bootstrap').before(controls);let practiceSelected=false;const select=document.querySelector('#practiceSelect');const resume=document.querySelector('#practiceResume');const end=document.querySelector('#practiceEnd');select.onclick=()=>{practiceSelected=true;select.textContent='OPEN PRACTICE SELECTED';if(start)start.disabled=false};resume.onclick=()=>operation('/request/resume','RESUME');end.onclick=()=>operation('/request/end-session','END SESSION');const oldStart=start?start.onclick:null;if(start)start.onclick=()=>{if(!practiceSelected){if(oldStart)oldStart();return}const id=nextCorrelation++,started=performance.now();fetch('/request/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:id,mode:'OPEN_PRACTICE'})}).then(async r=>{if(r.status!==202){$('#request').textContent='Request START was not accepted for submission.';return}const timer=setInterval(async()=>{const x=await get('/request-result?correlationId='+id);if(x){$('#request').textContent=(x.result==='ACCEPTED'?'Accepted: ':'Rejected: ')+(x.reason||'')+' ('+((performance.now()-started)/1000).toFixed(2)+' s; correlation '+id+')';clearInterval(timer)}},100)});};const oldPoll=poll;window.poll=async function(){await oldPoll();const v=lastState;const isPractice=!!v&&v.sessionMode==='OPEN_PRACTICE';if(select)select.disabled=!!v&&v.lifecycle!=='READY';if(resume)resume.disabled=!isPractice||!v||v.lifecycle!=='PAUSED';if(end)end.disabled=!isPractice||!v||(['RACING','PAUSED'].indexOf(v.lifecycle)<0);if(start&&!isPractice)start.disabled=false;if(pause)pause.disabled=!isPractice&&pause.disabled;[lane1,lane2].forEach(x=>{if(x)x.disabled=!isPractice&&x.disabled});};})();</script>)HTML";
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    static const char stage14cPresentation[] = R"HTML(<script>(function(){const start=document.querySelector('#start'),bootstrap=document.querySelector('#bootstrap');const controls=document.createElement('div');controls.id='enduranceControls';controls.innerHTML='<h2>ENDURANCE</h2><button id="enduranceSelect">SELECT ENDURANCE</button><label> Minutes <input id="enduranceMinutes" type="number" min="1" max="999" value="1"></label><label> Finish <select id="enduranceFinish"><option value="0">Stop at Zero</option><option value="1">Finish Current Lap</option></select></label><button id="enduranceResume">RESUME</button>';bootstrap.before(controls);let selected=false;const sel=document.querySelector('#enduranceSelect'),resume=document.querySelector('#enduranceResume');sel.onclick=()=>{selected=true;sel.textContent='ENDURANCE SELECTED';start.disabled=false};resume.onclick=()=>operation('/request/resume','RESUME');const oldStart=start.onclick;start.onclick=()=>{if(!selected){oldStart();return}const id=nextCorrelation++,started=performance.now(),mins=Math.max(1,Math.min(999,Number(document.querySelector('#enduranceMinutes').value)||1)),finish=Number(document.querySelector('#enduranceFinish').value)||0;fetch('/request/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:id,mode:'ENDURANCE',durationMinutes:mins,finishPolicy:finish})}).then(async r=>{if(r.status!==202){$('#request').textContent='Request START was not accepted for submission.';return}const timer=setInterval(async()=>{const x=await get('/request-result?correlationId='+id);if(x){$('#request').textContent=(x.result==='ACCEPTED'?'Accepted: ':'Rejected: ')+(x.reason||'')+' ('+((performance.now()-started)/1000).toFixed(2)+' s; correlation '+id+')';clearInterval(timer)}},100)});};const oldPoll=poll;window.poll=async function(){await oldPoll();const v=lastState,isE=!!v&&v.sessionMode==='ENDURANCE';sel.disabled=!!v&&v.lifecycle!=='READY';resume.disabled=!isE||!v||v.lifecycle!=='PAUSED';if(!isE&&v&&v.lifecycle==='READY')start.disabled=!selected};})();</script>)HTML";
+#else
+    static const char stage14cPresentation[] = "";
+#endif
     httpd_resp_set_type(request, "text/html; charset=utf-8");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
     if (httpd_resp_send_chunk(request, html, sizeof(html) - 1) != ESP_OK) return ESP_FAIL;
@@ -557,6 +566,7 @@ private:
     if (httpd_resp_send_chunk(request, recordControls, sizeof(recordControls) - 1) != ESP_OK) return ESP_FAIL;
     if (httpd_resp_send_chunk(request, stage13Presentation, sizeof(stage13Presentation) - 1) != ESP_OK) return ESP_FAIL;
     if (httpd_resp_send_chunk(request, stage14bPresentation, sizeof(stage14bPresentation) - 1) != ESP_OK) return ESP_FAIL;
+    if (httpd_resp_send_chunk(request, stage14cPresentation, sizeof(stage14cPresentation) - 1) != ESP_OK) return ESP_FAIL;
     return httpd_resp_send_chunk(request, nullptr, 0);
   }
   static esp_err_t health(httpd_req_t* request) {

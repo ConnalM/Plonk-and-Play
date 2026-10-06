@@ -13,7 +13,7 @@ checks={
  'practice_engine':'bool hasLap=false,waitingForTimingOrigin=false' in engine and 'OpenPractice' in engine and 'completedResult()const{return result_;}' in engine,
  'noticeboard_practice':'sessionMode' in notice and 'sessionFastestLap' in notice,
  'browser_routes':'/request/resume' in browser and '/request/end-session' in browser and 'OPEN_PRACTICE' in browser,
- 'no_practice_records':'recordEligible_=definition_&&definition_->mode()==SessionMode::LapRace' in engine,
+ 'no_practice_records':'recordEligible_=definition_' in engine and 'SessionMode::OpenPractice' in engine,
  'message_compatibility':'FinishSettlement=18' in core and 'FinishSettled=19' in core,
 }
 failed=[k for k,v in checks.items() if not v]

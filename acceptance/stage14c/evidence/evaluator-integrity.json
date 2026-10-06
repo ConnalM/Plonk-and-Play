@@ -1,0 +1,7 @@
+{
+  "corruption": "production Endurance state member structurally altered in isolated source",
+  "corrupted_evaluator": "FAIL",
+  "restored_evaluator": "PASS",
+  "corrupted_output": "Stage 14C structural FAIL: expiry_contract",
+  "restored_output": "Stage 14C structural PASS: endurance_mode, expiry_contract, lap_penalty, relevant_time, generic_ops, browser_endurance, official_result, no_practice_records, format_version"
+}

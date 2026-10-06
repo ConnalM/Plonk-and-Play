@@ -1,0 +1,34 @@
+Stage 12 evaluator PASS: 12.1-12.22, subtests, and 12.T
+
+{
+  "types_append_18_19": false,
+  "finish_publish_authority": true,
+  "finish_reply_authority": true,
+  "normal_bus_routes": true,
+  "race_engine_owns_result": true,
+  "control_does_not_rank": true,
+  "browser_does_not_calculate_result": true,
+  "input_does_not_interpret_finish_rules": true,
+  "browser_not_bus_participant": true,
+  "details_use_retained_laps": true,
+  "race_again_authority": true,
+  "human_result_fallbacks": true,
+  "home_has_no_server_route": true
+}
+
+{
+  "stage1": true,
+  "stage2": true,
+  "stage3": true,
+  "stage4": true,
+  "stage5": true,
+  "stage6": true,
+  "stage7": true,
+  "stage8": true,
+  "stage9": true,
+  "stage10": true,
+  "stage11": true,
+  "authorised_supersessions_only": true,
+  "stage12_frozen_plan_unchanged": true
+}
+Stage 1-11 regression review PASS

@@ -12,10 +12,10 @@ namespace pp {
 using Time = uint64_t; // Monotonic microseconds in this controller boot's domain.
 enum class Role : uint8_t { Lifecycle, Memory, Input, RaceControl, RaceEngine, Output, Presentation, Diagnostics };
 constexpr uint16_t mask(Role r) { return uint16_t(1u << unsigned(r)); }
-enum class SessionMode : uint8_t { LapRace=1, OpenPractice=2 };
+enum class SessionMode : uint8_t { LapRace=1, OpenPractice=2, Endurance=3 };
 // Numeric values through DiagnosticProbe are the accepted Stage 7 compatibility baseline.
-// Stage 12 compatibility assertion: FinishSettlement=18, FinishSettled=19, Count=20
-enum class Type : uint8_t { LoadConfiguration=0, ConfigurationLoaded=1, InputEvent=2, GoScheduled=3, LapCompleted=4, CompetitionComplete=5, NoticeboardChanged=6, DiagnosticProbe=7, StartRequest=8, RequestResult=9, RaceIntegrityFault=10, SessionOperationRequest=11, SessionOperation=12, InputSettlement=13, PauseSettled=14, Paused=15, RestartScheduled=16, Resumed=17, FinishSettlement=18, FinishSettled=19, FalseStart=20, HistoryStored=21, StorageFault=22, Count=23 };
+// Stage 14C appends EnduranceExpired; earlier values remain stable.
+enum class Type : uint8_t { LoadConfiguration=0, ConfigurationLoaded=1, InputEvent=2, GoScheduled=3, LapCompleted=4, CompetitionComplete=5, NoticeboardChanged=6, DiagnosticProbe=7, StartRequest=8, RequestResult=9, RaceIntegrityFault=10, SessionOperationRequest=11, SessionOperation=12, InputSettlement=13, PauseSettled=14, Paused=15, RestartScheduled=16, Resumed=17, FinishSettlement=18, FinishSettled=19, FalseStart=20, HistoryStored=21, StorageFault=22, EnduranceExpired=23, Count=24 };
 enum class ClientContext : uint8_t { Spectator, RaceDirectorSmug };
 enum class RequestResult : uint8_t { Accepted, Rejected };
 enum class RequestRejection : uint8_t { None, PermissionDenied, LifecycleNotStartable, InvalidRaceSetup, RequiredCapabilityUnavailable, SessionDefinitionUnavailable, LifecycleNotPausable, LifecycleNotRestartable, PauseSettlementPending, LifecycleNotRaceAgain, ConfirmationRequired, LifecycleNotAbandonable, StorageUnavailable, LifecycleNotResumable, LifecycleNotEndable };
@@ -61,6 +61,8 @@ struct Message {
   RaceIntegrityReason integrityReason = RaceIntegrityReason::None;
   SessionOperation operation = SessionOperation::Pause;
   SessionMode sessionMode = SessionMode::LapRace;
+  uint16_t durationMinutes = 0;
+  uint8_t finishPolicy = 0;
   RestartMethod restartMethod = RestartMethod::None;
   uint32_t historySequence = 0;
 };
@@ -156,6 +158,7 @@ private:
       case Type::DiagnosticProbe: return mask(Role::Diagnostics);
       case Type::FalseStart: return mask(Role::RaceEngine);
       case Type::HistoryStored: case Type::StorageFault: return mask(Role::RaceEngine);
+      case Type::EnduranceExpired: return mask(Role::RaceControl);
       default: return 0;
     }
   }
@@ -181,6 +184,7 @@ private:
       case Type::DiagnosticProbe: return mask(Role::Diagnostics);
       case Type::FalseStart: return mask(Role::RaceControl)|mask(Role::Presentation)|mask(Role::Diagnostics);
       case Type::HistoryStored: case Type::StorageFault: return mask(Role::RaceControl)|mask(Role::Presentation)|mask(Role::Diagnostics);
+      case Type::EnduranceExpired: return mask(Role::RaceEngine)|mask(Role::RaceControl)|mask(Role::Presentation)|mask(Role::Diagnostics);
       default: return 0;
     }
   }

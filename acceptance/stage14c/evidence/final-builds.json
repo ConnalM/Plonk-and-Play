@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-10-06T07:51:32.418869+00:00",
+  "sourceHead": "62c97d954af4f96397bef096058798aa7c4e403a",
+  "workingTreeSourceSha256": "4336598df52592cbc50e000026185967bdce2e3613c8394d8e2202ceb49efdbe",
+  "artifacts": [
+    {
+      "environment": "stage14cacceptance",
+      "path": "firmware\\.pio\\build\\stage14cacceptance\\firmware.merged.bin",
+      "bytes": 945152,
+      "sha256": "735730932571945d6a450f26b249b3ca1fdc23dcb641ef0883b284aff9fb4c98"
+    },
+    {
+      "environment": "stage14cdemo",
+      "path": "firmware\\.pio\\build\\stage14cdemo\\firmware.merged.bin",
+      "bytes": 913952,
+      "sha256": "d4833718c03f4ebb4f84a0d721b3a974369746403106e0b39d64181e02d1e3e8"
+    }
+  ],
+  "capacity": {
+    "PP_MAX_ENTRIES": 8,
+    "authoritativeLapCount": "unbounded by detail retention",
+    "retainedDetailedLapsPerEntry": 16
+  }
+}

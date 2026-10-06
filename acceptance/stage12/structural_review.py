@@ -16,7 +16,9 @@ input_code=core
 
 checks={
 
- 'types_append_18_19': 'FinishSettlement=18, FinishSettled=19, Count=20' in core,
+ # Stage 14C appends EnduranceExpired after the frozen Stage 12 values;
+ # retain the original numeric contract while accepting the later append.
+ 'types_append_18_19': ('FinishSettlement=18, FinishSettled=19, Count=20' in core) or ('FinishSettlement=18' in core and 'FinishSettled=19' in core and 'EnduranceExpired=23' in core),
 
  'finish_publish_authority': 'case Type::FinishSettlement: return mask(Role::RaceEngine);' in core,
 
