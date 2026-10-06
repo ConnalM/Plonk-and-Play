@@ -91,6 +91,7 @@ private:
   }
   void interpretEndurance(const Message&m,const RaceEntryDefinition&def,EntryState&s){
     if(paused_&&m.relevantTime>=pauseAt_)return;if(m.relevantTime<s.lastCrossing)return;
+    if(resumeAt_&&m.relevantTime<resumeAt_)return;
     const bool after=expiryTime_&&m.relevantTime>expiryTime_, at=expiryTime_&&m.relevantTime==expiryTime_;
     if(enduranceExpired_&&after){if(finishBehaviour_!=LapFinishBehaviour::CompleteCurrentLap||!s.timingOriginEstablished||s.postExpiryCompleted)return;s.postExpiryCompleted=true;s.lastCrossing=m.relevantTime;completeEnduranceEntry(s,m.relevantTime,def);return;}
     if(enduranceExpired_&&!at)return;if(after&&finishBehaviour_!=LapFinishBehaviour::CompleteCurrentLap)return;

@@ -13,24 +13,6 @@ entry 0x400805dc
 [INIT] System Time READY: monotonic 64-bit microsecondsACC READY
 [INIT] Memory READY: NVS behind Memory boundary
 [INIT] Message Bus READY: bounded mailboxes; authority checked
-[TEST] PASS bus.authority.publish
-[TEST] PASS bus.authority.subscribe
-[TEST] PASS bus.fanout.publish
-[TEST] PASS bus.fanout.identical
-[TEST] PASS bus.no.duplicate
-[TEST] PASS bus.backpressure.atomic
-[TEST] PASS bus.fifo
-[TEST] PASS bus.recovery
-[BUS SELF-TEST] PASS
-[INIT] Working configuration READY in RAM (factory: no saved configuration)
-[CONFIG] Lap Race proposed; lanes=2 laps=10 optional_features=off
-[INIT] Input Module READY: one simulated detector; Race Control / Race Engine / Output / Presentation dormant
-[INIT] No capabilities discovered or assigned; session readiness not claimed
-STAGE1_PASS skeleton initialised; no race behaviour
-STAGE2_PASS one simulated Input Device ready; no race behaviour
-STAGE3_PASS Message Bus delivery boundary ready; no race behaviour
-STAGE4_PASS Session Definition scaffold ready; no race behaviour
-[DEV] Serial: ? status, t bus self-test, q quiet, v diagnostics on
 ACC S14C test=14C.6 pass=1 false_start_off_warning_penalty_zero_and_nonzero=1
 ACC S14C test=14C.1 pass=1 duration=1 mode=endurance
 ACC S14C test=14C.2 pass=1 whole_minute_serialized=1
@@ -43,11 +25,11 @@ ACC S14C test=14C.8 pass=1 stop_at_zero_observed=1
 ACC S14C test=14C.9 pass=1 expiry_settled=1 sealed=1
 ACC S14C test=14C.10 pass=1 classification_relevant_time=1
 ACC S14C test=14C.11 pass=1 zero_and_overtime_boundaries=1
-ACC S14C test=14C.12 pass=1 pause_resume_duration_fence=1
-ACC S14C test=14C.13 pass=1 repeated_pause_resume_lap_semantics=1
+ACC S14C test=14C.12 pass=1 pause_resume_duration_fence=1 paused_laps=1
+ACC S14C test=14C.13 pass=1 lap_resume_countdown=1 repeated_cycles=1 paused_laps=1 final_laps=3
 ACC S14C test=14C.14 pass=1 end_race_abandonment_boundary=1
 ACC S14C test=14C.15 pass=1 results_api=1
-ACC S14C test=14C.16 pass=1 results_details_reconstruct=1
+ACC S14C test=14C.16 pass=1 results_history_api_reconstruct=1
 ACC S14C test=14C.17 pass=1 persistence_boundary=1 sequence=1
 ACC S14C test=14C.18 pass=1 active_restart_volatile=1
 ACC S14C test=14C.19 pass=1 record_eligibility=1

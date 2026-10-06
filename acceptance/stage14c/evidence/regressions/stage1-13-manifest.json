@@ -1,0 +1,113 @@
+{
+  "campaign": "Stage 14C applicable Stage 1-13 regression campaign",
+  "generatedAt": "2026-10-06T13:30:49.341216+00:00",
+  "sourceCommit": "51e028590d17ffb54863824be8d265a3773c1eca",
+  "workingTreeSourceSha256": "32e0b98dcef689aaba0f5dd710f11ba91658ffe37723cdda328a9b87faf1d309",
+  "results": [
+    {
+      "stage": 1,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:26:35.363663+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage1.log",
+      "log_sha256": "4d9ac2a039576cdcf122f13c2b6a550f6e51a79d23495784228583b6a557b877"
+    },
+    {
+      "stage": 2,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:27:26.851706+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage2.log",
+      "log_sha256": "cf8a6df414b6072f32e07614856fc25b04f8dadc6b2b23ed67a2186641510395"
+    },
+    {
+      "stage": 3,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:27:57.493914+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage3.log",
+      "log_sha256": "708a48200bd369a035866f2a0a6b14e10fe1b585846d946db6b0037e079e033f"
+    },
+    {
+      "stage": 4,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:28:23.744154+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage4.log",
+      "log_sha256": "592779ac1fffb861d6841c9bc675c1333d5be951bb357510774a8710d73f0c17"
+    },
+    {
+      "stage": 5,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:28:41.520698+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage5.log",
+      "log_sha256": "bd669a0232e598f5c8b938764ef59c49bcd2e432b2d4ef3e8f982b37fc9856f3"
+    },
+    {
+      "stage": 6,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:28:41.649540+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage6.log",
+      "log_sha256": "aeb268f47b017b2b85104e72bf5d5e66680970d7ce95f3cf7d253317f01fe09f"
+    },
+    {
+      "stage": 7,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:29:02.392015+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage7.log",
+      "log_sha256": "c548055f21a4619becac0aff99d65213ed420e9cc682f21ea57d792f1ea4e533"
+    },
+    {
+      "stage": 8,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:29:20.585629+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage8.log",
+      "log_sha256": "9e5977cfec3d259023b5df7250ae5b603a7a2a255cfcae70dc838d1957060ff0"
+    },
+    {
+      "stage": 9,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:29:39.521027+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage9.log",
+      "log_sha256": "2afd6f8c1c0d368e239f3752d52386b9d782dc6e222b8ef0851b6fd23d54633e"
+    },
+    {
+      "stage": 10,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:30:04.159883+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage10.log",
+      "log_sha256": "f71f43fd7e5b8179e2bc5dfcdd2dba7dfcb615b4c0b6ef170e84d98407123420"
+    },
+    {
+      "stage": 11,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:30:09.698062+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage11.log",
+      "log_sha256": "4715ad3539736f0187086172a69cb78164c2625908d9c83a6e298353ea060906"
+    },
+    {
+      "stage": 12,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:30:20.134261+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage12.log",
+      "log_sha256": "5012debfd427bb81241f02c3ab36ca463404d81caca1f9142a218f2a4797f2b7"
+    },
+    {
+      "stage": 13,
+      "status": "PASS",
+      "returncode": 0,
+      "started": "2026-10-06T13:30:33.923480+00:00",
+      "log": "acceptance\\stage14c\\evidence\\regressions\\stage13.log",
+      "log_sha256": "17fa20b44885f1b6c16c94a2f97814236789f6b2a5c5b397d957470f2babd0ac"
+    }
+  ],
+  "evidenceBinding": "Fresh Stage 1-13 campaign executed by acceptance/stage14a/run_regressions.py against the corrected Stage 14C working tree; logs retained here."
+}

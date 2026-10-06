@@ -24,7 +24,7 @@ acceptance = args.acceptance_bin or (ROOT / "firmware/.pio/build/stage14caccepta
 checks = {
     "live_state_poll": "const state=await get('/state')" in browser and "$('#connection').textContent='synchronised'" in browser,
     "poll_state_not_revision_gated": bool(re.search(r"const n=await get\('/noticeboard'\).*?const state=await get\('/state'\)", browser, re.S)) and "if(changed){try{$('#fact')" in browser,
-    "endurance_countdown": 'Time remaining: '+"'+clock(v.remainingDuration)+'" in browser and 'Overtime: '+"'+overtimeClock(v.overtime)+'" in browser,
+    "endurance_countdown": "displayRemaining" in browser and "clock(displayRemaining)" in browser and 'Overtime: '+"'+overtimeClock(v.overtime)+'" in browser,
     "authoritative_overtime": "s.finishBehaviour==LapFinishBehaviour::CompleteCurrentLap" in notice and "s.durationExpired" in notice,
     "browser_authority_gate": "window.browserHasMaster" in browser and "Race Director authority required to start Endurance." in browser,
     "active_setup_reconstruction": "minutes.value=String(v.durationMinutes)" in browser and "v.finishBehaviour==='COMPLETE_CURRENT_LAP'" in browser,

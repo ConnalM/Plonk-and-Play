@@ -13,3 +13,5 @@ ATTEMPT 1
 1.12 PASS
 1.13 PASS
 1.T PASS
+warning: in the working copy of 'firmware/include/pp/browser_interface.h', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'firmware/tests/stage14c_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it

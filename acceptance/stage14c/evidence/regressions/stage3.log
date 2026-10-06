@@ -16,6 +16,7 @@ warning: in the working copy of 'acceptance/stage3/evidence/source/acceptance/st
 warning: in the working copy of 'acceptance/stage3/evidence/source/acceptance/stage3/scenario.yaml', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/.gitignore', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/diagram.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/include/pp/browser_interface.h', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/include/pp/verification.h', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/test.ps1', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/assert-logs.ps1', LF will be replaced by CRLF the next time Git touches it
@@ -30,3 +31,5 @@ warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/test
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/stage9_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/wokwi-dev.ps1', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/wokwi.toml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'firmware/include/pp/browser_interface.h', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'firmware/tests/stage14c_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it

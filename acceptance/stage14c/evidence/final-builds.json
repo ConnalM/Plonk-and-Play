@@ -1,19 +1,19 @@
 {
-  "generatedAt": "2026-10-06T10:56:01.100191+00:00",
-  "sourceHead": "74e7ec3c4cfab1e882ae054f0014249c816b7c88",
-  "workingTreeSourceSha256": "533a48b62f83f808de820816b9a45e980fa95467d1e5fe6bef3339eca96632c2",
+  "generatedAt": "2026-10-06T13:33:28.047251+00:00",
+  "sourceHead": "b66ad73850722a275ec05f93883ee78037da7247",
+  "workingTreeSourceSha256": "32e0b98dcef689aaba0f5dd710f11ba91658ffe37723cdda328a9b87faf1d309",
   "artifacts": [
     {
       "environment": "stage14cacceptance",
       "path": "firmware\\.pio\\build\\stage14cacceptance\\firmware.merged.bin",
-      "bytes": 948064,
-      "sha256": "d8c04737954cb017d5208eb52bc9597f4b52b9f53895e197fa43244ae94f5ded"
+      "bytes": 951504,
+      "sha256": "4b9c8fbcd3f8dd7f0a49fc85b0308c05f87c71e26666001e670a231fc144c81e"
     },
     {
       "environment": "stage14cdemo",
       "path": "firmware\\.pio\\build\\stage14cdemo\\firmware.merged.bin",
-      "bytes": 916832,
-      "sha256": "f18716746794750dccc9182cd7a23d3f3f13366e7974c52e4c21b6c9eec092f5"
+      "bytes": 919104,
+      "sha256": "b56dcbab74f671efc4faf744e740ea14dd6e1790e0657c357cbfec20e51480f0"
     }
   ],
   "capacity": {
