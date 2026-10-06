@@ -1,7 +1,7 @@
 {
   "campaign": "Stage 14A applicable Stage 1-13 regressions",
   "generatedAt": "2026-10-06T10:52:58.652933+00:00",
-  "sourceCommit": "2fd2ae4264f9872dcc0797a21629a623099740ab",
+  "sourceCommit": "74e7ec3",
   "workingTreeSourceSha256": "c2c3010bbff5afdf666810217a899d84e05401806a6693500f149828a5e06f6b",
   "results": [
     {
@@ -10,7 +10,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:47:41.646029+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage1.log",
-      "log_sha256": "35b5a5eaf2f93583f483e3e1f7d36cb84689c412982a651d43130d50f5ad1625"
+      "log_sha256": "af3da3ec2a70f7b0761f7d9d5e703313c439984a3ce76c8810d158cc3577dc11"
     },
     {
       "stage": 2,
@@ -18,7 +18,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:48:39.113822+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage2.log",
-      "log_sha256": "ca8fdcaccb9309022df8e5ac8cd6bc1a9adb9df10b27b20542235919f5cbccdf"
+      "log_sha256": "5e24fb3e5472ac63925bc6bab0ac99773c885f256e272f87250837314d2a4d5f"
     },
     {
       "stage": 3,
@@ -26,7 +26,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:49:14.926693+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage3.log",
-      "log_sha256": "ff318fc97f68df2f65438f6de53f4e79644eec1d31460fddd58f92f3ff3f6b17"
+      "log_sha256": "f662911b37b0b0091061bb9a2b50aa876b6574028793060c55566c7dd85d90de"
     },
     {
       "stage": 4,
@@ -34,7 +34,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:49:48.001484+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage4.log",
-      "log_sha256": "5317b95a009c375696bb04edb31217e7155a778679a17f2748572dd113182ed0"
+      "log_sha256": "592779ac1fffb861d6841c9bc675c1333d5be951bb357510774a8710d73f0c17"
     },
     {
       "stage": 5,
@@ -42,7 +42,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:50:11.395370+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage5.log",
-      "log_sha256": "fcd0a3428f154f3e00b826412c694812c3404ce0ce71a8557bdc2730d96bb4f3"
+      "log_sha256": "bd669a0232e598f5c8b938764ef59c49bcd2e432b2d4ef3e8f982b37fc9856f3"
     },
     {
       "stage": 6,
@@ -50,7 +50,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:50:11.483935+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage6.log",
-      "log_sha256": "e73bb1c10f45a2900c9a99081e7690c0fa572620115b524dd782e54609f9fa84"
+      "log_sha256": "aeb268f47b017b2b85104e72bf5d5e66680970d7ce95f3cf7d253317f01fe09f"
     },
     {
       "stage": 7,
@@ -58,7 +58,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:50:35.388158+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage7.log",
-      "log_sha256": "e204d4b28792e6ae2b1f41f8456266f17b78e9dc128534612243344d3ac31a23"
+      "log_sha256": "c548055f21a4619becac0aff99d65213ed420e9cc682f21ea57d792f1ea4e533"
     },
     {
       "stage": 8,
@@ -66,7 +66,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:51:02.698604+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage8.log",
-      "log_sha256": "fcbf92074267ddfd0e026c6b8cf0f98686bcaccd1707cad46f872816d6ba5da5"
+      "log_sha256": "9e5977cfec3d259023b5df7250ae5b603a7a2a255cfcae70dc838d1957060ff0"
     },
     {
       "stage": 9,
@@ -74,7 +74,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:51:27.676591+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage9.log",
-      "log_sha256": "1b446290874e99ff6974d3bcc2ff92d5ea93512f6af1895efc9e7ca090ed2dae"
+      "log_sha256": "2afd6f8c1c0d368e239f3752d52386b9d782dc6e222b8ef0851b6fd23d54633e"
     },
     {
       "stage": 10,
@@ -82,7 +82,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:51:59.286951+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage10.log",
-      "log_sha256": "5c1469bbe529827d09a28c94bf6d70c852927e169caa1354a98df3b7bc5c02d0"
+      "log_sha256": "f71f43fd7e5b8179e2bc5dfcdd2dba7dfcb615b4c0b6ef170e84d98407123420"
     },
     {
       "stage": 11,
@@ -90,7 +90,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:52:09.552474+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage11.log",
-      "log_sha256": "e80b9ce4e3f6fe05c4688339bffa0e723e3117adfd7229e50a21ef43d358eda1"
+      "log_sha256": "4715ad3539736f0187086172a69cb78164c2625908d9c83a6e298353ea060906"
     },
     {
       "stage": 12,
@@ -98,7 +98,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:52:20.099487+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage12.log",
-      "log_sha256": "76d2393eb50503d3b326e9abf70ac39cdcd08e4885179d465fee21cc60732467"
+      "log_sha256": "0c30253d58c1c7cc55f9689fc97ee4434c59e6e6f9b7e035610dfc91c9992bd7"
     },
     {
       "stage": 13,
@@ -106,7 +106,7 @@
       "returncode": 0,
       "started": "2026-10-06T10:52:39.209422+00:00",
       "log": "acceptance\\stage14a\\evidence\\regressions\\stage13.log",
-      "log_sha256": "add882b0db58058e5ec80a7d05627122baf5e48857f747ab2e10f26ff63e7968"
+      "log_sha256": "9e76ff6ed5faeb9d6a36c969f2f2ec736df5222073bd24023e283301316015da"
     }
   ]
 }
