@@ -1,46 +1,4 @@
 ATTEMPT 1
-warning: in the working copy of 'acceptance/stage3/evidence/source/acceptance/stage3/evaluate.py', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/acceptance/stage3/run.ps1', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/acceptance/stage3/scenario.yaml', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/.gitignore', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/diagram.json', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/include/pp/session_definition.h', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/include/pp/verification.h', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/test.ps1', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/assert-logs.ps1', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/quiet.yaml', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/serial.yaml', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/stage14a_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/stage3_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/stage4_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/stage5_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/stage6_demo_probe.inc', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/stage7_demo_probe.inc', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/stage9_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/wokwi-dev.ps1', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/wokwi.toml', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'firmware/tests/stage14a_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
-Traceback (most recent call last):
-  File "C:\Users\conna\Documents\Plonk-and-Play\acceptance\stage3\evaluate.py", line 69, in <module>
-    if sys.argv[1]=='prepare':prepare()
-                              ^^^^^^^^^
-  File "C:\Users\conna\Documents\Plonk-and-Play\acceptance\stage3\evaluate.py", line 32, in prepare
-    save('source-manifest.json',entries);(OUT/'working-tree.patch').write_text(git('diff','--','firmware','acceptance/stage3'))
-                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\conna\.platformio\python3\Lib\pathlib.py", line 1078, in write_text
-    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\conna\.platformio\python3\Lib\pathlib.py", line 1044, in open
-    return io.open(self, mode, buffering, encoding, errors, newline)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-OSError: [Errno 22] Invalid argument: 'C:\\Users\\conna\\Documents\\Plonk-and-Play\\acceptance\\stage3\\evidence\\working-tree.patch'
-Exception: C:\Users\conna\Documents\Plonk-and-Play\acceptance\stage3\run.ps1:11
-Line |
-  11 |  if ($LASTEXITCODE -ne 0) { throw 'Evidence preparation failed.' }
-     |                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     | Evidence preparation failed.
-
-ATTEMPT 2
 3.1 PASS
 3.2 PASS
 3.3 PASS
@@ -58,7 +16,6 @@ warning: in the working copy of 'acceptance/stage3/evidence/source/acceptance/st
 warning: in the working copy of 'acceptance/stage3/evidence/source/acceptance/stage3/scenario.yaml', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/.gitignore', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/diagram.json', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/include/pp/session_definition.h', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/include/pp/verification.h', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/test.ps1', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/assert-logs.ps1', LF will be replaced by CRLF the next time Git touches it
@@ -73,4 +30,3 @@ warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/test
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/tests/stage9_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/wokwi-dev.ps1', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'acceptance/stage3/evidence/source/firmware/wokwi.toml', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'firmware/tests/stage14a_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it

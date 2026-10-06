@@ -13,4 +13,3 @@ ATTEMPT 1
 1.12 PASS
 1.13 PASS
 1.T PASS
-warning: in the working copy of 'firmware/tests/stage14a_acceptance_probe.inc', LF will be replaced by CRLF the next time Git touches it

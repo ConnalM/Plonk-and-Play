@@ -22,15 +22,15 @@ Retrieving maximum program size .pio\build\stage13acceptance\firmware.elf
 Checking size .pio\build\stage13acceptance\firmware.elf
 Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
 RAM:   [===       ]  27.4% (used 89632 bytes from 327680 bytes)
-Flash: [=======   ]  66.9% (used 877333 bytes from 1310720 bytes)
-========================= [SUCCESS] Took 2.92 seconds =========================
+Flash: [=======   ]  66.9% (used 877317 bytes from 1310720 bytes)
+========================= [SUCCESS] Took 3.47 seconds =========================
 
 Environment        Status    Duration
 -----------------  --------  ------------
-stage13acceptance  SUCCESS   00:00:02.921
-========================= 1 succeeded in 00:00:02.921 =========================
+stage13acceptance  SUCCESS   00:00:03.468
+========================= 1 succeeded in 00:00:03.468 =========================
 esptool.py v4.5.1
-Wrote 0xe7cc0 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\stage13acceptance\firmware.merged.bin, ready to flash to offset 0x0
+Wrote 0xe7cb0 bytes to file C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\stage13acceptance\firmware.merged.bin, ready to flash to offset 0x0
 Browser-loadable firmware: C:\Users\conna\Documents\Plonk-and-Play\firmware\.pio\build\stage13acceptance\firmware.merged.bin
 Stage 13 evaluator PASS: 13.1-13.25 and 13.T
 {
