@@ -1,4 +1,4 @@
-# Race Setup — Lane Assignment and Swap Behaviour
+# Race Setup — Lane Assignment and Rotation Behaviour
 
 **Status:** Accepted product/UI behaviour for implementation  
 **Scope:** Race Setup presentation and ownership of pending lane assignments for configured multi-lane tracks.
@@ -27,58 +27,95 @@ The intent is adaptive row height first, scrolling only when useful. Exact pixel
 
 Only configured physical lanes are shown. A two-lane Track Configuration shows two lane rows, not empty rows for lanes 3–8.
 
-## 3. Main SWAP LANES action
+## 3. Front-screen lane controls
 
-Race Setup provides an unobtrusive **SWAP LANES** action near the Race Setup heading/instruction area rather than giving it a large permanent block beneath the lane list.
+Lane rearrangement is performed directly on the main Race Setup screen. It does **not** require a separate lane-swap pop-up or modal.
 
-The label remains **SWAP LANES** for both two-lane and multi-lane tracks. Pressing it opens a lane-rearrangement panel/pop-up.
+Above the track/lane list, Race Setup provides:
 
-## 4. Lane-rearrangement panel
+- **ROTATE LANES**;
+- a nearby **Reverse direction** toggle;
+- **Automatically rotate after each race**.
 
-The panel shows the configured physical lanes as fixed destinations and the currently assigned Race Entries within them.
+If an icon accompanies ROTATE LANES, a vertical double-arrow treatment is appropriate because the visible entries move up/down through the lane list. Do not use a horizontal double-arrow that suggests left/right swapping.
 
-The normal manual interaction is drag/rearrange:
+The track heading (for example **2-LANE TRACK** or **8-LANE TRACK**) and configured lane rows appear below these controls.
 
-- the user drags a Racer/Race Entry from one lane to another;
-- dropping onto an occupied lane swaps/rearranges the complete entries;
+## 4. Manual drag and drop
+
+Race Entries remain directly draggable on the main Race Setup screen.
+
+- the user may drag a Racer/Race Entry from one lane to another;
+- dropping onto an occupied lane exchanges/rearranges the complete entries;
 - the operation must not create duplicate lane ownership;
 - optional Car identity moves with its Race Entry.
 
-The panel may provide **DONE** or equivalent to close the rearrangement interaction. This is not a second authoritative save boundary: accepted changes are changes to the pending Race Setup.
+Drag and drop provides arbitrary manual rearrangement. It coexists with ROTATE LANES rather than being replaced by it.
 
-## 5. Rotate and direction
+A separate **CHANGE** button on every lane row is not required. The Racer/Car area itself is the natural entry point for selecting or changing that Race Entry.
 
-The SWAP LANES panel also provides a **ROTATE** action for quickly moving all current Race Entries by one physical lane.
+## 5. Manual rotation and direction
+
+**ROTATE LANES** quickly moves all current Race Entries by one physical lane.
 
 For N configured lanes, normal rotation is conceptually:
 
 `1 → 2 → 3 → ... → N → 1`
 
-A **Reverse swap direction** checkbox reverses that mapping:
+**Reverse direction** reverses that mapping:
 
 `1 → N → ... → 3 → 2 → 1`
 
-For two lanes, either direction produces the familiar two-entry swap.
+For two lanes, either direction necessarily exchanges the two entries.
 
-The chosen swap direction is one P&P setting used consistently by both manual ROTATE and automatic post-race lane rotation. Do not maintain contradictory browser-local direction settings.
+The direction is one P&P setting used consistently by both manual ROTATE LANES and automatic post-race rotation. Do not maintain contradictory browser-local direction settings.
 
-## 6. Automatic swapping/rotation
+Terminology matters:
 
-**Auto-swap after each race** is race behaviour, not part of an individual lane row. Present it under the appropriate Race Options area rather than beneath the Race Entry list.
+- **drag/rearrange** describes arbitrary manual reassignment;
+- **rotate/rotation** describes systematic movement of every Race Entry by one lane.
 
-When enabled, P&P uses the same defined swap direction described above when preparing the appropriate next race/setup.
+Do not call the multi-lane rotation behaviour “swap lanes”.
+
+## 6. Automatic rotation
+
+**Automatically rotate after each race** is race behaviour, not part of an individual lane row.
+
+When enabled, after a properly completed race P&P rotates every Race Entry one physical lane when preparing the next pending race setup, using the same direction setting as manual ROTATE LANES.
+
+An abandoned/restarted race does not trigger automatic rotation.
+
+The completed race's Results continue to show the lanes actually used in that race. Rotation affects the pending setup for the next race; it does not rewrite the completed result.
 
 The browser must not independently perform an automatic rotation merely because it is open.
 
-## 7. Ownership and authority
+## 7. Numeric race controls
+
+Numeric Race Setup controls such as target laps should support efficient small and large changes without requiring repeated individual clicks.
+
+For target laps:
+
+- valid range is **1–999**;
+- direct text entry is supported;
+- keyboard Up/Down may increment/decrement;
+- mouse wheel over the numeric control increments/decrements;
+- a single press of `+` or `−` changes the value by one;
+- holding `+` or `−` repeats the change;
+- continued holding progressively accelerates the rate of change.
+
+Acceleration should feel progressive rather than immediately jumping to a large step. Exact timing/rate curves are presentation implementation details and should be tuned by use.
+
+This is a reusable P&P numeric-control behaviour. Other suitable numeric settings such as durations or run counts should use the same interaction pattern where appropriate.
+
+## 8. Ownership and authority
 
 The browser is the interface for choosing these options; it is not their authority.
 
-Lane assignments, swap direction and auto-swap state belong to P&P's authoritative **pending Race Setup / pending session proposal**.
+Lane assignments, rotation direction and automatic-rotation state belong to P&P's authoritative **pending Race Setup / pending session proposal**.
 
 Therefore:
 
-- a browser requests a lane-assignment or swap-setting change;
+- a browser requests a lane-assignment, rotation or setting change;
 - P&P validates and owns the resulting pending configuration;
 - the browser reads back and presents that authoritative pending state;
 - multiple connected browsers must converge on the same pending assignments/settings rather than maintaining private local versions;
@@ -87,24 +124,23 @@ Therefore:
 
 Once START is accepted, the active Session Definition's lane assignments are frozen for that session. A browser must not casually mutate the active race by editing the next/pending setup.
 
-This requirement is intentionally consistent with the pending-session ownership cleanup: lane-swap UI must not recreate Browser-local proposal state.
+This requirement is intentionally consistent with the pending-session ownership cleanup: lane-management UI must not recreate Browser-local proposal state.
 
-## 8. Availability and disabling
+## 9. Availability and disabling
 
-SWAP LANES / rearrangement controls are available only when P&P says the pending setup can be edited.
+Lane rearrangement and rotation controls are available only when P&P says the pending setup can be edited.
 
-If the relevant configuration is frozen or changing it is not currently permitted, the browser disables the action rather than making a local change that Race Control will later reject.
+If the relevant configuration is frozen or changing it is not currently permitted, the browser disables the controls rather than making a local change that Race Control will later reject.
 
-## 9. Presentation principle
+## 10. Presentation principle
 
-The ordinary Race Setup remains simple:
+The ordinary Race Setup remains simple and direct:
 
-- configured lane rows with Racer and optional Car;
-- a small SWAP LANES action;
-- race-defining settings such as laps and finish behaviour;
-- More Race Options for secondary race behaviour, including Auto-swap;
-- the permanent READY / START contract.
-
-The lane-rearrangement panel hides the richer multi-lane manipulation until the user asks for it.
+- ROTATE LANES, Reverse direction and automatic rotation are visible above the configured track/lane list;
+- configured lane rows show Racer and optional Car;
+- entries can be dragged directly between fixed physical lanes;
+- race-defining settings such as laps and finish behaviour remain alongside the entries;
+- More Race Options is reserved for other secondary race behaviour;
+- the permanent READY / START contract remains intact.
 
 > **The lane stays put; the Race Entry moves. The browser requests; P&P owns.**
