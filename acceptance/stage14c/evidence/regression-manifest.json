@@ -1,195 +1,50 @@
 {
-  "campaign": "applicable Stage 1-14B read-only evaluator and structural regression checks",
-  "generatedAt": "2026-10-05T16:54:03.523847+00:00",
-  "sourceCommit": "62c97d954af4f96397bef096058798aa7c4e403a",
-  "results": [
+  "campaign": "Complete applicable Stage 1-13 regression review plus Stage 14A/B/C shared-path checks",
+  "generatedAt": "2026-10-06T07:53:02.1249511Z",
+  "sourceCommit": "00c7639e52589111fb1463f940f707d3e58b1577",
+  "checks": [
     {
-      "stage": 1,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 1,
-          "output": "Traceback (most recent call last):\n  File \"C:\\Users\\conna\\Documents\\Plonk-and-Play\\acceptance\\stage1\\evaluate.py\", line 147, in <module>\n    if sys.argv[1]=='prepare':prepare()\n       ~~~~~~~~^^^\nIndexError: list index out of range\n"
-        }
-      ],
-      "status": "FAIL"
+      "check": "acceptance/stage13/regression_review.py",
+      "returncode": 0,
+      "status": "PASS",
+      "output": "{\r\n  \"stage1\": true,\r\n  \"stage2\": true,\r\n  \"stage3\": true,\r\n  \"stage4\": true,\r\n  \"stage5\": true,\r\n  \"stage6\": true,\r\n  \"stage7\": true,\r\n  \"stage8\": true,\r\n  \"stage9\": true,\r\n  \"stage10\": true,\r\n  \"stage11\": true,\r\n  \"stage12\": true,\r\n  \"stage12_structural\": true,\r\n  \"stage12_stress\": true,\r\n  \"stage13\": true,\r\n  \"stage13_structural\": true,\r\n  \"stage13_stress\": true,\r\n  \"authorised_supersessions_only\": true,\r\n  \"STAGE_13_DESIGN.md_frozen_plan_unchanged\": true,\r\n  \"ACCEPTANCE_TESTS_STAGE_13.md_frozen_plan_unchanged\": true\r\n}\r\nStage 1-12 regression review and Stage 13 campaign review PASS"
     },
     {
-      "stage": 2,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 1,
-          "output": "Traceback (most recent call last):\n  File \"C:\\Users\\conna\\Documents\\Plonk-and-Play\\acceptance\\stage2\\evaluate.py\", line 115, in <module>\n    if sys.argv[1]=='prepare': prepare()\n       ~~~~~~~~^^^\nIndexError: list index out of range\n"
-        }
-      ],
-      "status": "FAIL"
+      "check": "acceptance/stage14a/structural_review.py",
+      "returncode": 0,
+      "status": "PASS",
+      "output": "Stage 14A structural PASS: shared_capacity, engine_not_two, session_indexed, noticeboard_indexed, records_capacity, input_capacity, browser_dynamic_records, browser_dynamic_collections, no_unapproved_future_mode, message_values_unchanged"
     },
     {
-      "stage": 3,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 1,
-          "output": "Traceback (most recent call last):\n  File \"C:\\Users\\conna\\Documents\\Plonk-and-Play\\acceptance\\stage3\\evaluate.py\", line 69, in <module>\n    if sys.argv[1]=='prepare':prepare()\n       ~~~~~~~~^^^\nIndexError: list index out of range\n"
-        }
-      ],
-      "status": "FAIL"
+      "check": "acceptance/stage14a/evaluator_integrity.py",
+      "returncode": 0,
+      "status": "PASS",
+      "output": "Stage 14A evaluator integrity PASS: corrupted=FAIL restored=PASS"
     },
     {
-      "stage": 4,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 0,
-          "output": "4.1 PASS\n4.2 PASS\n4.3 PASS\n4.4 PASS\n4.5 PASS\n4.6 PASS\n4.7 PASS\n4.8 PASS\n4.9 PASS\n4.10 PASS\n4.T PASS\n"
-        }
-      ],
-      "status": "PASS"
+      "check": "acceptance/stage14b/structural_review.py",
+      "returncode": 0,
+      "status": "PASS",
+      "output": "Stage 14B structural PASS: mode_contract, generic_operations, indexed_entries, practice_engine, noticeboard_practice, browser_routes, no_practice_records, message_compatibility"
     },
     {
-      "stage": 5,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 0,
-          "output": "5.1 PASS\n5.2 PASS\n5.3 PASS\n5.4 PASS\n5.5 PASS\n5.6 PASS\n5.7 PASS\n5.8 PASS\n5.9 PASS\n5.10 PASS\n5.11 PASS\n5.12 PASS\n5.13 PASS\n5.T PASS\n"
-        }
-      ],
-      "status": "PASS"
+      "check": "acceptance/stage14b/evaluator_integrity.py",
+      "returncode": 0,
+      "status": "PASS",
+      "output": "Stage 14B evaluator integrity PASS: corrupted=FAIL restored=PASS"
     },
     {
-      "stage": 6,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 0,
-          "output": "6.1 PASS\n6.2 PASS\n6.3 PASS\n6.4 PASS\n6.5 PASS\n6.6 PASS\n6.7 PASS\n6.8 PASS\n6.9 PASS\n6.10 PASS\n6.11 PASS\n6.12 PASS\n6.13 PASS\n6.14 PASS\n6.15 PASS\n6.T PASS\n"
-        }
-      ],
-      "status": "PASS"
+      "check": "acceptance/stage14c/structural_review.py",
+      "returncode": 0,
+      "status": "PASS",
+      "output": "Stage 14C structural PASS: endurance_mode, expiry_contract, lap_penalty, relevant_time, generic_ops, browser_endurance, official_result, no_practice_records, format_version"
     },
     {
-      "stage": 7,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 0,
-          "output": "7.1 PASS\n7.2 PASS\n7.3 PASS\n7.4 PASS\n7.5 PASS\n7.6 PASS\n7.7 PASS\n7.8 PASS\n7.9 PASS\n7.10 PASS\n7.11 PASS\n7.12 PASS\n7.13 PASS\n7.14 PASS\n7.15 PASS\n7.16 PASS\n7.T PASS\n"
-        }
-      ],
-      "status": "PASS"
-    },
-    {
-      "stage": 8,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 0,
-          "output": "8.1 PASS\n8.2 PASS\n8.3 PASS\n8.4 PASS\n8.5 PASS\n8.6 PASS\n8.7 PASS\n8.8 PASS\n8.9 PASS\n8.10 PASS\n8.11 PASS\n8.12 PASS\n8.13 PASS\n8.14 PASS\n8.15 PASS\n8.16 PASS\n8.17 PASS\n8.T PASS\n"
-        },
-        {
-          "check": "structural_review.py",
-          "returncode": 0,
-          "output": "Race Control consumes and decides START_REQUEST PASS\nRace Engine does not consume START_REQUEST or commit sessions PASS\nNoticeboard does not decide START_REQUEST PASS\nRace Control owns session commit and existing start procedure PASS\nSession Definition is fixed data, not a Bus participant PASS\nBrowser Interface is the Bus participant PASS\nBrowser has no direct Race Control or Race Engine control route PASS\nBus authority restricts START_REQUEST and REQUEST_RESULT PASS\nPresentation loss policy remains message-contract-specific PASS\nBrowser State is derived from Noticeboard cache PASS\n"
-        }
-      ],
-      "status": "PASS"
-    },
-    {
-      "stage": 9,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 0,
-          "output": "9.1 PASS\n9.2 PASS\n9.3 PASS\n9.4 PASS\n9.5 PASS\n9.6 PASS\n9.7 PASS\n9.8 PASS\n9.9 PASS\n9.10 PASS\n9.11 PASS\n9.12 PASS\n9.13 PASS\n9.14 PASS\n9.15 PASS\n9.16 PASS\n9.17 PASS\n9.18 PASS\n9.19 PASS\n9.20 PASS\n9.T PASS\n"
-        },
-        {
-          "check": "structural_review.py",
-          "returncode": 0,
-          "output": "PASS Input Module owns bounded protected backlog\nPASS Input Module publishes standard INPUT_EVENT\nPASS No direct Input Module to Race Engine call\nPASS Race Engine owns per-entry state\nPASS Relevant Time ordering is explicit\nPASS Fault remains a Bus message with authority\nPASS Fault priority is bounded Bus queue policy\nPASS Race Control owns fault consequence\nPASS Session Definition holds indexed roles and entries\n"
-        }
-      ],
-      "status": "PASS"
-    },
-    {
-      "stage": 10,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 0,
-          "output": "10.1 PASS\n10.2 PASS\n10.3 PASS\n10.4 PASS\n10.5 PASS\n10.6 PASS\n10.7 PASS\n10.8 PASS\n10.9 PASS\n10.10 PASS\n10.11 PASS\n10.12 PASS\n10.13 PASS\n10.14 PASS\n10.15 PASS\n10.16 PASS\n10.17 PASS\n10.T PASS\n"
-        },
-        {
-          "check": "structural_review.py",
-          "returncode": 0,
-          "output": "Browser Interface is the sole Browser-side Bus participant PASS\nCookie identity contains no role or authority claim PASS\nRetained Master binding is Browser Interface state only PASS\nRace Control has no Browser identity/token/cookie dependency PASS\nRace Engine and Noticeboard have no Browser authority ownership PASS\nSession Definition contains no Browser identity PASS\nSTART authority remains Message Bus restricted PASS\nRequest Results remain Race Control to Presentation only PASS\nBrowser state is current Noticeboard state, not replay PASS\nPresentation loss cannot block Input/Race Engine PASS\nNo private Browser-to-Race-Control control route PASS\n"
-        }
-      ],
-      "status": "PASS"
-    },
-    {
-      "stage": 11,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 0,
-          "output": "Stage 11 smoke/evidence evaluator PASS\n"
-        },
-        {
-          "check": "structural_review.py",
-          "returncode": 0,
-          "output": "{\n  \"new_types_appended\": true,\n  \"settlement_bus_path\": true,\n  \"no_browser_bus_participant\": true,\n  \"relevant_time_boundaries\": true,\n  \"fixed_restart_interval\": true,\n  \"browser_controls\": true\n}\n"
-        }
-      ],
-      "status": "PASS"
-    },
-    {
-      "stage": 12,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 0,
-          "output": "Stage 12 evaluator PASS: 12.1-12.22, subtests, and 12.T\n"
-        },
-        {
-          "check": "structural_review.py",
-          "returncode": 1,
-          "output": "{\n  \"types_append_18_19\": false,\n  \"finish_publish_authority\": true,\n  \"finish_reply_authority\": true,\n  \"normal_bus_routes\": true,\n  \"race_engine_owns_result\": true,\n  \"control_does_not_rank\": true,\n  \"browser_does_not_calculate_result\": true,\n  \"input_does_not_interpret_finish_rules\": true,\n  \"browser_not_bus_participant\": true,\n  \"details_use_retained_laps\": true,\n  \"race_again_authority\": true,\n  \"human_result_fallbacks\": true,\n  \"home_has_no_server_route\": true\n}\n"
-        },
-        {
-          "check": "regression_review.py",
-          "returncode": 0,
-          "output": "{\n  \"stage1\": true,\n  \"stage2\": true,\n  \"stage3\": true,\n  \"stage4\": true,\n  \"stage5\": true,\n  \"stage6\": true,\n  \"stage7\": true,\n  \"stage8\": true,\n  \"stage9\": true,\n  \"stage10\": true,\n  \"stage11\": true,\n  \"authorised_supersessions_only\": true,\n  \"stage12_frozen_plan_unchanged\": true\n}\nStage 1-11 regression review PASS\n"
-        }
-      ],
-      "status": "FAIL"
-    },
-    {
-      "stage": 13,
-      "checks": [
-        {
-          "check": "evaluate.py",
-          "returncode": 0,
-          "output": "Stage 13 evaluator PASS: 13.1-13.25 and 13.T\n"
-        },
-        {
-          "check": "structural_review.py",
-          "returncode": 0,
-          "output": "{\n  \"append_types\": true,\n  \"stage13_envs\": true,\n  \"start_configuration\": true,\n  \"committed_go_schedule\": true,\n  \"false_start_capability\": true,\n  \"false_start_bus_fact\": true,\n  \"destructive_routes\": true,\n  \"records_reconstruct_and_clear\": true,\n  \"record_admin_bus_authority\": true,\n  \"settlement_gate\": true,\n  \"destructive_confirmation_gate\": true,\n  \"normal_bus_authority\": true,\n  \"lap_target_visible_and_persisted\": true,\n  \"stage13_demo_defaults_three_laps\": true,\n  \"demo_simulated_laps_excluded_from_records\": true\n}\n"
-        },
-        {
-          "check": "regression_review.py",
-          "returncode": 1,
-          "output": "{\n  \"stage1\": true,\n  \"stage2\": true,\n  \"stage3\": true,\n  \"stage4\": true,\n  \"stage5\": true,\n  \"stage6\": true,\n  \"stage7\": true,\n  \"stage8\": true,\n  \"stage9\": true,\n  \"stage10\": true,\n  \"stage11\": true,\n  \"stage12\": true,\n  \"stage12_structural\": false,\n  \"stage12_stress\": true,\n  \"stage13\": true,\n  \"stage13_structural\": true,\n  \"stage13_stress\": true,\n  \"authorised_supersessions_only\": true,\n  \"STAGE_13_DESIGN.md_frozen_plan_unchanged\": true,\n  \"ACCEPTANCE_TESTS_STAGE_13.md_frozen_plan_unchanged\": true\n}\n"
-        }
-      ],
-      "status": "FAIL"
-    },
-    {
-      "stage": 14,
-      "checks": [],
-      "status": "PASS"
+      "check": "acceptance/stage14c/evaluator_integrity.py",
+      "returncode": 0,
+      "status": "PASS",
+      "output": "Stage 14C evaluator integrity PASS: corrupted=FAIL restored=PASS"
     }
-  ]
+  ],
+  "stageCoverage": "Stage 1 through Stage 13 booleans are reported by regression_review.py; Stage 14A/B/C structural and evaluator-integrity checks are included. Existing per-stage logs are retained as raw harness output."
 }
