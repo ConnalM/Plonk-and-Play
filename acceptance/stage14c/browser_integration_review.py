@@ -37,6 +37,7 @@ checks = {
     "demo_image_stage14c_controls": image_contains(demo, b"SELECT OPEN PRACTICE") and image_contains(demo, b"SELECT ENDURANCE") and image_contains(demo, b"clearPracticeSelection") and image_contains(demo, b"clearEnduranceSelection"),
     "mode_selection_authority": "Race Director authority required to select Open Practice." in browser and "window.browserHasMaster!==true||!!v&&v.lifecycle!=='READY'" in browser,
     "mode_selection_exclusive": "window.clearPracticeSelection" in browser and "window.clearEnduranceSelection" in browser,
+    "mode_proposal_preserved_in_ready": "v&&v.lifecycle!=='READY'&&!isPractice" in browser and "v&&v.lifecycle!=='READY'){selected=false;sel.textContent='SELECT ENDURANCE';}" in browser,
     "neutral_fixture_error": "An active session is required before triggering a simulated car." in browser,
 }
 failed = [name for name, ok in checks.items() if not ok]

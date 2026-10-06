@@ -1,11 +1,4 @@
 ATTEMPT 1
-Exception: C:\Users\conna\Documents\Plonk-and-Play\acceptance\stage6\run.ps1:30
-Line |
-  30 |  â€¦  if($LASTEXITCODE -ne 0){throw 'Wokwi acceptance simulation failed.'}
-     |                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     | Wokwi acceptance simulation failed.
-
-ATTEMPT 2
 6.1 PASS
 6.2 PASS
 6.3 PASS
