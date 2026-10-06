@@ -197,6 +197,17 @@ void observeInputEvents() {
 }
 void status(){diagnostics.log("[DEV] %s %s system_us=%llu dropped=%lu; no session, no race",buildIdentity(),
   ready?"IDLE":bootFailed?"FAULT":"STARTING",static_cast<unsigned long long>(systemTime()),static_cast<unsigned long>(diagnostics.dropped));}
+void browserHealth(){
+  pp::BrowserInterface::HttpHealth health;
+  browser.httpHealth(health);
+  const String ip=WiFi.localIP().toString();
+  diagnostics.log("[DEV] HTTP HEALTH wifi_status=%d wifi_connected=%u ip=%s server=%u requests=%lu errors=%lu slow=%lu active=%lu peak=%lu starts=%lu stops=%lu reconnects=%lu last_ms=%lu last_error=%d last_route=%s free_heap=%lu min_heap=%lu",
+    int(WiFi.status()),health.wifiConnected?1U:0U,ip.c_str(),health.serverReady?1U:0U,
+    (unsigned long)health.requestCount,(unsigned long)health.requestErrors,(unsigned long)health.slowRequests,
+    (unsigned long)health.activeHandlers,(unsigned long)health.peakHandlers,(unsigned long)health.serverStarts,
+    (unsigned long)health.serverStops,(unsigned long)health.reconnectAttempts,(unsigned long)health.lastDurationMs,
+    health.lastError,health.lastRoute,(unsigned long)ESP.getFreeHeap(),(unsigned long)ESP.getMinFreeHeap());
+}
 #ifdef PP_ACCEPTANCE
 #include "../tests/acceptance_probe.inc"
 #endif
@@ -467,7 +478,7 @@ void loop(){
       diagnostics.log("%s",ready?"STAGE2_PASS one simulated Input Device ready; no race behaviour":"STAGE2_FAIL startup");
       diagnostics.log("%s",ready?"STAGE3_PASS Message Bus delivery boundary ready; no race behaviour":"STAGE3_FAIL startup");
       diagnostics.log("%s",ready?"STAGE4_PASS Session Definition scaffold ready; no race behaviour":"STAGE4_FAIL startup");
-      diagnostics.log("[DEV] Serial: ? status, t bus self-test, q quiet, v diagnostics on");
+      diagnostics.log("[DEV] Serial: ? status, h HTTP/WiFi health, t bus self-test, q quiet, v diagnostics on");
       nextStatus=systemTime()+10000000;
     }
   }
@@ -479,6 +490,7 @@ void loop(){
     if(c=='q')diagnostics.enable(false);
     else if(c=='v'){diagnostics.enable(true);status();}
     else if(c=='?')status();
+    else if(c=='h')browserHealth();
 #if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
     else if(c=='x'){activeSession.clearForFixture();raceControl.resetForFixture();raceEngine.resetForFixture();browser.clearForFixture();browserAuthority.clearForFixture();diagnostics.log("[DEV] TEST RESET READY");}
 #endif

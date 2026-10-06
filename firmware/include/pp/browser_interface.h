@@ -165,6 +165,36 @@ public:
   int serverStartError() const { return serverStartError_; }
   bool wifiConnected() const { return wifiConnected_; }
   uint32_t wifiReconnectAttempts() const { return wifiReconnectAttempts_; }
+  struct HttpHealth {
+    bool wifiConnected = false;
+    bool serverReady = false;
+    uint32_t requestCount = 0;
+    uint32_t requestErrors = 0;
+    uint32_t slowRequests = 0;
+    uint32_t activeHandlers = 0;
+    uint32_t peakHandlers = 0;
+    uint32_t serverStarts = 0;
+    uint32_t serverStops = 0;
+    uint32_t reconnectAttempts = 0;
+    uint32_t lastDurationMs = 0;
+    int lastError = 0;
+    char lastRoute[32]{};
+  };
+  void httpHealth(HttpHealth& value) const {
+    value.wifiConnected = wifiConnected_;
+    value.serverReady = server_ != nullptr;
+    value.requestCount = httpRequestCount_;
+    value.requestErrors = httpRequestErrors_;
+    value.slowRequests = httpSlowRequests_;
+    value.activeHandlers = httpActiveHandlers_;
+    value.peakHandlers = httpPeakHandlers_;
+    value.serverStarts = serverStarts_;
+    value.serverStops = serverStops_;
+    value.reconnectAttempts = wifiReconnectAttempts_;
+    value.lastDurationMs = httpLastDurationMs_;
+    value.lastError = httpLastError_;
+    strncpy(value.lastRoute, httpLastRoute_, sizeof(value.lastRoute) - 1);
+  }
   // These bounded serializers are the same production formatting boundary
   // used by the HTTP routes. They are public only so deterministic acceptance
   // fixtures can validate complete payloads without fabricating HTTP state.
@@ -219,6 +249,16 @@ private:
   bool wifiConnected_ = false;
   uint32_t wifiReconnectAttempts_ = 0;
   uint32_t lastWifiAttemptMs_ = 0;
+  uint32_t httpRequestCount_ = 0;
+  uint32_t httpRequestErrors_ = 0;
+  uint32_t httpSlowRequests_ = 0;
+  uint32_t httpActiveHandlers_ = 0;
+  uint32_t httpPeakHandlers_ = 0;
+  uint32_t httpLastDurationMs_ = 0;
+  int httpLastError_ = 0;
+  char httpLastRoute_[32]{};
+  uint32_t serverStarts_ = 0;
+  uint32_t serverStops_ = 0;
   Time scheduledGo_ = 0;
   StoredResult results_[ResultCapacity]{};
   Pending pending_[ResultCapacity]{};
@@ -229,6 +269,43 @@ private:
   bool (*fixturePass_)(uint8_t) = nullptr;
   void (*fixtureReset_)() = nullptr;
   bool (*fixtureSetup_)(uint32_t) = nullptr;
+  struct RequestTrace {
+    BrowserInterface* browser;
+    const char* route;
+    uint32_t started;
+    esp_err_t result = ESP_OK;
+    RequestTrace(BrowserInterface* value, const char* name)
+        : browser(value), route(name), started(millis()) { browser->requestEntered(route); }
+    ~RequestTrace() { browser->requestCompleted(route, result, static_cast<uint32_t>(millis() - started)); }
+    void complete(esp_err_t value) { result = value; }
+  };
+  void requestEntered(const char* route) {
+    ++httpRequestCount_;
+    ++httpActiveHandlers_;
+    if (httpActiveHandlers_ > httpPeakHandlers_) httpPeakHandlers_ = httpActiveHandlers_;
+    strncpy(httpLastRoute_, route, sizeof(httpLastRoute_) - 1);
+    httpLastRoute_[sizeof(httpLastRoute_) - 1] = 0;
+    if (httpActiveHandlers_ > 1) {
+      Serial.printf("[DEV] HTTP overlap route=%s active=%lu heap=%lu\n", route,
+                    static_cast<unsigned long>(httpActiveHandlers_),
+                    static_cast<unsigned long>(ESP.getFreeHeap()));
+    }
+  }
+  void requestCompleted(const char* route, esp_err_t result, uint32_t durationMs) {
+    if (httpActiveHandlers_) --httpActiveHandlers_;
+    httpLastDurationMs_ = durationMs;
+    httpLastError_ = result == ESP_OK ? 0 : int(result);
+    if (result != ESP_OK) ++httpRequestErrors_;
+    if (durationMs >= 500) ++httpSlowRequests_;
+    if (result != ESP_OK || durationMs >= 500) {
+      Serial.printf("[DEV] HTTP %s route=%s duration_ms=%lu result=%d active=%lu heap=%lu min_heap=%lu\n",
+                    result == ESP_OK ? "SLOW" : "ERROR", route,
+                    static_cast<unsigned long>(durationMs), int(result),
+                    static_cast<unsigned long>(httpActiveHandlers_),
+                    static_cast<unsigned long>(ESP.getFreeHeap()),
+                    static_cast<unsigned long>(ESP.getMinFreeHeap()));
+    }
+  }
   const RaceEngineModule::CompletedRaceResult& displayResult(RaceEngineModule::CompletedRaceResult& loaded) const {
     const auto& current=noticeboard_.completedResult();
     if(current.sealed || !history_) return current;
@@ -369,27 +446,30 @@ private:
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;if(owned)free(loaded);return ok;
   }
   static esp_err_t state(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/state");
     client(request);
     const NoticeboardState value = instance()->current();
     char* json=static_cast<char*>(malloc(StateJsonCapacity)); size_t length=0;
-    if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"state buffer unavailable");return ESP_FAIL;}
-    if(!serializeState(value,systemTime(),json,StateJsonCapacity,length)){free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"state entry count exceeds capacity");return ESP_FAIL;}
+    if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"state buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}
+    if(!serializeState(value,systemTime(),json,StateJsonCapacity,length)){free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"state entry count exceeds capacity");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}
     httpd_resp_set_type(request,"application/json"); httpd_resp_set_hdr(request,"Cache-Control","no-store");
-    const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);return sent;
+    const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);trace.complete(sent);return sent;
   }
   static const char* finishBehaviour(LapFinishBehaviour value) {
     return value==LapFinishBehaviour::CompleteCurrentLap?"COMPLETE_CURRENT_LAP":value==LapFinishBehaviour::CompleteFullRaceDistance?"COMPLETE_FULL_RACE_DISTANCE":"IMMEDIATE";
   }
   static esp_err_t resultsRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/results");
     client(request);auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));char* json=static_cast<char*>(malloc(ResultsJsonCapacity));
-    if(!loaded||!json){free(loaded);free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"result buffer unavailable");return ESP_FAIL;}const auto&r=instance()->displayResult(*loaded);size_t length=0;
-    if(!serializeResults(r,json,ResultsJsonCapacity,length)){free(loaded);free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"result entry count exceeds capacity");return ESP_FAIL;}
-    httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(loaded);free(json);return sent;
+    if(!loaded||!json){free(loaded);free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"result buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}const auto&r=instance()->displayResult(*loaded);size_t length=0;
+    if(!serializeResults(r,json,ResultsJsonCapacity,length)){free(loaded);free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"result entry count exceeds capacity");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}
+    httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(loaded);free(json);trace.complete(sent);return sent;
   }
   static esp_err_t detailsRoute(httpd_req_t* request) {
-     client(request);auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));char* chunk=static_cast<char*>(malloc(320));if(!loaded||!chunk){free(loaded);free(chunk);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"details buffer unavailable");return ESP_FAIL;}const auto&r=instance()->displayResult(*loaded);httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");snprintf(chunk,320,"{\"sealed\":%s,\"lapTarget\":%lu,\"entries\":[",r.sealed?"true":"false",(unsigned long)r.lapTarget);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);
+     RequestTrace trace(instance(), "/details");
+     client(request);auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));char* chunk=static_cast<char*>(malloc(320));if(!loaded||!chunk){free(loaded);free(chunk);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"details buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}const auto&r=instance()->displayResult(*loaded);httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");snprintf(chunk,320,"{\"sealed\":%s,\"lapTarget\":%lu,\"entries\":[",r.sealed?"true":"false",(unsigned long)r.lapTarget);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);
     for(uint8_t i=0;i<r.entryCount;++i){const auto&e=r.entries[i];snprintf(chunk,320,"%s{\"raceEntryId\":%lu,\"lane\":%u,\"laps\":%lu,\"rank\":%lu,\"records\":[",i?",":"",(unsigned long)e.raceEntryId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.rank);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);for(uint8_t j=0;j<e.recordCount;++j){const auto&lap=e.records[j];snprintf(chunk,320,"%s{\"lapNumber\":%lu,\"startTime\":%llu,\"finishTime\":%llu,\"lapTime\":%llu,\"valid\":%s}",j?",":"",(unsigned long)lap.lapNumber,(unsigned long long)lap.startTime,(unsigned long long)lap.finishTime,(unsigned long long)lap.lapTime,lap.valid?"true":"false");httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);}httpd_resp_send_chunk(request,"]}",2);}
-    httpd_resp_send_chunk(request,"]}",2);const esp_err_t sent=httpd_resp_send_chunk(request,nullptr,0);free(loaded);free(chunk);return sent;
+    httpd_resp_send_chunk(request,"]}",2);const esp_err_t sent=httpd_resp_send_chunk(request,nullptr,0);free(loaded);free(chunk);trace.complete(sent);return sent;
   }
   static esp_err_t historyRoute(httpd_req_t* request) {
      client(request); BrowserInterface* browser=instance();
@@ -406,15 +486,17 @@ private:
     httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);return sent;
   }
   static esp_err_t notice(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/noticeboard");
     client(request);
     char json[96];
     snprintf(json, sizeof(json), "{\"type\":\"NOTICEBOARD_CHANGED\",\"revision\":%lu}",
              (unsigned long)instance()->noticeRevision());
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
-    return httpd_resp_sendstr(request, json);
+    const esp_err_t sent = httpd_resp_sendstr(request, json); trace.complete(sent); return sent;
   }
   static esp_err_t fact(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/fact");
     client(request);
     Message fact{};
     char json[256];
@@ -436,7 +518,7 @@ private:
     }
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
-    return httpd_resp_sendstr(request, json);
+    const esp_err_t sent = httpd_resp_sendstr(request, json); trace.complete(sent); return sent;
   }
   static bool correlationFromBody(httpd_req_t* request, uint32_t& correlation, SessionMode* requestedMode=nullptr, uint16_t* durationMinutes=nullptr, uint8_t* finishPolicy=nullptr) {
     if (request->content_len <= 0 || request->content_len >= 256) return false;
@@ -473,6 +555,7 @@ private:
     return httpd_resp_sendstr(request, "{\"bootstrap\":true,\"role\":\"Race Director\"}");
   }
   static esp_err_t contextRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/context");
     const uint64_t owner = client(request);
     char json[96];
     snprintf(json, sizeof(json), "{\"role\":\"%s\",\"hasMaster\":%s}",
@@ -480,7 +563,7 @@ private:
              instance()->hasMaster() ? "true" : "false");
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
-    return httpd_resp_sendstr(request, json);
+    const esp_err_t sent = httpd_resp_sendstr(request, json); trace.complete(sent); return sent;
   }
   static esp_err_t startRoute(httpd_req_t* request) {
     uint32_t correlation = 0;
@@ -587,6 +670,7 @@ private:
     return httpd_resp_sendstr(request, json);
   }
   static esp_err_t page(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/");
     client(request);
     static const char html[] = R"HTML(<!doctype html><meta charset="utf-8"><title>P&amp;P diagnostic Browser</title><style>body{font:16px system-ui;max-width:52rem;margin:2rem auto;padding:0 1rem}pre{background:#eee;padding:1rem;white-space:pre-wrap}.summary{background:#f5f5f5;padding:1rem;border-radius:.35rem;line-height:1.5}.status{font-size:1.3rem;font-weight:600;margin:.5rem 0}button{font:inherit;padding:.5rem;margin:.15rem}input:disabled,select:disabled{background:#eee;color:#555;border:2px solid #888;opacity:.7;cursor:not-allowed}.muted{color:#555}</style><h1>P&amp;P diagnostic Browser</h1><p id="connection">connecting</p><p id="role"></p><div id="human" class="summary">Loading race status...</div><p id="request"></p><button id="bootstrap">Make this Browser Race Director</button><button id="start">START</button><button id="pause">PAUSE</button><button id="honour">HONOUR RESTART</button><button id="grid">GRID RESTART</button><button id="raceAgain">RACE AGAIN</button><button id="restartRace">RESTART RACE</button><button id="endRace">END RACE</button><button id="results">RESULTS</button><button id="details">DETAILS</button><button id="history">HISTORY</button><button id="back">BACK</button><button id="home">HOME</button><button id="target3">NEXT RACE: 3 LAPS</button><div id="resultView" class="summary" hidden></div><h2>SIMULATED DETECTORS</h2><button id="lane1">LANE 1 LAP</button><button id="lane2">LANE 2 LAP</button><button id="resetTest">RESET TEST</button><h2>Engineering State</h2><pre id="state"></pre><h2>Latest Fact</h2><pre id="fact"></pre><script>let revision=null,hasState=false,nextCorrelation=1,polling=false,lastState=null;const $=x=>document.querySelector(x);const requestTimeoutMs=4000;async function get(path){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),requestTimeoutMs);try{const r=await fetch(path,{cache:'no-store',signal:controller.signal});if(r.status===204)return null;if(!r.ok)throw Error(r.status);return r.json()}finally{clearTimeout(timeout)}}function sec(us){return (Number(us||0)/1000000).toFixed(2)+' s'}function life(v){return ({READY:'Ready',STARTING:'Starting',RACING:'Racing',PAUSED:'Paused',RESTARTING:'Restarting',FINISHED:'Finished',FAULTED:'Faulted'})[v]||v}function meth(v){return v==='HONOUR'?'Honour Restart':v==='GRID'?'Grid Restart':'None'}function clock(us){const total=Math.max(0,Math.floor(Number(us||0)/1000000));return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0')}function overtimeClock(us){const total=Math.max(0,Number(us||0)/1000000);return '+'+String(Math.floor(total/60)).padStart(2,'0')+':'+total.toFixed(1).padStart(4,'0')}function render(){const v=lastState;if(!v)return;let h='<div class="status">'+life(v.lifecycle)+'</div>';if(v.lifecycle==='PAUSED')h+='<div>Paused at the authoritative P&amp;P time.</div>';if(v.lifecycle==='RESTARTING')h+='<div>'+meth(v.restartMethod)+' - restart countdown active.</div>';if(v.lifecycle==='RACING')h+=v.sessionMode==='OPEN_PRACTICE'?'<div>Open Practice is running  -  no official result.</div>':v.sessionMode==='ENDURANCE'?'<div>Endurance is running.</div>':'<div>Race is running.</div>';if(v.lifecycle==='FINISHED')h+='<div>Race finished.</div>';h+='<div>'+v.entries.map((e,i)=>'<b>Lane '+e.lane+':</b> '+(e.laps||0)+' laps').join('; ')+'.</div>';if(v.hasLap)h+='<div>Last completed lap: '+sec(v.lastLapTime)+'</div>';if(v.sessionMode==='ENDURANCE'&&v.lifecycle!=='READY'){const displayRemaining=v.lifecycle==='STARTING'?(Number(v.remainingDuration||0)||Number(v.durationMinutes||0)*60000000):Number(v.remainingDuration||0);h+='<div class="status">Time remaining: '+clock(displayRemaining)+(v.lifecycle==='STARTING'?' (starts at GO)':'')+'</div>';if(v.finishBehaviour==='COMPLETE_CURRENT_LAP'&&Number(v.overtime||0)>0)h+='<div class="status">Overtime: '+overtimeClock(v.overtime)+'</div>';}h+='<div class="muted">Race integrity: '+(v.raceIntegrity==='OK'?'OK':'FAULTED')+'; results: '+(v.resultValid?'valid':'invalid')+'</div>';if(v.resultSealed){if(v.sessionMode==='ENDURANCE'){h+='<div><b>Endurance complete.</b> '+(v.durationExpired?'Duration expired at 00:00.':'Session settled.')+' <b>fastest lap:</b> '+(v.fastestLap?sec(v.fastestLap):'none')+'</div>';}else h+='<div><b>Winning time:</b> '+sec(v.winningTime)+'; <b>finish settled:</b> '+sec(v.finishTime)+'; <b>fastest lap:</b> '+(v.fastestLap?sec(v.fastestLap):'none')+'</div>';}if(v.scheduledRestartAt&&v.lifecycle==='RESTARTING')h+='<div id="countdown" class="status">Restart countdown</div>';$('#human').innerHTML=h;if(v.lifecycle==='RESTARTING'&&v.scheduledRestartAt){const deadline=performance.now()+3000;clearInterval(window.restartTimer);window.restartTimer=setInterval(()=>{const c=$('#countdown');if(!c||!lastState||lastState.lifecycle!=='RESTARTING'){clearInterval(window.restartTimer);return}const left=Math.max(0,(deadline-performance.now())/1000);c.textContent=left>0?'Restarting - '+left.toFixed(1)+' s remaining':'Restarting - GO'},100)}}
 async function poll(){if(polling)return;polling=true;try{const oldRevision=revision;const n=await get('/noticeboard');const c=await get('/context');const state=await get('/state');const changed=!hasState||n.revision!==oldRevision;lastState=state;lastState.sampledAt=performance.now();$('#state').textContent=JSON.stringify(lastState,null,2);revision=n.revision;hasState=true;if(changed){try{$('#fact').textContent=JSON.stringify(await get('/fact'),null,2)}catch(e){}}render();$('#role').textContent=c.hasMaster?c.role:'No Race Director';window.browserHasMaster=!!c.hasMaster;$('#bootstrap').hidden=c.hasMaster;['start','pause','honour','grid'].forEach(id=>$('#'+id).disabled=!window.browserHasMaster);$('#raceAgain').disabled=!window.browserHasMaster||!lastState||lastState.lifecycle!=='FINISHED';$('#target3').disabled=!window.browserHasMaster||!lastState||lastState.lifecycle!=='READY';$('#connection').textContent='synchronised'}catch(e){$('#connection').textContent='unsynchronised';hasState=false}finally{polling=false}}
@@ -605,17 +689,18 @@ async function operation(path,name){const id=nextCorrelation++,started=performan
 #endif
     httpd_resp_set_type(request, "text/html; charset=utf-8");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
-    if (httpd_resp_send_chunk(request, html, sizeof(html) - 1) != ESP_OK) return ESP_FAIL;
-    if (httpd_resp_send_chunk(request, destructiveControls, sizeof(destructiveControls) - 1) != ESP_OK) return ESP_FAIL;
-    if (httpd_resp_send_chunk(request, recordControls, sizeof(recordControls) - 1) != ESP_OK) return ESP_FAIL;
-    if (httpd_resp_send_chunk(request, stage13Presentation, sizeof(stage13Presentation) - 1) != ESP_OK) return ESP_FAIL;
-    if (httpd_resp_send_chunk(request, stage14bPresentation, sizeof(stage14bPresentation) - 1) != ESP_OK) return ESP_FAIL;
-    if (httpd_resp_send_chunk(request, stage14cPresentation, sizeof(stage14cPresentation) - 1) != ESP_OK) return ESP_FAIL;
-    return httpd_resp_send_chunk(request, nullptr, 0);
+    if (httpd_resp_send_chunk(request, html, sizeof(html) - 1) != ESP_OK) { trace.complete(ESP_FAIL); return ESP_FAIL; }
+    if (httpd_resp_send_chunk(request, destructiveControls, sizeof(destructiveControls) - 1) != ESP_OK) { trace.complete(ESP_FAIL); return ESP_FAIL; }
+    if (httpd_resp_send_chunk(request, recordControls, sizeof(recordControls) - 1) != ESP_OK) { trace.complete(ESP_FAIL); return ESP_FAIL; }
+    if (httpd_resp_send_chunk(request, stage13Presentation, sizeof(stage13Presentation) - 1) != ESP_OK) { trace.complete(ESP_FAIL); return ESP_FAIL; }
+    if (httpd_resp_send_chunk(request, stage14bPresentation, sizeof(stage14bPresentation) - 1) != ESP_OK) { trace.complete(ESP_FAIL); return ESP_FAIL; }
+    if (httpd_resp_send_chunk(request, stage14cPresentation, sizeof(stage14cPresentation) - 1) != ESP_OK) { trace.complete(ESP_FAIL); return ESP_FAIL; }
+    const esp_err_t sent = httpd_resp_send_chunk(request, nullptr, 0); trace.complete(sent); return sent;
   }
   static esp_err_t health(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/health");
     httpd_resp_set_type(request, "application/json");
-    return httpd_resp_sendstr(request, "{\"ok\":true,\"browser\":\"stage13\"}");
+    const esp_err_t sent = httpd_resp_sendstr(request, "{\"ok\":true,\"browser\":\"stage13\"}"); trace.complete(sent); return sent;
   }
   void startServer() {
     instance() = this;
@@ -682,10 +767,12 @@ async function operation(path,name){const id=nextCorrelation++,started=performan
         return;
       }
     }
+    ++serverStarts_;
     serverStartError_ = 0;
   }
   void stopServer() {
     if (!server_) return;
+    ++serverStops_;
     const httpd_handle_t old = server_;
     server_ = nullptr;
     const esp_err_t stopped = httpd_stop(old);

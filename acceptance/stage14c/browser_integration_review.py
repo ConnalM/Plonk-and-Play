@@ -48,6 +48,9 @@ checks = {
     "browser_recovery_observability": "wifiReconnectAttempts()" in browser and "Browser WiFi CONNECTED" in main and "Browser WiFi DISCONNECTED" in main and 'Browser HTTP server %s' in main,
     "browser_request_timeout": "AbortController" in browser and "requestTimeoutMs=4000" in browser and "polling=false" in browser,
     "browser_poll_overlap_guard": "if(polling)return" in browser and "setInterval(()=>poll(),250)" in browser,
+    "browser_http_health_snapshot": "HTTP HEALTH" in main and "httpHealth(HttpHealth&" in browser and "else if(c=='h')browserHealth()" in main,
+    "browser_route_trace": "RequestTrace trace(instance(), \"/state\")" in browser and "httpActiveHandlers_" in browser and "httpLastRoute_" in browser,
+    "browser_heap_and_error_observability": "ESP.getMinFreeHeap()" in browser and "ESP.getMinFreeHeap()" in main and "httpRequestErrors_" in browser,
 }
 failed = [name for name, ok in checks.items() if not ok]
 if failed:
