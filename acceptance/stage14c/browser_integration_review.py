@@ -43,6 +43,11 @@ checks = {
     "browser_start_diagnostic_source": 'Browser server=%s error=%d' in main and 'browser.serverReady()||browser.serverStartError()' in main,
     "browser_start_diagnostic_demo_image": image_contains(demo, b"Browser server=%s error=%d"),
     "browser_wifi_recovery": "WiFi.reconnect()" in browser and "lastWifiAttemptMs_" in browser,
+    "browser_wifi_monitored_after_start": "const bool connected = WiFi.status() == WL_CONNECTED" in browser and "if (server_) stopServer()" in browser,
+    "browser_http_retired_on_wifi_loss": "httpd_stop(old)" in browser and "server_ = nullptr" in browser,
+    "browser_recovery_observability": "wifiReconnectAttempts()" in browser and "Browser WiFi CONNECTED" in main and "Browser WiFi DISCONNECTED" in main and 'Browser HTTP server %s' in main,
+    "browser_request_timeout": "AbortController" in browser and "requestTimeoutMs=4000" in browser and "polling=false" in browser,
+    "browser_poll_overlap_guard": "if(polling)return" in browser and "setInterval(()=>poll(),250)" in browser,
 }
 failed = [name for name, ok in checks.items() if not ok]
 if failed:

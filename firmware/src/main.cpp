@@ -102,6 +102,8 @@ pp::Time simulatedARelease=0,simulatedBRelease=0;
 #if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14C_DEMO)
 bool stage10ServerReported=false;
 #endif
+bool browserWifiStateKnown=false,browserWifiState=false;
+bool browserHttpStateKnown=false,browserHttpState=false;
 #if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
 bool browserFixturePass(uint8_t lane){
   // The demo trigger is only a momentary source at the normal Input Module
@@ -393,6 +395,18 @@ void loop(){
   input.tick(systemTime());
   raceEngine.tick();
   browser.tick();
+  if(!browserWifiStateKnown||browserWifiState!=browser.wifiConnected()){
+    browserWifiStateKnown=true;browserWifiState=browser.wifiConnected();
+    if(browserWifiState){
+      diagnostics.log("[DEV] Browser WiFi CONNECTED ip=%s reconnect_attempts=%lu",WiFi.localIP().toString().c_str(),static_cast<unsigned long>(browser.wifiReconnectAttempts()));
+    }else{
+      diagnostics.log("[DEV] Browser WiFi DISCONNECTED reconnect_attempts=%lu",static_cast<unsigned long>(browser.wifiReconnectAttempts()));
+    }
+  }
+  if(!browserHttpStateKnown||browserHttpState!=browser.serverReady()){
+    browserHttpStateKnown=true;browserHttpState=browser.serverReady();
+    diagnostics.log("[DEV] Browser HTTP server %s",browserHttpState?"STARTED":"STOPPED");
+  }
 #ifdef PP_STAGE10_DEMO
   if(!stage10ServerReported&&(browser.serverReady()||browser.serverStartError())){
     stage10ServerReported=true;
