@@ -1,1 +1,1 @@
-Stage 14C Browser integration review PASS: live_state_poll, poll_state_not_revision_gated, endurance_countdown, authoritative_overtime, browser_authority_gate, active_setup_reconstruction, endurance_fixture_boundary, neutral_fixture_error
+Stage 14C Browser integration review PASS: live_state_poll, poll_state_not_revision_gated, endurance_countdown, authoritative_overtime, browser_authority_gate, active_setup_reconstruction, endurance_fixture_boundary, endurance_fixture_route_enabled, detector_labels, mode_selection_authority, mode_selection_exclusive, neutral_fixture_error
