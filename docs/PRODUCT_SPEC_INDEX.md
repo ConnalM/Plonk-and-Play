@@ -24,6 +24,7 @@ This file identifies where agreed P&P decisions live so later design work does n
 
 - `RACE_MODES_PRODUCT_SPEC.md` — agreed Lap, Practice, Endurance, Timed Stage and Drag behaviour.
 - `COMMON_DISPLAY_SPEC.md` — common Lap/Endurance/Timed Stage display, personal MUG displays, Results and Yellow/Red display principles.
+- `PRESENTATION_DESIGN_SPEC.md` — shared P&P visual language, reusable presentation components, responsive hierarchy and consistency rules across the integrated display and browser clients.
 - `PRODUCT_FACILITIES_SPEC.md` — Power Module, audio/SD, track setup, speed calculations, browser/SC split, solo/multi-user behaviour and option philosophy.
 - `CONFIGURATION_AND_IDENTITY_SPEC.md` — v1 MUG identity, Guest promotion, optional independent cars, lane assignment, Swap Lanes and remembered setup.
 
@@ -37,7 +38,7 @@ The following are not yet fully specified and should not be silently invented du
 - exact audio/SD hardware implementation;
 - exact dual-beam Drag/REU implementation;
 - detailed competition/championship management implied by `CONTINUE`;
-- detailed visual styling/animation;
+- exact presentation tokens, fonts, icon set, dimensions and animation timings within the accepted `PRESENTATION_DESIGN_SPEC.md` visual direction;
 - detailed persistence/history schema.
 
 When one of these areas is designed, update the appropriate specification or add a new specification and link it here.
