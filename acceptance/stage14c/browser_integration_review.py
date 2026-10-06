@@ -39,6 +39,9 @@ checks = {
     "mode_selection_exclusive": "window.clearPracticeSelection" in browser and "window.clearEnduranceSelection" in browser,
     "mode_proposal_preserved_in_ready": "v&&v.lifecycle!=='READY'&&!isPractice" in browser and "v&&v.lifecycle!=='READY'){selected=false;sel.textContent='SELECT ENDURANCE';}" in browser,
     "neutral_fixture_error": "An active session is required before triggering a simulated car." in browser,
+    "browser_start_diagnostic_source": 'Browser server=%s error=%d' in main and 'browser.serverReady()||browser.serverStartError()' in main,
+    "browser_start_diagnostic_demo_image": image_contains(demo, b"Browser server=%s error=%d"),
+    "browser_wifi_recovery": "WiFi.reconnect()" in browser and "lastWifiAttemptMs_" in browser,
 }
 failed = [name for name, ok in checks.items() if not ok]
 if failed:

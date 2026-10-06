@@ -52,6 +52,7 @@ public:
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
     WiFi.begin("Wokwi-GUEST", "", 6);
+    lastWifiAttemptMs_ = millis();
     started_ = true;
   }
   void tick() {
@@ -70,7 +71,21 @@ public:
         recordResult(message);
       }
     }
-    if (started_ && !server_ && WiFi.status() == WL_CONNECTED) startServer();
+    if (started_ && !server_) {
+      if (WiFi.status() == WL_CONNECTED) {
+        startServer();
+      } else {
+        // The simulator/gateway can bring the development network up after
+        // the ESP32 has booted. Keep startup non-blocking, but retry
+        // association so a transiently unavailable AP cannot leave the
+        // Browser permanently waiting with no server-start error.
+        const uint32_t now = millis();
+        if (static_cast<uint32_t>(now - lastWifiAttemptMs_) >= 5000U) {
+          WiFi.reconnect();
+          lastWifiAttemptMs_ = now;
+        }
+      }
+    }
   }
   // The public overload is retained for non-Browser test fixtures. HTTP calls
   // always include their server-resolved owner token below.
@@ -196,6 +211,7 @@ private:
   Message lastFact_{};
   bool hasFact_ = false;
   bool started_ = false;
+  uint32_t lastWifiAttemptMs_ = 0;
   Time scheduledGo_ = 0;
   StoredResult results_[ResultCapacity]{};
   Pending pending_[ResultCapacity]{};
