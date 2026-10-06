@@ -1,7 +1,7 @@
 {
   "campaign": "Stage 14C applicable Stage 1-13 regression campaign",
   "generatedAt": "2026-10-06T10:52:58.652933+00:00",
-  "sourceCommit": "74e7ec3",
+  "sourceCommit": "74e7ec3c4cfab1e882ae054f0014249c816b7c88",
   "workingTreeSourceSha256": "c2c3010bbff5afdf666810217a899d84e05401806a6693500f149828a5e06f6b",
   "results": [
     {
