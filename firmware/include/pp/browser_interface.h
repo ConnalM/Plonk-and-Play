@@ -256,6 +256,7 @@ private:
   uint32_t httpPeakHandlers_ = 0;
   uint32_t httpLastDurationMs_ = 0;
   int httpLastError_ = 0;
+  uint32_t httpLastDiagnosticMs_ = 0;
   char httpLastRoute_[32]{};
   uint32_t serverStarts_ = 0;
   uint32_t serverStops_ = 0;
@@ -279,13 +280,19 @@ private:
     ~RequestTrace() { browser->requestCompleted(route, result, static_cast<uint32_t>(millis() - started)); }
     void complete(esp_err_t value) { result = value; }
   };
+  bool diagnosticAllowed() {
+    const uint32_t now = millis();
+    if (static_cast<uint32_t>(now - httpLastDiagnosticMs_) < 1000U) return false;
+    httpLastDiagnosticMs_ = now;
+    return true;
+  }
   void requestEntered(const char* route) {
     ++httpRequestCount_;
     ++httpActiveHandlers_;
     if (httpActiveHandlers_ > httpPeakHandlers_) httpPeakHandlers_ = httpActiveHandlers_;
     strncpy(httpLastRoute_, route, sizeof(httpLastRoute_) - 1);
     httpLastRoute_[sizeof(httpLastRoute_) - 1] = 0;
-    if (httpActiveHandlers_ > 1) {
+    if (httpActiveHandlers_ > 1 && diagnosticAllowed()) {
       Serial.printf("[DEV] HTTP overlap route=%s active=%lu heap=%lu\n", route,
                     static_cast<unsigned long>(httpActiveHandlers_),
                     static_cast<unsigned long>(ESP.getFreeHeap()));
@@ -297,7 +304,7 @@ private:
     httpLastError_ = result == ESP_OK ? 0 : int(result);
     if (result != ESP_OK) ++httpRequestErrors_;
     if (durationMs >= 500) ++httpSlowRequests_;
-    if (result != ESP_OK || durationMs >= 500) {
+    if ((result != ESP_OK || durationMs >= 500) && diagnosticAllowed()) {
       Serial.printf("[DEV] HTTP %s route=%s duration_ms=%lu result=%d active=%lu heap=%lu min_heap=%lu\n",
                     result == ESP_OK ? "SLOW" : "ERROR", route,
                     static_cast<unsigned long>(durationMs), int(result),
