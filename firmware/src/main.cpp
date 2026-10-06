@@ -100,6 +100,18 @@ pp::Time nextStatus=0;
 pp::Time loopWorstUs=0;
 pp::SessionLifecycle lastLoggedLifecycle=pp::SessionLifecycle::Faulted;
 bool lifecycleLogKnown=false;
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+bool diagnosticExpiryEligible[pp::RaceEngineModule::MaxEntries]{};
+bool diagnosticExpirySettled[pp::RaceEngineModule::MaxEntries]{};
+bool diagnosticAllEligibleSettledLogged=false;
+bool presentationLogKnown=false;
+pp::SessionLifecycle lastPresentationLifecycle=pp::SessionLifecycle::Faulted;
+pp::LapFinishBehaviour lastPresentationFinish=pp::LapFinishBehaviour::Immediate;
+bool lastPresentationDurationExpired=false,lastPresentationOvertimeVisible=false;
+bool networkDiagnosticKnown=false;
+bool lastNetworkWifi=false,lastNetworkHttp=false;
+uint32_t lastNetworkReconnects=0,lastNetworkErrors=0,lastNetworkSlow=0,lastNetworkStartError=0;
+#endif
 #if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
 // Human/demo fixture: a trigger is a momentary passage; production input semantics are unchanged.
 pp::Time simulatedARelease=0,simulatedBRelease=0;
@@ -193,6 +205,14 @@ pp::Time rebootAt=0;
 #endif
 void report(const char* name,bool passed){diagnostics.log("[TEST] %s %s",passed?"PASS":"FAIL",name);}
 uint8_t diagnosticLane(const pp::InputIdentity& input);
+const char* lifecycleName(pp::SessionLifecycle value);
+const char* finishName(pp::LapFinishBehaviour value);
+void resetDiagnosticExpiry(){
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+  for(uint8_t i=0;i<pp::RaceEngineModule::MaxEntries;++i){diagnosticExpiryEligible[i]=false;diagnosticExpirySettled[i]=false;}
+  diagnosticAllEligibleSettledLogged=false;
+#endif
+}
 void observeInputEvents() {
   pp::Message event;
   while(bus.receive(inputObserver,event)) {
@@ -201,7 +221,23 @@ void observeInputEvents() {
     const auto* definition=raceControl.definition();
     const uint8_t index=lane?static_cast<uint8_t>(lane-1):pp::RaceEngineModule::MaxEntries;
     const auto* entry=(definition&&index<raceEngine.entryCount())?&raceEngine.entryState(index):nullptr;
-    if(!definition) diagnostics.log("[INPUT] crossing lane=%u relevant_us=%llu disposition=IGNORED reason=NO_SESSION",unsigned(lane),static_cast<unsigned long long>(event.relevantTime));
+    const bool enduranceAfter=definition&&definition->mode()==pp::SessionMode::Endurance&&raceControl.durationExpired()&&raceControl.durationExpiryAt()&&event.relevantTime>raceControl.durationExpiryAt();
+    if(enduranceAfter){
+      const bool eligible=index<pp::RaceEngineModule::MaxEntries&&diagnosticExpiryEligible[index];
+      const bool settledBefore=index<pp::RaceEngineModule::MaxEntries?diagnosticExpirySettled[index]:(entry&&entry->postExpiryCompleted);
+      const uint32_t afterLaps=entry?entry->laps:0;
+      const bool finalAccepted=eligible&&!settledBefore&&entry&&entry->postExpiryCompleted;
+      const char* decision=finalAccepted?"FINAL_LAP_ACCEPTED":settledBefore?"ALREADY_SETTLED_IGNORE":!eligible?"NOT_ELIGIBLE_IGNORE":"OTHER_IGNORE";
+      const uint32_t beforeLaps=finalAccepted&&afterLaps?afterLaps-1:afterLaps;
+      const uint32_t penalty=entry?entry->lapPenalty:0;
+      const uint32_t beforeClassified=beforeLaps>penalty?beforeLaps-penalty:0;
+      const uint32_t afterClassified=afterLaps>penalty?afterLaps-penalty:0;
+      diagnostics.log("[ENDURANCE] post_expiry_crossing lane=%u entry=%lu crossing_us=%llu expiry_us=%llu eligible=%s settled_before=%s decision=%s factual_before=%lu factual_after=%lu classified_before=%lu classified_after=%lu settled_after=%s",
+        unsigned(lane),entry?static_cast<unsigned long>(entry->raceEntryId):0UL,static_cast<unsigned long long>(event.relevantTime),static_cast<unsigned long long>(raceControl.durationExpiryAt()),eligible?"YES":"NO",settledBefore?"YES":"NO",decision,static_cast<unsigned long>(beforeLaps),static_cast<unsigned long>(afterLaps),static_cast<unsigned long>(beforeClassified),static_cast<unsigned long>(afterClassified),entry&&entry->postExpiryCompleted?"YES":"NO");
+      if(finalAccepted&&!settledBefore){diagnosticExpirySettled[index]=true;diagnostics.log("[ENDURANCE] entry_settled entry=%lu crossing_us=%llu",entry?static_cast<unsigned long>(entry->raceEntryId):0UL,static_cast<unsigned long long>(event.relevantTime));}
+      bool allSettled=true;bool anyEligible=false;for(uint8_t n=0;n<raceEngine.entryCount();++n){if(diagnosticExpiryEligible[n]){anyEligible=true;if(!diagnosticExpirySettled[n]){allSettled=false;break;}}}
+      if(anyEligible&&allSettled&&!diagnosticAllEligibleSettledLogged){diagnosticAllEligibleSettledLogged=true;diagnostics.log("[ENDURANCE] all_eligible_entries_settled=YES relevant_us=%llu",static_cast<unsigned long long>(event.relevantTime));}
+    }else if(!definition) diagnostics.log("[INPUT] crossing lane=%u relevant_us=%llu disposition=IGNORED reason=NO_SESSION",unsigned(lane),static_cast<unsigned long long>(event.relevantTime));
     else if(raceControl.state()==pp::SessionLifecycle::Paused) diagnostics.log("[INPUT] crossing lane=%u relevant_us=%llu disposition=IGNORED reason=PAUSED",unsigned(lane),static_cast<unsigned long long>(event.relevantTime));
     else if(entry&&entry->postExpiryCompleted) diagnostics.log("[INPUT] crossing lane=%u entry=%lu relevant_us=%llu disposition=IGNORED reason=POST_EXPIRY_ENTRY_SETTLED",unsigned(lane),static_cast<unsigned long>(entry->raceEntryId),static_cast<unsigned long long>(event.relevantTime));
     else diagnostics.log("[INPUT] crossing lane=%u entry=%lu relevant_us=%llu disposition=RECEIVED",unsigned(lane),entry?static_cast<unsigned>(entry->raceEntryId):0U,static_cast<unsigned long long>(event.relevantTime));
@@ -211,6 +247,30 @@ void observeInputEvents() {
       static_cast<unsigned long long>(event.relevantTime));
 #endif
   }
+}
+void observePresentationState(){
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+  const auto state=browser.current();
+  const bool overtimeVisible=state.sessionMode==pp::SessionMode::Endurance&&state.lifecycle!=pp::SessionLifecycle::Ready&&state.finishBehaviour==pp::LapFinishBehaviour::CompleteCurrentLap&&state.overtime>0;
+  if(!presentationLogKnown||state.lifecycle!=lastPresentationLifecycle||state.finishBehaviour!=lastPresentationFinish||state.durationExpired!=lastPresentationDurationExpired||overtimeVisible!=lastPresentationOvertimeVisible){
+    presentationLogKnown=true;lastPresentationLifecycle=state.lifecycle;lastPresentationFinish=state.finishBehaviour;lastPresentationDurationExpired=state.durationExpired;lastPresentationOvertimeVisible=overtimeVisible;
+    diagnostics.log("[PRESENTATION] lifecycle=%s finish=%s duration_expired=%s time_remaining_us=%llu overtime_visible=%s overtime_us=%llu",
+      lifecycleName(state.lifecycle),finishName(state.finishBehaviour),state.durationExpired?"true":"false",static_cast<unsigned long long>(state.remainingDuration),overtimeVisible?"true":"false",static_cast<unsigned long long>(state.overtime));
+  }
+#endif
+}
+void observeBrowserNetworkEvents(){
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+  pp::BrowserInterface::HttpHealth health{};browser.httpHealth(health);
+  const bool wifi=health.wifiConnected,http=health.serverReady;
+  if(!networkDiagnosticKnown||wifi!=lastNetworkWifi){diagnostics.log("[WIFI] %s ip=%s reconnects=%lu",wifi?"CONNECTED":"DISCONNECTED",WiFi.localIP().toString().c_str(),static_cast<unsigned long>(health.reconnectAttempts));lastNetworkWifi=wifi;}
+  if(!networkDiagnosticKnown||http!=lastNetworkHttp){diagnostics.log("[HTTP] SERVER_%s starts=%lu stops=%lu",http?"STARTED":"STOPPED",static_cast<unsigned long>(health.serverStarts),static_cast<unsigned long>(health.serverStops));lastNetworkHttp=http;}
+  if(networkDiagnosticKnown&&health.reconnectAttempts!=lastNetworkReconnects){diagnostics.log("[WIFI] RECONNECT_ATTEMPT count=%lu",static_cast<unsigned long>(health.reconnectAttempts));}
+  if(networkDiagnosticKnown&&health.requestErrors!=lastNetworkErrors){diagnostics.log("[HTTP] REQUEST_ERROR count=%lu last_error=%d route=%s",static_cast<unsigned long>(health.requestErrors),health.lastError,health.lastRoute);}
+  if(networkDiagnosticKnown&&health.slowRequests!=lastNetworkSlow){diagnostics.log("[HTTP] REQUEST_SLOW count=%lu last_ms=%lu route=%s",static_cast<unsigned long>(health.slowRequests),static_cast<unsigned long>(health.lastDurationMs),health.lastRoute);}
+  if(health.lastError!=lastNetworkStartError&&health.lastError){diagnostics.log("[HTTP] REQUEST_ERROR last_error=%d route=%s",health.lastError,health.lastRoute);}
+  lastNetworkReconnects=health.reconnectAttempts;lastNetworkErrors=health.requestErrors;lastNetworkSlow=health.slowRequests;lastNetworkStartError=health.lastError;networkDiagnosticKnown=true;
+#endif
 }
 void status(){diagnostics.log("[DEV] %s %s system_us=%llu dropped=%lu; no session, no race",buildIdentity(),
   ready?"IDLE":bootFailed?"FAULT":"STARTING",static_cast<unsigned long long>(systemTime()),static_cast<unsigned long>(diagnostics.dropped));}
@@ -264,7 +324,7 @@ void observeDiagnosticEvents(){
   while(bus.receive(testObserver,event)){
     switch(event.type){
       case pp::Type::StartRequest:
-        {const auto* setup=raceControl.proposedRaceSetup();diagnostics.log("[SESSION] start_request mode=%s entries=%u lap_target=%lu duration_min=%u finish=%u relevant_us=%llu",
+        {resetDiagnosticExpiry();const auto* setup=raceControl.proposedRaceSetup();diagnostics.log("[SESSION] start_request mode=%s entries=%u lap_target=%lu duration_min=%u finish=%u relevant_us=%llu",
           modeName(event.sessionMode),unsigned(setup?setup->activeLanes:0),static_cast<unsigned long>(setup?setup->lapTarget:0),unsigned(event.durationMinutes?event.durationMinutes:(setup?setup->durationMinutes:0)),unsigned(event.finishPolicy),static_cast<unsigned long long>(event.relevantTime));}
         break;
       case pp::Type::RequestResult:
@@ -295,8 +355,12 @@ void observeDiagnosticEvents(){
       case pp::Type::FalseStart:
         diagnostics.log("[ERROR] false_start entry=%lu policy=%u relevant_us=%llu",static_cast<unsigned long>(event.raceEntryId),unsigned(event.probe),static_cast<unsigned long long>(event.relevantTime)); break;
       case pp::Type::EnduranceExpired:
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
         diagnostics.log("[ENDURANCE] expiry_relevant_us=%llu finish=%s",static_cast<unsigned long long>(event.relevantTime),finishName(raceControl.definition()?raceControl.definition()->finishBehaviour():pp::LapFinishBehaviour::Immediate));
-        for(uint8_t n=0;n<raceEngine.entryCount();++n){const auto&s=raceEngine.entryState(n);diagnostics.log("[ENDURANCE] eligibility entry=%lu timing_origin=%u post_expiry_settled=%u factual_laps=%lu",static_cast<unsigned long>(s.raceEntryId),s.timingOriginEstablished?1U:0U,s.postExpiryCompleted?1U:0U,static_cast<unsigned long>(s.laps));}
+        for(uint8_t n=0;n<raceEngine.entryCount();++n){const auto&s=raceEngine.entryState(n);const bool eligible=raceControl.definition()&&raceControl.definition()->finishBehaviour()==pp::LapFinishBehaviour::CompleteCurrentLap&&s.timingOriginEstablished&&!s.postExpiryCompleted;diagnosticExpiryEligible[n]=eligible;diagnosticExpirySettled[n]=s.postExpiryCompleted||!eligible;diagnostics.log("[ENDURANCE] eligibility entry=%lu factual_laps=%lu classified_laps=%lu timing_origin=%s eligible=%s settled=%s",static_cast<unsigned long>(s.raceEntryId),static_cast<unsigned long>(s.laps),static_cast<unsigned long>(s.laps>s.lapPenalty?s.laps-s.lapPenalty:0),s.timingOriginEstablished?"YES":"NO",eligible?"YES":"NO",diagnosticExpirySettled[n]?"YES":"NO");}
+#else
+        diagnostics.log("[ENDURANCE] expiry_relevant_us=%llu",static_cast<unsigned long long>(event.relevantTime));
+#endif
         break;
       case pp::Type::CompetitionComplete:
         diagnostics.log("[RESULT] sealed finish_relevant_us=%llu winner_entry=%lu valid=%u integrity=%s",static_cast<unsigned long long>(event.relevantTime),static_cast<unsigned long>(event.raceEntryId),raceEngine.completedResult().valid?1U:0U,raceEngine.faulted()?"FAULTED":"OK"); break;
@@ -536,6 +600,10 @@ void loop(){
     browserHttpStateKnown=true;browserHttpState=browser.serverReady();
     diagnostics.log("[DEV] Browser HTTP server %s",browserHttpState?"STARTED":"STOPPED");
   }
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+  observeBrowserNetworkEvents();
+  observePresentationState();
+#endif
 #ifdef PP_STAGE10_DEMO
   if(!stage10ServerReported&&(browser.serverReady()||browser.serverStartError())){
     stage10ServerReported=true;
@@ -554,10 +622,10 @@ void loop(){
     diagnostics.log("[DEV] %s Browser server=%s error=%d",buildIdentity(),browser.serverReady()?"READY":"FAILED",browser.serverStartError());
   }
 #endif
-  observeInputEvents();
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   observeDiagnosticEvents();
 #endif
+  observeInputEvents();
   pp::Message message;
   if(!ready&&!bootFailed&&bus.receive(lifecycle,message)){
     if(message.type!=pp::Type::ConfigurationLoaded||message.correlation!=1||!pp::valid(message.configuration)){
@@ -697,7 +765,9 @@ void loop(){
     else stage14cAcceptanceCommand(c);
 #endif
   }
+#if !defined(PP_STAGE14C_DEMO) && !defined(PP_STAGE14C_ACCEPTANCE)
   if(ready&&systemTime()>=nextStatus){status();nextStatus=systemTime()+10000000;}
+#endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   const pp::Time loopElapsed=systemTime()-loopStarted;if(loopElapsed>loopWorstUs)loopWorstUs=loopElapsed;
 #endif
