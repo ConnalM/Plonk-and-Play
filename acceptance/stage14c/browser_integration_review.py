@@ -15,6 +15,10 @@ checks = {
     "browser_authority_gate": "window.browserHasMaster" in browser and "Race Director authority required to start Endurance." in browser,
     "active_setup_reconstruction": "minutes.value=String(v.durationMinutes)" in browser and "v.finishBehaviour==='COMPLETE_CURRENT_LAP'" in browser,
     "endurance_fixture_boundary": "mode!=pp::SessionMode::Endurance" in main and "input.setSimulatedSource" in main,
+    "endurance_fixture_route_enabled": "defined(PP_STAGE14C_DEMO)" in browser and "defined(PP_STAGE14C_ACCEPTANCE)" in browser and '"/fixture", HTTP_POST, fixtureRoute' in browser,
+    "detector_labels": 'id="lane1">LANE 1 LAP' in browser and 'id="lane2">LANE 2 LAP' in browser,
+    "mode_selection_authority": "Race Director authority required to select Open Practice." in browser and "window.browserHasMaster!==true||!!v&&v.lifecycle!=='READY'" in browser,
+    "mode_selection_exclusive": "window.clearPracticeSelection" in browser and "window.clearEnduranceSelection" in browser,
     "neutral_fixture_error": "An active session is required before triggering a simulated car." in browser,
 }
 failed = [name for name, ok in checks.items() if not ok]
