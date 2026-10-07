@@ -5,6 +5,7 @@ import sys
 
 root = Path(__file__).resolve().parents[2]
 source = (root / "firmware/include/pp/browser_interface.h").read_text(encoding="utf-8")
+persistence = (root / "firmware/include/pp/persistent_storage.h").read_text(encoding="utf-8")
 
 
 def region(start: str, end: str) -> str:
@@ -26,6 +27,8 @@ checks["history_result_and_json_heap"] = "malloc(sizeof(RaceEngineModule::Comple
 records = region("static esp_err_t recordsRoute", "static esp_err_t notice")
 checks["records_buffer_heap"] = "malloc(RecordsJsonCapacity)" in records and "free(json)" in records
 checks["idle_state_route_has_no_large_result_local"] = "CompletedRaceResult loaded{}" not in region("static esp_err_t state", "static esp_err_t resultsRoute")
+load_newest = persistence[persistence.index("bool loadNewest"):persistence.index("uint8_t count()", persistence.index("bool loadNewest"))]
+checks["persistent_decode_destination_heap"] = "malloc(sizeof(RaceEngineModule::CompletedRaceResult))" in load_newest and "CompletedRaceResult decoded{}" not in load_newest
 
 failed = [name for name, passed in checks.items() if not passed]
 if failed:

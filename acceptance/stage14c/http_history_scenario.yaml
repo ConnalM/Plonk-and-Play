@@ -1,0 +1,9 @@
+name: Stage 14C HTTP History reconstruction
+version: 1
+steps:
+  - wait-serial: 'Browser server=READY error=0'
+  - wait-serial: '[RESULT] history_stored'
+  - delay: 5s
+  - write-serial: 'r'
+  - wait-serial: '[DEV] P&P STAGE 14C DEMO'
+  - wait-serial: 'Browser server=READY error=0'
