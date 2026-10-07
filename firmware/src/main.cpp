@@ -13,6 +13,7 @@
 #include "pp/noticeboard.h"
 #include "pp/browser_interface.h"
 #include "pp/verification.h"
+#include "pp/persistent_storage.h"
 #ifndef PP_DIAGNOSTICS
 #define PP_DIAGNOSTICS 1
 #endif
@@ -75,8 +76,9 @@ private: Preferences preferences;bool ready=false;
 } browserAuthority;
 pp::Bus bus;
 pp::Memory memory(storage);
-pp::SlotHistoryStore history(storage);
-pp::SlotTrackRecordStore records(storage);
+pp::SlotHistoryStore rawHistory(storage);
+pp::VersionedHistoryStore history(rawHistory);
+pp::VersionedTrackRecordStore records(storage);
 const auto lifecycle=bus.attach(pp::Role::Lifecycle);
 const auto memoryEndpoint=bus.attach(pp::Role::Memory);
 pp::InputModule input(bus,bus.attach(pp::Role::Input));
@@ -500,6 +502,9 @@ void setup(){
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
   storage.begin();browserAuthority.begin();
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+  diagnostics.log("[INIT] Development persistence backend READY (versioned NVS/Wokwi boundary)");
+#endif
 #if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   browserAuthority.clearForFixture();
 #endif

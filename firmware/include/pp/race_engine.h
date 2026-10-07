@@ -51,7 +51,7 @@ public:
   bool complete()const{return complete_;} Time go()const{return go_;} uint8_t entryCount()const{return definition_?definition_->entryCount():0;}
   const EntryState&entryState(uint8_t i)const{return entries_[i];} bool deadHeat()const{return deadHeat_;} bool faulted()const{return faulted_;}
   const CompletedRaceResult&completedResult()const{return result_;} uint32_t historySequence()const{return historySequence_;}
-  bool persistencePending()const{return result_.sealed&&!persisted_;} bool persistenceFault()const{return persistenceFault_;}
+  bool persistencePending()const{return result_.sealed&&!persisted_;} bool persistenceFault()const{return persistenceFault_||recordPersistenceFault_;}
   bool settlementSeen()const{return settlementSeen_;} bool settlementPublished()const{return settlementPublished_;}
 #if defined(PP_STAGE14C_ACCEPTANCE)
   // Acceptance-only boundary hook: model an entry with no legitimate timing
@@ -64,7 +64,7 @@ private:
     go_=go; pauseAt_=restartAt_=settlementAt_=practiceResumeAt_=winningTime_=candidateF_=expiryTime_=resumeAt_=0;
     winner_=0;complete_=completionPublished_=deadHeat_=faulted_=paused_=restartScheduled_=gridRestart_=false;
     enduranceExpired_=finishCurrentPending_=settlementSeen_=settlementPublished_=finishReady_=finishSettlementSent_=finishSettled_=false;
-    persisted_=persistenceFault_=false;pendingCount_=seenAt_=0;for(auto&x:seen_)x=0;for(auto&o:observed_)o=false;for(auto&e:entries_)e={};
+    persisted_=persistenceFault_=recordPersistenceFault_=storageFaultPublished_=false;historyPersistFailed_=false;pendingCount_=seenAt_=0;for(auto&x:seen_)x=0;for(auto&o:observed_)o=false;for(auto&e:entries_)e={};
     result_={}; finishBehaviour_=definition_?definition_->finishBehaviour():LapFinishBehaviour::Immediate;
     recordEligible_=definition_&&(definition_->mode()==SessionMode::LapRace||definition_->mode()==SessionMode::Endurance);
 #if defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
@@ -92,7 +92,7 @@ private:
     if(definition_->mode()==SessionMode::OpenPractice){if(paused_&&m.relevantTime>=pauseAt_)return;if(practiceResumeAt_&&m.relevantTime<practiceResumeAt_)return;if(s.waitingForTimingOrigin){s.lastCrossing=m.relevantTime;s.waitingForTimingOrigin=false;return;}if(m.relevantTime<s.lastCrossing)return;const Time lap=m.relevantTime-s.lastCrossing;s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;if(!s.bestLapTime||lap<s.bestLapTime)s.bestLapTime=lap;++s.laps;storeLap(s,lap,m.relevantTime);publishLap(def,s,lap,m);return;}
     if(definition_->falseStartCapability()&&m.relevantTime<go_){Message fs{};fs.type=Type::FalseStart;fs.relevantTime=m.relevantTime;fs.input=m.input;fs.raceEntryId=def.raceEntryId;fs.probe=definition_->falseStartPolicy();bus_.publish(endpoint_,fs);if(definition_->falseStartPolicy()==2|| (definition_->mode()==SessionMode::Endurance&&definition_->falseStartPolicy()==3)){++s.lapPenalty;penalties_[i]=s.lapPenalty;}publishNoticeboardChanged();return;}
     if(definition_->mode()==SessionMode::Endurance){interpretEndurance(m,def,s);return;}
-    if(m.relevantTime<s.lastCrossing||(paused_&&m.relevantTime>=pauseAt_))return;const Time lapStart=s.lastCrossing;Time lap=m.relevantTime-lapStart;if(restartScheduled_&&!gridRestart_&&m.relevantTime>=restartAt_&&s.lastCrossing<pauseAt_){const Time stopped=restartAt_-pauseAt_;lap=lap>stopped?lap-stopped:0;}s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;++s.laps;storeLap(s,lap,m.relevantTime);if(recordEligible_&&records_)records_->observe(def.lane,lap);publishLap(def,s,lap,m);applyFinish(i,m.relevantTime);
+    if(m.relevantTime<s.lastCrossing||(paused_&&m.relevantTime>=pauseAt_))return;const Time lapStart=s.lastCrossing;Time lap=m.relevantTime-lapStart;if(restartScheduled_&&!gridRestart_&&m.relevantTime>=restartAt_&&s.lastCrossing<pauseAt_){const Time stopped=restartAt_-pauseAt_;lap=lap>stopped?lap-stopped:0;}s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;++s.laps;storeLap(s,lap,m.relevantTime);if(recordEligible_&&records_&&!records_->observe(def.lane,lap))latchPersistenceFault(m.relevantTime,true);publishLap(def,s,lap,m);applyFinish(i,m.relevantTime);
   }
   void interpretEndurance(const Message&m,const RaceEntryDefinition&def,EntryState&s){
     if(paused_&&m.relevantTime>=pauseAt_)return;if(m.relevantTime<s.lastCrossing)return;
@@ -101,7 +101,7 @@ private:
     if(enduranceExpired_&&after){if(finishBehaviour_!=LapFinishBehaviour::CompleteCurrentLap||!s.timingOriginEstablished||s.postExpiryCompleted)return;s.postExpiryCompleted=true;completeEnduranceEntry(s,m,def);return;}
     if(enduranceExpired_&&!at)return;if(after&&finishBehaviour_!=LapFinishBehaviour::CompleteCurrentLap)return;
     Time lap=m.relevantTime-s.lastCrossing;if(resumeAt_&&s.lastCrossing<pauseAt_){const Time stopped=resumeAt_-pauseAt_;lap=lap>stopped?lap-stopped:0;}
-    s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;++s.laps;storeLap(s,lap,m.relevantTime);if(recordEligible_&&records_)records_->observe(def.lane,lap);publishLap(def,s,lap,m);
+    s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;++s.laps;storeLap(s,lap,m.relevantTime);if(recordEligible_&&records_&&!records_->observe(def.lane,lap))latchPersistenceFault(m.relevantTime,true);publishLap(def,s,lap,m);
     if(after||at){if(after)s.postExpiryCompleted=true;if(enduranceExpired_&&finishBehaviour_==LapFinishBehaviour::CompleteCurrentLap){observed_[indexOf(s.raceEntryId)]=true;candidateF_=m.relevantTime;finishReady_=allObserved();}return;}
   }
   // The first eligible crossing after expiry completes the lap that was in
@@ -114,7 +114,7 @@ private:
     const Time lap=m.relevantTime-s.lastCrossing;
     s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;++s.laps;
     storeLap(s,lap,m.relevantTime);
-    if(recordEligible_&&records_&&lap)records_->observe(def.lane,lap);
+    if(recordEligible_&&records_&&lap&&!records_->observe(def.lane,lap))latchPersistenceFault(m.relevantTime,true);
     publishLap(def,s,lap,m);
     uint8_t i=indexOf(s.raceEntryId);if(i<entryCount())observed_[i]=true;
     candidateF_=m.relevantTime;finishReady_=allObserved();
@@ -134,7 +134,8 @@ private:
     if(definition_->mode()!=SessionMode::Endurance){const uint8_t w=indexOf(winner_);if(w>=entryCount()||entries_[w].laps<definition_->lapTarget()+penalties_[w])return;}
     if(!result_.sealed)seal();Message m{};m.type=Type::CompetitionComplete;m.relevantTime=result_.finishTime;m.raceEntryId=winner_;m.probe=deadHeat_?1:0;if(bus_.publish(endpoint_,m)==Delivery::Delivered){completionPublished_=true;complete_=true;}
   }
-  void persistResult(){if(!result_.sealed||persisted_||!history_)return;static_assert(sizeof(CompletedRaceResult)<=HistoryStore::MaxBytes,"history result exceeds bounded store");uint32_t sequence=0;if(history_->append(reinterpret_cast<const uint8_t*>(&result_),sizeof(result_),sequence)){historySequence_=sequence;persisted_=true;persistenceFault_=false;Message stored{};stored.type=Type::HistoryStored;stored.historySequence=sequence;stored.relevantTime=result_.finishTime;bus_.publish(endpoint_,stored);publishNoticeboardChanged();}else if(!persistenceFault_){persistenceFault_=true;Message fault{};fault.type=Type::StorageFault;fault.relevantTime=result_.finishTime;bus_.publish(endpoint_,fault);publishNoticeboardChanged();}}
+  void latchPersistenceFault(Time at,bool record){if(record)recordPersistenceFault_=true;else historyPersistFailed_=true;persistenceFault_=true;if(storageFaultPublished_)return;storageFaultPublished_=true;Message fault{};fault.type=Type::StorageFault;fault.relevantTime=at;bus_.publish(endpoint_,fault);publishNoticeboardChanged();}
+  void persistResult(){if(!result_.sealed||persisted_||historyPersistFailed_||!history_)return;static_assert(sizeof(CompletedRaceResult)<=HistoryStore::MaxBytes,"history result exceeds bounded store");uint32_t sequence=0;if(history_->append(reinterpret_cast<const uint8_t*>(&result_),sizeof(result_),sequence)){historySequence_=sequence;persisted_=true;Message stored{};stored.type=Type::HistoryStored;stored.historySequence=sequence;stored.relevantTime=result_.finishTime;bus_.publish(endpoint_,stored);publishNoticeboardChanged();}else{latchPersistenceFault(result_.finishTime,false);}}
   static bool before(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){if(a.classifiedLaps!=b.classifiedLaps)return a.classifiedLaps>b.classifiedLaps;if(f==LapFinishBehaviour::Immediate)return false;if(!a.completionTime)return false;if(!b.completionTime)return true;return a.completionTime<b.completionTime;}
   static bool samePlace(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){return a.classifiedLaps==b.classifiedLaps&&(f==LapFinishBehaviour::Immediate||a.completionTime==b.completionTime);}
   void publishNoticeboardChanged(){Message n{};n.type=Type::NoticeboardChanged;bus_.publish(endpoint_,n);}
@@ -145,7 +146,7 @@ private:
   }
   Bus&bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition&active_;HistoryStore*history_=nullptr;TrackRecordStore*records_=nullptr;const SessionDefinition*definition_=nullptr;
   uint8_t penalties_[MaxEntries]{},observed_[MaxEntries]{};uint32_t observedRevision_=0;Time go_=0,pauseAt_=0,restartAt_=0,settlementAt_=0,practiceResumeAt_=0,winningTime_=0,candidateF_=0,expiryTime_=0,resumeAt_=0;
-  EntryState entries_[MaxEntries]{};LapFinishBehaviour finishBehaviour_=LapFinishBehaviour::Immediate;bool complete_=false,completionPublished_=false,deadHeat_=false,faulted_=false,paused_=false,restartScheduled_=false,gridRestart_=false,enduranceExpired_=false,finishCurrentPending_=false,settlementSeen_=false,settlementPublished_=false,finishReady_=false,finishSettlementSent_=false,finishSettled_=false,persisted_=false,persistenceFault_=false,recordEligible_=true;
+  EntryState entries_[MaxEntries]{};LapFinishBehaviour finishBehaviour_=LapFinishBehaviour::Immediate;bool complete_=false,completionPublished_=false,deadHeat_=false,faulted_=false,paused_=false,restartScheduled_=false,gridRestart_=false,enduranceExpired_=false,finishCurrentPending_=false,settlementSeen_=false,settlementPublished_=false,finishReady_=false,finishSettlementSent_=false,finishSettled_=false,persisted_=false,persistenceFault_=false,recordPersistenceFault_=false,historyPersistFailed_=false,storageFaultPublished_=false,recordEligible_=true;
   CompletedRaceResult result_{};uint32_t winner_=0,historySequence_=0;Message pending_[16]{};uint8_t pendingCount_=0;uint32_t seen_[16]{};uint8_t seenAt_=0;
 };
 } // namespace pp
