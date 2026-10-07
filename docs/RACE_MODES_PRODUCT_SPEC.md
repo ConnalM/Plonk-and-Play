@@ -123,7 +123,7 @@ The winner is determined by distance/laps at expiry according to the configured 
 Endurance has two normal finish choices:
 
 1. **Stop at zero** — the race ends at 0:00. Classification uses completed laps and known progress where sector information permits it.
-2. **Finish current lap** — at 0:00 each running MUG continues until its next Start/Finish crossing and then finishes.
+2. **Finish current lap** — at 0:00 each running Racer continues until their next Start/Finish crossing and then finishes.
 
 There is no invented third timed-race finish mode.
 
@@ -178,7 +178,7 @@ For a normal loop/circuit Timed Stage stage:
 1. Car is positioned behind the Start/Finish sensor.
 2. Start sequence runs.
 3. GO makes the stage live but the official stage timer remains at zero.
-4. The MUG launches.
+4. The Racer launches.
 5. The first Start/Finish crossing starts the official timer.
 6. The car completes the configured number of stage laps.
 7. The final required Start/Finish crossing stops the timer.
@@ -229,14 +229,14 @@ DNF scoring is configurable and may include:
 - exclude from overall classification;
 - retry stage.
 
-A DNF does not automatically prevent the MUG from taking part in later stages.
+A DNF does not automatically prevent the Racer from taking part in later stages.
 
 ### 5.5 Event organisation
 
 A Timed Stage can contain:
 
 - Timed Stage name;
-- MUGs;
+- Racers;
 - number of stages;
 - per-stage settings.
 
@@ -246,14 +246,14 @@ P&P maintains the cumulative classification.
 
 Supported running orders:
 
-- **Stage order** — all MUGs complete Stage 1, then Stage 2 etc. This is the normal/default organisation.
-- **MUG order** — MUG 1 completes all stages, then MUG 2 etc. This is an Advanced option useful where the physical track remains unchanged.
+- **Stage order** — all Racers complete Stage 1, then Stage 2 etc. This is the normal/default organisation.
+- **Racer order** — Racer 1 completes all stages, then Racer 2 etc. This is an Advanced option useful where the physical track remains unchanged.
 
 ### 5.6 Timed Stage results
 
 The main live/default result information is:
 
-**Position | MUG | Stage time | Penalty | Timed Stage total | Gap**
+**Position | Racer | Stage time | Penalty | Timed Stage total | Gap**
 
 After each stage P&P can show the stage winner/fastest and updated overall classification.
 
@@ -280,17 +280,17 @@ The standard two-sensor P&P package supports:
 
 Base single-lane Drag uses the Start sensor itself to establish the staging point:
 
-1. MUG moves the car forward until the Start sensor is triggered.
+1. Racer moves the car forward until the Start sensor is triggered.
 2. **STAGE** illuminates: the beam/start line has been found.
-3. MUG rolls back slightly until the sensor clears.
+3. Racer rolls back slightly until the sensor clears.
 4. **STAGE** extinguishes and the run is armed/ready.
 5. The race cannot start while the Start sensor remains blocked.
-6. At GO the MUG launches.
+6. At GO the Racer launches.
 7. The car triggers the Start sensor almost immediately.
 8. That trigger starts ET.
 9. The Finish sensor stops ET.
 
-The rollback amount is deliberately left to the MUG's hand/skill.
+The rollback amount is deliberately left to the Racer's hand/skill.
 
 ### 6.3 Reaction and ET
 
@@ -358,7 +358,7 @@ The full tree layout remains visible with hardware-dependent elements shown in p
 
 This follows the wider P&P product rule that expansion capabilities should normally remain visible but locked/dormant rather than disappear.
 
-During staging and the start sequence, the tree becomes visually dominant and large enough to read while the MUG is concentrating on the car.
+During staging and the start sequence, the tree becomes visually dominant and large enough to read while the Racer is concentrating on the car.
 
 The three amber lamps operate according to the selected **Sportsman** or **Pro** sequence. Green indicates a valid GO; red indicates a false start.
 
@@ -416,7 +416,7 @@ The result screen deliberately exposes useful REU-only statistics in a greyed/lo
 
 Selecting the locked statistic may explain that the REU Drag Sensor Pack adds the additional finish beam required to measure speed through the final speed trap.
 
-This follows the same principle as greyed PRE-STAGE: never fake an unavailable measurement, but show the MUG what additional hardware would provide.
+This follows the same principle as greyed PRE-STAGE: never fake an unavailable measurement, but show the Racer what additional hardware would provide.
 
 **Base Drag display product design is complete at this level.** Further REU/two-lane competitive Drag display behaviour is deferred until that hardware is designed.
 
@@ -440,14 +440,14 @@ Timed Stage may be a **Single Stage** or **Multi-Stage Event**. A Multi-Stage Ev
 
 Use **Runs**, not Attempts, in the user interface.
 
-P&P does not need the MUG to declare whether a point-to-point run is technically a rally stage, hill climb or sprint merely to time it.
+P&P does not need the Racer to declare whether a point-to-point run is technically a rally stage, hill climb or sprint merely to time it.
 
 ### Drag setup
 Drag must work even when course length and scale are unknown. Reaction and ET remain valid.
 
 Optional Drag Course Length and Track Scale add derived information such as actual average speed and scale-equivalent distance/speed.
 
-If useful optional values are missing, SMUG may enter them directly in Drag setup rather than leaving the mode to visit Track Setup. Values entered contextually update the same underlying configuration rather than creating duplicates.
+If useful optional values are missing, the user may enter them directly in Drag setup rather than leaving the mode to visit Track Setup. Values entered contextually update the same underlying configuration rather than creating duplicates.
 
 Drag Course Length is distinct from ordinary circuit lap length: it is the physical Start-sensor-to-Finish-sensor distance.
 
