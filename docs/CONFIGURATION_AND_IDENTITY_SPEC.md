@@ -12,15 +12,21 @@ P&P remains genuinely Plonk & Play. A new/default two-lane system can race using
 
 A saved Racer has a permanent internal ID and a user-visible name. Name is the only required v1 profile field.
 
-Historical identity belongs to the internal ID, not the displayed name, so renaming a Racer does not split previous results.
+Historical identity belongs to the internal ID, not the displayed name, so renaming a Racer does not split previous results. Richer profile information may be added later without changing this identity model.
 
-## 3. Selecting Racers
+## 3. Selecting Racers and Guests
 
-Selecting the Racer area of a Race Entry opens a simple list of saved Racers plus suitable temporary/default choices, Guest and **+ New Racer**.
+Selecting the Racer area of a Race Entry opens a simple list of saved Racers plus suitable temporary/default choices, **Guest**, **Clear / No Racer** and **+ New Racer**.
 
 A Racer already assigned to another active lane remains visible but unavailable rather than silently disappearing.
 
-A Guest may race without becoming a permanent saved Racer. An optional temporary Guest name may be promoted later without re-entry.
+A Guest may race without becoming a permanent saved Racer. Guest name is optional: blank displays Guest; a temporary entered name is used for that race/session without automatically creating a permanent profile.
+
+A temporary named Guest can be promoted directly to a saved Racer without re-entering the name, either while entering it or after the race.
+
+> **Temporary identity data should be promotable to permanent identity without requiring re-entry.**
+
+Where clearing editable text is a sensible operation, provide a one-action **Clear** control rather than requiring repeated backspace/delete actions.
 
 ## 4. Cars
 
@@ -30,20 +36,15 @@ Cars are independent entities; a Car does not permanently belong to a Racer. A R
 
 **Race Entry = Racer + Lane + optional Car**
 
-The complete Race Entry moves when lane assignment changes.
+The complete Race Entry moves when lane assignment changes. The same Car may therefore be driven by different Racers in different races.
+
+For v1, if Car profiles are exposed, a simple user-visible Car name is sufficient. Catalogue-style manufacturer/model/year data is not required.
 
 ## 5. Racers screen
 
 The Racers area manages people, optional Cars and modest records; it does not assign lanes for the next race.
 
-A normal Racers screen may provide:
-
-- saved Racer list;
-- selected Racer detail;
-- Edit and Delete;
-- optional Car management;
-- useful summary such as races, wins/podiums and best lap;
-- personal records and recent results.
+A normal Racers screen may provide saved Racer list, selected Racer detail, Edit/Delete, optional Car management, useful summary such as races/wins/podiums/best lap, personal records and recent results.
 
 Delete requires confirmation. Racer management must not become a prerequisite to racing.
 
@@ -61,25 +62,25 @@ Systematic lane movement is **ROTATE LANES**, not Swap Lanes. Rotation behaviour
 
 P&P automatically remembers the most recently useful straightforward Race Setup. Returning to race preparation should normally restore it, allowing regular users to reach START with minimal interaction.
 
-A separate routine Save Setup / Load Setup system is not required for v1.
+A separate routine Save Setup / Load Setup system is not required for v1. Named presets may be added later if real use demonstrates a need.
 
 ## 8. Track configuration
 
 The v1 product assumes one remembered physical Track Configuration rather than requiring a named multi-track database.
 
-Track Configuration describes the installation and may include:
+Track Configuration describes the installation and may include configured lane count, physical Timing Points/sensors, remembered/default role proposals, Start/Finish arrangement, optional track length and optional scale.
 
-- configured lane count;
-- physical Timing Points and their sensors;
-- remembered/default role proposals used when forming Race Setup and Session Definition;
-- Start/Finish arrangement;
-- optional track length and scale.
+Track length may be entered in metric or imperial units. Scale may offer common presets such as 1:32, 1:24, 1:43 and 1:64 plus Custom and Unknown/Not entered.
 
 Track Setup tells P&P what physical timing hardware exists, where it is and what capabilities the installation can support. It is distinct from Race Setup.
 
 A physical Sensor has persistent hardware identity. A Timing Point represents a physical measurement location and may contain one or multiple sensors, commonly one per lane. Features/race modes use Timing Points rather than requiring the user to redefine every sensor for every race.
 
 The graphical Track Setup may record approximate topology/position; exact measured properties such as track length or speed-trap distance remain explicit numeric data where required.
+
+### Timed/Rally stages are not physical tracks
+
+A Timed/Rally Stage is an event/run definition layered on top of the current physical Track Configuration, not another physical track record. Stages may use the installation differently, for example loop laps, A→B or B→A, and may optionally have user-visible names.
 
 ## 9. Configuration presentation
 
@@ -91,7 +92,7 @@ Contains the small number of settings commonly needed for the imminent race: Rac
 
 ### More Race Options
 
-Contains settings that genuinely vary from race to race without deserving permanent front-screen space, such as start-light count, GO style, supported false-start behaviour, race sounds and Finish Display duration.
+Contains settings that genuinely vary from race to race without deserving permanent front-screen space, such as start-light count, GO/final-delay style, supported false-start behaviour, race sounds and Finish Display duration. Exact uncommon timing parameters may live in Advanced Settings.
 
 ### Track Setup
 
@@ -111,7 +112,7 @@ Normal Settings should remain sparse. A subject may expose its basic controls on
 
 **Advanced Settings** is polished product UI for knowledgeable owners. It may contain uncommon timing/input/start/display/audio controls and Demo facilities.
 
-**Developer / Diagnostics** is for engineering/support and may expose internal terminology and state such as Race Control, Race Engine, Message Bus, Session Definition, raw input events, synchronization, discovered hardware, errors, storage and logs.
+**Developer / Diagnostics** is for engineering/support and may expose internal terminology/state such as Race Control, Race Engine, Message Bus, Session Definition, raw input events, synchronization, discovered hardware, errors, storage and logs.
 
 Advanced Settings and Developer / Diagnostics are distinct audiences and must not be mixed merely because both contain uncommon controls.
 
@@ -121,7 +122,7 @@ Firmware Update and Factory Restore belong in Advanced/System administration rat
 
 P&P does not require routine SAVE/APPLY interaction where intention is unambiguous.
 
-Race settings become the current/remembered pending Race Setup as they change. P&P creates the immutable Session Definition only when START is accepted.
+Race settings become the current/remembered pending Race Setup as they change. P&P creates the immutable Session Definition only when START is accepted. Installation settings are stored when changed/confirmed.
 
 Confirm destructive, disruptive or genuinely ambiguous actions such as deleting persistent information, materially reassigning hardware, restarting/abandoning an active race or factory reset.
 
@@ -139,7 +140,7 @@ Factory/default base proposals are:
 
 These are installation/session-role proposals, not racing meaning owned by the Input Module. START freezes the roles required for the accepted Session Definition.
 
-Straightforward lap counting works immediately. Capabilities requiring a different sensor relationship, including applicable false-start/reaction measurements, are unavailable unless the physical/configuration arrangement can genuinely measure them. Such options may remain visible but unavailable with a concise explanation.
+Straightforward lap counting works immediately. Capabilities requiring a different sensor relationship, including applicable false-start/reaction measurements, are unavailable unless the physical/configuration arrangement can genuinely measure them. Such options may remain visible but unavailable with a concise explanation and, where useful, a diagram showing the required arrangement.
 
 Optional track length, scale and Racer names are not first-boot requirements.
 
@@ -152,11 +153,15 @@ The base product needs a short highly visual quick-start guide whose job is to g
 3. **CONNECT** — where full browser P&P is wanted, connect phone/tablet/computer.
 4. **PLAY** — use the prepared/default race and press START.
 
+A small **Want more?** section may point to optional Racer names, track length/scale, alternative sensor arrangements, enhanced start/false-start functions and other supported modes/capabilities.
+
 The software defaults must match the recommended physical installation so no Setup step is required before basic racing.
 
 ## 14. Future compatibility without v1 scope creep
 
-The model should not unnecessarily prevent richer Racer/Car profiles, multiple saved physical Track Configurations, competitions, heats/rounds or future screen configurability.
+The model should not unnecessarily prevent richer Racer/Car profiles, multiple saved physical Track Configurations, long-term Racer/Car statistics, competitions, heats/rounds or future screen configurability.
+
+It must not assume one Racer permanently belongs to one lane, one Car permanently belongs to one Racer, or every race is permanently standalone.
 
 These are not v1 requirements merely because the model leaves room for them.
 
