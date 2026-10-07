@@ -60,6 +60,7 @@ public:
     if(!r.u32(magic)||!r.u16(version)||!r.u16(reserved)||!r.u32(total)||magic!=Magic||version!=Version||total!=length)return false;
     uint16_t resultVersion=0;uint8_t flags=0,mode=0,behaviour=0,count=0;uint16_t duration=0,unused=0;uint32_t lapTarget=0;
     if(!r.u16(resultVersion)||!r.u8(flags)||!r.u8(mode)||!r.u8(behaviour)||!r.u8(count)||!r.u16(duration)||!r.u16(unused)||!r.u32(lapTarget)||count>RaceEngineModule::MaxEntries)return false;
+    if(resultVersion!=RaceEngineModule::ResultFormatVersion)return false;
     out={};out.formatVersion=resultVersion;out.sealed=flags&1u;out.valid=flags&2u;out.deadHeat=flags&4u;out.fastestLapTied=flags&8u;out.overtime=flags&16u;
     if(mode<static_cast<uint8_t>(SessionMode::LapRace)||mode>static_cast<uint8_t>(SessionMode::Endurance)||behaviour>static_cast<uint8_t>(LapFinishBehaviour::CompleteCurrentLap))return false;
     out.mode=static_cast<SessionMode>(mode);out.behaviour=static_cast<LapFinishBehaviour>(behaviour);out.entryCount=count;out.durationMinutes=duration;out.lapTarget=lapTarget;
