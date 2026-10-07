@@ -1,6 +1,6 @@
 # Plonk & Play™ — Presentation Design Specification
 
-**Status:** Accepted visual-direction specification  
+**Status:** Accepted visual-direction specification — Stage 15 UX reconciliation  
 **Applies to:** Browser presentation and integrated P&P display  
 **Authority:** Product behaviour remains governed by the relevant product specifications. This document governs visual language and presentation consistency, not race logic.
 
@@ -8,11 +8,9 @@
 
 P&P must look like one product everywhere.
 
-The integrated display, browser Race Control, Personal MUG display, spectator display, Results and configuration screens must share a recognisable visual language. Different devices may arrange and prioritise information differently, but they must not look like unrelated applications.
+The integrated display, normal browser race display, personal Racer display, spectator display, Results and configuration screens share a recognisable visual language. Different devices and purposes may arrange and prioritise information differently without becoming unrelated applications.
 
 The presentation should feel like a professionally designed motorsport timing product rather than a generic web dashboard, hobby project or computer game.
-
-Core principle:
 
 > **One P&P look. Different screens. The information that matters now dominates.**
 
@@ -21,36 +19,27 @@ Core principle:
 The accepted visual direction is:
 
 - dark navy/charcoal primary surfaces;
-- restrained P&P yellow as the principal brand/accent colour;
+- strong but restrained P&P yellow as the principal brand/accent colour;
 - clear white/off-white primary information;
-- lane colours used where they communicate lane/competitor identity, not as general decoration;
+- lane colours only where they communicate lane/Racer identity;
 - large, highly legible timing and race-state typography;
-- clean panels with restrained rounding and borders;
-- generous spacing and strong visual hierarchy;
+- clean, purposeful panels with restrained rounding;
+- strong hierarchy and stable geometry;
 - simple, consistent iconography;
-- restrained motorsport cues rather than decorative racing clichés;
-- presentation theatre used for genuine race events, not continuously.
+- restrained motorsport cues rather than racing clichés;
+- presentation theatre for genuine race events, not continuously.
 
-The visual direction is intentionally **not**:
+The browser should visually relate to the black/dark physical console with its restrained yellow edge/detail rather than looking like generic administration software.
 
-- carbon-fibre wallpaper;
-- fake brushed metal;
-- permanent chequered-flag decoration;
-- seven-segment typography everywhere;
-- neon/glowing controls;
-- gratuitous animated cars;
-- a dense telemetry dashboard;
-- a collection of differently styled pages.
+The working identity uses the compact P&P mark and the strapline **SIMPLE SETUP · SERIOUS SLOT RACING** where space and context make the strapline useful.
 
-P&P should remain recognisably P&P even when all decorative imagery is removed.
+Avoid carbon-fibre wallpaper, fake brushed metal, permanent chequered decoration, seven-segment typography everywhere, glowing controls, gratuitous cars/animation and dense telemetry-dashboard styling.
 
 ## 3. Relationship to the physical product
 
-The browser and integrated P&P display should visually belong to the same physical product.
+Browser and integrated display should share, where practical:
 
-Where practical they should share:
-
-- P&P mark/wordmark treatment;
+- P&P identity treatment;
 - colour palette;
 - typography hierarchy;
 - panel geometry;
@@ -60,242 +49,183 @@ Where practical they should share:
 - icons;
 - event treatments such as Fastest Lap, Final Lap and Finish.
 
-They do not need identical layouts. The integrated display, phone, tablet, laptop and TV have different jobs and available space.
+They do not require identical layouts. Integrated display, phone, tablet, laptop and TV have different jobs and available space.
 
 ## 4. Information hierarchy
 
-P&P must show **what matters now** rather than everything it knows.
+P&P shows what matters now rather than everything it knows.
 
-During a race the primary hierarchy is generally:
+During a race the hierarchy is generally:
 
 1. race-control state and safety/control signals;
 2. position and race progress;
 3. immediately useful timing information;
 4. secondary analysis/detail.
 
-Secondary information must not compete visually with the current race state.
-
-Detailed analysis belongs in Results/Details rather than being forced onto the live race display.
+Detailed analysis belongs in Results/Details rather than being forced onto the live display.
 
 ## 5. Shared presentation components
 
-Browser and integrated-display implementations should be assembled from a common conceptual component vocabulary wherever applicable.
+Implementations should use a common conceptual component vocabulary and common authoritative data bindings wherever applicable.
 
-Initial component set:
+Useful components include:
 
-- **P&P Header / Identity Mark**
-- **Race Control Pod**
-- **Status Banner**
-- **Mode Card**
-- **Lane Row / Lane Card**
-- **Position Indicator**
-- **Race Progress**
-- **Timing Value**
-- **Gap Value**
-- **Fastest Lap treatment**
-- **Final Lap treatment**
-- **Penalty treatment**
-- **Finished treatment**
-- **Result Row**
-- **Primary Action**
-- **Secondary Action**
-- **Information / Help control**
-- **Numeric adjustment control**
+- P&P Header / Identity Mark;
+- Race Control Pod;
+- Lane Row / Lane Card;
+- Position Indicator;
+- Race Progress;
+- Timing Value;
+- Gap Value;
+- race clock;
+- Fastest Lap treatment;
+- Final Lap treatment;
+- Penalty treatment;
+- Finished treatment;
+- Result Row;
+- Primary / Secondary Action;
+- Information / Help control;
+- Numeric adjustment control.
 
-A component should retain the same meaning and basic visual identity wherever it appears, while being allowed to scale or simplify for the available display.
+A component retains the same meaning and basic visual identity wherever it appears while being allowed to scale, simplify or rearrange for its purpose/display.
 
-This component vocabulary is also the intended foundation for any future configurable Screen Designer. A future SMUG should rearrange supported P&P components rather than hand-author arbitrary HTML/CSS.
+This component vocabulary is the architectural foundation for possible future advanced-user configurable screens. A future editor may rearrange, show/hide or resize supported P&P components; it must not require arbitrary HTML/CSS.
+
+Stage 15 does **not** require a generic Screen Designer, generic configurable layout engine or user-selectable **Classic/Race Control** presets. It does require an implementation that does not unnecessarily hard-wire all live presentation into one inseparable monolith.
 
 ## 6. Colour rules
 
-### 6.1 Brand colour
-
-P&P yellow is the principal accent and selection colour. It should be distinctive but restrained; covering large portions of every screen in yellow would weaken it.
-
-### 6.2 Lane colours
+P&P yellow is the principal accent and selection colour. Solid yellow should be reserved for actions/emphasis where it matters, particularly primary actions, rather than covering every selected navigation item.
 
 Lane colours communicate lane identity and related race information. They should not become a general page theme.
 
-A lane colour may be used for items such as:
-
-- lane number/identity marker;
-- a narrow row accent;
-- a relevant event highlight;
-- Personal MUG identity.
-
-Large saturated lane-colour backgrounds should be avoided where they reduce readability or make multi-lane displays visually noisy.
-
-### 6.3 Status colours
-
-Status colour must have consistent meaning across screens. Yellow/Red race-control presentation remains governed by `COMMON_DISPLAY_SPEC.md`.
-
-Colour must not be the only means of communicating a critical state; text, iconography or light state should also make the meaning clear.
+Status colour must have consistent meaning. Yellow/Red race-control presentation remains governed by `COMMON_DISPLAY_SPEC.md`. Colour must not be the sole means of communicating a critical state.
 
 ## 7. Typography and numeric presentation
 
-Race information must remain readable at a glance and at the expected viewing distance.
+Race information must remain readable at a glance and at expected viewing distance.
 
-Use a compact, modern sans-serif family suitable for screen display. Exact production fonts are an implementation choice until separately frozen, but browser and integrated display should use visually compatible typography.
-
-Typography should distinguish clearly between:
-
-- race state;
-- position;
-- race progress;
-- live timing;
-- labels/secondary information;
-- configuration/help text.
-
-Changing race numbers must use tabular/fixed-width numeral behaviour where appropriate.
-
-Existing rule from `COMMON_DISPLAY_SPEC.md` remains mandatory:
+Use a compact modern sans-serif suitable for screen display. Changing race numbers use tabular/fixed-width numeral behaviour where appropriate.
 
 > **No UI jitter caused by changing race data.**
 
-Decorative motorsport fonts may be used sparingly for branding if appropriate, but not for dense timing information.
+Decorative motorsport fonts may be used sparingly for branding, not dense timing information.
 
-## 8. Live race display
+## 8. Normal live race display
 
-The existing Common Display Specification remains authoritative for live race content and behaviour.
+The Common Display Specification governs live content and behaviour.
 
 Visually:
 
-- the Race Control Pod is clearly identifiable and remains in a stable location;
-- lane rows remain geometrically stable during live racing;
-- position changes within a lane row rather than moving the row;
-- position and progress are visually dominant;
-- Last, Best and Gap are clearly secondary;
-- temporary events alter emphasis without rebuilding the whole screen;
-- animation must not interfere with reading current race information.
+- active racing takes over the useful screen area and ordinary browser chrome is stripped back;
+- the Race Control Pod is shallow and stable;
+- lane rows remain fixed in physical lane order;
+- position changes within a row rather than moving the row;
+- Position and Progress dominate;
+- Last, Best and Gap are secondary;
+- temporary events change emphasis without rebuilding the screen;
+- animation never interferes with reading race information.
 
-Race theatre is appropriate for meaningful moments such as:
+For the standard 8-lane live browser display at its intended desktop/tablet viewport, **all eight lane rows must be simultaneously visible at a useful, easily readable size without scrolling**. This is a v1 presentation target, not an architectural declaration that P&P can never support more than eight lanes.
 
-- start sequence;
-- position change;
-- fastest lap;
-- final lap;
-- finish;
-- Yellow/Red race control.
+Race theatre is appropriate for start sequence, meaningful position changes, fastest lap, final lap, finish and race-control interventions. Continuous animation for its own sake is not.
 
-Continuous animation for its own sake is not part of the P&P visual language.
+## 9. Purpose-specific presentations
 
-## 9. Personal MUG display
+P&P needs several presentations of the same authoritative state rather than one layout squeezed everywhere.
 
-The Personal MUG display is a glanceable racing instrument, not a miniature copy of the full scoreboard.
+### Integrated Taster
 
-Position and race progress dominate.
+The local display follows `PP_TASTER_SPEC.md`: a deliberately simple, self-contained two-lane presentation operated by the local control.
 
-Last Lap, Best Lap and Gap remain secondary. Personal alerts may temporarily dominate as already specified in `COMMON_DISPLAY_SPEC.md`.
+### Personal Racer display
 
-A phone held or positioned several feet away should remain useful without requiring the MUG to read small labels while driving.
+A personal phone display is a glanceable racing instrument, not a miniature full scoreboard. Position and progress dominate; Last, Best and Gap are secondary. Alerts may temporarily dominate. Portrait and landscape may arrange the same information differently.
 
-Portrait and landscape presentations may arrange the same information differently while retaining the same hierarchy and visual identity.
+### TV / spectator display
+
+A TV/projector presentation prioritises clear shared race information and normally omits operational controls.
+
+### Race Control presentation
+
+A dedicated Race Control browser may legitimately expose denser timing and permitted operational controls. This is a purpose-specific presentation, not a user-selectable visual preset called “Race Control”.
+
+All presentations remain clients of the same authoritative race state.
 
 ## 10. Results
 
-Results switch from live fixed-lane presentation to finishing order as already specified.
+Results switch from fixed lane order to finishing order. The hierarchy should answer immediately: **Who won, and what happened?**
 
-The visual hierarchy should answer immediately:
+Detailed lap, sector, speed and penalty analysis is secondary and may live behind Details / Analysis.
 
-> **Who won, and what happened?**
+History is automatically recorded; visual prototypes containing `SAVE RESULTS` do not create a manual-save requirement.
 
-The winner should be obvious without excessive celebration or obscuring the other results.
+## 11. Home
 
-Detailed lap, sector, speed and penalty analysis remains secondary and may live behind a Details / Analysis view.
+Home is a calm dashboard for the currently prepared race, not a wall of mode cards.
 
-Controls shown in visual prototypes are not automatically product requirements. In particular, History is automatically recorded according to the governing history specification; a mock-up button such as `SAVE RESULTS` must not create a new manual-save requirement.
+It should make the prepared race obvious, provide a large hero **START** when ready, offer **Change Race**, and show the latest result compactly where useful.
 
-## 11. Home and mode selection
+The permanent header START remains visible on Home as part of the stable header contract. The hero START and header START invoke the same action.
 
-Home should present the supported race modes clearly using the common Mode Card component.
+Race modes are selected/configured through Race Setup rather than being required as five Home cards.
 
-Lap Race remains the normal/dominant starting choice in accordance with the browser-flow specification. Other supported modes remain visible without making the Home screen feel like a configuration menu.
+## 12. Header and configuration screens
 
-Mode cards may use simple icons and one short explanatory phrase. They should not contain paragraphs of help.
+Normal browser navigation is:
 
-## 12. Configuration screens
+**P&P logo | Race Setup | Results | Track Setup | Racers | Settings**
 
-Configuration uses the same P&P visual language but may be denser than racing screens.
+The logo returns Home. The right-hand header status/action area remains fixed in position and shows READY→START or NOT READY/FIX as appropriate.
 
-Configuration should favour conventional, understandable controls over decorative novelty.
+Selected navigation should use restrained yellow emphasis such as text/underline; solid yellow is reserved for primary action.
 
-Advanced settings must not visually overwhelm normal setup. Contextual help and numeric controls follow the rules in `COMMON_DISPLAY_SPEC.md`.
+Configuration may be denser than racing screens but should favour conventional understandable controls over decorative novelty.
 
-The fact that a configuration page can fit more information on a laptop does not justify displaying every available option simultaneously.
+The hierarchy is:
+
+- **Settings** — normal owner preferences;
+- **Advanced Settings** — knowledgeable-owner controls and uncommon product configuration;
+- **Developer / Diagnostics** — engineering/support internals.
+
+Advanced and Developer are not promoted to normal top-level navigation.
 
 ## 13. Responsive presentation
 
-P&P is one presentation system, not separate unrelated applications for each screen size.
+P&P is one presentation system, not unrelated applications by screen size.
 
-Responsive layouts should adapt the shared components and hierarchy approximately as follows:
+Priorities are approximately:
 
-- **Phone portrait:** Personal MUG / focused single-user presentation; very large glanceable values.
-- **Phone landscape:** compact Personal MUG or compact race presentation.
-- **Tablet:** full Race Control and normal setup/results.
-- **Laptop/desktop:** full Race Control, configuration and detailed analysis.
-- **TV/projector:** spectator-first scoreboard with controls normally absent.
-- **Integrated P&P display:** local self-contained presentation optimised for its physical screen and controls.
+- phone portrait: personal/focused Racer presentation;
+- phone landscape: compact personal or race presentation;
+- tablet: normal race/control/setup/results;
+- laptop/desktop: full race, configuration and detail;
+- TV/projector: spectator-first display;
+- integrated display: local self-contained Taster presentation.
 
 These are presentation priorities, not hard device restrictions.
 
 ## 14. Multiple simultaneous displays
 
-Different connected displays may legitimately show different views of the same authoritative race.
-
-For example, at the same moment P&P may show:
-
-- full scoreboard on a TV;
-- Race Control on a tablet;
-- Personal MUG views on phones;
-- local race state on the integrated display.
-
-All should unmistakably belong to the same P&P system.
-
-The browser remains a presentation client. Visual effects, layout and animations must never become timing authority or alter authoritative race state.
+Different displays may show different purpose-appropriate views of the same race at the same moment. Browser clients render state; they never become timing authorities. Loss of a browser must not affect race timing/state.
 
 ## 15. Visual prototypes
 
-Visual mock-ups are design references, not behavioural specifications.
+Visual mock-ups are design references, not behavioural specifications. Invented example names, cars, numbers or controls must not silently override product specifications.
 
-A mock-up may contain invented example names, cars, numbers, controls or layouts solely to communicate visual direction. Such content must not silently override the governing product specifications.
-
-Before implementing functionality inferred from a mock-up, check the relevant product specification.
-
-The currently accepted design-board direction demonstrates:
-
-- dark P&P visual language;
-- yellow brand accents;
-- clean mode cards;
-- stable multi-lane timing rows;
-- strong Personal MUG hierarchy;
-- coherent Race Control, Results and spectator presentations;
-- shared component styling across different device formats.
-
-It does **not** freeze exact pixels, exact fonts, example data, decorative car graphics or any invented controls shown by the concept artwork.
+The accepted direction demonstrates dark P&P styling, yellow accents, stable multi-lane timing rows, strong personal-display hierarchy and coherent race/results/spectator presentation. It does not freeze exact pixels, fonts, example data, decorative car graphics or every control shown in concept artwork.
 
 ## 16. Accessibility and practical use
 
-P&P screens are used while people are watching and driving slot cars, often at a distance and in imperfect lighting.
-
-Therefore:
-
-- important text and numbers require strong contrast;
-- critical information must not rely on colour alone;
-- touch targets must be comfortably usable;
-- important race values should not require close reading;
-- decorative elements must never obscure timing information;
-- motion should be brief and purposeful;
-- layouts must tolerate longer MUG names and realistic numeric values without collapsing.
+Important text and numbers require strong contrast; critical information must not rely on colour alone; touch targets must be comfortable; race values must work at viewing distance; motion should be brief/purposeful; layouts must tolerate realistic names and numeric values without collapsing.
 
 ## 17. Implementation boundary
 
-This specification deliberately freezes the **visual direction and consistency rules**, not a pixel-perfect final UI.
+This specification freezes visual direction and consistency rules, not a pixel-perfect final UI.
 
-Exact spacing tokens, colour values, fonts, icon set, animation timings and component dimensions should be established through implementation/prototyping and then recorded once proven.
+Exact spacing tokens, colour values, fonts, icons and animation timings may be established through implementation/prototyping and recorded once proven.
 
-Do not delay race-engine or product-behaviour work merely to perfect cosmetic detail.
-
-Equally, do not allow temporary development UI to become the product appearance by accident.
+Do not allow temporary development UI to become the product appearance by accident.
 
 ---
 
