@@ -125,12 +125,19 @@ bool browserHttpStateKnown=false,browserHttpState=false;
 bool browserFixturePass(uint8_t lane){
   // The demo trigger is only a momentary source at the normal Input Module
   // boundary.  Every active timing mode uses the same eligibility rule.
-  if(raceControl.state()!=pp::SessionLifecycle::Racing)return false;
+  if(raceControl.state()!=pp::SessionLifecycle::Racing){
+    diagnostics.log("[INPUT] fixture_pass lane=%u disposition=REJECTED reason=NO_ACTIVE_RACING_SESSION",unsigned(lane));
+    return false;
+  }
   const auto mode=raceControl.mode();
-  if(mode!=pp::SessionMode::LapRace&&mode!=pp::SessionMode::OpenPractice&&mode!=pp::SessionMode::Endurance)return false;
+  if(mode!=pp::SessionMode::LapRace&&mode!=pp::SessionMode::OpenPractice&&mode!=pp::SessionMode::Endurance){
+    diagnostics.log("[INPUT] fixture_pass lane=%u disposition=REJECTED reason=UNSUPPORTED_SESSION_MODE",unsigned(lane));
+    return false;
+  }
   if(lane==1){input.setSimulatedSource(true);simulatedARelease=systemTime()+150000;}
   else if(lane==2){input.setSimulatedSourceB(true);simulatedBRelease=systemTime()+150000;}
-  else return false;
+  else { diagnostics.log("[INPUT] fixture_pass lane=%u disposition=REJECTED reason=INVALID_LANE",unsigned(lane)); return false; }
+  diagnostics.log("[INPUT] fixture_pass lane=%u disposition=SOURCE_ASSERTED mode=%u release_us=%llu",unsigned(lane),unsigned(mode),static_cast<unsigned long long>(lane==1?simulatedARelease:simulatedBRelease));
   return true;
 }
 void browserFixtureReset(){ activeSession.clearForFixture(); raceControl.resetRaceForFixture(); raceControl.setProposedRaceSetup(proposedRaceSetup); raceEngine.resetForFixture(); browser.clearRaceForFixture(); diagnostics.log("[DEV] TEST RESET READY (Race Director retained)"); }

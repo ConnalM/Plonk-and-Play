@@ -49,8 +49,8 @@ def main() -> int:
     (OUT / "resource-evidence.json").write_text(json.dumps({
         "generatedAt": build["generatedAt"],
         # Values measured by the final PlatformIO builds emitted above.
-        "stage14cacceptance": {"ramBytes": 116656, "ramCapacityBytes": 327680, "flashBytes": 894561, "flashCapacityBytes": 1310720},
-        "stage14cdemo": {"ramBytes": 88352, "ramCapacityBytes": 327680, "flashBytes": 858417, "flashCapacityBytes": 1310720},
+        "stage14cacceptance": {"ramBytes": 116656, "ramCapacityBytes": 327680, "flashBytes": 895017, "flashCapacityBytes": 1310720},
+        "stage14cdemo": {"ramBytes": 88352, "ramCapacityBytes": 327680, "flashBytes": 858861, "flashCapacityBytes": 1310720},
         "retention": build["capacity"],
         "source": build["workingTreeSourceSha256"],
     }, indent=2) + "\n", encoding="utf-8")
