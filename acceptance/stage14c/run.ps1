@@ -7,4 +7,5 @@ try{if(-not $old){$secret=Import-Clixml $token;$env:WOKWI_CLI_TOKEN=[Net.Network
 python (Join-Path $PSScriptRoot 'evaluator_integrity.py');python (Join-Path $PSScriptRoot 'evaluate.py');python (Join-Path $PSScriptRoot 'structural_review.py')
 node (Join-Path $PSScriptRoot 'browser_proposal_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-proposal-runtime.txt')
 node (Join-Path $PSScriptRoot 'browser_recovery_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-recovery-runtime.txt')
+node (Join-Path $PSScriptRoot 'browser_presentation_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-presentation-runtime.txt')
 python (Join-Path $PSScriptRoot 'browser_integration_review.py') --acceptance-bin (Join-Path $firmware '.pio/build/stage14cacceptance/firmware.merged.bin') --demo-bin (Join-Path $firmware '.pio/build/stage14cdemo/firmware.merged.bin') | Tee-Object -FilePath (Join-Path $evidence 'browser-integration-review.txt')

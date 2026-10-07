@@ -1,0 +1,1 @@
+Stage 14C Browser recovery runtime PASS: timeout clears polling, recovery succeeds, overlap remains bounded

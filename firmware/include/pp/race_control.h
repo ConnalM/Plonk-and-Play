@@ -126,7 +126,14 @@ private:
     }
     if(request.operation==SessionOperation::RaceAgain){
       if(state_!=SessionLifecycle::Finished||!definition_){reject(request.correlation,RequestRejection::LifecycleNotRaceAgain);return;}
-      copySetupFromDefinition(); setup_=&proposedCopy_;active_.permitReplacement();state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;changed();result(request.correlation,RequestResult::Accepted);return;
+      copySetupFromDefinition(); setup_=&proposedCopy_;active_.permitReplacement();state_=SessionLifecycle::Ready;startCommitted_=false;
+      // RACE AGAIN starts a new session proposal. Clear all run-bound timing
+      // and expiry state so a completed Endurance race cannot leak into the
+      // next STARTING/RACING presentation.
+      go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=0;
+      finalDelay_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;
+      durationExpired_=false;durationPublished_=false;resumeScheduled_=false;
+      changed();result(request.correlation,RequestResult::Accepted);return;
     }
     if(request.operation==SessionOperation::Resume){
       if(state_!=SessionLifecycle::Paused){reject(request.correlation,RequestRejection::LifecycleNotResumable);return;}

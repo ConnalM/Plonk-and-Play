@@ -25,6 +25,7 @@ checks = {
     "live_state_poll": "const state=await get('/state')" in browser and "$('#connection').textContent='synchronised'" in browser,
     "poll_state_not_revision_gated": bool(re.search(r"const n=await get\('/noticeboard'\).*?const state=await get\('/state'\)", browser, re.S)) and "if(changed){try{$('#fact')" in browser,
     "endurance_countdown": "displayRemaining" in browser and "clock(displayRemaining)" in browser and 'Overtime: '+"'+overtimeClock(v.overtime)+'" in browser,
+    "overtime_clock_bounded": "const tenths=Math.max(0,Math.floor(Number(us||0)/100000))" in browser and "const seconds=tenths%600" in browser and "String(Math.floor(seconds/10)).padStart(2,'0')" in browser,
     "authoritative_overtime": "s.finishBehaviour==LapFinishBehaviour::CompleteCurrentLap" in notice and "s.durationExpired" in notice,
     "browser_authority_gate": "window.browserHasMaster" in browser and "Race Director authority required to start Endurance." in browser,
     "active_setup_reconstruction": "minutes.value=String(v.durationMinutes)" in browser and "v.finishBehaviour==='COMPLETE_CURRENT_LAP'" in browser,
@@ -51,6 +52,7 @@ checks = {
     "browser_http_health_snapshot": "HTTP HEALTH" in main and "httpHealth(HttpHealth&" in browser and "else if(c=='h')browserHealth()" in main,
     "browser_route_trace": "RequestTrace trace(instance(), \"/state\")" in browser and "httpActiveHandlers_" in browser and "httpLastRoute_" in browser,
     "browser_heap_and_error_observability": "ESP.getMinFreeHeap()" in browser and "ESP.getMinFreeHeap()" in main and "httpRequestErrors_" in browser,
+    "latest_lap_is_authoritative_cross_entry": "entry.recordCount&&entry.records[entry.recordCount-1].finishTime" in notice and "selectLatestLap" in notice,
 }
 failed = [name for name, ok in checks.items() if not ok]
 if failed:

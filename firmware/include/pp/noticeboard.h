@@ -14,6 +14,7 @@ public:
     NoticeboardState s{};s.lifecycle=control_.state();s.sessionMode=control_.mode();s.scheduledGo=control_.scheduledGo();s.pauseEffectiveAt=control_.pauseEffectiveAt();s.scheduledRestartAt=control_.scheduledRestartAt();s.restartMethod=control_.restartMethod();s.redLightCount=control_.redLightCount();s.startSignal=control_.startSignal();s.redIntervalUs=control_.definition()?control_.definition()->redIntervalUs():0;s.finalDelayUs=control_.finalDelay();s.lapTarget=(control_.mode()==SessionMode::OpenPractice||control_.mode()==SessionMode::Endurance)?(control_.mode()==SessionMode::Endurance?0:0):(control_.proposedRaceSetup()?control_.proposedRaceSetup()->lapTarget:(control_.definition()?control_.definition()->lapTarget():0));s.entryCount=engine_.entryCount();s.durationMinutes=control_.definition()?control_.definition()->durationMinutes():0;s.durationExpiryAt=control_.durationExpiryAt();s.remainingDuration=control_.durationRemaining(systemTime());s.durationExpired=control_.durationExpired();s.finishBehaviour=control_.definition()?control_.definition()->finishBehaviour():LapFinishBehaviour::Immediate;
     for(uint8_t i=0;i<s.entryCount;i++){const auto&e=engine_.entryState(i);s.entries[i]=NoticeboardEntryState(e.raceEntryId,e.laps,e.lastLapTime,e.hasLap,e.bestLapTime,e.waitingForTimingOrigin,e.laps>e.lapPenalty?e.laps-e.lapPenalty:0,e.lapPenalty);if(e.bestLapTime&&(!s.sessionFastestLap||e.bestLapTime<s.sessionFastestLap))s.sessionFastestLap=e.bestLapTime;}
     if(s.entryCount){s.raceEntryId=s.entries[0].raceEntryId;s.laps=s.entries[0].laps;s.lastLapTime=s.entries[0].lastLapTime;s.hasLap=s.entries[0].hasLap;}
+    selectLatestLap(s,engine_);
     s.deadHeat=engine_.deadHeat();s.raceIntegrityFaulted=control_.integrityFaulted();s.raceIntegrityReason=control_.integrityReason();s.resultValid=!s.raceIntegrityFaulted;
     const auto&r=engine_.completedResult();s.resultSealed=r.sealed;s.winningTime=r.winningTime;s.finishTime=r.finishTime;s.fastestLap=r.fastestLap;s.overtime=r.overtime&&r.finishTime>r.expiryTime?r.finishTime-r.expiryTime:0;
     // During Finish Current Lap the authoritative expiry boundary is already
@@ -25,6 +26,7 @@ public:
   }
   const RaceEngineModule::CompletedRaceResult& completedResult() const{return engine_.completedResult();}
 private:
+  static void selectLatestLap(NoticeboardState&s,const RaceEngineModule&e) __attribute__((noinline)){Time latest=0;for(uint8_t i=0;i<s.entryCount;i++){const auto&entry=e.entryState(i);if(entry.hasLap&&entry.recordCount&&entry.records[entry.recordCount-1].finishTime>=latest){latest=entry.records[entry.recordCount-1].finishTime;s.raceEntryId=entry.raceEntryId;s.laps=entry.laps;s.lastLapTime=entry.lastLapTime;s.hasLap=true;}}}
   const RaceControlModule&control_;const RaceEngineModule&engine_;const ActiveSessionDefinition&active_;const SessionDefinition*definition_=nullptr;
 };
 }

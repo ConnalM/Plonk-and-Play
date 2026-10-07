@@ -12,18 +12,19 @@ entry 0x400805dc
 [DEV] P&P STAGE 14C ACCEPTANCE -- diagnostics are not product State
 [INIT] System Time READY: monotonic 64-bit microsecondsACC READY
 [INIT] Memory READY: NVS behind Memory boundary
-[INIT] Message Bus READY: bounded mailboxes; authority checkedACC S14C test=14C.6 pass=1 false_start_off_warning_penalty_zero_and_nonzero=1
+[INIT] Message Bus READY: bounded mailboxes; authorityACC S14C test=14C.6 pass=1 false_start_off_warning_penalty_zero_and_nonzero=1
 ACC S14C test=14C.1 pass=1 duration=1 mode=endurance
 ACC S14C test=14C.2 pass=1 whole_minute_serialized=1
 ACC S14C test=14C.3 pass=1 immutable_definition=1
 ACC S14C test=14C.4 pass=1 normal_start_go=5956028
-ACC S14C test=14C.5 pass=1 independent_laps=1
+ACC S14C test=14C.5 pass=1 independent_laps=1 latest_entry=2 latest_lap_us=1200000
 ACC S14C test=14C.6 pass=1 state_api=1
 ACC S14C test=14C.7 pass=1 remaining_positive=1
 ACC S14C test=14C.8 pass=1 stop_at_zero_observed=1
 ACC S14C test=14C.9 pass=1 expiry_settled=1 sealed=1
 ACC S14C test=14C.10 pass=1 classification_relevant_time=1
 ACC S14C test=14C.11 pass=1 zero_and_overtime_boundaries=1
+ACC S14C regression=race_again_endurance_presentation pass=1 finished=1 clean_ready=1 fresh_starting=1
 ACC S14C test=14C.12 pass=1 pause_resume_duration_fence=1 paused_laps=1
 ACC S14C test=14C.13 pass=1 lap_resume_countdown=1 intermediate_lights=1 repeated_cycles=1 paused_laps=1 final_laps=3
 ACC S14C regression=finish_current_lap_one_crossing pass=1 before=2/2 after=3/3 settled=1 behaviour=1
