@@ -159,7 +159,12 @@ private:
     }
     if(request.operation==SessionOperation::RestartRace||request.operation==SessionOperation::EndRace){
       if(request.probe!=1){reject(request.correlation,RequestRejection::ConfirmationRequired);return;}
-      if(state_!=SessionLifecycle::Paused||!pauseSettled_){reject(request.correlation,RequestRejection::LifecycleNotAbandonable);return;}
+      // Lap Race abandonment retains the settled-pause fence. Endurance is
+      // also explicitly abandonable while actively racing; a paused
+      // Endurance session still has to complete that same settlement fence.
+      const bool enduranceRacing=mode()==SessionMode::Endurance&&state_==SessionLifecycle::Racing;
+      const bool settledPause=state_==SessionLifecycle::Paused&&pauseSettled_;
+      if(!enduranceRacing&&!settledPause){reject(request.correlation,RequestRejection::LifecycleNotAbandonable);return;}
       if(request.operation==SessionOperation::RestartRace){
         if(definition_){copySetupFromDefinition();setup_=&proposedCopy_;active_.permitReplacement();}
          active_.clearForFixture();definition_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;resumeScheduled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
