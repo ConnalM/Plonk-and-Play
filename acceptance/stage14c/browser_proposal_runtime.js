@@ -2,126 +2,145 @@ const fs = require('fs');
 const vm = require('vm');
 
 const header = fs.readFileSync('firmware/include/pp/browser_interface.h', 'utf8');
-function presentation(name) {
+function staticScript(name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = header.match(new RegExp('static const char ' + escaped + '\\[\\] = \\s*R"HTML\\(([\\s\\S]*?)\\)HTML";'));
   if (!match) throw new Error('missing ' + name);
   return match[1].replace(/^<script>/, '').replace(/<\/script>$/, '');
 }
+const html = header.match(/static const char html\[\] = R"HTML\(([\s\S]*?)\)HTML";/)[1];
+const productionPageScript = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 
 class Element {
-  constructor(id) { this.id = id; this.textContent = ''; this.disabled = false; this.value = ''; this.onclick = null; }
+  constructor(id) { this.id = id; this.textContent = ''; this.disabled = false; this.hidden = false; this.value = ''; this._innerHTML = ''; this.onclick = null; }
   before() {}
   set innerHTML(value) {
-    this.html = value;
-    for (const id of (value.matchAll(/id="([^"]+)"/g))) document.elements[id[1]] = new Element(id[1]);
+    this._innerHTML = value;
+    for (const id of String(value).matchAll(/(?:id|name)=["']([^"']+)["']/g)) {
+      if (!global.document.elements[id[1]]) global.document.elements[id[1]] = new Element(id[1]);
+    }
   }
-  get innerHTML() { return this.html || ''; }
+  get innerHTML() { return this._innerHTML; }
 }
 
-global.document = {
-  elements: {},
-  querySelector(selector) { return this.elements[selector.replace(/^#/, '')] || null; },
-  createElement() { return new Element(''); }
-};
+const ids = [
+  'connection','role','human','request','state','fact','bootstrap','start','pause','honour','grid',
+  'raceAgain','target3','lane1','lane2','resetTest','results','details','history','back','home',
+  'endRace','restartRace','resultView'
+];
+global.document = { elements: {}, querySelector(selector) { return this.elements[selector.replace(/^#/, '')] || null; }, createElement() { return new Element(''); } };
+for (const id of ids) document.elements[id] = new Element(id);
 global.$ = selector => document.querySelector(selector);
-for (const id of ['start', 'pause', 'raceAgain', 'target3', 'lane1', 'lane2', 'resetTest', 'bootstrap', 'request']) document.elements[id] = new Element(id);
 global.window = global;
-global.browserHasMaster = true;
-global.nextCorrelation = 1;
-global.lastState = { lifecycle: 'READY', sessionMode: 'LAP_RACE', durationMinutes: 0, finishBehaviour: 'STOP_AT_ZERO' };
-global.polledState = global.lastState;
-global.poll = async () => {
-  // This is the production Browser's normal refresh/reconciliation boundary.
-  global.lastState = global.polledState;
-};
-global.operation = path => {
-  if (path === '/request/race-again') {
-    global.polledState = { lifecycle: 'READY', sessionMode: 'ENDURANCE', durationMinutes: 1, finishBehaviour: 'IMMEDIATE' };
-  }
-  if (path === '/request/end-race/confirm') {
-    // Model the production Browser boundary after the confirmed abandonment:
-    // Race Control is READY again and the committed Endurance setup is the
-    // retained next-session proposal.
-    global.polledState = { lifecycle: 'READY', sessionMode: 'ENDURANCE', durationMinutes: 1, finishBehaviour: 'IMMEDIATE' };
-  }
-};
-document.elements.raceAgain.onclick = () => global.operation('/request/race-again');
+global.performance = { now: () => Date.now() };
+const realSetTimeout = global.setTimeout;
+global.setTimeout = (fn, _ms) => realSetTimeout(fn, 1);
+global.setInterval = () => 1;
+global.clearInterval = () => {};
+
+let contextState = { role: 'Race Director', hasMaster: true };
+let authoritativeState = { lifecycle: 'READY', sessionMode: 'NONE', durationMinutes: 0, finishBehaviour: 'IMMEDIATE', entries: [{ lane: 1, raceEntryId: 1, laps: 0 }, { lane: 2, raceEntryId: 2, laps: 0 }] };
+let staleStates = [];
+let revision = 1;
 const starts = [];
+function response(value, status = 200) { return { ok: status >= 200 && status < 300, status, async json() { return JSON.parse(JSON.stringify(value)); } }; }
+function readyState() { return { lifecycle: 'READY', sessionMode: 'NONE', durationMinutes: 0, finishBehaviour: 'IMMEDIATE', entries: [{ lane: 1, raceEntryId: 1, laps: 0 }, { lane: 2, raceEntryId: 2, laps: 0 }] }; }
+function activeState(mode, finishBehaviour = 'IMMEDIATE') { return { lifecycle: 'RACING', sessionMode: mode, durationMinutes: mode === 'ENDURANCE' ? 1 : 0, finishBehaviour, entries: [{ lane: 1, raceEntryId: 1, laps: 0 }, { lane: 2, raceEntryId: 2, laps: 0 }] }; }
+function queueStale(state) { staleStates.push(state); }
+
 global.fetch = async (path, options = {}) => {
-  if (path === '/request/start') starts.push(JSON.parse(options.body));
-  return { status: path === '/request/start' ? 202 : 200, ok: true, async json() { return path.includes('request-result') ? { result: 'ACCEPTED' } : {}; } };
+  if (path === '/noticeboard') return response({ revision });
+  if (path === '/context') return response(contextState);
+  if (path === '/state') return response(staleStates.length ? staleStates.shift() : authoritativeState);
+  if (path === '/fact') return response({ type: 'NONE', revision: 0 });
+  if (path === '/request/end-race/confirm') { authoritativeState = readyState(); ++revision; return response({ submitted: true, correlationId: 1 }, 202); }
+  if (path === '/request/race-again') { authoritativeState = { ...readyState(), sessionMode: 'ENDURANCE', durationMinutes: 1, finishBehaviour: 'IMMEDIATE' }; ++revision; return response({ submitted: true }, 202); }
+  if (path === '/request/start') {
+    const body = JSON.parse(options.body);
+    starts.push(body);
+    authoritativeState = activeState(body.mode, body.mode === 'ENDURANCE' && body.finishPolicy === 1 ? 'COMPLETE_CURRENT_LAP' : 'IMMEDIATE');
+    ++revision;
+    return response({ submitted: true, correlationId: body.correlationId }, 202);
+  }
+  if (path.startsWith('/request-result')) return response({ result: 'ACCEPTED', reason: 'NONE' });
+  return response({}, 200);
 };
-global.get = async path => (await global.fetch(path)).json();
 
-vm.runInThisContext(presentation('stage14bPresentation'), { filename: 'stage14bPresentation' });
-vm.runInThisContext(presentation('stage14cPresentation'), { filename: 'stage14cPresentation' });
+// Execute the production page script first. The mode scripts then wrap this
+// real poll() implementation exactly as they do in the served Browser page.
+vm.runInThisContext(productionPageScript, { filename: 'browser-interface-html.js' });
+vm.runInThisContext(staticScript('stage14bPresentation'), { filename: 'stage14bPresentation' });
+vm.runInThisContext(staticScript('stage14cPresentation'), { filename: 'stage14cPresentation' });
+document.elements.practiceSelect.textContent = 'SELECT OPEN PRACTICE';
+document.elements.enduranceSelect.textContent = 'SELECT ENDURANCE';
 
-async function refresh() { await window.poll(); }
+async function poll() { await window.poll(); }
 function requireValue(condition, message) { if (!condition) throw new Error(message); }
-
-async function endurance() {
-  const select = document.elements.enduranceSelect;
-  const minutes = document.elements.enduranceMinutes;
-  const finish = document.elements.enduranceFinish;
-  minutes.value = '7';
-  select.onclick();
-  finish.value = '1'; finish.onchange();
-  await refresh();
-  requireValue(select.textContent === 'ENDURANCE SELECTED', 'Endurance proposal was cleared during READY refresh');
-  requireValue(document.elements.practiceSelect.textContent === 'SELECT OPEN PRACTICE', 'Practice proposal was not cleared');
-  document.elements.start.onclick();
-  requireValue(starts.length === 1, 'Endurance START was not submitted');
-  requireValue(starts[0].mode === 'ENDURANCE' && starts[0].durationMinutes === 7 && starts[0].finishPolicy === 1,
-               'Endurance START payload did not preserve the proposal');
-
-  // Reproduce the real post-RACE AGAIN path: authoritative READY is still
-  // reconstructed from the completed Endurance definition, then the local
-  // finish proposal is edited and must survive the next poll.
-  global.polledState = { lifecycle: 'FINISHED', sessionMode: 'ENDURANCE', durationMinutes: 1, finishBehaviour: 'IMMEDIATE' };
-  await refresh();
-  document.elements.raceAgain.onclick();
-  await refresh();
-  finish.value = '1'; finish.onchange();
-  await refresh();
-  requireValue(finish.value === '1', 'Finish Current Lap proposal was overwritten after RACE AGAIN');
-  document.elements.start.onclick();
-  requireValue(starts.length === 2 && starts[1].mode === 'ENDURANCE' && starts[1].finishPolicy === 1,
-               'RACE AGAIN Endurance START did not preserve Finish Current Lap');
+function requireExclusive(expected) {
+  const practice = document.elements.practiceSelect.textContent === 'OPEN PRACTICE SELECTED';
+  const endurance = document.elements.enduranceSelect.textContent === 'ENDURANCE SELECTED';
+  requireValue(practice !== endurance, 'mode controls were not mutually exclusive');
+  requireValue(expected === 'practice' ? practice : !practice, 'unexpected mode selection after reconciliation');
 }
 
-async function practice() {
-  // A fresh page has no selected mode; the same production scripts are then exercised.
-  for (const id of ['practiceSelect', 'practiceResume', 'practiceEnd']) document.elements[id].textContent = id === 'practiceSelect' ? 'SELECT OPEN PRACTICE' : '';
-  global.polledState = { lifecycle: 'READY', sessionMode: 'LAP_RACE', durationMinutes: 0, finishBehaviour: 'STOP_AT_ZERO' };
-  document.elements.practiceSelect.onclick();
-  await refresh();
-  requireValue(document.elements.practiceSelect.textContent === 'OPEN PRACTICE SELECTED', 'Practice proposal was cleared during READY refresh');
-  requireValue(document.elements.enduranceSelect.textContent === 'SELECT ENDURANCE', 'Endurance proposal was not cleared');
+async function initialReadyAndEnduranceAbandonment() {
+  await poll();
+  requireValue(document.elements.practiceSelect.textContent === 'SELECT OPEN PRACTICE' && document.elements.enduranceSelect.textContent === 'SELECT ENDURANCE', 'clean READY did not start with neutral mode proposals');
+  document.elements.enduranceSelect.onclick();
+  await poll();
+  requireExclusive('endurance');
   document.elements.start.onclick();
-  requireValue(starts.length === 3 && starts[2].mode === 'OPEN_PRACTICE', 'Practice START payload did not preserve the proposal');
+  await poll();
+  requireValue(starts[0].mode === 'ENDURANCE' && authoritativeState.sessionMode === 'ENDURANCE', 'initial Endurance proposal did not start authoritatively');
+  await global.fetch('/request/end-race/confirm', { method: 'POST', body: '{"correlationId":1}' });
+  await poll();
+  requireValue(authoritativeState.lifecycle === 'READY' && authoritativeState.sessionMode === 'NONE', 'Endurance abandonment did not return READY/NONE');
+  requireExclusive('endurance');
 }
 
-async function postAbandonment() {
-  global.polledState = { lifecycle: 'RACING', sessionMode: 'ENDURANCE', durationMinutes: 1, finishBehaviour: 'COMPLETE_CURRENT_LAP' };
-  await refresh();
-  await global.operation('/request/end-race/confirm');
-  await refresh();
-  requireValue(global.lastState.lifecycle === 'READY' && document.elements.enduranceSelect.textContent === 'ENDURANCE SELECTED',
-               'END RACE did not reconstruct the retained Endurance proposal');
+async function staleEnduranceCannotOverwritePractice() {
   document.elements.practiceSelect.onclick();
-  await refresh();
-  requireValue(document.elements.practiceSelect.textContent === 'OPEN PRACTICE SELECTED' &&
-               document.elements.enduranceSelect.textContent === 'SELECT ENDURANCE',
-               'Open Practice did not replace the retained Endurance proposal');
+  requireExclusive('practice');
+  queueStale(activeState('ENDURANCE', 'COMPLETE_CURRENT_LAP'));
+  await poll();
+  requireExclusive('practice');
   document.elements.start.onclick();
-  requireValue(starts.length === 4 && starts[3].mode === 'OPEN_PRACTICE',
-               'post-abandonment Browser START did not submit the new mode');
+  await poll();
+  requireValue(starts[1].mode === 'OPEN_PRACTICE', 'stale Endurance poll changed the Open Practice START payload');
+  requireValue(authoritativeState.lifecycle === 'RACING' && authoritativeState.sessionMode === 'OPEN_PRACTICE' && authoritativeState.entries.length === 2, 'Open Practice START did not create the retained-entry authoritative session');
+}
+
+async function reverseDirectionAndRaceAgain() {
+  await global.fetch('/request/end-race/confirm', { method: 'POST', body: '{"correlationId":2}' });
+  await poll();
+  document.elements.enduranceSelect.onclick();
+  requireExclusive('endurance');
+  queueStale(activeState('OPEN_PRACTICE'));
+  await poll();
+  requireExclusive('endurance');
+  document.elements.start.onclick();
+  await poll();
+  requireValue(starts[2].mode === 'ENDURANCE' && authoritativeState.sessionMode === 'ENDURANCE', 'stale Open Practice poll changed the Endurance START payload');
+
+  authoritativeState = { lifecycle: 'FINISHED', sessionMode: 'ENDURANCE', durationMinutes: 1, finishBehaviour: 'IMMEDIATE', entries: authoritativeState.entries };
+  await poll();
+  await global.fetch('/request/race-again', { method: 'POST', body: '{"correlationId":3}' });
+  await poll();
+  requireExclusive('endurance');
+
+  authoritativeState = activeState('LAP_RACE');
+  await global.fetch('/request/end-race/confirm', { method: 'POST', body: '{"correlationId":4}' });
+  await poll();
+  document.elements.practiceSelect.onclick();
+  queueStale(activeState('LAP_RACE'));
+  await poll();
+  requireExclusive('practice');
 }
 
 (async () => {
-  await endurance();
-  await practice();
-  await postAbandonment();
-  console.log('Stage 14C Browser proposal/start runtime PASS: READY refresh and post-abandonment proposal replacement preserve production START payloads');
-})().catch(error => { console.error('Stage 14C Browser proposal/start runtime FAIL:', error.message); process.exitCode = 1; });
+  await new Promise(resolve => realSetTimeout(resolve, 5));
+  await initialReadyAndEnduranceAbandonment();
+  await staleEnduranceCannotOverwritePractice();
+  await reverseDirectionAndRaceAgain();
+  console.log('Stage 14C Browser proposal/start runtime PASS: production page polling preserves both mode proposals across stale active responses, abandonment and Race Again');
+})().catch(error => { console.error('Stage 14C Browser proposal/start runtime FAIL:', error.stack || error.message); process.exitCode = 1; });

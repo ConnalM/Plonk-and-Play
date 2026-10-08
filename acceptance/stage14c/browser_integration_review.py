@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 browser = (ROOT / "firmware/include/pp/browser_interface.h").read_text(encoding="utf-8")
 main = (ROOT / "firmware/src/main.cpp").read_text(encoding="utf-8")
 notice = (ROOT / "firmware/include/pp/noticeboard.h").read_text(encoding="utf-8")
+proposal_runtime = (ROOT / "acceptance/stage14c/browser_proposal_runtime.js").read_text(encoding="utf-8")
 
 parser = argparse.ArgumentParser(description="Review the production Stage 14C Browser path and final image payload.")
 parser.add_argument("--demo-bin", type=Path, help="exact stage14cdemo merged image to inspect")
@@ -39,7 +40,8 @@ checks = {
     "demo_image_stage14c_controls": image_contains(demo, b"SELECT OPEN PRACTICE") and image_contains(demo, b"SELECT ENDURANCE") and image_contains(demo, b"clearPracticeSelection") and image_contains(demo, b"clearEnduranceSelection"),
     "mode_selection_authority": "Race Director authority required to select Open Practice." in browser and "window.browserHasMaster!==true||!!v&&v.lifecycle!=='READY'" in browser,
     "mode_selection_exclusive": "window.clearPracticeSelection" in browser and "window.clearEnduranceSelection" in browser,
-    "mode_proposal_preserved_in_ready": "proposalDirty" in browser and "ready(v)" in browser and "practiceProposalSelected" in browser and "if(isE&&(!ready(v)||(!selected&&!proposalDirty&&!otherProposal)))" in browser,
+    "mode_proposal_preserved_in_ready": "proposalDirty" in browser and "practiceProposalDirty" in browser and "ready(v)" in browser and "practiceProposalSelected" in browser and "enduranceProposalPending" in browser and "if(isE&&!otherProposal&&(!ready(v)||(!selected&&!proposalDirty)))" in browser and "&&!otherProposal&&!proposalDirty" in browser,
+    "mode_proposal_runtime_uses_production_poll": "productionPageScript" in proposal_runtime and "vm.runInThisContext(productionPageScript" in proposal_runtime and "path === '/noticeboard'" in proposal_runtime and "queueStale(activeState('ENDURANCE'" in proposal_runtime and "queueStale(activeState('OPEN_PRACTICE'" in proposal_runtime,
     "endurance_finish_policy_scope": '<option value="0">Stop at Zero</option><option value="1">Finish Current Lap</option>' in browser and 'Complete Full Race Distance' not in browser,
     "neutral_fixture_error": "An active session is required before triggering a simulated car." in browser,
     "browser_start_diagnostic_source": 'Browser server=%s error=%d' in main and 'browser.serverReady()||browser.serverStartError()' in main,
