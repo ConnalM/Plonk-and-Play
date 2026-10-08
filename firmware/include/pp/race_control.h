@@ -162,7 +162,7 @@ private:
       // Lap Race abandonment retains the settled-pause fence. Endurance is
       // also explicitly abandonable while actively racing; a paused
       // Endurance session still has to complete that same settlement fence.
-      const bool enduranceRacing=mode()==SessionMode::Endurance&&state_==SessionLifecycle::Racing;
+      const bool enduranceRacing=request.operation==SessionOperation::EndRace&&mode()==SessionMode::Endurance&&state_==SessionLifecycle::Racing;
       const bool settledPause=state_==SessionLifecycle::Paused&&pauseSettled_;
       if(!enduranceRacing&&!settledPause){reject(request.correlation,RequestRejection::LifecycleNotAbandonable);return;}
       if(request.operation==SessionOperation::RestartRace){
