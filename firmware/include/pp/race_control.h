@@ -169,7 +169,12 @@ private:
         if(definition_){copySetupFromDefinition();setup_=&proposedCopy_;active_.permitReplacement();}
          active_.clearForFixture();definition_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;resumeScheduled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
       }
-       active_.clearForFixture();definition_=nullptr;setup_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;resumeScheduled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
+       // END RACE is an abandonment, but the committed setup remains the
+       // valid proposal for the next session. Copy it before clearing the
+       // active definition so the Browser can edit mode/duration/finish
+       // without losing entries or lane mappings.
+       if(definition_){copySetupFromDefinition();setup_=&proposedCopy_;active_.permitReplacement();}
+       active_.clearForFixture();definition_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=finalDelay_=durationExpiry_=durationRemaining_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
     }
     if(request.operation==SessionOperation::Pause){
       if(state_!=SessionLifecycle::Racing){reject(request.correlation,RequestRejection::LifecycleNotPausable);return;}

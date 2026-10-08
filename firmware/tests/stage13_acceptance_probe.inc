@@ -86,7 +86,7 @@ void stage13Run(){
   s13("13.7",off->engine.entryState(0).laps==1&&off->engine.completedResult().sealed,"off_policy_result_remains_valid=1");
   delete off;off=nullptr;
   auto ending=new Stage12Fixture(pp::LapFinishBehaviour::Immediate,3);ending->start(1000000);const pp::Time endingGo=ending->control.scheduledGo();ending->operation(pp::SessionOperation::Pause,100,endingGo+10);ending->settle(endingGo+11);const bool endAccepted=ending->browser.submitOperation(101,pp::SessionOperation::EndRace,pp::ClientContext::RaceDirectorSmug,Stage12Fixture::Owner,true);ending->control.tick(endingGo+12);ending->engine.tick();ending->browser.tick();
-  s13("13.12",endAccepted&&ending->control.state()==pp::SessionLifecycle::Ready&&ending->control.proposedRaceSetup()==nullptr,"end_race_abandons_without_result=1");
+  s13("13.12",endAccepted&&ending->control.state()==pp::SessionLifecycle::Ready&&ending->control.proposedRaceSetup()&&ending->control.proposedRaceSetup()->activeLanes==2,"end_race_abandons_and_retains_proposal=1");
   delete ending;ending=nullptr;
   auto secure=new Stage12Fixture(pp::LapFinishBehaviour::Immediate,3);secure->start(1000000);const pp::Time secureGo=secure->control.scheduledGo();secure->operation(pp::SessionOperation::Pause,110,secureGo+10);secure->settle(secureGo+11);secure->browser.submitOperation(111,pp::SessionOperation::RestartRace,pp::ClientContext::Spectator,0x3333,true);secure->browser.submitOperation(112,pp::SessionOperation::EndRace,pp::ClientContext::Spectator,0x3333,true);secure->control.tick(secureGo+12);secure->browser.tick();
   s13("13.13",secure->control.state()==pp::SessionLifecycle::Paused&&secure->browser.context(0x3333)==pp::ClientContext::Spectator,"forged_spectator_destructive_requests_denied=1");

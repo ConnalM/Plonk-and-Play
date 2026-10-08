@@ -39,6 +39,12 @@ global.operation = path => {
   if (path === '/request/race-again') {
     global.polledState = { lifecycle: 'READY', sessionMode: 'ENDURANCE', durationMinutes: 1, finishBehaviour: 'IMMEDIATE' };
   }
+  if (path === '/request/end-race/confirm') {
+    // Model the production Browser boundary after the confirmed abandonment:
+    // Race Control is READY again and the committed Endurance setup is the
+    // retained next-session proposal.
+    global.polledState = { lifecycle: 'READY', sessionMode: 'ENDURANCE', durationMinutes: 1, finishBehaviour: 'IMMEDIATE' };
+  }
 };
 document.elements.raceAgain.onclick = () => global.operation('/request/race-again');
 const starts = [];
@@ -96,8 +102,26 @@ async function practice() {
   requireValue(starts.length === 3 && starts[2].mode === 'OPEN_PRACTICE', 'Practice START payload did not preserve the proposal');
 }
 
+async function postAbandonment() {
+  global.polledState = { lifecycle: 'RACING', sessionMode: 'ENDURANCE', durationMinutes: 1, finishBehaviour: 'COMPLETE_CURRENT_LAP' };
+  await refresh();
+  await global.operation('/request/end-race/confirm');
+  await refresh();
+  requireValue(global.lastState.lifecycle === 'READY' && document.elements.enduranceSelect.textContent === 'ENDURANCE SELECTED',
+               'END RACE did not reconstruct the retained Endurance proposal');
+  document.elements.practiceSelect.onclick();
+  await refresh();
+  requireValue(document.elements.practiceSelect.textContent === 'OPEN PRACTICE SELECTED' &&
+               document.elements.enduranceSelect.textContent === 'SELECT ENDURANCE',
+               'Open Practice did not replace the retained Endurance proposal');
+  document.elements.start.onclick();
+  requireValue(starts.length === 4 && starts[3].mode === 'OPEN_PRACTICE',
+               'post-abandonment Browser START did not submit the new mode');
+}
+
 (async () => {
   await endurance();
   await practice();
-  console.log('Stage 14C Browser proposal/start runtime PASS: READY refresh preserves Endurance and Open Practice proposals and START payloads');
+  await postAbandonment();
+  console.log('Stage 14C Browser proposal/start runtime PASS: READY refresh and post-abandonment proposal replacement preserve production START payloads');
 })().catch(error => { console.error('Stage 14C Browser proposal/start runtime FAIL:', error.message); process.exitCode = 1; });

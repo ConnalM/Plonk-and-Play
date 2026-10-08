@@ -43,7 +43,7 @@ struct Stage14CFixture {
 alignas(Stage14CFixture) static uint8_t stage14cStorage[sizeof(Stage14CFixture)];
 template<typename...Args> void s14c(const char*id,bool pass,const char*fmt,Args...args){char d[240]{};snprintf(d,sizeof(d),fmt,args...);stage14cOutput.log("ACC S14C test=%s pass=%u %s",id,pass?1:0,d);}
 void stage14cAcceptanceBeforeBoot(){diagnostics.enable(true);stage14cOutput.enable(true);}
-struct Stage14CEndRaceEvidence { bool submitted=false,accepted=false,clean=false,noResult=false,noHistory=false,noRecordChange=false,noCompletionFact=false,nextStart=false; };
+struct Stage14CEndRaceEvidence { bool submitted=false,accepted=false,clean=false,proposalRetained=false,noResult=false,noHistory=false,noRecordChange=false,noCompletionFact=false,nextStart=false,nextMode=false,nextEntries=false; };
 static Stage14CEndRaceEvidence stage14cEnduranceEndRace(pp::LapFinishBehaviour finish,bool pauseFirst,uint32_t correlation){
   Stage14CEndRaceEvidence evidence{};
   auto* fixture=::new(stage14cStorage)Stage14CFixture(finish);
@@ -63,18 +63,51 @@ static Stage14CEndRaceEvidence stage14cEnduranceEndRace(pp::LapFinishBehaviour f
   pp::BrowserInterface::ResultView response{};
   evidence.accepted=fixture->browser.requestResult(correlation,Stage14CFixture::Owner,response)&&response.ready&&response.result==pp::RequestResult::Accepted;
   const auto state=fixture->noticeboard.current();
-  evidence.clean=evidence.accepted&&state.lifecycle==pp::SessionLifecycle::Ready&&fixture->control.definition()==nullptr&&fixture->control.proposedRaceSetup()==nullptr;
+  const auto* retained=fixture->control.proposedRaceSetup();
+  evidence.clean=evidence.accepted&&state.lifecycle==pp::SessionLifecycle::Ready&&fixture->control.definition()==nullptr&&!state.durationExpired&&state.durationExpiryAt==0&&state.remainingDuration==0;
+  evidence.proposalRetained=retained&&retained->activeLanes==2&&retained->entries[0].startFinish.lane==1&&retained->entries[1].startFinish.lane==2;
   evidence.noResult=!fixture->engine.completedResult().sealed&&!fixture->engine.complete();
   evidence.noHistory=fixture->history.count()==historyBefore&&fixture->engine.historySequence()==0;
   evidence.noRecordChange=fixture->records.lanePb(1)==pbBefore&&fixture->records.trackRecord()==trackBefore;
   pp::Message fact{}; const bool hasFact=fixture->browser.lastFact(fact);
   evidence.noCompletionFact=!hasFact||(fact.type!=pp::Type::CompetitionComplete&&fact.type!=pp::Type::HistoryStored&&fact.type!=pp::Type::StorageFault);
-  fixture->control.setProposedRaceSetup(fixture->setup);
-  evidence.nextStart=fixture->browser.submitStart(correlation+100,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner,pp::SessionMode::Endurance,1,uint8_t(finish));
+  // The retained proposal is the production next-session base. Change only
+  // the Browser-submitted mode here; do not restore setup through a fixture
+  // helper, which would mask loss of the proposal during abandonment.
+  evidence.nextStart=fixture->browser.submitStart(correlation+100,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner,pp::SessionMode::OpenPractice,0,0);
   fixture->control.tick(go+6000000);fixture->engine.tick();
-  evidence.nextStart=evidence.nextStart&&(fixture->control.state()==pp::SessionLifecycle::Starting||fixture->control.state()==pp::SessionLifecycle::Racing);
+  evidence.nextMode=fixture->control.definition()&&fixture->control.definition()->mode()==pp::SessionMode::OpenPractice;
+  evidence.nextEntries=fixture->control.definition()&&fixture->control.definition()->entryCount()==2&&fixture->control.definition()->role(0).lane==1&&fixture->control.definition()->role(1).lane==2;
+  evidence.nextStart=evidence.nextStart&&fixture->control.state()==pp::SessionLifecycle::Racing;
   fixture->~Stage14CFixture();
   return evidence;
+}
+static Stage14CEndRaceEvidence stage14cLapEndRace(uint32_t correlation){
+  Stage14CEndRaceEvidence evidence{};
+  auto* fixture=::new(stage14cStorage)Stage14CFixture(pp::LapFinishBehaviour::Immediate);
+  fixture->setup.mode=pp::SessionMode::LapRace;fixture->setup.lapTarget=3;fixture->setup.durationMinutes=0;
+  fixture->control.setProposedRaceSetup(fixture->setup);
+  fixture->browser.submitStart(correlation-1,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner,pp::SessionMode::LapRace,0,0);
+  fixture->control.tick(1000000);fixture->engine.tick();const pp::Time go=fixture->control.scheduledGo();fixture->control.tick(go);fixture->engine.tick();
+  fixture->browser.submitOperation(correlation-2,pp::SessionOperation::Pause,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner);
+  fixture->control.tick(go+1000000);fixture->engine.tick();fixture->settle(go+1010000);
+  const uint8_t historyBefore=fixture->history.count();
+  evidence.submitted=fixture->browser.submitOperation(correlation,pp::SessionOperation::EndRace,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner,true);
+  fixture->control.tick(go+2000000);fixture->engine.tick();fixture->browser.tick();
+  pp::BrowserInterface::ResultView response{};
+  evidence.accepted=fixture->browser.requestResult(correlation,Stage14CFixture::Owner,response)&&response.ready&&response.result==pp::RequestResult::Accepted;
+  const auto* retained=fixture->control.proposedRaceSetup(); const auto state=fixture->noticeboard.current();
+  evidence.clean=evidence.accepted&&state.lifecycle==pp::SessionLifecycle::Ready&&fixture->control.definition()==nullptr&&!state.durationExpired&&state.durationExpiryAt==0&&state.remainingDuration==0;
+  evidence.proposalRetained=retained&&retained->mode==pp::SessionMode::LapRace&&retained->activeLanes==2&&retained->lapTarget==3&&retained->entries[0].startFinish.lane==1&&retained->entries[1].startFinish.lane==2;
+  evidence.noResult=!fixture->engine.completedResult().sealed&&!fixture->engine.complete();
+  evidence.noHistory=fixture->history.count()==historyBefore&&fixture->engine.historySequence()==0;
+  evidence.noRecordChange=true;evidence.noCompletionFact=true;
+  evidence.nextStart=fixture->browser.submitStart(correlation+100,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner,pp::SessionMode::LapRace,0,0);
+  fixture->control.tick(go+3000000);fixture->engine.tick();
+  evidence.nextMode=fixture->control.definition()&&fixture->control.definition()->mode()==pp::SessionMode::LapRace;
+  evidence.nextEntries=fixture->control.definition()&&fixture->control.definition()->entryCount()==2&&fixture->control.definition()->lapTarget()==3;
+  evidence.nextStart=evidence.nextStart&&fixture->control.state()==pp::SessionLifecycle::Starting;
+  fixture->~Stage14CFixture();return evidence;
 }
 void stage14cAcceptanceRun(){
   if(stage14cStarted)return;stage14cStarted=true;diagnostics.enable(false);
@@ -123,8 +156,9 @@ void stage14cAcceptanceRun(){
   const auto activeStop=stage14cEnduranceEndRace(pp::LapFinishBehaviour::Immediate,false,1401);
   const auto activeCurrent=stage14cEnduranceEndRace(pp::LapFinishBehaviour::CompleteCurrentLap,false,1402);
   const auto pausedEndurance=stage14cEnduranceEndRace(pp::LapFinishBehaviour::CompleteCurrentLap,true,1403);
-  const bool endRaceAbandonment=activeStop.submitted&&activeStop.accepted&&activeStop.clean&&activeStop.noResult&&activeStop.noHistory&&activeStop.noRecordChange&&activeStop.noCompletionFact&&activeStop.nextStart&&activeCurrent.submitted&&activeCurrent.accepted&&activeCurrent.clean&&activeCurrent.noResult&&activeCurrent.noHistory&&activeCurrent.noRecordChange&&activeCurrent.noCompletionFact&&activeCurrent.nextStart&&pausedEndurance.submitted&&pausedEndurance.accepted&&pausedEndurance.clean&&pausedEndurance.noResult&&pausedEndurance.noHistory&&pausedEndurance.noRecordChange&&pausedEndurance.noCompletionFact&&pausedEndurance.nextStart;
-  s14c("14C.14",endRaceAbandonment,"endurance_end_race stop=%u/%u current=%u/%u paused=%u/%u clean=%u result=%u history=%u records=%u facts=%u next=%u",activeStop.accepted?1:0,activeStop.noResult?1:0,activeCurrent.accepted?1:0,activeCurrent.noResult?1:0,pausedEndurance.accepted?1:0,pausedEndurance.noResult?1:0,(activeStop.clean&&activeCurrent.clean&&pausedEndurance.clean)?1:0,(activeStop.noResult&&activeCurrent.noResult&&pausedEndurance.noResult)?1:0,(activeStop.noHistory&&activeCurrent.noHistory&&pausedEndurance.noHistory)?1:0,(activeStop.noRecordChange&&activeCurrent.noRecordChange&&pausedEndurance.noRecordChange)?1:0,(activeStop.noCompletionFact&&activeCurrent.noCompletionFact&&pausedEndurance.noCompletionFact)?1:0,(activeStop.nextStart&&activeCurrent.nextStart&&pausedEndurance.nextStart)?1:0);
+  const auto lapEnd=stage14cLapEndRace(1404);
+  const bool endRaceAbandonment=activeStop.submitted&&activeStop.accepted&&activeStop.clean&&activeStop.proposalRetained&&activeStop.noResult&&activeStop.noHistory&&activeStop.noRecordChange&&activeStop.noCompletionFact&&activeStop.nextStart&&activeStop.nextMode&&activeStop.nextEntries&&activeCurrent.submitted&&activeCurrent.accepted&&activeCurrent.clean&&activeCurrent.proposalRetained&&activeCurrent.noResult&&activeCurrent.noHistory&&activeCurrent.noRecordChange&&activeCurrent.noCompletionFact&&activeCurrent.nextStart&&activeCurrent.nextMode&&activeCurrent.nextEntries&&pausedEndurance.submitted&&pausedEndurance.accepted&&pausedEndurance.clean&&pausedEndurance.proposalRetained&&pausedEndurance.noResult&&pausedEndurance.noHistory&&pausedEndurance.noRecordChange&&pausedEndurance.noCompletionFact&&pausedEndurance.nextStart&&pausedEndurance.nextMode&&pausedEndurance.nextEntries&&lapEnd.submitted&&lapEnd.accepted&&lapEnd.clean&&lapEnd.proposalRetained&&lapEnd.noResult&&lapEnd.noHistory&&lapEnd.nextStart&&lapEnd.nextMode&&lapEnd.nextEntries;
+  s14c("14C.14",endRaceAbandonment,"endurance_end_race stop=%u/%u current=%u/%u paused=%u/%u lap=%u clean=%u proposal=%u result=%u history=%u next=%u",activeStop.accepted?1:0,activeStop.noResult?1:0,activeCurrent.accepted?1:0,activeCurrent.noResult?1:0,pausedEndurance.accepted?1:0,pausedEndurance.noResult?1:0,lapEnd.accepted&&lapEnd.noResult?1:0,(activeStop.clean&&activeCurrent.clean&&pausedEndurance.clean&&lapEnd.clean)?1:0,(activeStop.proposalRetained&&activeCurrent.proposalRetained&&pausedEndurance.proposalRetained&&lapEnd.proposalRetained)?1:0,(activeStop.noResult&&activeCurrent.noResult&&pausedEndurance.noResult&&lapEnd.noResult)?1:0,(activeStop.noHistory&&activeCurrent.noHistory&&pausedEndurance.noHistory&&lapEnd.noHistory)?1:0,(activeStop.nextStart&&activeStop.nextMode&&activeStop.nextEntries&&activeCurrent.nextStart&&activeCurrent.nextMode&&activeCurrent.nextEntries&&pausedEndurance.nextStart&&pausedEndurance.nextMode&&pausedEndurance.nextEntries&&lapEnd.nextStart&&lapEnd.nextMode&&lapEnd.nextEntries)?1:0);
   s14c("14C.15",rs,"results_api=1");s14c("14C.16",resultLen>0&&historyApi,"results_history_api_reconstruct=1");s14c("14C.17",persisted,"persistence_boundary=1 sequence=%lu",(unsigned long)sequence);s14c("14C.18",true,"active_restart_volatile=1");s14c("14C.19",pb,"record_eligibility=1");s14c("14C.20",true,"reconnect=1");s14c("14C.21",true,"presentation_pressure=1");s14c("14C.22",true,"taster_mapping=1");s14c("14C.23",true,"bounded_records=1");s14c("14C.24",stop.formatVersion==pp::RaceEngineModule::ResultFormatVersion,"version=%u",unsigned(stop.formatVersion));s14c("14C.25",before.lifecycle==pp::SessionLifecycle::Racing,"invalid_state_unchanged=1");s14c("14C.26",true,"normal_boundaries=1");s14c("14C.27",true,"evaluator_integrity_external=1");s14c("14C.28",true,"stage1_to_14b_regressions_required=1");s14c("14C.T",true,"human_checkpoint_prepared=1");free(stateJson);free(resultJson);stage14cOutput.log("ACC DONE");
 }
 void stage14cAcceptanceCommand(char c){if(c=='s')stage14cAcceptanceRun();}
