@@ -26,6 +26,15 @@ anchor = '{"/", HTTP_GET, page, nullptr},'
 if anchor not in text:
     raise RuntimeError("BrowserInterface root route anchor not found")
 text = text.replace(anchor, anchor + '\n      {"/normal", HTTP_GET, normalPage, nullptr},', 1)
-(generated_pp / "browser_interface.h").write_text(text, encoding="utf-8")
+generated_interface = generated_pp / "browser_interface.h"
+generated_interface.write_text(text, encoding="utf-8")
+
+# main.cpp deliberately keeps including "pp/browser_interface.h". GCC searches
+# -iquote directories before normal -I include directories for quoted includes,
+# so this forces the generated integration header to be the dependency actually
+# compiled without modifying/replacing the checked-in Development Browser.
+# CPPPATH remains present so dependencies of the generated header resolve using
+# the normal project include tree.
+env.Append(CCFLAGS=["-iquote", str(generated_root)])
 env.Prepend(CPPPATH=[str(generated_root)])
-print("Embedded normal Browser and generated /normal route")
+print("Embedded normal Browser; compiler -iquote selects:", generated_interface)
