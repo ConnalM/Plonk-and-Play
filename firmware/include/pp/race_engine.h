@@ -23,6 +23,8 @@ public:
     uint8_t lane=0; bool tied=false,completed=false; Time completionTime=0,bestLap=0;
     LapRecord records[MaxLaps]{}; uint8_t recordCount=0;
   };
+  struct PracticeSummaryEntry { uint32_t raceEntryId=0; uint8_t lane=0; uint32_t laps=0; Time lastLap=0,bestLap=0; };
+  struct PracticeSummary { uint16_t formatVersion=1; bool available=false; uint32_t sessionId=0; Time endedAt=0; PracticeSummaryEntry entries[MaxEntries]{}; uint8_t entryCount=0; Time sessionFastestLap=0; uint32_t sessionFastestEntryId=0; };
   struct CompletedRaceResult {
     uint16_t formatVersion=ResultFormatVersion; bool sealed=false,valid=false,deadHeat=false,fastestLapTied=false;
     Time winningTime=0,finishTime=0,expiryTime=0,durationUs=0; bool overtime=false;
@@ -35,8 +37,16 @@ public:
   void begin(const SessionDefinition&d,Time go){definition_=&d;observedRevision_=active_.revision();reset(go);}
   void prepare(const SessionDefinition&d){definition_=&d;observedRevision_=active_.revision();reset(0);}
   void tick(){
-    synchronise(); Message m;
+    // Race Control clears the active definition as part of accepting
+    // Practice END SESSION.  Keep the old definition for this one delivery
+    // boundary so the authoritative operation can capture its session-local
+    // summary before the engine is cleared.  Other messages from the retired
+    // session are discarded; they must not mutate a new/empty session.
+    const bool retiredDefinition=active_.revision()!=observedRevision_&&active_.current()==nullptr&&definition_!=nullptr;
+    if(!retiredDefinition)synchronise();
+    Message m;
     while(bus_.receive(endpoint_,m)) {
+      if(retiredDefinition&&m.type!=Type::SessionOperation)continue;
       if(m.type==Type::GoScheduled) scheduled(m);
       else if(m.type==Type::InputEvent) queue(m);
       else if(m.type==Type::SessionOperation) operation(m);
@@ -45,12 +55,14 @@ public:
       else if(m.type==Type::FinishSettled) finishSettled_=m.relevantTime==candidateF_;
       else if(m.type==Type::RaceIntegrityFault) faulted_=true;
     }
+    if(retiredDefinition){definition_=nullptr;observedRevision_=active_.revision();reset(0);}
     process(); publishPauseSettlement(); publishFinishSettlement(); completeAfterSettlement(); persistResult();
   }
   uint32_t laps()const{return entries_[0].laps;} Time lastLapTime()const{return entries_[0].lastLapTime;}
   bool complete()const{return complete_;} Time go()const{return go_;} uint8_t entryCount()const{return definition_?definition_->entryCount():0;}
   const EntryState&entryState(uint8_t i)const{return entries_[i];} bool deadHeat()const{return deadHeat_;} bool faulted()const{return faulted_;}
   const CompletedRaceResult&completedResult()const{return result_;} uint32_t historySequence()const{return historySequence_;}
+  const PracticeSummary& practiceSummary()const{return practiceSummary_;}
   bool persistencePending()const{return result_.sealed&&!persisted_;} bool persistenceFault()const{return persistenceFault_||recordPersistenceFault_;}
   bool settlementSeen()const{return settlementSeen_;} bool settlementPublished()const{return settlementPublished_;}
 #if defined(PP_STAGE14C_ACCEPTANCE)
@@ -72,13 +84,13 @@ private:
 #endif
     if(definition_)for(uint8_t i=0;i<entryCount();++i){entries_[i].raceEntryId=definition_->entry(i).raceEntryId;entries_[i].waitingForTimingOrigin=definition_->mode()==SessionMode::OpenPractice;}
   }
-  void synchronise(){if(active_.revision()!=observedRevision_){definition_=active_.current();observedRevision_=active_.revision();reset(0);}}
+  void synchronise(){if(active_.revision()!=observedRevision_){definition_=active_.current();observedRevision_=active_.revision();if(definition_&&definition_->mode()==SessionMode::OpenPractice)practiceSummary_={};reset(0);}}
   void scheduled(const Message&m){if(!definition_||!m.relevantTime)return;go_=m.relevantTime;for(uint8_t i=0;i<entryCount();++i){entries_[i].lastCrossing=go_;if(definition_->mode()==SessionMode::Endurance)entries_[i].timingOriginEstablished=true;}}
   void enduranceExpired(const Message&m){if(!definition_||definition_->mode()!=SessionMode::Endurance)return;enduranceExpired_=true;expiryTime_=m.relevantTime;for(uint8_t i=0;i<entryCount();++i){if(!entries_[i].timingOriginEstablished||entries_[i].postExpiryCompleted)observed_[i]=true;}if(finishBehaviour_==LapFinishBehaviour::Immediate||finishBehaviour_==LapFinishBehaviour::CompleteFullRaceDistance){candidateF_=expiryTime_;finishReady_=true;}else finishCurrentPending_=true;publishNoticeboardChanged();}
   void operation(const Message&m){
     if(m.operation==SessionOperation::Pause){pauseAt_=m.relevantTime;paused_=true;settlementSeen_=settlementPublished_=false;settlementAt_=m.relevantTime;return;}
     if(definition_&&definition_->mode()==SessionMode::OpenPractice&&m.operation==SessionOperation::Resume){paused_=false;practiceResumeAt_=m.relevantTime;for(uint8_t i=0;i<entryCount();++i)entries_[i].waitingForTimingOrigin=true;return;}
-    if(definition_&&definition_->mode()==SessionMode::OpenPractice&&m.operation==SessionOperation::EndSession){paused_=true;return;}
+    if(definition_&&definition_->mode()==SessionMode::OpenPractice&&m.operation==SessionOperation::EndSession){capturePracticeSummary(m.relevantTime);paused_=true;return;}
     if(definition_&&definition_->mode()==SessionMode::Endurance&&m.operation==SessionOperation::Resume){paused_=false;resumeAt_=m.relevantTime;return;}
     settlementSeen_=settlementPublished_=false;settlementAt_=0;restartScheduled_=true;restartAt_=m.relevantTime;gridRestart_=m.restartMethod==RestartMethod::Grid;paused_=false;if(gridRestart_)for(uint8_t i=0;i<entryCount();++i)entries_[i].lastCrossing=restartAt_;
   }
@@ -120,6 +132,7 @@ private:
     candidateF_=m.relevantTime;finishReady_=allObserved();
   }
   void storeLap(EntryState&s,Time lap,Time at){if(s.recordCount<MaxLaps){LapRecord&r=s.records[s.recordCount++];r.lapNumber=s.laps;r.startTime=at-lap;r.finishTime=at;r.lapTime=lap;r.valid=true;}if(!s.bestLapTime||lap<s.bestLapTime)s.bestLapTime=lap;}
+  void capturePracticeSummary(Time at){practiceSummary_={};practiceSummary_.formatVersion=1;practiceSummary_.available=true;practiceSummary_.sessionId=definition_?definition_->sessionId():0;practiceSummary_.endedAt=at;practiceSummary_.entryCount=entryCount();for(uint8_t i=0;i<entryCount();++i){const auto&s=entries_[i];auto&out=practiceSummary_.entries[i];out.raceEntryId=s.raceEntryId;out.lane=definition_->entry(i).lane;out.laps=s.laps;out.lastLap=s.lastLapTime;out.bestLap=s.bestLapTime;if(s.bestLapTime&&(!practiceSummary_.sessionFastestLap||s.bestLapTime<practiceSummary_.sessionFastestLap)){practiceSummary_.sessionFastestLap=s.bestLapTime;practiceSummary_.sessionFastestEntryId=s.raceEntryId;}}}
   void publishLap(const RaceEntryDefinition&def,const EntryState&s,Time lap,const Message&m){Message f{};f.type=Type::LapCompleted;f.relevantTime=m.relevantTime;f.raceEntryId=def.raceEntryId;f.lapNumber=s.laps;f.lapTime=lap;f.eventId=m.eventId;bus_.publish(endpoint_,f);publishNoticeboardChanged();}
   bool allObserved()const{for(uint8_t i=0;i<entryCount();++i)if(!observed_[i])return false;return true;}
   void applyFinish(uint8_t i,Time at){EntryState&s=entries_[i];const bool target=s.laps>=definition_->lapTarget()+penalties_[i];if(!winningTime_&&target){winningTime_=at;winner_=s.raceEntryId;observed_[i]=true;if(finishBehaviour_==LapFinishBehaviour::Immediate){candidateF_=at;finishReady_=true;}return;}if(!winningTime_)return;if(at==winningTime_&&target){observed_[i]=true;deadHeat_=true;return;}if(at<=winningTime_||observed_[i])return;if(finishBehaviour_==LapFinishBehaviour::CompleteCurrentLap||(finishBehaviour_==LapFinishBehaviour::CompleteFullRaceDistance&&target)){observed_[i]=true;candidateF_=at;if(allObserved())finishReady_=true;}}
@@ -147,6 +160,6 @@ private:
   Bus&bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition&active_;HistoryStore*history_=nullptr;TrackRecordStore*records_=nullptr;const SessionDefinition*definition_=nullptr;
   uint8_t penalties_[MaxEntries]{},observed_[MaxEntries]{};uint32_t observedRevision_=0;Time go_=0,pauseAt_=0,restartAt_=0,settlementAt_=0,practiceResumeAt_=0,winningTime_=0,candidateF_=0,expiryTime_=0,resumeAt_=0;
   EntryState entries_[MaxEntries]{};LapFinishBehaviour finishBehaviour_=LapFinishBehaviour::Immediate;bool complete_=false,completionPublished_=false,deadHeat_=false,faulted_=false,paused_=false,restartScheduled_=false,gridRestart_=false,enduranceExpired_=false,finishCurrentPending_=false,settlementSeen_=false,settlementPublished_=false,finishReady_=false,finishSettlementSent_=false,finishSettled_=false,persisted_=false,persistenceFault_=false,recordPersistenceFault_=false,historyPersistFailed_=false,storageFaultPublished_=false,recordEligible_=true;
-  CompletedRaceResult result_{};uint32_t winner_=0,historySequence_=0;Message pending_[16]{};uint8_t pendingCount_=0;uint32_t seen_[16]{};uint8_t seenAt_=0;
+  CompletedRaceResult result_{};PracticeSummary practiceSummary_{};uint32_t winner_=0,historySequence_=0;Message pending_[16]{};uint8_t pendingCount_=0;uint32_t seen_[16]{};uint8_t seenAt_=0;
 };
 } // namespace pp

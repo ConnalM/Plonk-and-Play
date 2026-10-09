@@ -22,7 +22,7 @@ enum class RequestRejection : uint8_t { None, PermissionDenied, LifecycleNotStar
 enum class RaceIntegrityReason : uint8_t { None, InputEventDeliveryOverrun };
 // These are request values, not Message Type values.  They are deliberately
 // appended so the established Stage 11/12 operation values retain meaning.
-enum class SessionOperation : uint8_t { Pause, HonourRestart, GridRestart, RaceAgain, RestartRace, EndRace, ClearHistory, ClearLane1Records, ClearLane2Records, ClearTrackRecord, ClearAllRecords, Resume, EndSession };
+enum class SessionOperation : uint8_t { Pause, HonourRestart, GridRestart, RaceAgain, RestartRace, EndRace, ClearHistory, ClearLane1Records, ClearLane2Records, ClearTrackRecord, ClearAllRecords, Resume, EndSession, SkipFinishDisplay };
 enum class SetupChange : uint8_t { Replace = 1 };
 enum class RestartMethod : uint8_t { None, Honour, Grid };
 struct InputIdentity {

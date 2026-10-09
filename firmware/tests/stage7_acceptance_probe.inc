@@ -19,7 +19,10 @@ void stage7AcceptanceBeforeBoot(){diagnostics.enable(false);stage7Output.enable(
 void stage7Run(){
   // A fresh Browser must fetch State even when both local and server revision
   // are zero. This catches a revision-equality shortcut at first connection.
-  Stage7BrowserClient first;first.connect();
+  // NoticeboardState now carries the complete variable-entry presentation
+  // state. Keep the simulated Browser clients out of loopTask's stack so the
+  // historical Stage 7 boundary test remains valid at the larger state size.
+  static Stage7BrowserClient first;first=Stage7BrowserClient{};first.connect();
   stage7Output.log("ACC S7 test=7.1 connected=%u initial_revision=%lu initial_state_reads=%lu synchronised=%u",first.connected?1:0,(unsigned long)browser.noticeRevision(),(unsigned long)first.stateReads,first.synchronised?1:0);
   raceEngine.prepare(stage7Session);raceControl.prepare(stage7Session);noticeboard.setSession(stage7Session);browser.tick();
   first.poll();
@@ -44,7 +47,7 @@ void stage7Run(){
   stage7Output.log("ACC S7 test=7.9 fact_failure_keeps_state=%u fact_type=%u fact_lap=%lu state_laps=%lu",factFailureKeepsState?1:0,first.hasFact?unsigned(first.fact.type):0,(unsigned long)first.fact.lapNumber,(unsigned long)first.cache.laps);
   first.consumeFacts=false;first.disconnect();stage7Cross(go+900000);
   stage7Output.log("ACC S7 test=7.12 disconnected=1 authoritative_laps=%lu lifecycle=%s",(unsigned long)raceEngine.laps(),stage7State(raceControl.state()));
-  Stage7BrowserClient late;late.consumeFacts=false;late.connect();late.poll();
+  static Stage7BrowserClient late;late=Stage7BrowserClient{};late.consumeFacts=false;late.connect();late.poll();
   stage7Output.log("ACC S7 test=7.8 lifecycle=%s laps=%lu",stage7State(late.cache.lifecycle),(unsigned long)late.cache.laps);
   stage7Output.log("ACC S7 test=7.10 missed_fact=1 laps=%lu lap=%llu",(unsigned long)late.cache.laps,(unsigned long long)late.cache.lastLapTime);
   stage7Output.log("ACC S7 test=7.13 late=1 lifecycle=%s entry=%lu laps=%lu",stage7State(late.cache.lifecycle),(unsigned long)late.cache.raceEntryId,(unsigned long)late.cache.laps);
