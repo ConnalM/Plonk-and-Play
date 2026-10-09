@@ -97,6 +97,9 @@ const auto inputObserver=bus.attach(pp::Role::Diagnostics);
 pp::MemoryModule memoryModule(bus,memoryEndpoint,memory);
 pp::Configuration workingConfiguration;
 pp::ProposedRaceSetup proposedRaceSetup{ {pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish}, 1, 10, pp::LapFinishBehaviour::Immediate, 1, true, false };
+// The development setup keeps a valid one-minute Endurance value available
+// when the Browser changes mode; Lap Race ignores this field.
+struct ProposalDefaultsInitialiser { ProposalDefaultsInitialiser(){ proposedRaceSetup.durationMinutes=1; } } proposalDefaultsInitialiser;
 bool ready=false,testsPassed=true,bootFailed=false;
 pp::Time nextStatus=0;
 pp::Time loopWorstUs=0;
@@ -143,7 +146,6 @@ bool browserFixturePass(uint8_t lane){
   return true;
 }
 void browserFixtureReset(){ activeSession.clearForFixture(); raceControl.resetRaceForFixture(); raceControl.setProposedRaceSetup(proposedRaceSetup); raceEngine.resetForFixture(); browser.clearRaceForFixture(); diagnostics.log("[DEV] TEST RESET READY (Race Director retained)"); }
-bool browserFixtureSetup(uint32_t laps){if(raceControl.state()!=pp::SessionLifecycle::Ready||!raceControl.proposedRaceSetup())return false;proposedRaceSetup=*raceControl.proposedRaceSetup();proposedRaceSetup.lapTarget=laps;raceControl.setProposedRaceSetup(proposedRaceSetup);return true;}
 #endif
 // The build environment is diagnostic identity only. It never supplies product
 // State or changes P&P behaviour.
@@ -284,7 +286,7 @@ void observeBrowserNetworkEvents(){
 void status(){diagnostics.log("[DEV] %s %s system_us=%llu dropped=%lu; no session, no race",buildIdentity(),
   ready?"IDLE":bootFailed?"FAULT":"STARTING",static_cast<unsigned long long>(systemTime()),static_cast<unsigned long>(diagnostics.dropped));}
 const char* lifecycleName(pp::SessionLifecycle value){switch(value){case pp::SessionLifecycle::Ready:return "READY";case pp::SessionLifecycle::Starting:return "STARTING";case pp::SessionLifecycle::Racing:return "RACING";case pp::SessionLifecycle::Paused:return "PAUSED";case pp::SessionLifecycle::Restarting:return "RESTARTING";case pp::SessionLifecycle::Finished:return "FINISHED";default:return "FAULTED";}}
-const char* modeName(pp::SessionMode value){switch(value){case pp::SessionMode::OpenPractice:return "OPEN_PRACTICE";case pp::SessionMode::Endurance:return "ENDURANCE";default:return "LAP_RACE";}}
+const char* modeName(pp::SessionMode value){switch(value){case pp::SessionMode::None:return "NONE";case pp::SessionMode::OpenPractice:return "OPEN_PRACTICE";case pp::SessionMode::Endurance:return "ENDURANCE";default:return "LAP_RACE";}}
 const char* finishName(pp::LapFinishBehaviour value){switch(value){case pp::LapFinishBehaviour::CompleteCurrentLap:return "COMPLETE_CURRENT_LAP";case pp::LapFinishBehaviour::CompleteFullRaceDistance:return "COMPLETE_FULL_RACE_DISTANCE";default:return "IMMEDIATE";}}
 const char* operationName(pp::SessionOperation value){switch(value){case pp::SessionOperation::Pause:return "PAUSE";case pp::SessionOperation::HonourRestart:return "HONOUR_RESTART";case pp::SessionOperation::GridRestart:return "GRID_RESTART";case pp::SessionOperation::RaceAgain:return "RACE_AGAIN";case pp::SessionOperation::RestartRace:return "RESTART_RACE";case pp::SessionOperation::EndRace:return "END_RACE";case pp::SessionOperation::Resume:return "RESUME";case pp::SessionOperation::EndSession:return "END_SESSION";default:return "RECORDS";}}
 const char* rejectionName(pp::RequestRejection value){switch(value){case pp::RequestRejection::None:return "NONE";case pp::RequestRejection::PermissionDenied:return "PERMISSION_DENIED";case pp::RequestRejection::LifecycleNotStartable:return "LIFECYCLE_NOT_STARTABLE";case pp::RequestRejection::InvalidRaceSetup:return "INVALID_RACE_SETUP";case pp::RequestRejection::RequiredCapabilityUnavailable:return "CAPABILITY_UNAVAILABLE";case pp::RequestRejection::SessionDefinitionUnavailable:return "SESSION_DEFINITION_UNAVAILABLE";case pp::RequestRejection::LifecycleNotPausable:return "LIFECYCLE_NOT_PAUSABLE";case pp::RequestRejection::LifecycleNotRestartable:return "LIFECYCLE_NOT_RESTARTABLE";case pp::RequestRejection::PauseSettlementPending:return "PAUSE_SETTLEMENT_PENDING";case pp::RequestRejection::LifecycleNotRaceAgain:return "LIFECYCLE_NOT_RACE_AGAIN";case pp::RequestRejection::ConfirmationRequired:return "CONFIRMATION_REQUIRED";case pp::RequestRejection::LifecycleNotAbandonable:return "LIFECYCLE_NOT_ABANDONABLE";case pp::RequestRejection::StorageUnavailable:return "STORAGE_UNAVAILABLE";case pp::RequestRejection::LifecycleNotResumable:return "LIFECYCLE_NOT_RESUMABLE";default:return "LIFECYCLE_NOT_ENDABLE";}}
@@ -531,6 +533,7 @@ void setup(){
   testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::CompetitionComplete);
   testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::StartRequest);
   testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::SessionOperationRequest);
+  testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::SetupRequest);
   testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::PauseSettled);
   testsPassed&=bus.subscribe(raceControlEndpoint,pp::Type::RaceIntegrityFault);
   testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::RaceIntegrityFault);
@@ -547,7 +550,7 @@ void setup(){
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::StorageFault);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::EnduranceExpired);
 #if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
-  browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset,browserFixtureSetup);
+  browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset);
 #endif
   browser.begin();
   diagnostics.log("[INIT] Message Bus READY: bounded mailboxes; authority checked");

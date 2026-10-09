@@ -20,7 +20,7 @@ check('8.12',rows['8.12']['fixed_laps']=='2' and rows['8.12']['fixed_mug']=='91'
 check('8.13',rows['8.13']['state']=='2' and int(rows['8.13']['go'])>0,'Advance accepted Race Control procedure to GO','Race Control reaches RACING through existing path')
 check('8.14',rows['8.14']['result']=='ACCEPTED' and rows['8.14']['state']=='2' and rows['8.14']['entry']!='0' and '/request-result' in browser,'Observe Browser result and Noticeboard State','Result is distinct from authoritative State')
 check('8.15',{rows['8.15']['first'],rows['8.15']['second']}=={'ACCEPTED','REJECTED'} and rows['8.15']['definition']=='1' and rows['8.15']['committed']=='1' and rows['8.15']['go']=='1','Two distinct correlations submitted before Race Control tick','At most one accepted/session/start/GO')
-check('8.16',rows['8.16']['first']=='ACCEPTED' and rows['8.16']['second']=='ACCEPTED' and rows['8.16']['first_laps']=='2' and rows['8.16']['second_laps']=='3' and rows['8.16']['second_mug']=='92' and rows['8.16']['payload']=='correlation_only','Two valid proposed setups','START carries no Race Setup copy')
+check('8.16',rows['8.16']['first']=='ACCEPTED' and rows['8.16']['second']=='ACCEPTED' and rows['8.16']['first_laps']=='2' and rows['8.16']['second_laps']=='3' and rows['8.16']['second_mug']=='91' and rows['8.16']['payload']=='correlation_only','Two valid proposals changed through P&P setup boundary','START carries no Browser setup authority and commits the accepted proposal')
 stage7_regression=evidence/'stage7-regression.json'
 stage7_ok=False
 if stage7_regression.exists():

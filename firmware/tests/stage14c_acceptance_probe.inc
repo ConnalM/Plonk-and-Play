@@ -30,7 +30,7 @@ struct Stage14CFixture {
   explicit Stage14CFixture(pp::LapFinishBehaviour finish=pp::LapFinishBehaviour::Immediate,uint8_t policy=0){
     setup={};setup.activeLanes=2;setup.mode=pp::SessionMode::Endurance;setup.durationMinutes=1;setup.finish=finish;setup.startsBeforeStartFinish=true;setup.redLightCount=3;setup.redIntervalUs=1000000;setup.falseStartCapability=true;setup.falseStartPolicy=policy;
     for(uint8_t i=0;i<2;++i){setup.entries[i].startFinish={pp::InputModule::simulatedDetectorIdentity(i),uint8_t(i+1),pp::InputRole::StartFinish};setup.entries[i].mugId=800+i;}
-    bus.subscribe(inputEndpoint,pp::Type::SessionOperation);bus.subscribe(inputEndpoint,pp::Type::FinishSettlement);bus.subscribe(engineEndpoint,pp::Type::InputEvent);bus.subscribe(engineEndpoint,pp::Type::GoScheduled);bus.subscribe(engineEndpoint,pp::Type::SessionOperation);bus.subscribe(engineEndpoint,pp::Type::InputSettlement);bus.subscribe(engineEndpoint,pp::Type::FinishSettled);bus.subscribe(engineEndpoint,pp::Type::EnduranceExpired);bus.subscribe(controlEndpoint,pp::Type::StartRequest);bus.subscribe(controlEndpoint,pp::Type::SessionOperationRequest);bus.subscribe(controlEndpoint,pp::Type::PauseSettled);bus.subscribe(controlEndpoint,pp::Type::CompetitionComplete);bus.subscribe(presentation,pp::Type::NoticeboardChanged);bus.subscribe(presentation,pp::Type::RequestResult);bus.subscribe(presentation,pp::Type::LapCompleted);bus.subscribe(presentation,pp::Type::Paused);bus.subscribe(presentation,pp::Type::Resumed);bus.subscribe(presentation,pp::Type::HistoryStored);bus.subscribe(observer,pp::Type::InputEvent);bus.subscribe(observer,pp::Type::EnduranceExpired);
+    bus.subscribe(inputEndpoint,pp::Type::SessionOperation);bus.subscribe(inputEndpoint,pp::Type::FinishSettlement);bus.subscribe(engineEndpoint,pp::Type::InputEvent);bus.subscribe(engineEndpoint,pp::Type::GoScheduled);bus.subscribe(engineEndpoint,pp::Type::SessionOperation);bus.subscribe(engineEndpoint,pp::Type::InputSettlement);bus.subscribe(engineEndpoint,pp::Type::FinishSettled);bus.subscribe(engineEndpoint,pp::Type::EnduranceExpired);bus.subscribe(controlEndpoint,pp::Type::StartRequest);bus.subscribe(controlEndpoint,pp::Type::SetupRequest);bus.subscribe(controlEndpoint,pp::Type::SessionOperationRequest);bus.subscribe(controlEndpoint,pp::Type::PauseSettled);bus.subscribe(controlEndpoint,pp::Type::CompetitionComplete);bus.subscribe(presentation,pp::Type::NoticeboardChanged);bus.subscribe(presentation,pp::Type::RequestResult);bus.subscribe(presentation,pp::Type::LapCompleted);bus.subscribe(presentation,pp::Type::Paused);bus.subscribe(presentation,pp::Type::Resumed);bus.subscribe(presentation,pp::Type::HistoryStored);bus.subscribe(observer,pp::Type::InputEvent);bus.subscribe(observer,pp::Type::EnduranceExpired);
     control.setProposedRaceSetup(setup);control.setRequiredCapabilityAvailable(true);authority.saveMaster(Owner);browser.bootstrap(Owner);
   }
   void pump(pp::Time now){input.tick(now);engine.tick();control.tick(now);browser.tick();}
@@ -74,7 +74,10 @@ static Stage14CEndRaceEvidence stage14cEnduranceEndRace(pp::LapFinishBehaviour f
   // The retained proposal is the production next-session base. Change only
   // the Browser-submitted mode here; do not restore setup through a fixture
   // helper, which would mask loss of the proposal during abandonment.
-  evidence.nextStart=fixture->browser.submitStart(correlation+100,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner,pp::SessionMode::OpenPractice,0,0);
+  const uint32_t nextRevision=fixture->control.proposalRevision();
+  const bool nextSetup=fixture->browser.submitSetup(correlation+50,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner,pp::SessionMode::OpenPractice,0,1,0,nextRevision);
+  fixture->control.tick(go+5500000);fixture->browser.tick();
+  evidence.nextStart=nextSetup&&fixture->browser.submitStart(correlation+100,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner);
   fixture->control.tick(go+6000000);fixture->engine.tick();
   evidence.nextMode=fixture->control.definition()&&fixture->control.definition()->mode()==pp::SessionMode::OpenPractice;
   evidence.nextEntries=fixture->control.definition()&&fixture->control.definition()->entryCount()==2&&fixture->control.definition()->role(0).lane==1&&fixture->control.definition()->role(1).lane==2;
@@ -102,7 +105,7 @@ static Stage14CEndRaceEvidence stage14cLapEndRace(uint32_t correlation){
   evidence.noResult=!fixture->engine.completedResult().sealed&&!fixture->engine.complete();
   evidence.noHistory=fixture->history.count()==historyBefore&&fixture->engine.historySequence()==0;
   evidence.noRecordChange=true;evidence.noCompletionFact=true;
-  evidence.nextStart=fixture->browser.submitStart(correlation+100,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner,pp::SessionMode::LapRace,0,0);
+  evidence.nextStart=fixture->browser.submitStart(correlation+100,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner);
   fixture->control.tick(go+3000000);fixture->engine.tick();
   evidence.nextMode=fixture->control.definition()&&fixture->control.definition()->mode()==pp::SessionMode::LapRace;
   evidence.nextEntries=fixture->control.definition()&&fixture->control.definition()->entryCount()==2&&fixture->control.definition()->lapTarget()==3;
@@ -111,6 +114,18 @@ static Stage14CEndRaceEvidence stage14cLapEndRace(uint32_t correlation){
 }
 void stage14cAcceptanceRun(){
   if(stage14cStarted)return;stage14cStarted=true;diagnostics.enable(false);
+  auto* authorityFixture=::new(stage14cStorage)Stage14CFixture();
+  const bool readyNone=authorityFixture->noticeboard.current().lifecycle==pp::SessionLifecycle::Ready&&authorityFixture->noticeboard.current().sessionMode==pp::SessionMode::None;
+  const uint32_t authorityRevision=authorityFixture->control.proposalRevision();
+  const bool setupSubmitted=authorityFixture->browser.submitSetup(1901,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner,pp::SessionMode::OpenPractice,0,1,0,authorityRevision);
+  authorityFixture->control.tick(1000000);authorityFixture->browser.tick();pp::BrowserInterface::ResultView setupResult{};
+  const bool setupAccepted=setupSubmitted&&authorityFixture->browser.requestResult(1901,Stage14CFixture::Owner,setupResult)&&setupResult.ready&&setupResult.result==pp::RequestResult::Accepted&&authorityFixture->control.proposedRaceSetup()->mode==pp::SessionMode::OpenPractice;
+  const bool staleSubmitted=authorityFixture->browser.submitSetup(1902,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner,pp::SessionMode::Endurance,1,1,0,authorityRevision);
+  authorityFixture->control.tick(1000001);authorityFixture->browser.tick();pp::BrowserInterface::ResultView staleResult{};
+  const bool staleRejected=staleSubmitted&&authorityFixture->browser.requestResult(1902,Stage14CFixture::Owner,staleResult)&&staleResult.ready&&staleResult.result==pp::RequestResult::Rejected&&staleResult.rejection==pp::RequestRejection::ProposalRevisionConflict&&authorityFixture->control.proposedRaceSetup()->mode==pp::SessionMode::OpenPractice;
+  const bool genericStart=authorityFixture->browser.submitStart(1903,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner);authorityFixture->control.tick(1000002);authorityFixture->engine.tick();
+  const bool committedProposal=genericStart&&authorityFixture->control.definition()&&authorityFixture->control.definition()->mode()==pp::SessionMode::OpenPractice&&authorityFixture->control.definition()->entryCount()==2;
+  s14c("14C.AUTH.1",readyNone,"ready_session_mode_none=%u",readyNone?1:0);s14c("14C.AUTH.2",setupAccepted,"setup_boundary_open_practice=%u",setupAccepted?1:0);s14c("14C.AUTH.3",staleRejected,"stale_revision_rejected_unchanged=%u",staleRejected?1:0);s14c("14C.AUTH.4",committedProposal,"generic_start_commits_accepted_proposal=%u",committedProposal?1:0);authorityFixture->~Stage14CFixture();
   auto* off=::new(stage14cStorage)Stage14CFixture(pp::LapFinishBehaviour::Immediate,0);bool offStarted=off->start();auto offGo=off->control.scheduledGo();off->input.sampleSource(0,true,offGo-30000);off->input.sampleSource(0,true,offGo-9000);off->engine.tick();bool offOk=offStarted&&off->engine.entryState(0).laps==0&&off->engine.entryState(0).lapPenalty==0;off->~Stage14CFixture();
   auto* warn=::new(stage14cStorage)Stage14CFixture(pp::LapFinishBehaviour::Immediate,1);bool warnStarted=warn->start();auto warnGo=warn->control.scheduledGo();warn->input.sampleSource(0,true,warnGo-30000);warn->input.sampleSource(0,true,warnGo-9000);warn->engine.tick();bool warnOk=warnStarted&&warn->engine.entryState(0).laps==0&&warn->engine.entryState(0).lapPenalty==0;warn->~Stage14CFixture();
   auto* penalty=::new(stage14cStorage)Stage14CFixture(pp::LapFinishBehaviour::Immediate,3);bool penaltyStarted=penalty->start();auto penaltyGo=penalty->control.scheduledGo();penalty->input.sampleSource(0,true,penaltyGo-30000);penalty->input.sampleSource(0,true,penaltyGo-9000);penalty->engine.tick();bool penaltyOk=penaltyStarted&&penalty->engine.entryState(0).laps==0&&penalty->engine.entryState(0).lapPenalty==1;penalty->~Stage14CFixture();

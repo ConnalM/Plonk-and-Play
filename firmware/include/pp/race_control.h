@@ -7,6 +7,7 @@
 namespace pp {
 
 enum class SessionLifecycle : uint8_t { Ready, Starting, Racing, Paused, Restarting, Finished, Faulted };
+enum class StartReadiness : uint8_t { Ready, LifecycleNotStartable, InvalidRaceSetup, CapabilityUnavailable };
 
 class RaceControlModule {
 public:
@@ -22,7 +23,7 @@ public:
   void prepare(const SessionDefinition& definition){definition_=&definition;setup_=nullptr;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;changed();}
   // Stage 8 supplies the mutable working setup and current required-capability
   // availability. Race Control alone validates and commits an active session.
-  void setProposedRaceSetup(const ProposedRaceSetup& setup){setup_=&setup;definition_=active_.current();}
+  void setProposedRaceSetup(const ProposedRaceSetup& setup){proposedSetup_=normalised(setup);setup_=&proposedSetup_;++proposalRevision_;definition_=active_.current();}
   void setRequiredCapabilityAvailable(bool available){requiredCapabilityAvailable_=available;}
   bool start(Time now){
     if(!definition_||state_!=SessionLifecycle::Ready||startCommitted_)return false;
@@ -33,6 +34,7 @@ public:
     while(bus_.receive(endpoint_,event)) {
       if(event.type==Type::StartRequest) handleStart(event,now);
       else if(event.type==Type::SessionOperationRequest) handleOperation(event,now);
+      else if(event.type==Type::SetupRequest) handleSetup(event);
       else if(event.type==Type::PauseSettled){pauseSettled_=true;settledAt_=event.relevantTime;changed();}
       else if(event.type==Type::CompetitionComplete){if(state_!=SessionLifecycle::Faulted){state_=SessionLifecycle::Finished;restartMethod_=RestartMethod::None;scheduledRestart_=0;changed();}}
       else if(event.type==Type::RaceIntegrityFault){integrityFaulted_=true;integrityReason_=event.integrityReason;state_=SessionLifecycle::Faulted;restartMethod_=RestartMethod::None;scheduledRestart_=0;changed();}
@@ -56,7 +58,7 @@ public:
     if(state_==SessionLifecycle::Restarting&&now>=scheduledRestart_){state_=SessionLifecycle::Racing;publishFact(Type::Resumed,now);changed();}
   }
   SessionLifecycle state()const{return state_;}
-  SessionMode mode()const{return definition_?definition_->mode():(setup_?setup_->mode:SessionMode::LapRace);}
+  SessionMode mode()const{return definition_?definition_->mode():SessionMode::None;}
   Time scheduledGo()const{return go_;}
   Time pauseEffectiveAt()const{return pauseAt_;}
   Time scheduledRestartAt()const{return scheduledRestart_;}
@@ -68,6 +70,14 @@ public:
   Delivery lastFactDelivery()const{return lastFactDelivery_;}
   const SessionDefinition* definition()const{return definition_;}
   const ProposedRaceSetup* proposedRaceSetup()const{return setup_;}
+  uint32_t proposalRevision()const{return proposalRevision_;}
+  StartReadiness readiness()const{
+    if(state_!=SessionLifecycle::Ready||startCommitted_)return StartReadiness::LifecycleNotStartable;
+    if(!setup_||!valid(*setup_))return StartReadiness::InvalidRaceSetup;
+    if(!requiredCapabilityAvailable_)return StartReadiness::CapabilityUnavailable;
+    return StartReadiness::Ready;
+  }
+  static bool supportedMode(SessionMode mode){return mode==SessionMode::LapRace||mode==SessionMode::OpenPractice||mode==SessionMode::Endurance;}
   bool startCommitted()const{return startCommitted_;} bool integrityFaulted()const{return integrityFaulted_;} RaceIntegrityReason integrityReason()const{return integrityReason_;}
   uint8_t redLightCount()const{return definition_?definition_->redLightCount():5;} uint8_t startSignal()const{return definition_?definition_->startSignal():0;} uint8_t startTiming()const{return definition_?definition_->startTiming():2;} Time finalDelay()const{return finalDelay_;}
 private:
@@ -126,7 +136,7 @@ private:
     }
     if(request.operation==SessionOperation::RaceAgain){
       if(state_!=SessionLifecycle::Finished||!definition_){reject(request.correlation,RequestRejection::LifecycleNotRaceAgain);return;}
-      copySetupFromDefinition(); setup_=&proposedCopy_;active_.permitReplacement();state_=SessionLifecycle::Ready;startCommitted_=false;
+       copySetupFromDefinition(); active_.permitReplacement();active_.clearForFixture();definition_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;
       // RACE AGAIN starts a new session proposal. Clear all run-bound timing
       // and expiry state so a completed Endurance race cannot leak into the
       // next STARTING/RACING presentation.
@@ -166,14 +176,14 @@ private:
       const bool settledPause=state_==SessionLifecycle::Paused&&pauseSettled_;
       if(!enduranceRacing&&!settledPause){reject(request.correlation,RequestRejection::LifecycleNotAbandonable);return;}
       if(request.operation==SessionOperation::RestartRace){
-        if(definition_){copySetupFromDefinition();setup_=&proposedCopy_;active_.permitReplacement();}
+        if(definition_){copySetupFromDefinition();active_.permitReplacement();}
          active_.clearForFixture();definition_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;resumeScheduled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
       }
        // END RACE is an abandonment, but the committed setup remains the
        // valid proposal for the next session. Copy it before clearing the
        // active definition so the Browser can edit mode/duration/finish
        // without losing entries or lane mappings.
-       if(definition_){copySetupFromDefinition();setup_=&proposedCopy_;active_.permitReplacement();}
+        if(definition_){copySetupFromDefinition();active_.permitReplacement();}
        active_.clearForFixture();definition_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=finalDelay_=durationExpiry_=durationRemaining_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
     }
     if(request.operation==SessionOperation::Pause){
@@ -187,19 +197,29 @@ private:
     scheduledRestart_=now+3000000;publishOperation(request.operation,restartMethod_,scheduledRestart_);
     state_=SessionLifecycle::Restarting;publishFact(Type::RestartScheduled,scheduledRestart_);changed();result(request.correlation,RequestResult::Accepted);
   }
+  void handleSetup(const Message& request){
+    if(request.clientContext!=ClientContext::RaceDirectorSmug){reject(request.correlation,RequestRejection::PermissionDenied);return;}
+    if(state_!=SessionLifecycle::Ready||startCommitted_){reject(request.correlation,RequestRejection::LifecycleNotStartable);return;}
+    if(!setup_){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
+    if(request.proposalRevision!=proposalRevision_){reject(request.correlation,RequestRejection::ProposalRevisionConflict);return;}
+    ProposedRaceSetup candidate=*setup_;
+    candidate.mode=request.sessionMode;
+    candidate.lapTarget=request.setupLapTarget;
+    candidate.durationMinutes=request.setupDurationMinutes;
+    candidate.finish=static_cast<LapFinishBehaviour>(request.setupFinishPolicy);
+    if(!supportedMode(candidate.mode)||!valid(candidate)){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
+    proposedSetup_=normalised(candidate);setup_=&proposedSetup_;++proposalRevision_;changed();result(request.correlation,RequestResult::Accepted);
+  }
   void handleStart(const Message& request,Time now){
     if(request.clientContext!=ClientContext::RaceDirectorSmug){reject(request.correlation,RequestRejection::PermissionDenied);return;}
     // startCommitted_ reserves the race before a second closely arriving
     // request can be accepted, even if presentation has not yet refreshed.
     if(state_!=SessionLifecycle::Ready||startCommitted_){reject(request.correlation,RequestRejection::LifecycleNotStartable);return;}
+    if(request.sessionMode!=SessionMode::None||request.durationMinutes||request.finishPolicy){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
+    if(readiness()==StartReadiness::InvalidRaceSetup){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
+    if(readiness()==StartReadiness::CapabilityUnavailable){reject(request.correlation,RequestRejection::RequiredCapabilityUnavailable);return;}
     if(!setup_){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
-    ProposedRaceSetup requested=*setup_; requested.mode=request.sessionMode;
-    if(request.sessionMode==SessionMode::Endurance){
-      if(request.durationMinutes) requested.durationMinutes=request.durationMinutes;
-      requested.finish=static_cast<LapFinishBehaviour>(request.finishPolicy);
-    }
-    if(!valid(requested)){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
-    if(!requiredCapabilityAvailable_){reject(request.correlation,RequestRejection::RequiredCapabilityUnavailable);return;}
+    const ProposedRaceSetup requested=*setup_;
     const uint32_t sessionId=nextSessionId_,firstEntryId=nextRaceEntryId_;
     if(!active_.commit(requested,sessionId,firstEntryId)){reject(request.correlation,RequestRejection::SessionDefinitionUnavailable);return;}
     ++nextSessionId_;nextRaceEntryId_+=requested.activeLanes;
@@ -212,23 +232,24 @@ private:
   }
   void changed(){Message notice{};notice.type=Type::NoticeboardChanged;bus_.publish(endpoint_,notice);}
   void copySetupFromDefinition(){
-    proposedCopy_={};
-    proposedCopy_.lapTarget=definition_->lapTarget(); proposedCopy_.durationMinutes=definition_->durationMinutes(); proposedCopy_.finish=definition_->finishBehaviour(); proposedCopy_.activeLanes=definition_->entryCount();
-    proposedCopy_.mode=definition_->mode();
-    proposedCopy_.startsBeforeStartFinish=true; proposedCopy_.optionalFeaturesEnabled=false;
-    proposedCopy_.redLightCount=definition_->redLightCount(); proposedCopy_.startSignal=definition_->startSignal(); proposedCopy_.startTiming=definition_->startTiming();
-    proposedCopy_.redIntervalUs=definition_->redIntervalUs(); proposedCopy_.fixedFinalDelayUs=definition_->fixedFinalDelayUs();
-    proposedCopy_.falseStartCapability=definition_->falseStartCapability(); proposedCopy_.falseStartPolicy=definition_->falseStartPolicy();
-    for(uint8_t i=0;i<definition_->entryCount();++i){proposedCopy_.entries[i].startFinish=definition_->role(i);proposedCopy_.entries[i].mugId=definition_->entry(i).mugId;}
+    proposedSetup_={};
+    proposedSetup_.lapTarget=definition_->lapTarget(); proposedSetup_.durationMinutes=definition_->durationMinutes(); proposedSetup_.finish=definition_->finishBehaviour(); proposedSetup_.activeLanes=definition_->entryCount();
+    proposedSetup_.mode=definition_->mode();
+    proposedSetup_.startsBeforeStartFinish=true; proposedSetup_.optionalFeaturesEnabled=false;
+    proposedSetup_.redLightCount=definition_->redLightCount(); proposedSetup_.startSignal=definition_->startSignal(); proposedSetup_.startTiming=definition_->startTiming();
+    proposedSetup_.redIntervalUs=definition_->redIntervalUs(); proposedSetup_.fixedFinalDelayUs=definition_->fixedFinalDelayUs();
+    proposedSetup_.falseStartCapability=definition_->falseStartCapability(); proposedSetup_.falseStartPolicy=definition_->falseStartPolicy();
+    for(uint8_t i=0;i<definition_->entryCount();++i){proposedSetup_.entries[i].startFinish=definition_->role(i);proposedSetup_.entries[i].mugId=definition_->entry(i).mugId;}
     // Keep accepted source-level aliases synchronized for legacy fixtures and
     // two-entry Browser/demo compatibility; indexed entries are authoritative.
-    if(definition_->entryCount()>0){proposedCopy_.startFinish=definition_->role(0);proposedCopy_.selectedMugId=definition_->entry(0).mugId;}
-    if(definition_->entryCount()>1){proposedCopy_.secondStartFinish=definition_->role(1);proposedCopy_.secondMugId=definition_->entry(1).mugId;}
+    if(definition_->entryCount()>0){proposedSetup_.startFinish=definition_->role(0);proposedSetup_.selectedMugId=definition_->entry(0).mugId;}
+    if(definition_->entryCount()>1){proposedSetup_.secondStartFinish=definition_->role(1);proposedSetup_.secondMugId=definition_->entry(1).mugId;}
+    proposedSetup_=normalised(proposedSetup_);setup_=&proposedSetup_;++proposalRevision_;
   }
   Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
   SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0,finalDelay_=0,durationExpiry_=0,durationRemaining_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=true,startCommitted_=false,integrityFaulted_=false,pauseSettled_=false,durationExpired_=false,durationPublished_=false,resumeScheduled_=false;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
   uint32_t nextSessionId_=1,nextRaceEntryId_=1;
-  ProposedRaceSetup proposedCopy_{};
+  ProposedRaceSetup proposedSetup_{}; uint32_t proposalRevision_=1;
 };
 
 } // namespace pp

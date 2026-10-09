@@ -11,8 +11,12 @@ load:0x40080400,len:2972
 entry 0x400805dc
 [DEV] P&P STAGE 14C ACCEPTANCE -- diagnostics are not product State
 [INIT] System Time READY: monotonic 64-bit microsecondsACC READY
-[INIT] Memory READY: NVS behind Memory boundary
-[INIT] Message Bus READY: bounded mailboxes; authority checkedACC S14C test=14C.6 pass=1 false_start_off_warning_penalty_zero_and_nonzero=1
+[INIT] Development persistence backend READY (versioned NVS/Wokwi boundary)
+ACC S14C test=14C.AUTH.1 pass=1 ready_session_mode_none=1
+ACC S14C test=14C.AUTH.2 pass=1 setup_boundary_open_practice=1
+ACC S14C test=14C.AUTH.3 pass=1 stale_revision_rejected_unchanged=1
+ACC S14C test=14C.AUTH.4 pass=1 generic_start_commits_accepted_proposal=1
+ACC S14C test=14C.6 pass=1 false_start_off_warning_penalty_zero_and_nonzero=1
 ACC S14C test=14C.1 pass=1 duration=1 mode=endurance
 ACC S14C test=14C.2 pass=1 whole_minute_serialized=1
 ACC S14C test=14C.3 pass=1 immutable_definition=1
@@ -31,7 +35,7 @@ ACC S14C regression=finish_current_lap_one_crossing pass=1 before=2/2 after=3/3 
 ACC S14C finish_fence origins=1/1 post=1/1 records=3/3 triggers=8 expired=1 result=3/3
 ACC S14C regression=finish_current_lap_reversed_delivery pass=1 laps=3/3 repeat=3 records=3 settled=1
 ACC S14C regression=finish_current_lap_no_origin pass=1 laps=0/3 records=0/3 settled=1
-ACC S14C test=14C.14 pass=1 end_race_abandonment_boundary=1
+ACC S14C test=14C.14 pass=1 endurance_end_race stop=1/1 current=1/1 paused=1/1 lap=1 clean=1 proposal=1 result=1 history=1 next=1
 ACC S14C test=14C.15 pass=1 results_api=1
 ACC S14C test=14C.16 pass=1 results_history_api_reconstruct=1
 ACC S14C test=14C.17 pass=1 persistence_boundary=1 sequence=1

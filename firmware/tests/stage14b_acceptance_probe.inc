@@ -26,7 +26,7 @@ struct Stage14BFixture {
     for(uint8_t i=0;i<count;++i){setup.entries[i].startFinish={pp::InputModule::simulatedDetectorIdentity(i),uint8_t(i+1),pp::InputRole::StartFinish};setup.entries[i].mugId=140+i;}
     bus.subscribe(inputEndpoint,pp::Type::SessionOperation);
     bus.subscribe(engineEndpoint,pp::Type::InputEvent);bus.subscribe(engineEndpoint,pp::Type::SessionOperation);bus.subscribe(engineEndpoint,pp::Type::InputSettlement);bus.subscribe(engineEndpoint,pp::Type::RaceIntegrityFault);
-    bus.subscribe(controlEndpoint,pp::Type::StartRequest);bus.subscribe(controlEndpoint,pp::Type::SessionOperationRequest);bus.subscribe(controlEndpoint,pp::Type::PauseSettled);bus.subscribe(controlEndpoint,pp::Type::RaceIntegrityFault);
+    bus.subscribe(controlEndpoint,pp::Type::StartRequest);bus.subscribe(controlEndpoint,pp::Type::SetupRequest);bus.subscribe(controlEndpoint,pp::Type::SessionOperationRequest);bus.subscribe(controlEndpoint,pp::Type::PauseSettled);bus.subscribe(controlEndpoint,pp::Type::RaceIntegrityFault);
     bus.subscribe(presentation,pp::Type::RequestResult);bus.subscribe(presentation,pp::Type::NoticeboardChanged);bus.subscribe(presentation,pp::Type::LapCompleted);bus.subscribe(presentation,pp::Type::Paused);bus.subscribe(presentation,pp::Type::Resumed);
     bus.subscribe(observer,pp::Type::InputEvent);bus.subscribe(observer,pp::Type::LapCompleted);bus.subscribe(observer,pp::Type::SessionOperation);bus.subscribe(observer,pp::Type::InputSettlement);
     control.setProposedRaceSetup(setup);control.setRequiredCapabilityAvailable(true);authority.saveMaster(Owner);browser.bootstrap(Owner);
@@ -78,8 +78,8 @@ void stage14bAcceptanceRun(){
   const bool reconstructed=f->browser.serializeStateForAcceptance(json,sizeof(json),len)&&strstr(json,"\"lifecycle\":\"READY\"");s14b("14B.22",reconstructed,"state_reconstructs_without_fact_replay=1");
   s14b("14B.23",pressureState,"presentation_pressure_isolated=1");
   s14b("14B.24",f->active.current()==nullptr&&f->engine.historySequence()==0,"restart_is_volatile=1");
-  s14b("14B.25",started&&f->control.mode()==pp::SessionMode::OpenPractice,"normal_boundaries=1");
-  const auto unchanged=f->noticeboard.current();f->browser.submitStart(10,pp::ClientContext::RaceDirectorSmug,Stage14BFixture::Owner,static_cast<pp::SessionMode>(99));f->control.tick(base+2900000);s14b("14B.26",f->noticeboard.current().lifecycle==unchanged.lifecycle,"invalid_mode_rejected_unchanged=1");
+  s14b("14B.25",started&&f->control.mode()==pp::SessionMode::None&&f->control.proposedRaceSetup()&&f->control.proposedRaceSetup()->mode==pp::SessionMode::OpenPractice,"normal_boundaries=1 active_mode_none_proposal_preserved=1");
+  const auto unchanged=f->noticeboard.current();const auto proposalBefore=f->control.proposalRevision();f->browser.submitSetup(10,pp::ClientContext::RaceDirectorSmug,Stage14BFixture::Owner,static_cast<pp::SessionMode>(99),0,1,0,proposalBefore);f->control.tick(base+2900000);f->browser.tick();s14b("14B.26",f->noticeboard.current().lifecycle==unchanged.lifecycle&&f->control.proposalRevision()==proposalBefore,"invalid_mode_rejected_unchanged=1");
   s14b("14B.27",true,"stage14a_campaign_required=1");s14b("14B.28",true,"stage1_to_13_campaign_required=1");
   s14b("14B.29",true,"evaluator_integrity_external_proof=1");
   s14b("14B.T",true,"human_browser_checkpoint_prepared=1");
