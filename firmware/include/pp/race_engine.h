@@ -63,6 +63,18 @@ public:
   const EntryState&entryState(uint8_t i)const{return entries_[i];} bool deadHeat()const{return deadHeat_;} bool faulted()const{return faulted_;}
   const CompletedRaceResult&completedResult()const{return result_;} uint32_t historySequence()const{return historySequence_;}
   const PracticeSummary& practiceSummary()const{return practiceSummary_;}
+  // Competitive live ordering is an authoritative Race Engine view.  It uses
+  // the same completed-progress and finish-time comparison as sealed results;
+  // Practice deliberately has no competitive position or gap.
+  uint32_t livePosition(uint8_t index)const{
+    if(!definition_||definition_->mode()==SessionMode::OpenPractice||index>=entryCount())return 0;
+    uint32_t position=1;for(uint8_t i=0;i<entryCount();++i)if(i!=index&&beforeLive(entries_[i],entries_[index],finishBehaviour_))++position;return position;
+  }
+  uint32_t liveLapsBehind(uint8_t index)const{
+    if(!definition_||definition_->mode()==SessionMode::OpenPractice||index>=entryCount())return 0;
+    uint32_t leader=0;for(uint8_t i=0;i<entryCount();++i){const auto&e=entries_[i];const uint32_t classified=e.laps>e.lapPenalty?e.laps-e.lapPenalty:0;if(classified>leader)leader=classified;}
+    const auto&e=entries_[index];const uint32_t classified=e.laps>e.lapPenalty?e.laps-e.lapPenalty:0;return leader>classified?leader-classified:0;
+  }
   bool persistencePending()const{return result_.sealed&&!persisted_;} bool persistenceFault()const{return persistenceFault_||recordPersistenceFault_;}
   bool settlementSeen()const{return settlementSeen_;} bool settlementPublished()const{return settlementPublished_;}
 #if defined(PP_STAGE14C_ACCEPTANCE)
@@ -150,6 +162,7 @@ private:
   void latchPersistenceFault(Time at,bool record){if(record)recordPersistenceFault_=true;else historyPersistFailed_=true;persistenceFault_=true;if(storageFaultPublished_)return;storageFaultPublished_=true;Message fault{};fault.type=Type::StorageFault;fault.relevantTime=at;bus_.publish(endpoint_,fault);publishNoticeboardChanged();}
   void persistResult(){if(!result_.sealed||persisted_||historyPersistFailed_||!history_)return;static_assert(sizeof(CompletedRaceResult)<=HistoryStore::MaxBytes,"history result exceeds bounded store");uint32_t sequence=0;if(history_->append(reinterpret_cast<const uint8_t*>(&result_),sizeof(result_),sequence)){historySequence_=sequence;persisted_=true;Message stored{};stored.type=Type::HistoryStored;stored.historySequence=sequence;stored.relevantTime=result_.finishTime;bus_.publish(endpoint_,stored);publishNoticeboardChanged();}else{latchPersistenceFault(result_.finishTime,false);}}
   static bool before(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){if(a.classifiedLaps!=b.classifiedLaps)return a.classifiedLaps>b.classifiedLaps;if(f==LapFinishBehaviour::Immediate)return false;if(!a.completionTime)return false;if(!b.completionTime)return true;return a.completionTime<b.completionTime;}
+  static bool beforeLive(const EntryState&a,const EntryState&b,LapFinishBehaviour f){const uint32_t ac=a.laps>a.lapPenalty?a.laps-a.lapPenalty:0;const uint32_t bc=b.laps>b.lapPenalty?b.laps-b.lapPenalty:0;if(ac!=bc)return ac>bc;if(f==LapFinishBehaviour::Immediate)return false;if(!a.lastCrossing)return false;if(!b.lastCrossing)return true;return a.lastCrossing<b.lastCrossing;}
   static bool samePlace(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){return a.classifiedLaps==b.classifiedLaps&&(f==LapFinishBehaviour::Immediate||a.completionTime==b.completionTime);}
   void publishNoticeboardChanged(){Message n{};n.type=Type::NoticeboardChanged;bus_.publish(endpoint_,n);}
   void seal(){result_={};result_.formatVersion=ResultFormatVersion;result_.sealed=true;result_.valid=!faulted_;result_.deadHeat=deadHeat_;result_.winningTime=winningTime_;result_.finishTime=candidateF_;result_.expiryTime=expiryTime_;result_.overtime=expiryTime_&&candidateF_>expiryTime_;result_.durationUs=definition_?definition_->durationUs():0;result_.durationMinutes=definition_?definition_->durationMinutes():0;result_.mode=definition_?definition_->mode():SessionMode::LapRace;result_.behaviour=finishBehaviour_;result_.entryCount=entryCount();result_.lapTarget=definition_?definition_->lapTarget():0;uint32_t leader=0;
