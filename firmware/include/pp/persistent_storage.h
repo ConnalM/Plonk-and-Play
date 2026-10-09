@@ -12,7 +12,7 @@ namespace pp {
 class VersionedResultCodec {
 public:
   static constexpr uint32_t Magic = 0x50534631u; // PSF1
-  static constexpr uint16_t Version = 1;
+  static constexpr uint16_t Version = 2;
   static constexpr size_t MaxBytes = HistoryStore::MaxBytes;
 
   static bool encode(const RaceEngineModule::CompletedRaceResult& value,
@@ -30,14 +30,14 @@ public:
     if(value.entryCount>RaceEngineModule::MaxEntries) return false;
     for(uint8_t i=0;i<value.entryCount;++i) {
       const auto&e=value.entries[i];
-      w.u32(e.raceEntryId); w.u32(e.laps); w.u32(e.classifiedLaps); w.u32(e.rank);
+      w.u32(e.raceEntryId); w.u32(e.mugId); w.u32(e.laps); w.u32(e.classifiedLaps); w.u32(e.rank);
       w.u32(e.lapsBehind); w.u32(e.lapPenalty); w.u8(e.lane);
       uint8_t entryFlags=(e.tied?1u:0u)|(e.completed?2u:0u); w.u8(entryFlags); w.u8(e.recordCount); w.u8(0);
       w.u64(e.completionTime); w.u64(e.bestLap);
       if(e.recordCount>RaceEngineModule::MaxLaps) return false;
       for(uint8_t j=0;j<e.recordCount;++j) {
         const auto&lap=e.records[j];
-        w.u32(lap.lapNumber); w.u64(lap.startTime); w.u64(lap.finishTime); w.u64(lap.lapTime); w.u8(lap.valid?1u:0u); w.u8(0); w.u16(0);
+        w.u32(lap.lapNumber); w.u64(lap.startTime); w.u64(lap.finishTime); w.u64(lap.lapTime); w.u64(lap.racingFinishTime); w.u8(lap.valid?1u:0u); w.u8(0); w.u16(0);
       }
     }
     if(!w.ok()) return false;
@@ -65,7 +65,7 @@ public:
     if(mode<static_cast<uint8_t>(SessionMode::LapRace)||mode>static_cast<uint8_t>(SessionMode::Endurance)||behaviour>static_cast<uint8_t>(LapFinishBehaviour::CompleteCurrentLap))return false;
     out.mode=static_cast<SessionMode>(mode);out.behaviour=static_cast<LapFinishBehaviour>(behaviour);out.entryCount=count;out.durationMinutes=duration;out.lapTarget=lapTarget;
     uint32_t unused32=0;if(!r.u64(out.winningTime)||!r.u64(out.finishTime)||!r.u64(out.expiryTime)||!r.u64(out.durationUs)||!r.u64(out.fastestLap)||!r.u32(out.fastestEntryId)||!r.u32(unused32))return false;
-    for(uint8_t i=0;i<count;++i){auto&e=out.entries[i];uint8_t entryFlags=0,recordCount=0,lane=0,entryUnused=0;if(!r.u32(e.raceEntryId)||!r.u32(e.laps)||!r.u32(e.classifiedLaps)||!r.u32(e.rank)||!r.u32(e.lapsBehind)||!r.u32(e.lapPenalty)||!r.u8(lane)||!r.u8(entryFlags)||!r.u8(recordCount)||!r.u8(entryUnused)||!r.u64(e.completionTime)||!r.u64(e.bestLap)||recordCount>RaceEngineModule::MaxLaps)return false;e.lane=lane;e.tied=entryFlags&1u;e.completed=entryFlags&2u;e.recordCount=recordCount;for(uint8_t j=0;j<recordCount;++j){auto&lap=e.records[j];uint8_t valid=0;uint8_t pad8=0;uint16_t pad16=0;if(!r.u32(lap.lapNumber)||!r.u64(lap.startTime)||!r.u64(lap.finishTime)||!r.u64(lap.lapTime)||!r.u8(valid)||!r.u8(pad8)||!r.u16(pad16))return false;lap.valid=valid!=0;}}
+    for(uint8_t i=0;i<count;++i){auto&e=out.entries[i];uint8_t entryFlags=0,recordCount=0,lane=0,entryUnused=0;if(!r.u32(e.raceEntryId)||!r.u32(e.mugId)||!r.u32(e.laps)||!r.u32(e.classifiedLaps)||!r.u32(e.rank)||!r.u32(e.lapsBehind)||!r.u32(e.lapPenalty)||!r.u8(lane)||!r.u8(entryFlags)||!r.u8(recordCount)||!r.u8(entryUnused)||!r.u64(e.completionTime)||!r.u64(e.bestLap)||recordCount>RaceEngineModule::MaxLaps)return false;e.lane=lane;e.tied=entryFlags&1u;e.completed=entryFlags&2u;e.recordCount=recordCount;for(uint8_t j=0;j<recordCount;++j){auto&lap=e.records[j];uint8_t valid=0;uint8_t pad8=0;uint16_t pad16=0;if(!r.u32(lap.lapNumber)||!r.u64(lap.startTime)||!r.u64(lap.finishTime)||!r.u64(lap.lapTime)||!r.u64(lap.racingFinishTime)||!r.u8(valid)||!r.u8(pad8)||!r.u16(pad16))return false;lap.valid=valid!=0;}}
     return r.position()==length-4;
   }
 
