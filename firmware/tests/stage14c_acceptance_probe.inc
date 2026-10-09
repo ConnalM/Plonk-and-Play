@@ -143,25 +143,30 @@ void stage14cAcceptanceRun(){
   s14c("14C.5",live.entries[0].laps==2&&live.entries[1].laps==2&&live.entries[0].raceEntryId!=live.entries[1].raceEntryId&&live.lastLapTime==1200000,"independent_laps=1 latest_entry=2 latest_lap_us=%llu",(unsigned long long)live.lastLapTime);
   size_t len=0;bool state=stateJson&&pp::BrowserInterface::serializeStateForAcceptance(live,go+3000000,stateJson,8192,len)&&strstr(stateJson,"ENDURANCE")&&strstr(stateJson,"durationMinutes");s14c("14C.6",state,"state_api=1");
   s14c("14C.7",f->control.durationRemaining(go+3000000)>0,"remaining_positive=1");
-  const auto before=f->noticeboard.current();f->expire(go+60000000);s14c("14C.8",f->engine.entryState(0).laps==2&&f->control.durationExpired(),"stop_at_zero_observed=1");
-  f->engine.tick();f->control.tick(go+60000001);f->engine.tick();auto stop=f->engine.completedResult();s14c("14C.9",stop.sealed||f->engine.complete(),"expiry_settled=1 sealed=%u",stop.sealed?1:0);
+  const auto before=f->noticeboard.current();const pp::Time expiry=go+60000000;f->control.tick(expiry);f->input.tick(expiry);f->engine.tick();s14c("14C.8",f->engine.entryState(0).laps==2&&f->control.durationExpired(),"stop_at_zero_observed=1");
   s14c("14C.10",true,"classification_relevant_time=1");
   s14c("14C.11",true,"zero_and_overtime_boundaries=1");
   // Results must not expose the sealed engine buffer until Race Control has
   // published the FINISHED boundary that also authorizes Race Again.
-  size_t resultLen=0;const bool earlyResultsHidden=resultJson&&pp::BrowserInterface::serializeResultsForAcceptance(stop,resultJson,12000,resultLen)&&strstr(resultJson,"\"sealed\":false");
+  size_t resultLen=0;const bool earlyResultsHidden=resultJson&&f->browser.serializeResultsForAcceptance(resultJson,12000,resultLen)&&strstr(resultJson,"\"sealed\":false");
   // Production Race Again boundary: a completed Endurance expiry must not
   // survive into the next proposed session or its STARTING presentation.
-  f->control.tick(go+60000002);f->engine.tick();
+  // Complete the normal settlement/message-bus fence after the pre-FINISHED
+  // readback above.  This keeps the early Results boundary test meaningful,
+  // then verifies the same production FINISHED boundary used by Race Again.
+  f->settle(expiry+10);
+  const auto stop=f->engine.completedResult();
+  s14c("14C.9",stop.sealed||f->engine.complete(),"expiry_settled=1 sealed=%u",stop.sealed?1:0);
+  f->control.tick(expiry+20);f->engine.tick();f->browser.tick();
   const bool previousFinished=f->control.state()==pp::SessionLifecycle::Finished;
-  if(resultJson)memset(resultJson,0,12000);resultLen=0;const bool rs=previousFinished&&resultJson&&pp::BrowserInterface::serializeResultsForAcceptance(stop,resultJson,12000,resultLen)&&strstr(resultJson,"ENDURANCE")&&strstr(resultJson,"durationMinutes")&&strstr(resultJson,"finishBehaviour")&&strstr(resultJson,"overtimeUs")&&strstr(resultJson,"\"mugId\":800");
-  size_t detailsLen=0;const bool detailsApi=resultJson&&pp::BrowserInterface::serializeDetailsForAcceptance(stop,resultJson,12000,detailsLen)&&strstr(resultJson,"\"mugId\":800");size_t storedBytes=0;uint32_t sequence=0;alignas(pp::RaceEngineModule::CompletedRaceResult) static uint8_t stored[sizeof(pp::RaceEngineModule::CompletedRaceResult)]{};bool persisted=f->history.loadNewest(0,stored,sizeof(stored),storedBytes,sequence)&&storedBytes==sizeof(stop)&&sequence>0;bool pb=f->records.lanePb(1)>0&&f->records.lanePb(2)>0&&f->records.trackRecord()>0;size_t historyLen=0;bool historyApi=f->browser.serializeHistoryForAcceptance(resultJson,12000,historyLen)&&strstr(resultJson,"ENDURANCE")&&strstr(resultJson,"durationMinutes")&&strstr(resultJson,"finishBehaviour")&&strstr(resultJson,"overtimeUs")&&strstr(resultJson,"classifiedLaps")&&strstr(resultJson,"\"mugId\":800");  const bool raceAgainSubmitted=f->browser.submitOperation(1801,pp::SessionOperation::RaceAgain,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner);
+  if(resultJson)memset(resultJson,0,12000);resultLen=0;const bool rs=previousFinished&&resultJson&&f->browser.serializeResultsForAcceptance(resultJson,12000,resultLen)&&strstr(resultJson,"ENDURANCE")&&strstr(resultJson,"durationMinutes")&&strstr(resultJson,"finishBehaviour")&&strstr(resultJson,"overtimeUs")&&strstr(resultJson,"\"mugId\":800");
+  size_t detailsLen=0;const bool detailsApi=resultJson&&f->browser.serializeDetailsForAcceptance(resultJson,12000,detailsLen)&&strstr(resultJson,"\"mugId\":800");size_t storedBytes=0;uint32_t sequence=0;alignas(pp::RaceEngineModule::CompletedRaceResult) static uint8_t stored[sizeof(pp::RaceEngineModule::CompletedRaceResult)]{};bool persisted=f->history.loadNewest(0,stored,sizeof(stored),storedBytes,sequence)&&storedBytes==sizeof(stop)&&sequence>0;bool pb=f->records.lanePb(1)>0&&f->records.lanePb(2)>0&&f->records.trackRecord()>0;size_t historyLen=0;bool historyApi=f->browser.serializeHistoryForAcceptance(resultJson,12000,historyLen)&&strstr(resultJson,"ENDURANCE")&&strstr(resultJson,"durationMinutes")&&strstr(resultJson,"finishBehaviour")&&strstr(resultJson,"overtimeUs")&&strstr(resultJson,"classifiedLaps")&&strstr(resultJson,"\"mugId\":800");  const bool raceAgainSubmitted=f->browser.submitOperation(1801,pp::SessionOperation::RaceAgain,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner);
   f->control.tick(go+60000003);f->browser.tick();const auto againState=f->noticeboard.current();
   const bool cleanAgain=raceAgainSubmitted&&previousFinished&&againState.lifecycle==pp::SessionLifecycle::Ready&&!againState.durationExpired&&againState.overtime==0&&againState.durationExpiryAt==0;
   const bool nextStarted=f->browser.submitStart(1802,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner,pp::SessionMode::Endurance,1,uint8_t(pp::LapFinishBehaviour::CompleteCurrentLap));
   f->control.tick(go+60000004);f->engine.tick();const auto nextState=f->noticeboard.current();
   const bool nextStarting=nextStarted&&nextState.lifecycle==pp::SessionLifecycle::Starting&&!nextState.durationExpired&&nextState.overtime==0&&nextState.durationMinutes==1;
-  stage14cOutput.log("ACC S14C regression=race_again_endurance_presentation pass=%u finished=%u early_results_hidden=%u clean_ready=%u fresh_starting=%u",cleanAgain&&nextStarting?1:0,previousFinished?1:0,earlyResultsHidden?1:0,cleanAgain?1:0,nextStarting?1:0);
+  stage14cOutput.log("ACC S14C regression=race_again_endurance_presentation pass=%u finished=%u early_results_hidden=%u clean_ready=%u fresh_starting=%u",cleanAgain&&nextStarting&&earlyResultsHidden?1:0,previousFinished?1:0,earlyResultsHidden?1:0,cleanAgain?1:0,nextStarting?1:0);
   f->~Stage14CFixture();
   auto* cycle=::new(stage14cStorage)Stage14CFixture();const bool cycleStarted=cycle->start();const pp::Time cycleGo=cycle->control.scheduledGo();
   cycle->passage(0,cycleGo+1000000);const pp::Time cyclePause=cycleGo+3000000;cycle->browser.submitOperation(1301,pp::SessionOperation::Pause,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner);cycle->control.tick(cyclePause);cycle->engine.tick();cycle->settle(cyclePause+10000);const auto pausedCycle=cycle->noticeboard.current();
