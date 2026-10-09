@@ -7,6 +7,9 @@ ROOT = Path(__file__).resolve().parents[2]
 browser = (ROOT / "firmware/include/pp/browser_interface.h").read_text(encoding="utf-8")
 main = (ROOT / "firmware/src/main.cpp").read_text(encoding="utf-8")
 notice = (ROOT / "firmware/include/pp/noticeboard.h").read_text(encoding="utf-8")
+race_engine = (ROOT / "firmware/include/pp/race_engine.h").read_text(encoding="utf-8")
+control = (ROOT / "firmware/include/pp/race_control.h").read_text(encoding="utf-8")
+facilities = (ROOT / "firmware/tests/stage14c_facilities_probe.inc").read_text(encoding="utf-8")
 proposal_runtime = (ROOT / "acceptance/stage14c/browser_proposal_runtime.js").read_text(encoding="utf-8")
 
 parser = argparse.ArgumentParser(description="Review the production Stage 14C Browser path and final image payload.")
@@ -57,6 +60,11 @@ checks = {
     "browser_route_trace": "RequestTrace trace(instance(), \"/state\")" in browser and "httpActiveHandlers_" in browser and "httpLastRoute_" in browser,
     "browser_heap_and_error_observability": "ESP.getMinFreeHeap()" in browser and "ESP.getMinFreeHeap()" in main and "httpRequestErrors_" in browser,
     "latest_lap_is_authoritative_cross_entry": "entry.recordCount&&entry.records[entry.recordCount-1].finishTime" in notice and "selectLatestLap" in notice,
+    "authoritative_live_position": "livePosition" in race_engine and "position" in notice and '\\"position\\"' in browser,
+    "authoritative_live_gap": "liveLapsBehind" in race_engine and "lapsBehind" in notice and '\\"lapsBehind\\"' in browser,
+    "position_preserves_physical_lane": "const uint8_t lane=control_.definition()?control_.definition()->entry(i).lane" in notice,
+    "authoritative_start_light_step": "redLightsLit(Time now)" in control and "redLightsLit" in notice and '\\"redLightsLit\\"' in browser,
+    "presentation_boundary_fixtures": all(token in facilities for token in ("14C.P7", "14C.P8", "14C.P9", "14C.P10", "redLightsLit")),
 }
 failed = [name for name, ok in checks.items() if not ok]
 if failed:

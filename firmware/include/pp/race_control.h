@@ -70,6 +70,16 @@ public:
   Time durationRemaining(Time now)const{if(mode()!=SessionMode::Endurance)return 0;if(durationExpired_)return 0;if(state_==SessionLifecycle::Paused||(state_==SessionLifecycle::Starting&&resumeScheduled_))return durationRemaining_;if(durationExpiry_&&now<durationExpiry_)return durationExpiry_-now;return 0;}
   bool durationExpired()const{return durationExpired_;}
   bool resumeScheduled()const{return resumeScheduled_;}
+  // Authoritative current sequential red-light step.  The Browser receives
+  // this value and never reconstructs it from scheduledGo or wall-clock time.
+  uint8_t redLightsLit(Time now)const{
+    if(!definition_||!go_||state_!=SessionLifecycle::Starting)return 0;
+    const uint8_t reds=definition_->redLightCount();const Time interval=definition_->redIntervalUs();
+    if(!reds||!interval||now>=go_)return 0;
+    const Time sequence=Time(reds)*interval+finalDelay_;if(go_<sequence)return reds;
+    const Time first=go_-sequence;if(now<first)return 0;
+    const Time elapsed=now-first;const uint64_t step=uint64_t(elapsed/interval)+1;return step>reds?reds:uint8_t(step);
+  }
   StartPresentationPhase startPresentationPhase(Time now)const{if(!definition_||!go_)return StartPresentationPhase::None;if(state_==SessionLifecycle::Starting)return now>=go_?StartPresentationPhase::Go:(resumeScheduled_?StartPresentationPhase::ResumeCountdown:StartPresentationPhase::Countdown);if(state_==SessionLifecycle::Racing)return StartPresentationPhase::Go;return StartPresentationPhase::None;}
   bool finishDisplayActive(Time now)const{return finishDisplayActive_&&now<finishDisplayUntil_;}
   Time finishDisplayUntil()const{return finishDisplayUntil_;}
