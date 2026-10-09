@@ -30,11 +30,12 @@ generated_interface = generated_pp / "browser_interface.h"
 generated_interface.write_text(text, encoding="utf-8")
 
 # main.cpp deliberately keeps including "pp/browser_interface.h". GCC searches
-# -iquote directories before normal -I include directories for quoted includes,
-# so this forces the generated integration header to be the dependency actually
-# compiled without modifying/replacing the checked-in Development Browser.
-# CPPPATH remains present so dependencies of the generated header resolve using
-# the normal project include tree.
+# -iquote directories before normal -I directories for quoted includes, so the
+# generated BrowserInterface is selected. Once inside generated /pp, its sibling
+# includes such as "noticeboard.h" need the real project's /include/pp directory
+# on the search path as well. Add that conventional dependency path rather than
+# copying/forking any P&P headers into the generated tree.
+project_pp = root / "include" / "pp"
 env.Append(CCFLAGS=["-iquote", str(generated_root)])
-env.Prepend(CPPPATH=[str(generated_root)])
+env.Prepend(CPPPATH=[str(generated_root), str(project_pp)])
 print("Embedded normal Browser; compiler -iquote selects:", generated_interface)
