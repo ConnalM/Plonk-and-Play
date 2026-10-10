@@ -16,6 +16,19 @@ def replace_once(old, new, label):
         raise RuntimeError(f"normal Browser integration anchor {label} expected once, found {html.count(old)}")
     html = html.replace(old, new, 1)
 
+def replace_in_function(start, end, old, new, expected, label):
+    global html
+    a = html.find(start)
+    b = html.find(end, a + len(start))
+    if a < 0 or b < 0:
+        raise RuntimeError(f"normal Browser integration function boundary {label} not found")
+    section = html[a:b]
+    count = section.count(old)
+    if count != expected:
+        raise RuntimeError(f"normal Browser integration anchor {label} expected {expected}, found {count}")
+    section = section.replace(old, new)
+    html = html[:a] + section + html[b:]
+
 replace_once(
     "<b>Racer ${e.mugId||e.index+1}</b>",
     "<b>Racer ${e.mugId??'—'}</b>",
@@ -32,22 +45,23 @@ replace_once(
     "function gap(e){return +e.lapsBehind?`+${e.lapsBehind} L`:'—'}",
     "function gap(e){if(e.gapKind==='TIME')return`+${(+e.gapTimeUs/1e6).toFixed(2)} s`;if(e.gapKind==='LAPS')return`+${+e.gapLaps} L`;return'—'}",
     "authoritative GAP formatter")
-replace_once(
-    "Racer ${e.raceEntryId}",
-    "Racer ${e.mugId??'—'}",
-    "practice active racer identity")
-replace_once(
-    "Racer ${e.raceEntryId}",
-    "Racer ${e.mugId??'—'}",
-    "race active racer identity")
-replace_once(
-    "<b>Racer ${e.raceEntryId}</b>",
-    "<b>Racer ${e.mugId??'—'}</b>",
+
+# The same legacy raceEntryId presentation occurs in several views. Scope each
+# replacement to its owning render function so an unrelated occurrence cannot
+# silently receive a Racer-label transformation.
+replace_in_function(
+    "function race(){", "function paused(){",
+    "Racer ${e.raceEntryId}", "Racer ${e.mugId??'—'}", 2,
+    "active race racer identities")
+replace_in_function(
+    "async function results(){", "async function practice(){",
+    "<b>Racer ${e.raceEntryId}</b>", "<b>Racer ${e.mugId??'—'}</b>", 1,
     "results racer identity")
-replace_once(
-    "<b>Racer ${e.raceEntryId}</b>",
-    "<b>Racer ${e.mugId??'—'}</b>",
+replace_in_function(
+    "async function practice(){", "async function details(){",
+    "<b>Racer ${e.raceEntryId}</b>", "<b>Racer ${e.mugId??'—'}</b>", 1,
     "practice summary racer identity")
+
 replace_once(
     "$('#details').onclick=details;$('#history').onclick=history",
     "$('#details').onclick=()=>{V='details';render()};$('#history').onclick=()=>{V='history';render()}",
@@ -68,6 +82,24 @@ replace_once(
     "if(S.practiceSummaryAvailable)V='practice';else if(S.lifecycle==='FINISHED'&&!S.finishDisplay?.active)V='results';render()",
     "if(S.practiceSummaryAvailable&&V!=='details'&&V!=='history')V='practice';else if(S.lifecycle==='FINISHED'&&!S.finishDisplay?.active&&!['details','history'].includes(V))V='results';render()",
     "poll navigation preservation")
+
+# Generation-time assertions prove the intended presentation corrections landed
+# in the actual page that will be embedded, rather than merely allowing the
+# transformation to complete.
+checks = {
+    "authoritative racer identity": "Racer ${e.mugId??'—'}",
+    "authoritative GAP kinds": "if(e.gapKind==='TIME')",
+    "GO active lifetime": "p.active&&phase==='GO'",
+    "Details navigation": "V='details';render()",
+    "History navigation": "V='history';render()",
+    "duration pending presentation": "Updating race setup…",
+    "frozen lap finish wording": "All stop when winner finishes",
+}
+for label, marker in checks.items():
+    if marker not in html:
+        raise RuntimeError(f"normal Browser generated-page verification failed: {label}")
+if "Racer ${e.raceEntryId}" in html or "<b>Racer ${e.raceEntryId}</b>" in html:
+    raise RuntimeError("normal Browser generated-page verification failed: raceEntryId still presented as Racer")
 
 page_inc.write_text('static const char kNormalBrowserHtml[] = R"PPHTML(' + html + ')PPHTML";\n', encoding="utf-8")
 
