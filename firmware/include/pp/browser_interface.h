@@ -222,8 +222,8 @@ public:
   bool serializeStateForAcceptance(char* out,size_t cap,size_t&length)const{return serializeState(current(),systemTime(),out,cap,length);}
   bool serializeProposalForAcceptance(char*out,size_t cap,size_t&length)const{return serializeProposal(proposedRaceSetup(),proposalRevision(),readiness(),out,cap,length);}
   bool serializePracticeSummaryForAcceptance(char*out,size_t cap,size_t&length)const{return serializePracticeSummary(noticeboard_.practiceSummary(),out,cap,length);}
-  bool serializeResultsForAcceptance(char* out,size_t cap,size_t&length)const{RaceEngineModule::CompletedRaceResult loaded{};return serializeResults(displayResult(loaded),out,cap,length);}
-  bool serializeDetailsForAcceptance(char* out,size_t cap,size_t&length)const{RaceEngineModule::CompletedRaceResult loaded{};return serializeDetails(displayResult(loaded),out,cap,length);}
+  bool serializeResultsForAcceptance(char* out,size_t cap,size_t&length)const{auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));if(!loaded)return false;const bool ok=serializeResults(displayResult(*loaded),out,cap,length);free(loaded);return ok;}
+  bool serializeDetailsForAcceptance(char* out,size_t cap,size_t&length)const{auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));if(!loaded)return false;const bool ok=serializeDetails(displayResult(*loaded),out,cap,length);free(loaded);return ok;}
   bool serializeRecordsForAcceptance(char* out,size_t cap,size_t&length)const{return serializeRecords(records_,current().entryCount,out,cap,length);}
   bool serializeHistoryForAcceptance(char* out,size_t cap,size_t&length)const{auto* scratch=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));const bool ok=serializeHistory(history_,out,cap,length,scratch);free(scratch);return ok;}
   static bool serializeStateForAcceptance(const NoticeboardState& value,Time now,char*out,size_t cap,size_t&length){return serializeState(value,now,out,cap,length);}
@@ -338,7 +338,7 @@ private:
     // Control has published FINISHED. Do not expose it while completion is
     // still being settled.
     if(current.sealed){
-      if(noticeboard_.current().lifecycle!=SessionLifecycle::Finished){loaded={};return loaded;}
+      if(noticeboard_.current().lifecycle!=SessionLifecycle::Finished){RaceEngineModule::clearResult(loaded);return loaded;}
       return current;
     }
     if(!history_) return current;

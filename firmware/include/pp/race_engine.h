@@ -62,6 +62,20 @@ public:
   bool complete()const{return complete_;} Time go()const{return go_;} uint8_t entryCount()const{return definition_?definition_->entryCount():0;}
   const EntryState&entryState(uint8_t i)const{return entries_[i];} bool deadHeat()const{return deadHeat_;} bool faulted()const{return faulted_;}
   const CompletedRaceResult&completedResult()const{return result_;} uint32_t historySequence()const{return historySequence_;}
+  // Reset a result in place. Keeping this destination-backed avoids
+  // compiler-generated PP_MAX_ENTRIES-sized temporaries on constrained tasks.
+  static void clearResult(CompletedRaceResult& result){
+    result.formatVersion=ResultFormatVersion;
+    result.sealed=result.valid=result.deadHeat=result.fastestLapTied=false;
+    result.winningTime=result.finishTime=result.expiryTime=result.durationUs=0;
+    result.overtime=false;
+    result.behaviour=LapFinishBehaviour::Immediate;
+    result.mode=SessionMode::LapRace;
+    result.durationMinutes=0;
+    result.entryCount=0;
+    result.fastestLap=result.fastestEntryId=result.lapTarget=0;
+    for(auto& entry:result.entries)entry=ResultEntry{};
+  }
   const PracticeSummary& practiceSummary()const{return practiceSummary_;}
   // Competitive live ordering is an authoritative Race Engine view.  It uses
   // the same completed-progress and finish-time comparison as sealed results;
@@ -102,18 +116,7 @@ private:
   // PP_MAX_ENTRIES-sized temporary on the caller's stack.  Keep the reset
   // operation in place so the loopTask stack does not depend on result
   // retention capacity.
-  void clearCompletedResult(){
-    result_.formatVersion=ResultFormatVersion;
-    result_.sealed=result_.valid=result_.deadHeat=result_.fastestLapTied=false;
-    result_.winningTime=result_.finishTime=result_.expiryTime=result_.durationUs=0;
-    result_.overtime=false;
-    result_.behaviour=LapFinishBehaviour::Immediate;
-    result_.mode=SessionMode::LapRace;
-    result_.durationMinutes=0;
-    result_.entryCount=0;
-    result_.fastestLap=result_.fastestEntryId=result_.lapTarget=0;
-    for(auto&entry:result_.entries)entry=ResultEntry{};
-  }
+  void clearCompletedResult(){clearResult(result_);}
   void reset(Time go){
     go_=go; pauseAt_=restartAt_=settlementAt_=practiceResumeAt_=winningTime_=candidateF_=expiryTime_=resumeAt_=0;
     winner_=0;complete_=completionPublished_=deadHeat_=faulted_=paused_=restartScheduled_=gridRestart_=false;pausedDuration_=0;pauseOpen_=false;
