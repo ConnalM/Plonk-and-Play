@@ -97,9 +97,9 @@ const auto inputObserver=bus.attach(pp::Role::Diagnostics);
 pp::MemoryModule memoryModule(bus,memoryEndpoint,memory);
 pp::Configuration workingConfiguration;
 pp::ProposedRaceSetup proposedRaceSetup{ {pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish}, 1, 10, pp::LapFinishBehaviour::Immediate, 1, true, false };
-// The development setup keeps a valid one-minute Endurance value available
+// The development setup keeps a valid ten-minute Endurance value available
 // when the Browser changes mode; Lap Race ignores this field.
-struct ProposalDefaultsInitialiser { ProposalDefaultsInitialiser(){ proposedRaceSetup.durationMinutes=1; } } proposalDefaultsInitialiser;
+struct ProposalDefaultsInitialiser { ProposalDefaultsInitialiser(){ proposedRaceSetup.durationMinutes=10; } } proposalDefaultsInitialiser;
 bool ready=false,testsPassed=true,bootFailed=false;
 pp::Time nextStatus=0;
 pp::Time loopWorstUs=0;
