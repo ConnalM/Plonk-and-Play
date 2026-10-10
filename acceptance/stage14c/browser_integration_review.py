@@ -5,6 +5,7 @@ import argparse
 
 ROOT = Path(__file__).resolve().parents[2]
 browser = (ROOT / "firmware/include/pp/browser_interface.h").read_text(encoding="utf-8")
+normal = (ROOT / "firmware/browser/normal_browser.html").read_text(encoding="utf-8")
 main = (ROOT / "firmware/src/main.cpp").read_text(encoding="utf-8")
 notice = (ROOT / "firmware/include/pp/noticeboard.h").read_text(encoding="utf-8")
 race_engine = (ROOT / "firmware/include/pp/race_engine.h").read_text(encoding="utf-8")
@@ -56,6 +57,9 @@ checks = {
     "browser_recovery_observability": "wifiReconnectAttempts()" in browser and "Browser WiFi CONNECTED" in main and "Browser WiFi DISCONNECTED" in main and 'Browser HTTP server %s' in main,
     "browser_request_timeout": "AbortController" in browser and "requestTimeoutMs=4000" in browser and "polling=false" in browser,
     "browser_poll_overlap_guard": "if(polling)return" in browser and "setInterval(()=>poll(),250)" in browser,
+    "normal_browser_request_timeout": "AbortController" in normal and "requestTimeoutMs=4000" in normal and "signal:controller.signal" in normal,
+    "normal_browser_poll_overlap_guard": "async function poll(){if(polling)return;polling=true;" in normal and "finally{polling=false}" in normal and "setInterval(poll,1000)" in normal,
+    "normal_browser_runtime_regression": "browser_normal_poll_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
     "browser_http_health_snapshot": "HTTP HEALTH" in main and "httpHealth(HttpHealth&" in browser and "else if(c=='h')browserHealth()" in main,
     "browser_route_trace": "RequestTrace trace(instance(), \"/state\")" in browser and "httpActiveHandlers_" in browser and "httpLastRoute_" in browser,
     "browser_heap_and_error_observability": "ESP.getMinFreeHeap()" in browser and "ESP.getMinFreeHeap()" in main and "httpRequestErrors_" in browser,
