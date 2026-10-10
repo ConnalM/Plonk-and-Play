@@ -97,12 +97,29 @@ public:
 #endif
 
 private:
+  // CompletedRaceResult is deliberately member-owned.  Clearing it through
+  // aggregate assignment would make the compiler materialise a full
+  // PP_MAX_ENTRIES-sized temporary on the caller's stack.  Keep the reset
+  // operation in place so the loopTask stack does not depend on result
+  // retention capacity.
+  void clearCompletedResult(){
+    result_.formatVersion=ResultFormatVersion;
+    result_.sealed=result_.valid=result_.deadHeat=result_.fastestLapTied=false;
+    result_.winningTime=result_.finishTime=result_.expiryTime=result_.durationUs=0;
+    result_.overtime=false;
+    result_.behaviour=LapFinishBehaviour::Immediate;
+    result_.mode=SessionMode::LapRace;
+    result_.durationMinutes=0;
+    result_.entryCount=0;
+    result_.fastestLap=result_.fastestEntryId=result_.lapTarget=0;
+    for(auto&entry:result_.entries)entry=ResultEntry{};
+  }
   void reset(Time go){
     go_=go; pauseAt_=restartAt_=settlementAt_=practiceResumeAt_=winningTime_=candidateF_=expiryTime_=resumeAt_=0;
     winner_=0;complete_=completionPublished_=deadHeat_=faulted_=paused_=restartScheduled_=gridRestart_=false;pausedDuration_=0;pauseOpen_=false;
     enduranceExpired_=finishCurrentPending_=settlementSeen_=settlementPublished_=finishReady_=finishSettlementSent_=finishSettled_=false;
     persisted_=persistenceFault_=recordPersistenceFault_=storageFaultPublished_=false;historyPersistFailed_=false;pendingCount_=seenAt_=0;for(auto&x:seen_)x=0;for(auto&o:observed_)o=false;for(auto&e:entries_)e={};
-    result_={}; finishBehaviour_=definition_?definition_->finishBehaviour():LapFinishBehaviour::Immediate;
+    clearCompletedResult(); finishBehaviour_=definition_?definition_->finishBehaviour():LapFinishBehaviour::Immediate;
     recordEligible_=definition_&&(definition_->mode()==SessionMode::LapRace||definition_->mode()==SessionMode::Endurance);
 #if defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
     recordEligible_=false;
@@ -179,7 +196,7 @@ private:
   static bool beforeLive(const EntryState&a,const EntryState&b,LapFinishBehaviour f){const uint32_t ac=a.laps>a.lapPenalty?a.laps-a.lapPenalty:0;const uint32_t bc=b.laps>b.lapPenalty?b.laps-b.lapPenalty:0;if(ac!=bc)return ac>bc;if(f==LapFinishBehaviour::Immediate)return false;if(!a.lastCrossing)return false;if(!b.lastCrossing)return true;return a.lastCrossing<b.lastCrossing;}
   static bool samePlace(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){return a.classifiedLaps==b.classifiedLaps&&(f==LapFinishBehaviour::Immediate||a.completionTime==b.completionTime);}
   void publishNoticeboardChanged(){Message n{};n.type=Type::NoticeboardChanged;bus_.publish(endpoint_,n);}
-  void seal(){result_={};result_.formatVersion=ResultFormatVersion;result_.sealed=true;result_.valid=!faulted_;result_.deadHeat=deadHeat_;result_.winningTime=winningTime_;result_.finishTime=candidateF_;result_.expiryTime=expiryTime_;result_.overtime=expiryTime_&&candidateF_>expiryTime_;result_.durationUs=definition_?definition_->durationUs():0;result_.durationMinutes=definition_?definition_->durationMinutes():0;result_.mode=definition_?definition_->mode():SessionMode::LapRace;result_.behaviour=finishBehaviour_;result_.entryCount=entryCount();result_.lapTarget=definition_?definition_->lapTarget():0;uint32_t leader=0;
+  void seal(){clearCompletedResult();result_.sealed=true;result_.valid=!faulted_;result_.deadHeat=deadHeat_;result_.winningTime=winningTime_;result_.finishTime=candidateF_;result_.expiryTime=expiryTime_;result_.overtime=expiryTime_&&candidateF_>expiryTime_;result_.durationUs=definition_?definition_->durationUs():0;result_.durationMinutes=definition_?definition_->durationMinutes():0;result_.mode=definition_?definition_->mode():SessionMode::LapRace;result_.behaviour=finishBehaviour_;result_.entryCount=entryCount();result_.lapTarget=definition_?definition_->lapTarget():0;uint32_t leader=0;
     for(uint8_t i=0;i<entryCount();++i){auto&t=result_.entries[i];const auto&s=entries_[i];t.raceEntryId=s.raceEntryId;t.mugId=definition_->entry(i).mugId;t.lane=definition_->entry(i).lane;t.laps=s.laps;t.lapPenalty=s.lapPenalty;t.classifiedLaps=s.laps>s.lapPenalty?s.laps-s.lapPenalty:0;t.completed=observed_[i];t.completionTime=t.completed?s.lastCrossing:0;t.recordCount=s.recordCount;if(t.classifiedLaps>leader)leader=t.classifiedLaps;for(uint8_t j=0;j<s.recordCount;++j){t.records[j]=s.records[j];if(s.records[j].valid&&(!t.bestLap||s.records[j].lapTime<t.bestLap))t.bestLap=s.records[j].lapTime;}}
     for(uint8_t i=1;i<entryCount();++i){ResultEntry v=result_.entries[i];int j=int(i)-1;while(j>=0&&before(v,result_.entries[j],finishBehaviour_)){result_.entries[j+1]=result_.entries[j];--j;}result_.entries[j+1]=v;}
     uint32_t rank=1;for(uint8_t i=0;i<entryCount();++i){if(i&&!samePlace(result_.entries[i-1],result_.entries[i],finishBehaviour_))rank=i+1;auto&t=result_.entries[i];t.rank=rank;t.tied=i&&result_.entries[i-1].rank==rank;if(t.tied)result_.entries[i-1].tied=true;t.lapsBehind=leader-t.classifiedLaps;for(uint8_t j=0;j<t.recordCount;++j){const auto&lap=t.records[j];if(!lap.valid)continue;if(!result_.fastestLap||lap.lapTime<result_.fastestLap){result_.fastestLap=lap.lapTime;result_.fastestEntryId=t.raceEntryId;result_.fastestLapTied=false;}else if(lap.lapTime==result_.fastestLap&&result_.fastestEntryId!=t.raceEntryId)result_.fastestLapTied=true;}}
