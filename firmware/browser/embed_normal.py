@@ -7,9 +7,6 @@ html = html_source.read_text(encoding="utf-8")
 if ')PPHTML"' in html:
     raise RuntimeError("normal_browser.html contains the raw-string terminator")
 
-# Presentation-only integration corrections. normal_browser.html remains the
-# source page; these substitutions adapt it to the current authoritative P&P
-# readback without introducing Browser sporting/configuration authority.
 def replace_once(old, new, label):
     global html
     if html.count(old) != 1:
@@ -29,78 +26,46 @@ def replace_in_function(start, end, old, new, expected, label):
     section = section.replace(old, new)
     html = html[:a] + section + html[b:]
 
-replace_once(
-    "<b>Racer ${e.mugId||e.index+1}</b>",
-    "<b>Racer ${e.mugId??'—'}</b>",
-    "proposal racer identity")
-replace_once(
-    "<option value=\"0\">All stop immediately</option>",
-    "<option value=\"0\">All stop when winner finishes</option>",
-    "lap finish wording")
-replace_once(
-    "g=`<i class=\"lamp green ${phase==='GO'?'on':''}\"></i>`,label=S.finishDisplay?.active?'FINISHED':phase==='RESUME_COUNTDOWN'?'RESUMING':phase==='COUNTDOWN'?'STARTING':phase==='GO'?'GO':S.lifecycle",
-    "g=`<i class=\"lamp green ${p.active&&phase==='GO'?'on':''}\"></i>`,label=S.finishDisplay?.active?'FINISHED':phase==='RESUME_COUNTDOWN'?'RESUMING':phase==='COUNTDOWN'?'STARTING':p.active&&phase==='GO'?'GO':S.lifecycle",
-    "GO lamp lifetime")
-replace_once(
-    "function gap(e){return +e.lapsBehind?`+${e.lapsBehind} L`:'—'}",
-    "function gap(e){if(e.gapKind==='TIME')return`+${(+e.gapTimeUs/1e6).toFixed(2)} s`;if(e.gapKind==='LAPS')return`+${+e.gapLaps} L`;return'—'}",
-    "authoritative GAP formatter")
+# Existing approved normal-Browser authority/presentation corrections.
+replace_once("<b>Racer ${e.mugId||e.index+1}</b>", "<b>Racer ${e.mugId??'—'}</b>", "proposal racer identity")
+replace_once("<option value=\"0\">All stop immediately</option>", "<option value=\"0\">All stop when winner finishes</option>", "lap finish wording")
+replace_once("g=`<i class=\"lamp green ${phase==='GO'?'on':''}\"></i>`,label=S.finishDisplay?.active?'FINISHED':phase==='RESUME_COUNTDOWN'?'RESUMING':phase==='COUNTDOWN'?'STARTING':phase==='GO'?'GO':S.lifecycle", "g=`<i class=\"lamp green ${p.active&&phase==='GO'?'on':''}\"></i>`,label=S.finishDisplay?.active?'FINISHED':phase==='RESUME_COUNTDOWN'?'RESUMING':phase==='COUNTDOWN'?'STARTING':p.active&&phase==='GO'?'GO':S.lifecycle", "GO lamp lifetime")
+replace_once("function gap(e){return +e.lapsBehind?`+${e.lapsBehind} L`:'—'}", "function gap(e){if(e.gapKind==='TIME')return`+${(+e.gapTimeUs/1e6).toFixed(2)} s`;if(e.gapKind==='LAPS')return`+${+e.gapLaps} L`;return'—'}", "authoritative GAP formatter")
+replace_in_function("function race(){", "function paused(){", "Racer ${e.raceEntryId}", "Racer ${e.mugId??'—'}", 2, "active race racer identities")
+replace_in_function("async function results(){", "async function practice(){", "<b>Racer ${e.raceEntryId}</b>", "<b>Racer ${e.mugId??'—'}</b>", 1, "results racer identity")
+replace_in_function("async function practice(){", "async function details(){", "<b>Racer ${e.raceEntryId}</b>", "<b>Racer ${e.mugId??'—'}</b>", 1, "practice summary racer identity")
+replace_once("$('#details').onclick=details;$('#history').onclick=history", "$('#details').onclick=()=>{V='details';render()};$('#history').onclick=()=>{V='history';render()}", "completed navigation selection")
+replace_once("async function details(){let d=await G('/details');$('#extra').innerHTML='<h2>Details</h2>'+(d.entries||[]).map(e=>`<p><b>Lane ${e.lane}</b> · ${(e.records||[]).map(x=>'Lap '+x.lapNumber+' '+sec(x.lapTime)).join(' · ')||'No valid laps'}</p>`).join('')}async function history(){let h=await G('/history');$('#extra').innerHTML='<h2>History</h2>'+(h.entries||[]).map(x=>`<p>Race ${x.sequence} · ${name(x.mode)} · ${x.mode==='ENDURANCE'?x.durationMinutes+' min':x.lapTarget+' laps'}</p>`).join('')}", "async function details(){let d=await G('/details');A.innerHTML=`<section class=\"hero\"><div class=\"eye\">DETAILS</div><h1>Completed Session</h1></section><section class=\"card\">${(d.entries||[]).map(e=>`<p><b>Racer ${e.mugId??'—'} · Lane ${e.lane}</b> · ${(e.records||[]).map(x=>'Lap '+x.lapNumber+' '+sec(x.lapTime)).join(' · ')||'No valid laps'}</p>`).join('')}<div class=\"actions\"><button class=\"btn\" id=\"backResults\">RESULTS</button><button class=\"btn\" id=\"history\">HISTORY</button></div></section>`;$('#backResults').onclick=()=>{V='results';render()};$('#history').onclick=()=>{V='history';render()}}async function history(){let h=await G('/history');A.innerHTML=`<section class=\"hero\"><div class=\"eye\">HISTORY</div><h1>Completed Sessions</h1></section><section class=\"card\">${(h.entries||[]).map(x=>`<p><b>Race ${x.sequence} · ${name(x.mode)}</b> · ${x.mode==='ENDURANCE'?x.durationMinutes+' min':x.lapTarget+' laps'}${(x.entries||[]).length?' · '+x.entries.map(e=>'Racer '+(e.mugId??'—')+' / Lane '+e.lane).join(' · '):''}</p>`).join('')}<div class=\"actions\"><button class=\"btn\" id=\"backResults\">RESULTS</button></div></section>`;$('#backResults').onclick=()=>{V='results';render()}}", "details and history presentation")
+replace_once("async function req(path,extra={},setup=false){if(busy)return;busy=true;render();let id=corr++", "async function req(path,extra={},setup=false){if(busy)return;busy=true;if(setup){document.querySelectorAll('#fields input,#fields select,.modes button').forEach(x=>x.disabled=true);note('Updating race setup…')}else render();let id=corr++", "setup pending presentation")
+replace_once("if(V==='practice')return practice();if(V==='results')return results();if(V==='setup')return setup();home()", "if(V==='practice')return practice();if(V==='details')return details();if(V==='history')return history();if(V==='results')return results();if(V==='setup')return setup();home()", "legitimate completed view persistence")
+replace_once("if(S.practiceSummaryAvailable)V='practice';else if(S.lifecycle==='FINISHED'&&!S.finishDisplay?.active)V='results';render()", "if(S.practiceSummaryAvailable&&V!=='details'&&V!=='history')V='practice';else if(S.lifecycle==='FINISHED'&&!S.finishDisplay?.active&&!['details','history'].includes(V))V='results';render()", "poll navigation preservation")
 
-# The same legacy raceEntryId presentation occurs in several views. Scope each
-# replacement to its owning render function so an unrelated occurrence cannot
-# silently receive a Racer-label transformation.
-replace_in_function(
-    "function race(){", "function paused(){",
-    "Racer ${e.raceEntryId}", "Racer ${e.mugId??'—'}", 2,
-    "active race racer identities")
-replace_in_function(
-    "async function results(){", "async function practice(){",
-    "<b>Racer ${e.raceEntryId}</b>", "<b>Racer ${e.mugId??'—'}</b>", 1,
-    "results racer identity")
-replace_in_function(
-    "async function practice(){", "async function details(){",
-    "<b>Racer ${e.raceEntryId}</b>", "<b>Racer ${e.mugId??'—'}</b>", 1,
-    "practice summary racer identity")
+# Normal-product Race Director UX. /context is authoritative for this Browser's
+# role; /bootstrap is the existing legitimate request for an unowned Director.
+replace_once("function home(){", "function canControl(){return C?.role==='Race Director'}async function makeDirector(){let r=await fetch('/bootstrap',{method:'POST'});C=await G('/context');if(!r.ok)note(C?.role==='Race Director'?'Race Director authority confirmed.':'Race Director is already assigned.');render()}function home(){", "Race Director helper")
+replace_in_function("function header(){", "function canControl(){", "$('#status').textContent=P?.startable?'READY':'NOT READY';$('#reason').textContent=P?.startable?'':readyText()", "$('#status').textContent=P?.startable?(canControl()?'READY':'RACE DIRECTOR REQUIRED'):'NOT READY';$('#reason').textContent=P?.startable?'':readyText()", 1, "header Race Director status")
+replace_in_function("function home(){", "function mb(", "<button class=\"btn primary big\" id=\"start\">${busy?'STARTING…':'START'}</button>", "${canControl()?`<button class=\"btn primary big\" id=\"start\">${busy?'STARTING…':'START'}</button>`:'<button class=\"btn primary big\" id=\"makeDirector\">MAKE RACE DIRECTOR</button>'}", 1, "home Race Director action")
+replace_in_function("function home(){", "function mb(", "$('#start').disabled=busy||!C?.hasMaster||!P.startable;$('#start').onclick=()=>req('/request/start',{},true);", "if($('#start')){$('#start').disabled=busy||!P.startable;$('#start').onclick=()=>req('/request/start',{},true)}if($('#makeDirector'))$('#makeDirector').onclick=makeDirector;", 1, "home Race Director binding")
+replace_in_function("function setup(){", "function fields(){", "<button class=\"btn primary\" id=\"start\">START</button>", "${canControl()?'<button class=\"btn primary\" id=\"start\">START</button>':'<button class=\"btn primary\" id=\"makeDirector\">MAKE RACE DIRECTOR</button>'}", 1, "setup Race Director action")
+replace_in_function("function setup(){", "function fields(){", "$('#start').onclick=()=>req('/request/start',{},true);fields()", "if($('#start'))$('#start').onclick=()=>req('/request/start',{},true);if($('#makeDirector'))$('#makeDirector').onclick=makeDirector;fields()", 1, "setup Race Director binding")
 
-replace_once(
-    "$('#details').onclick=details;$('#history').onclick=history",
-    "$('#details').onclick=()=>{V='details';render()};$('#history').onclick=()=>{V='history';render()}",
-    "completed navigation selection")
-replace_once(
-    "async function details(){let d=await G('/details');$('#extra').innerHTML='<h2>Details</h2>'+(d.entries||[]).map(e=>`<p><b>Lane ${e.lane}</b> · ${(e.records||[]).map(x=>'Lap '+x.lapNumber+' '+sec(x.lapTime)).join(' · ')||'No valid laps'}</p>`).join('')}async function history(){let h=await G('/history');$('#extra').innerHTML='<h2>History</h2>'+(h.entries||[]).map(x=>`<p>Race ${x.sequence} · ${name(x.mode)} · ${x.mode==='ENDURANCE'?x.durationMinutes+' min':x.lapTarget+' laps'}</p>`).join('')}",
-    "async function details(){let d=await G('/details');A.innerHTML=`<section class=\"hero\"><div class=\"eye\">DETAILS</div><h1>Completed Session</h1></section><section class=\"card\">${(d.entries||[]).map(e=>`<p><b>Racer ${e.mugId??'—'} · Lane ${e.lane}</b> · ${(e.records||[]).map(x=>'Lap '+x.lapNumber+' '+sec(x.lapTime)).join(' · ')||'No valid laps'}</p>`).join('')}<div class=\"actions\"><button class=\"btn\" id=\"backResults\">RESULTS</button><button class=\"btn\" id=\"history\">HISTORY</button></div></section>`;$('#backResults').onclick=()=>{V='results';render()};$('#history').onclick=()=>{V='history';render()}}async function history(){let h=await G('/history');A.innerHTML=`<section class=\"hero\"><div class=\"eye\">HISTORY</div><h1>Completed Sessions</h1></section><section class=\"card\">${(h.entries||[]).map(x=>`<p><b>Race ${x.sequence} · ${name(x.mode)}</b> · ${x.mode==='ENDURANCE'?x.durationMinutes+' min':x.lapTarget+' laps'}${(x.entries||[]).length?' · '+x.entries.map(e=>'Racer '+(e.mugId??'—')+' / Lane '+e.lane).join(' · '):''}</p>`).join('')}<div class=\"actions\"><button class=\"btn\" id=\"backResults\">RESULTS</button></div></section>`;$('#backResults').onclick=()=>{V='results';render()}}",
-    "details and history presentation")
-replace_once(
-    "async function req(path,extra={},setup=false){if(busy)return;busy=true;render();let id=corr++",
-    "async function req(path,extra={},setup=false){if(busy)return;busy=true;if(setup){document.querySelectorAll('#fields input,#fields select,.modes button').forEach(x=>x.disabled=true);note('Updating race setup…')}else render();let id=corr++",
-    "setup pending presentation")
-replace_once(
-    "if(V==='practice')return practice();if(V==='results')return results();if(V==='setup')return setup();home()",
-    "if(V==='practice')return practice();if(V==='details')return details();if(V==='history')return history();if(V==='results')return results();if(V==='setup')return setup();home()",
-    "legitimate completed view persistence")
-replace_once(
-    "if(S.practiceSummaryAvailable)V='practice';else if(S.lifecycle==='FINISHED'&&!S.finishDisplay?.active)V='results';render()",
-    "if(S.practiceSummaryAvailable&&V!=='details'&&V!=='history')V='practice';else if(S.lifecycle==='FINISHED'&&!S.finishDisplay?.active&&!['details','history'].includes(V))V='results';render()",
-    "poll navigation preservation")
+# Developer drawer. S and P are reused from the normal Browser; additional
+# diagnostics are requested only while the drawer is open.
+dev_css = '.devtab{position:fixed;right:0;top:45%;z-index:40;border-radius:7px 0 0 7px;background:var(--y);color:#111;border:0;padding:10px 7px;font-weight:950;cursor:pointer;writing-mode:vertical-rl}.devdrawer{position:fixed;right:0;top:0;bottom:0;width:390px;max-width:95vw;background:#0b1522;border-left:1px solid var(--l);z-index:50;overflow:auto;padding:14px;box-shadow:-12px 0 28px #0008}.devhead{position:sticky;top:0;background:#0b1522;display:flex;align-items:center;gap:10px;padding:6px 0 12px;z-index:2}.devhead b{flex:1}.live{color:var(--y);font-size:12px;letter-spacing:.12em}.devsec{border-top:1px solid var(--l);padding:12px 0}.devsec h3{font-size:12px;letter-spacing:.12em;color:var(--m);margin:0 0 9px}.devkv{display:grid;grid-template-columns:1fr 1.25fr;gap:5px 10px;font-size:13px}.devkv span:nth-child(odd){color:var(--m)}.devlane{background:var(--p);border:1px solid var(--l);border-radius:8px;padding:9px;margin:7px 0;font-size:13px}.devlane b{color:var(--y)}.devfeedback{min-height:18px;color:var(--m);font-size:12px;margin-top:7px}.devmore{font-size:12px;color:var(--m)}body.devopen .s{margin-right:390px}@media(max-width:900px){body.devopen .s{margin-right:auto}.devdrawer{width:min(390px,95vw)}}'
+replace_once("</style>", dev_css + "</style>", "Developer drawer CSS")
+dev_html = '<button id="devTab" class="devtab">DEV</button><aside id="devDrawer" class="devdrawer hide" aria-label="Developer diagnostics"><div class="devhead"><b>DEVELOPER</b><span class="live">LIVE</span><button class="link" id="devClose">×</button></div><section class="devsec"><h3>P&amp;P STATE</h3><div id="devState" class="devkv"></div></section><section class="devsec"><h3>LANES</h3><div id="devLanes"></div></section><section class="devsec"><h3>TEST INPUTS</h3><div>SIMULATED PASSAGE</div><div class="actions"><button class="btn" id="devL1">PASS L1</button><button class="btn" id="devL2">PASS L2</button></div><div id="devFixture" class="devfeedback"></div></section><section class="devsec"><h3>EVENTS / HEALTH</h3><div id="devFact" class="devlane">Latest fact —</div><div id="devHealth" class="devkv"></div><details class="devmore"><summary>MORE</summary><div id="devHealthMore" class="devkv"></div></details></section></aside>'
+replace_once("<script>", dev_html + "<script>", "Developer drawer markup")
+dev_js = '''let devOpen=false,devFact=null,devNotice=null,devHealth=null,devHealthTick=0;function devVal(v){return v===undefined||v===null||v===''?'—':v}function devGap(e){if(e.gapKind==='TIME')return`+${(+e.gapTimeUs/1e6).toFixed(2)} s`;if(e.gapKind==='LAPS')return`+${+e.gapLaps} L`;return'—'}function devPairs(x){return x.map(([a,b])=>`<span>${a}</span><b>${devVal(b)}</b>`).join('')}function renderDev(){if(!devOpen)return;let sp=S?.startPresentation||{},fd=S?.finishDisplay||{};$('#devState').innerHTML=devPairs([['Lifecycle',S?.lifecycle],['Active mode',S?.sessionMode],['Proposed mode',P?.mode],['Proposal revision',P?.proposalRevision],['Startable',P?.startable?'YES':'NO'],['Readiness',P?.readinessContext?.code||P?.readiness],['Start phase',sp.phase],['Red lamps',sp.redLightsLit===undefined?'—':`${sp.redLightsLit} / ${sp.redLightCount}`],['Start active',sp.active?'YES':'NO'],['Remaining',S?.sessionMode==='ENDURANCE'?clock(S.remainingDuration):'—'],['Duration expired',S?.durationExpired?'YES':'NO'],['Overtime',S?.overtime?sec(S.overtime):'—'],['Finish Display',fd.active?'ACTIVE':'OFF'],['Result',S?.resultSealed?(S?.resultValid?'SEALED · VALID':'SEALED · INVALID'):'OPEN'],['Persistence',S?.persistenceFault?'FAULT':S?.persistencePending?'PENDING':'OK'],['History sequence',S?.historySequence||'—'],['Race Director',C?.role==='Race Director'?'THIS BROWSER':C?.hasMaster?'OTHER':'NONE']]);let entries=S?.lifecycle&&S.lifecycle!=='READY'?(S.entries||[]):[];$('#devLanes').innerHTML=entries.length?entries.map(e=>`<div class="devlane"><b>L${e.lane} · Racer ${e.mugId??'—'}</b><div class="devkv">${devPairs([['Laps',e.classifiedLaps],['Position',e.position||'—'],['GAP',devGap(e)],['Last',sec(e.lastLapTime)],['Best',sec(e.bestLapTime)],['Timing origin',e.waitingForTimingOrigin?'WAITING':e.hasLap?'SET':'—']])}</div></div>`).join(''):(P?.entries||[]).map(e=>`<div class="devlane"><b>L${e.lane} · Racer ${e.mugId??'—'}</b><div class="devkv">${devPairs([['Input device',e.inputDevice],['Capability',e.inputCapability]])}</div></div>`).join('');if(devFact)$('#devFact').textContent='Latest fact · '+(devFact.type||'NONE')+(devFact.type==='LAP_COMPLETED'?` · Entry ${devFact.raceEntryId} · Lap ${devFact.lapNumber} · ${sec(devFact.lapTime)}`:'');if(devHealth){$('#devHealth').innerHTML=devPairs([['Health',devHealth.ok===false?'FAULT':'OK'],['Wi-Fi',devHealth.wifiConnected===false?'Disconnected':'Connected'],['HTTP',devHealth.serverReady===false?'Stopped':'Running'],['Requests',`${devHealth.requestCount??'—'} · Errors ${devHealth.requestErrors??'—'}`],['Last',`${devHealth.lastRoute??'—'} · ${devHealth.lastDurationMs??'—'} ms`],['Storage',S?.persistenceFault?'FAULT':S?.persistencePending?'PENDING':'OK'],['Noticeboard',devNotice?.revision],['Proposal rev',devNotice?.proposalRevision]]);$('#devHealthMore').innerHTML=devPairs([['Reconnects',devHealth.reconnectAttempts],['Slow requests',devHealth.slowRequests],['Peak handlers',devHealth.peakHandlers],['Server starts',devHealth.serverStarts],['Server stops',devHealth.serverStops]])}}async function devPoll(){if(!devOpen)return;try{let [f,n]=await Promise.all([G('/fact'),G('/noticeboard')]);devFact=f;devNotice=n;if(++devHealthTick%2===1)devHealth=await G('/health');renderDev()}catch(e){if(devOpen)$('#devHealth').innerHTML='<span>Diagnostics</span><b>Unavailable</b>'}}function setDev(open){devOpen=open;document.body.classList.toggle('devopen',open);$('#devDrawer').classList.toggle('hide',!open);$('#devTab').classList.toggle('hide',open);if(open){renderDev();devPoll()}}async function devPass(lane){let r=await fetch('/fixture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'lane'+lane})});let text='';try{text=await r.text()}catch(e){}$('#devFixture').textContent=r.ok?`L${lane} passage accepted`:r.status===404?'Test inputs unavailable in this build':`Rejected · ${text||r.status}`;if(devOpen)renderDev()}$('#devTab').onclick=()=>setDev(true);$('#devClose').onclick=()=>setDev(false);$('#devL1').onclick=()=>devPass(1);$('#devL2').onclick=()=>devPass(2);setInterval(devPoll,1000);'''
+replace_once("</script>", dev_js + "</script>", "Developer drawer script")
 
-# Generation-time assertions prove the intended presentation corrections landed
-# in the actual page that will be embedded, rather than merely allowing the
-# transformation to complete.
-checks = {
-    "authoritative racer identity": "Racer ${e.mugId??'—'}",
-    "authoritative GAP kinds": "if(e.gapKind==='TIME')",
-    "GO active lifetime": "p.active&&phase==='GO'",
-    "Details navigation": "V='details';render()",
-    "History navigation": "V='history';render()",
-    "duration pending presentation": "Updating race setup…",
-    "frozen lap finish wording": "All stop when winner finishes",
-}
+checks = {"authoritative racer identity":"Racer ${e.mugId??'—'}","authoritative GAP kinds":"if(e.gapKind==='TIME')","GO active lifetime":"p.active&&phase==='GO'","Details navigation":"V='details';render()","History navigation":"V='history';render()","duration pending presentation":"Updating race setup…","frozen lap finish wording":"All stop when winner finishes","Race Director request":"fetch('/bootstrap',{method:'POST'})","Race Director ownership":"C?.role==='Race Director'","Developer drawer":"id=\"devDrawer\"","fixture passage":"fetch('/fixture'","closed Developer polling guard":"if(!devOpen)return","Developer state reuse":"let sp=S?.startPresentation||{}"}
 for label, marker in checks.items():
     if marker not in html:
         raise RuntimeError(f"normal Browser generated-page verification failed: {label}")
 if "Racer ${e.raceEntryId}" in html or "<b>Racer ${e.raceEntryId}</b>" in html:
     raise RuntimeError("normal Browser generated-page verification failed: raceEntryId still presented as Racer")
-
+if "devPass(lane){let r=await fetch('/fixture'" not in html:
+    raise RuntimeError("normal Browser generated-page verification failed: Developer passage does not use fixture boundary")
 page_inc.write_text('static const char kNormalBrowserHtml[] = R"PPHTML(' + html + ')PPHTML";\n', encoding="utf-8")
 
 # Preserve the checked-in Development Browser. Build a generated copy of
@@ -123,11 +88,6 @@ if anchor not in text:
 text = text.replace(anchor, anchor + '\n      {"/normal", HTTP_GET, normalPage, nullptr},', 1)
 generated_interface = generated_pp / "browser_interface.h"
 generated_interface.write_text(text, encoding="utf-8")
-
-# main.cpp deliberately keeps including "pp/browser_interface.h". GCC searches
-# -iquote directories before normal -I directories for quoted includes, so the
-# generated BrowserInterface is selected. Dependencies continue to resolve from
-# the real project /include/pp tree; no P&P headers are copied or forked.
 project_pp = root / "include" / "pp"
 env.Append(CCFLAGS=["-iquote", str(generated_root)])
 env.Prepend(CPPPATH=[str(generated_root), str(project_pp)])
