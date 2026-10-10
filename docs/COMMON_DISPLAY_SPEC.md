@@ -28,6 +28,8 @@ It contains five light positions, which remain visible but greyed when inactive.
 
 During a start these become the race start lights. The system can use either three or five according to the selected start configuration.
 
+The pod has five physical light positions; there is no separate sixth green lamp. For the normal five-light start, the authoritative sequence illuminates positions 1, then 2, then 3, then 4, then 5 red. At authoritative GO, those same five positions turn green simultaneously for exactly one second, then all five become grey/off and dormant during ordinary racing. A configured three-light start uses the applicable configured sequence while retaining the same physical pod.
+
 During normal racing the lights are dormant but can be repurposed for race-control signals:
 
 - **Flashing Yellow lights** — Track Call / Yellow active.
@@ -135,6 +137,8 @@ Typical information:
 **Position | MUG | Lane | Result/time | Best Lap**
 
 Secondary information can include fastest lap, penalties and speed information where track data is available.
+
+A valid finished Results screen presents the status context `RESULTS`, even though the finished session is not startable. This is presentation context and does not change authoritative startability. After **RACE AGAIN** returns P&P to READY, normal READY/startability presentation resumes.
 
 A **Details / Analysis** view provides individual lap times, sectors, speeds, penalties and other recorded timing data.
 

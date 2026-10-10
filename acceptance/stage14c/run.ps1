@@ -11,3 +11,4 @@ node (Join-Path $PSScriptRoot 'browser_recovery_runtime.js') | Tee-Object -FileP
 node (Join-Path $PSScriptRoot 'browser_presentation_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-presentation-runtime.txt')
 node (Join-Path $PSScriptRoot 'browser_normal_poll_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-normal-poll-runtime.txt')
 python (Join-Path $PSScriptRoot 'browser_integration_review.py') --acceptance-bin (Join-Path $firmware '.pio/build/stage14cacceptance/firmware.merged.bin') --demo-bin (Join-Path $firmware '.pio/build/stage14cdemo/firmware.merged.bin') | Tee-Object -FilePath (Join-Path $evidence 'browser-integration-review.txt')
+python (Join-Path $PSScriptRoot 'presentation_corrections.py') | Tee-Object -FilePath (Join-Path $evidence 'presentation-corrections.txt')

@@ -107,6 +107,16 @@ public:
     return decodedOk;
   }
   uint8_t count() override{return backend_.count();}
+  bool loadSequence(uint32_t wanted,uint8_t* bytes,size_t capacity,size_t& length,uint32_t& sequence) override {
+    length=0; sequence=0; if(!bytes||capacity<sizeof(RaceEngineModule::CompletedRaceResult))return false;
+    auto* encoded=static_cast<uint8_t*>(malloc(MaxBytes)); auto* decoded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));
+    if(!encoded||!decoded){free(decoded);free(encoded);return false;}
+    size_t encodedLength=0; uint32_t storedSequence=0;
+    const bool loaded=backend_.loadSequence(wanted,encoded,MaxBytes,encodedLength,storedSequence);
+    const bool decodedOk=loaded&&storedSequence==wanted&&VersionedResultCodec::decode(encoded,encodedLength,*decoded);
+    if(decodedOk){memcpy(bytes,decoded,sizeof(*decoded));length=sizeof(*decoded);sequence=storedSequence;}
+    free(decoded); free(encoded); return decodedOk;
+  }
   bool clear() override{return backend_.clear();}
 private: HistoryStore&backend_;
 };

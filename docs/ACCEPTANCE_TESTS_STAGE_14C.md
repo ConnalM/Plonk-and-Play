@@ -6,6 +6,8 @@ These tests define the frozen acceptance requirements for the Endurance implemen
 
 Every automated result must be bound to the final source/build identity and retain deterministic setup, seed, Relevant Times, ordered delivery evidence, Message Bus traces, authoritative State, Facts, Request Results and production Browser/API responses.
 
+Before final stage acceptance, the resource evidence must include one product-profile campaign using the default `PP_MAX_ENTRIES=8` and product-like loopTask/httpd stacks through real HTTP handlers, START, FINISH/result and persistence/reconstruction. Reduced fixtures remain valid for fast behavioural checks; ELF/frame guards remain additional protection.
+
 ## Automated acceptance
 
 | ID | Required proof |

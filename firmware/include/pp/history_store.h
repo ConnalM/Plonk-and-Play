@@ -11,6 +11,20 @@ public:
   virtual bool append(const uint8_t* bytes, size_t length, uint32_t& sequence) = 0;
   virtual bool loadNewest(uint8_t index, uint8_t* bytes, size_t capacity, size_t& length, uint32_t& sequence) = 0;
   virtual uint8_t count() = 0;
+  // Load a stored record by its durable sequence identity. The default
+  // implementation preserves compatibility with bounded stores that expose
+  // newest-index enumeration only.
+  virtual bool loadSequence(uint32_t wanted, uint8_t* bytes, size_t capacity, size_t& length, uint32_t& sequence) {
+    if (!wanted) return false;
+    const uint8_t total = count();
+    for (uint8_t i = 0; i < total; ++i) {
+      size_t candidateLength = 0; uint32_t candidateSequence = 0;
+      if (loadNewest(i, bytes, capacity, candidateLength, candidateSequence) && candidateSequence == wanted) {
+        length = candidateLength; sequence = candidateSequence; return true;
+      }
+    }
+    length = 0; sequence = 0; return false;
+  }
   virtual bool clear() = 0;
 };
 class SlotHistoryStore final : public HistoryStore {

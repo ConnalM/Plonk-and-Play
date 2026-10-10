@@ -53,6 +53,10 @@ local automated network clients
 pass/fail results
 ```
 
+## Product-profile resource campaign
+
+Reduced-capacity or generously-resourced fixtures may be used for fast behavioural acceptance. Before accepting or freezing a stage that materially affects capacity, Browser/HTTP, result or persistence structures, or runtime task workload, at least one product-profile resource campaign must exercise the relevant product-like configuration. For P&P this includes, where applicable, `PP_MAX_ENTRIES=8`, product-like loopTask and httpd stacks, real HTTP handlers, START, FINISH/result, and persistence/reconstruction. Retain ELF/frame guards as additional implementation protection.
+
 ## What is not yet proven
 
 The plumbing test did not prove:

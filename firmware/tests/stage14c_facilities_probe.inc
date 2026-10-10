@@ -19,7 +19,7 @@ static void stage14cFacilitiesAcceptanceRun(){
   const auto go=start->noticeboard.current();
   char* startJson=static_cast<char*>(malloc(8192)); size_t startLength=0; if(startJson)memset(startJson,0,8192);
   const bool startReload=startJson&&start->browser.serializeStateForAcceptance(countdown,1000000,startJson,8192,startLength)&&strstr(startJson,"\"startPresentation\":{\"phase\":\"COUNTDOWN\"")&&strstr(startJson,"\"active\":true");
-  const bool startPresentation=startSubmitted&&countdown.lifecycle==pp::SessionLifecycle::Starting&&countdown.startPhase==pp::StartPresentationPhase::Countdown&&countdown.startPhaseUntil==startGo&&go.startPhase==pp::StartPresentationPhase::Go&&go.startPhaseUntil==startGo&&startReload;
+  const bool startPresentation=startSubmitted&&countdown.lifecycle==pp::SessionLifecycle::Starting&&countdown.startPhase==pp::StartPresentationPhase::Countdown&&countdown.startPhaseUntil==startGo&&go.startPhase==pp::StartPresentationPhase::Go&&go.startPhaseUntil==startGo+1000000ULL&&go.startLightsGreen&&startReload;
   s14c("14C.P2",startPresentation,"start_presentation_countdown_go=%u",startPresentation?1:0);
   free(startJson);
   start->~Stage14CFixture();

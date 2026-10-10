@@ -333,7 +333,16 @@ private:
     }
   }
   const RaceEngineModule::CompletedRaceResult& displayResult(RaceEngineModule::CompletedRaceResult& loaded) const {
+    bool found=false; return displayResult(loaded,0,found);
+  }
+  const RaceEngineModule::CompletedRaceResult& displayResult(RaceEngineModule::CompletedRaceResult& loaded,uint32_t sequence,bool& found) const {
+    found=false;
     const auto& current=noticeboard_.completedResult();
+    if(sequence){
+      size_t bytes=0; uint32_t stored=0;
+      if(history_&&history_->loadSequence(sequence,reinterpret_cast<uint8_t*>(&loaded),sizeof(loaded),bytes,stored)&&bytes==sizeof(loaded)&&stored==sequence&&loaded.sealed&&loaded.formatVersion==RaceEngineModule::ResultFormatVersion){found=true;return loaded;}
+      RaceEngineModule::clearResult(loaded); return loaded;
+    }
     // A sealed engine result is not a Results/Race Again boundary until Race
     // Control has published FINISHED. Do not expose it while completion is
     // still being settled.
@@ -342,9 +351,16 @@ private:
       return current;
     }
     if(!history_) return current;
-    size_t bytes=0;uint32_t sequence=0;
-    if(history_->loadNewest(0,reinterpret_cast<uint8_t*>(&loaded),sizeof(loaded),bytes,sequence) && bytes==sizeof(loaded) && loaded.sealed && loaded.formatVersion==RaceEngineModule::ResultFormatVersion)return loaded;
+    size_t bytes=0;uint32_t sequenceValue=0;
+    if(history_->loadNewest(0,reinterpret_cast<uint8_t*>(&loaded),sizeof(loaded),bytes,sequenceValue)&&bytes==sizeof(loaded)&&loaded.sealed&&loaded.formatVersion==RaceEngineModule::ResultFormatVersion)return loaded;
     return current;
+  }
+  static bool historySequenceQuery(httpd_req_t* request,uint32_t& sequence){
+    sequence=0; char query[48]{}, raw[16]{};
+    if(httpd_req_get_url_query_str(request,query,sizeof(query))!=ESP_OK)return true;
+    if(httpd_query_key_value(query,"sequence",raw,sizeof(raw))!=ESP_OK)return false;
+    char* end=nullptr; const unsigned long value=strtoul(raw,&end,10);
+    if(!end||*end||value==0||value>UINT32_MAX)return false; sequence=uint32_t(value); return true;
   }
   static uint64_t fingerprint(uint64_t token) {
     token ^= token >> 33;
@@ -443,7 +459,7 @@ private:
       (unsigned long long)now,lifecycle(value.lifecycle),mode,(unsigned long)value.proposalRevision,unsigned(value.entryCount),(unsigned long)value.raceEntryId,(unsigned long)value.laps,(unsigned long)value.lapTarget,unsigned(value.durationMinutes),(unsigned long long)value.durationExpiryAt,(unsigned long long)value.remainingDuration,value.durationExpired?"true":"false",(unsigned long long)value.overtime,finishBehaviour(value.finishBehaviour),value.hasLap?"true":"false",(unsigned long long)value.lastLapTime,(unsigned long long)value.sessionFastestLap,(unsigned long long)value.scheduledGo,unsigned(value.redLightCount),(unsigned long long)value.redIntervalUs,(unsigned long long)value.finalDelayUs,unsigned(value.startSignal),(unsigned long long)value.pauseEffectiveAt,(unsigned long long)value.scheduledRestartAt,value.restartMethod==RestartMethod::Honour?"HONOUR":value.restartMethod==RestartMethod::Grid?"GRID":"NONE",value.resultValid?"true":"false",value.raceIntegrityFaulted?"FAULTED":"OK",value.resultSealed?"true":"false",(unsigned long long)value.winningTime,(unsigned long long)value.finishTime,(unsigned long long)value.fastestLap,(unsigned long)value.historySequence,value.persistencePending?"true":"false",value.persistenceFault?"true":"false");
     if(value.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=value.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:value.entryCount;
     for(uint8_t i=0;i<count;++i){const auto&e=value.entries[i];const char* gap=e.gapKind==RaceEngineModule::LiveGapKind::Laps?"LAPS":e.gapKind==RaceEngineModule::LiveGapKind::Time?"TIME":"NONE";ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"position\":%lu,\"lapsBehind\":%lu,\"gapKind\":\"%s\",\"gapTimeUs\":%llu,\"gapLaps\":%lu,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"lastLapTime\":%llu,\"bestLapTime\":%llu,\"hasLap\":%s,\"waitingForTimingOrigin\":%s}",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.position,(unsigned long)e.lapsBehind,gap,(unsigned long long)e.gapTime,(unsigned long)e.lapsBehind,(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long long)e.lastLapTime,(unsigned long long)e.bestLapTime,e.hasLap?"true":"false",e.waitingForTimingOrigin?"true":"false")&&ok;}
-    ok=appendJson(out,cap,n,"],\"startPresentation\":{\"phase\":\"%s\",\"goAt\":%llu,\"redLightsLit\":%u,\"redLightCount\":%u,\"active\":%s},\"finishDisplay\":{\"active\":%s,\"until\":%llu,\"remainingUs\":%llu,\"durationSeconds\":%u},\"practiceSummaryAvailable\":%s}",startPhase(value.startPhase),(unsigned long long)value.startPhaseUntil,unsigned(value.redLightsLit),unsigned(value.redLightCount),value.startPhase!=StartPresentationPhase::None?"true":"false",value.finishDisplayActive?"true":"false",(unsigned long long)value.finishDisplayUntil,(unsigned long long)value.finishDisplayRemaining,unsigned(value.finishDisplayDurationSeconds),value.practiceSummaryAvailable?"true":"false")&&ok;length=n;return ok;
+    ok=appendJson(out,cap,n,"],\"startPresentation\":{\"phase\":\"%s\",\"goAt\":%llu,\"redLightsLit\":%u,\"redLightCount\":%u,\"green\":%s,\"active\":%s},\"finishDisplay\":{\"active\":%s,\"until\":%llu,\"remainingUs\":%llu,\"durationSeconds\":%u},\"practiceSummaryAvailable\":%s}",startPhase(value.startPhase),(unsigned long long)value.startPhaseUntil,unsigned(value.redLightsLit),unsigned(value.redLightCount),value.startLightsGreen?"true":"false",value.startPhase!=StartPresentationPhase::None?"true":"false",value.finishDisplayActive?"true":"false",(unsigned long long)value.finishDisplayUntil,(unsigned long long)value.finishDisplayRemaining,unsigned(value.finishDisplayDurationSeconds),value.practiceSummaryAvailable?"true":"false")&&ok;length=n;return ok;
   }
   static const char* setupMode(SessionMode mode){return mode==SessionMode::OpenPractice?"OPEN_PRACTICE":mode==SessionMode::Endurance?"ENDURANCE":mode==SessionMode::None?"NONE":"LAP_RACE";}
   static const char* readinessText(StartReadiness value){switch(value){case StartReadiness::Ready:return "READY";case StartReadiness::InvalidRaceSetup:return "INVALID_RACE_SETUP";case StartReadiness::CapabilityUnavailable:return "CAPABILITY_UNAVAILABLE";default:return "LIFECYCLE_NOT_STARTABLE";}}
@@ -511,24 +527,31 @@ private:
     return value==StartReadiness::Ready?"READY":value==StartReadiness::InvalidRaceSetup?"INVALID_RACE_SETUP":value==StartReadiness::CapabilityUnavailable?"CAPABILITY_UNAVAILABLE":"LIFECYCLE_NOT_STARTABLE";
   }
   static esp_err_t resultsRoute(httpd_req_t* request) {
-    RequestTrace trace(instance(), "/results");
-    client(request);auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));char* json=static_cast<char*>(malloc(ResultsJsonCapacity));
-    if(!loaded||!json){free(loaded);free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"result buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}const auto&r=instance()->displayResult(*loaded);size_t length=0;
-    if(!serializeResults(r,json,ResultsJsonCapacity,length)){free(loaded);free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"result entry count exceeds capacity");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}
+    RequestTrace trace(instance(), "/results"); client(request); uint32_t sequence=0;
+    if(!historySequenceQuery(request,sequence)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid history sequence");trace.complete(ESP_ERR_INVALID_ARG);return ESP_FAIL;}
+    auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult))); char* json=static_cast<char*>(malloc(ResultsJsonCapacity));
+    if(!loaded||!json){free(loaded);free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"result buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}
+    bool found=false; const auto&r=instance()->displayResult(*loaded,sequence,found); if(sequence&&!found){free(loaded);free(json);httpd_resp_send_err(request,HTTPD_404_NOT_FOUND,"history result not found");trace.complete(ESP_ERR_NOT_FOUND);return ESP_FAIL;}
+    size_t length=0; if(!serializeResults(r,json,ResultsJsonCapacity,length)){free(loaded);free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"result entry count exceeds capacity");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}
     httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(loaded);free(json);trace.complete(sent);return sent;
   }
   static esp_err_t detailsRoute(httpd_req_t* request) {
-     RequestTrace trace(instance(), "/details");
-     client(request);auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));char* chunk=static_cast<char*>(malloc(320));if(!loaded||!chunk){free(loaded);free(chunk);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"details buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}const auto&r=instance()->displayResult(*loaded);httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");snprintf(chunk,320,"{\"sealed\":%s,\"lapTarget\":%lu,\"entries\":[",r.sealed?"true":"false",(unsigned long)r.lapTarget);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);
+    RequestTrace trace(instance(), "/details"); client(request); uint32_t sequence=0;
+    if(!historySequenceQuery(request,sequence)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid history sequence");trace.complete(ESP_ERR_INVALID_ARG);return ESP_FAIL;}
+    auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult))); char* chunk=static_cast<char*>(malloc(320));
+    if(!loaded||!chunk){free(loaded);free(chunk);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"details buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}
+    bool found=false; const auto&r=instance()->displayResult(*loaded,sequence,found); if(sequence&&!found){free(loaded);free(chunk);httpd_resp_send_err(request,HTTPD_404_NOT_FOUND,"history result not found");trace.complete(ESP_ERR_NOT_FOUND);return ESP_FAIL;}
+    httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");snprintf(chunk,320,"{\"sealed\":%s,\"lapTarget\":%lu,\"entries\":[",r.sealed?"true":"false",(unsigned long)r.lapTarget);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);
     for(uint8_t i=0;i<r.entryCount;++i){const auto&e=r.entries[i];snprintf(chunk,320,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"rank\":%lu,\"records\":[",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.rank);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);for(uint8_t j=0;j<e.recordCount;++j){const auto&lap=e.records[j];snprintf(chunk,320,"%s{\"lapNumber\":%lu,\"startTime\":%llu,\"finishTime\":%llu,\"lapTime\":%llu,\"valid\":%s}",j?",":"",(unsigned long)lap.lapNumber,(unsigned long long)lap.startTime,(unsigned long long)lap.finishTime,(unsigned long long)lap.lapTime,lap.valid?"true":"false");httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);}httpd_resp_send_chunk(request,"]}",2);}
     httpd_resp_send_chunk(request,"]}",2);const esp_err_t sent=httpd_resp_send_chunk(request,nullptr,0);free(loaded);free(chunk);trace.complete(sent);return sent;
   }
   static esp_err_t historyRoute(httpd_req_t* request) {
-     client(request); BrowserInterface* browser=instance();
-     constexpr size_t HistoryJsonCapacity=4096;char* json=static_cast<char*>(malloc(HistoryJsonCapacity));size_t length=0;
-     auto* stored=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));if(!json||!stored){free(stored);free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"history buffer unavailable");return ESP_FAIL;}
-     if(!serializeHistory(browser->history_,json,HistoryJsonCapacity,length,stored)){free(stored);free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"history exceeds response capacity or contains an incompatible result");return ESP_FAIL;}
-     httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(stored);free(json);return sent;
+    RequestTrace trace(instance(), "/history"); client(request); BrowserInterface* browser=instance();
+    constexpr size_t HistoryJsonCapacity=4096; char* json=static_cast<char*>(malloc(HistoryJsonCapacity)); size_t length=0;
+    auto* stored=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));
+    if(!json||!stored){free(stored);free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"history buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}
+    if(!serializeHistory(browser->history_,json,HistoryJsonCapacity,length,stored)){free(stored);free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"history exceeds response capacity or contains an incompatible result");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}
+    httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(stored);free(json);trace.complete(sent);return sent;
   }
   static esp_err_t recordsRoute(httpd_req_t* request) {
     client(request); BrowserInterface* browser=instance();

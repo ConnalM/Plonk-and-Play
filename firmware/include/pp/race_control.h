@@ -21,9 +21,9 @@ public:
   RaceControlModule(Bus& bus,Bus::Endpoint endpoint,ActiveSessionDefinition& active, HistoryStore* history=nullptr, TrackRecordStore* records=nullptr):bus_(bus),endpoint_(endpoint),active_(active),history_(history),records_(records) {}
   // Stage 6/7 preparation supplies an already-fixed external definition. It
   // does not exercise Browser START acceptance or create a competing path.
-  void resetForFixture(){definition_=nullptr;setup_=nullptr;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
-  void resetRaceForFixture(){definition_=nullptr;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
-  void prepare(const SessionDefinition& definition){definition_=&definition;setup_=nullptr;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
+  void resetForFixture(){definition_=nullptr;setup_=nullptr;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=goPresentationUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
+  void resetRaceForFixture(){definition_=nullptr;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=goPresentationUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
+  void prepare(const SessionDefinition& definition){definition_=&definition;setup_=nullptr;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=goPresentationUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
   // Stage 8 supplies the mutable working setup and current required-capability
   // availability. Race Control alone validates and commits an active session.
   void setProposedRaceSetup(const ProposedRaceSetup& setup){proposedSetup_=normalised(setup);setup_=&proposedSetup_;++proposalRevision_;definition_=active_.current();}
@@ -44,6 +44,7 @@ public:
     }
     if(state_==SessionLifecycle::Starting&&now>=go_){
       state_=SessionLifecycle::Racing;
+      goPresentationUntil_=go_+1000000ULL;
       if(resumeScheduled_){
         // Resume uses the same authoritative start boundary as the normal
         // Lap Race start sequence. The future Resume operation is published
@@ -64,6 +65,8 @@ public:
   SessionLifecycle state()const{return state_;}
   SessionMode mode()const{return definition_?definition_->mode():SessionMode::None;}
   Time scheduledGo()const{return go_;}
+  Time startPresentationUntil()const{return goPresentationUntil_?goPresentationUntil_:go_;}
+  bool startLightsGreen(Time now)const{return state_==SessionLifecycle::Racing&&goPresentationUntil_&&now<goPresentationUntil_;}
   Time pauseEffectiveAt()const{return pauseAt_;}
   Time scheduledRestartAt()const{return scheduledRestart_;}
   Time durationExpiryAt()const{return durationExpiry_;}
@@ -80,7 +83,7 @@ public:
     const Time first=go_-sequence;if(now<first)return 0;
     const Time elapsed=now-first;const uint64_t step=uint64_t(elapsed/interval)+1;return step>reds?reds:uint8_t(step);
   }
-  StartPresentationPhase startPresentationPhase(Time now)const{if(!definition_||!go_)return StartPresentationPhase::None;if(state_==SessionLifecycle::Starting)return now>=go_?StartPresentationPhase::Go:(resumeScheduled_?StartPresentationPhase::ResumeCountdown:StartPresentationPhase::Countdown);if(state_==SessionLifecycle::Racing)return StartPresentationPhase::Go;return StartPresentationPhase::None;}
+  StartPresentationPhase startPresentationPhase(Time now)const{if(!definition_||!go_)return StartPresentationPhase::None;if(state_==SessionLifecycle::Starting)return now>=go_?StartPresentationPhase::Go:(resumeScheduled_?StartPresentationPhase::ResumeCountdown:StartPresentationPhase::Countdown);if(state_==SessionLifecycle::Racing&&now<goPresentationUntil_)return StartPresentationPhase::Go;return StartPresentationPhase::None;}
   bool finishDisplayActive(Time now)const{return finishDisplayActive_&&now<finishDisplayUntil_;}
   Time finishDisplayUntil()const{return finishDisplayUntil_;}
   Time finishDisplayRemaining(Time now)const{return finishDisplayActive(now)?finishDisplayUntil_-now:0;}
@@ -105,13 +108,13 @@ public:
 private:
   bool beginStart(Time now){
     if (definition_ && definition_->mode()==SessionMode::OpenPractice) {
-      go_=0; finalDelay_=0; state_=SessionLifecycle::Racing; changed(); return true;
+      go_=0; finalDelay_=0; goPresentationUntil_=0; state_=SessionLifecycle::Racing; changed(); return true;
     }
     Time scheduledGo=0, delay=0;
     if(!calculateStartSchedule(now,scheduledGo,delay))return false;
     Message scheduled{};scheduled.type=Type::GoScheduled;scheduled.relevantTime=scheduledGo;
     if(bus_.publish(endpoint_,scheduled)!=Delivery::Delivered)return false;
-    go_=scheduledGo; finalDelay_=delay; state_=SessionLifecycle::Starting; changed();return true;
+    go_=scheduledGo; finalDelay_=delay; goPresentationUntil_=0; state_=SessionLifecycle::Starting; changed();return true;
   }
   bool calculateStartSchedule(Time now,Time& scheduledGo,Time& delay)const{
     if(!definition_)return false;
@@ -162,7 +165,7 @@ private:
       // RACE AGAIN starts a new session proposal. Clear all run-bound timing
       // and expiry state so a completed Endurance race cannot leak into the
       // next STARTING/RACING presentation.
-      go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=0;
+      go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=goPresentationUntil_=0;
       finalDelay_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;
       durationExpired_=false;durationPublished_=false;resumeScheduled_=false;
       changed();result(request.correlation,RequestResult::Accepted);return;
@@ -178,7 +181,7 @@ private:
         // receives the future Relevant-Time operation immediately, preventing
         // pre-GO crossings while the normal configured countdown is presented.
         publishOperation(SessionOperation::Resume,RestartMethod::None,resumeGo);
-        go_=resumeGo;finalDelay_=resumeDelay;resumeScheduled_=true;state_=SessionLifecycle::Starting;changed();result(request.correlation,RequestResult::Accepted);return;
+        go_=resumeGo;finalDelay_=resumeDelay;goPresentationUntil_=0;resumeScheduled_=true;state_=SessionLifecycle::Starting;changed();result(request.correlation,RequestResult::Accepted);return;
       }
       publishOperation(SessionOperation::Resume,RestartMethod::None,now);
       state_=SessionLifecycle::Racing;publishFact(Type::Resumed,now);changed();result(request.correlation,RequestResult::Accepted);return;
@@ -210,7 +213,7 @@ private:
        // active definition so the Browser can edit mode/duration/finish
        // without losing entries or lane mappings.
         if(definition_){copySetupFromDefinition();active_.permitReplacement();}
-       active_.clearForFixture();definition_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=finalDelay_=durationExpiry_=durationRemaining_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
+       active_.clearForFixture();definition_=nullptr;state_=SessionLifecycle::Ready;startCommitted_=false;go_=pauseAt_=scheduledRestart_=settledAt_=finalDelay_=durationExpiry_=durationRemaining_=goPresentationUntil_=0;restartMethod_=RestartMethod::None;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;changed();result(request.correlation,RequestResult::Accepted);return;
     }
     if(request.operation==SessionOperation::Pause){
       if(state_!=SessionLifecycle::Racing){reject(request.correlation,RequestRejection::LifecycleNotPausable);return;}
@@ -274,7 +277,7 @@ private:
     proposedSetup_=normalised(proposedSetup_);setup_=&proposedSetup_;++proposalRevision_;
   }
   Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
-  SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0,finalDelay_=0,durationExpiry_=0,durationRemaining_=0,finishDisplayUntil_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=true,startCommitted_=false,integrityFaulted_=false,pauseSettled_=false,durationExpired_=false,durationPublished_=false,resumeScheduled_=false,finishDisplayActive_=false;uint8_t finishDisplayDurationSeconds_=5;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
+  SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0,finalDelay_=0,durationExpiry_=0,durationRemaining_=0,finishDisplayUntil_=0,goPresentationUntil_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=true,startCommitted_=false,integrityFaulted_=false,pauseSettled_=false,durationExpired_=false,durationPublished_=false,resumeScheduled_=false,finishDisplayActive_=false;uint8_t finishDisplayDurationSeconds_=5;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
   uint32_t nextSessionId_=1,nextRaceEntryId_=1;
   ProposedRaceSetup proposedSetup_{}; uint32_t proposalRevision_=1;
 };
