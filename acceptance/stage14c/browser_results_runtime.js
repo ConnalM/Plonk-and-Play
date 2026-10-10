@@ -29,7 +29,7 @@ let nextTimer=1;const timers=new Map();global.setTimeout=(fn,ms)=>{const id=next
 let state={lifecycle:'READY',sessionMode:'NONE',resultSealed:false,practiceSummaryAvailable:false,historySequence:0,entries:[]};
 const proposal={mode:'LAP_RACE',lapTarget:2,durationMinutes:10,finishBehaviour:'IMMEDIATE',startable:true,proposalRevision:1,entries:[]};
 const context={hasMaster:true,role:'Race Director'};
-let resultRequests=0,historyRequests=0,detailsRequests=0;
+let resultRequests=0,historyRequests=0,detailsRequests=0,failCurrent=false;
 function response(value,status=200){return {ok:status>=200&&status<300,status,async json(){return JSON.parse(JSON.stringify(value));}};}
 const currentResult={sequence:1,sealed:true,mode:'LAP_RACE',lapTarget:2,fastestLap:1200000,entries:[{rank:1,mugId:91,lane:1,completed:true,completionTime:5000000,bestLap:1200000}]};
 const historical={sequence:1,sealed:true,mode:'LAP_RACE',lapTarget:2,fastestLap:1200000,entries:[{rank:1,mugId:91,lane:1,completed:true,completionTime:5000000,bestLap:1200000}]};
@@ -37,7 +37,7 @@ global.fetch=async(url,options={})=>{
   if(url==='/state') return response(state);
   if(url==='/proposal') return response(proposal);
   if(url==='/context') return response(context);
-  if(url==='/results'){resultRequests++; if(state.resultSealed)return response(currentResult); return response({},261);}
+  if(url==='/results'){resultRequests++; if(failCurrent)return response({},503); if(state.resultSealed)return response(currentResult); return response({},261);}
   if(url==='/results?sequence=1'){resultRequests++;return response(historical);}
   if(url==='/history'){historyRequests++;return response({entries:[{sequence:1,mode:'LAP_RACE',lapTarget:2,entries:[{mugId:91,lane:1}]}]});}
   if(url==='/details'||url==='/details?sequence=1'){detailsRequests++;return response({entries:[]});}
@@ -61,9 +61,12 @@ const expect=(v,m)=>{if(!v)throw new Error(m)};
  document.querySelector('.historyItem').onclick(); await sleep(); expect(resultRequests===3,'selected historical Results was not requested');
  for(let i=0;i<4;i++){await intervals[0]();await sleep();}
  expect(resultRequests===3,'selected historical Results was not stable through polling');
+ failCurrent=true; document.elements.resultsNav.onclick(); await sleep();
+ expect(resultRequests===4,'server-error Results request was not attempted');
+ expect(document.elements.notice.textContent.includes('HTTP 503'),'server-error status was hidden from the user');
  document.elements.setupNav.onclick(); await sleep(); expect(!document.elements.app.innerHTML.includes('RESULTS</div><h1>'),'navigation away from Results did not render setup');
  state={lifecycle:'READY',sessionMode:'NONE',resultSealed:false,practiceSummaryAvailable:false,historySequence:1,entries:[]};
- await intervals[0](); await sleep(); expect(resultRequests===3,'READY after abandonment/race-again resumed current-result retrieval');
+ await intervals[0](); await sleep(); expect(resultRequests===4,'READY after abandonment/race-again resumed current-result retrieval');
  state={lifecycle:'RACING',sessionMode:'LAP_RACE',resultSealed:false,practiceSummaryAvailable:false,entries:[]}; await intervals[0](); await sleep(); expect(!document.elements.app.innerHTML.includes('id="endRace"'),'Lap Race offered invalid active END RACE');
  state={lifecycle:'RACING',sessionMode:'ENDURANCE',resultSealed:false,practiceSummaryAvailable:false,entries:[]}; await intervals[0](); await sleep(); expect(document.elements.app.innerHTML.includes('id="endRace"'),'Endurance did not offer active END RACE');
  console.log('Stage 14C normal Browser Results runtime PASS: unavailable-result loop bounded, current and historical Results cached/stable, navigation and abandonment recovery work, Lap/Endurance END RACE exposure correct');
