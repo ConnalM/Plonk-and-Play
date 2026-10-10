@@ -28,7 +28,7 @@ It contains five light positions, which remain visible but greyed when inactive.
 
 During a start these become the race start lights. The system can use either three or five according to the selected start configuration.
 
-The pod has five physical light positions; there is no separate sixth green lamp. For the normal five-light start, the authoritative sequence illuminates positions 1, then 2, then 3, then 4, then 5 red. At authoritative GO, those same five positions turn green simultaneously for exactly one second, then all five become grey/off and dormant during ordinary racing. A configured three-light start uses the applicable configured sequence while retaining the same physical pod.
+The pod has five physical light positions; there is no separate sixth green lamp. The authoritative countdown uses either three or five red lights according to the configured start. The authoritative GO style is either **Lights Out** or **Green**, as selected in the Session Definition. With Lights Out, the configured red lights extinguish at GO and all five physical positions are grey/off and dormant during ordinary racing. With Green, all five physical positions turn green simultaneously at authoritative GO for exactly one second, then all five become grey/off and dormant during ordinary racing. A configured three-light start changes only the number of red countdown positions; Green still illuminates all five physical positions. Browser and physical presentation consume this authoritative state and do not create a sixth lamp or a local GO timer.
 
 During normal racing the lights are dormant but can be repurposed for race-control signals:
 

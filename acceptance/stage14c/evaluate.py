@@ -1,7 +1,7 @@
 from pathlib import Path
 import re,sys,json
 root=Path(__file__).parent;text=(root/'evidence'/'serial.txt').read_text(errors='replace') if (root/'evidence'/'serial.txt').exists() else ''
-ids=[*(f'14C.{i}' for i in range(1,29)),'14C.T'];failed=[]
+ids=[*(f'14C.{i}' for i in range(1,29)),'14C.T','14C.P15'];failed=[]
 for ident in ids:
  rows=re.findall(rf'ACC S14C test={re.escape(ident)}[^\r\n]*',text)
  if not rows or not any('pass=1' in row for row in rows): failed.append(ident)
@@ -14,4 +14,4 @@ try:
  if p.get('corrupted_evaluator')!='FAIL' or p.get('restored_evaluator')!='PASS':failed.append('14C.27')
 except Exception:failed.append('14C.27')
 if failed:print('Stage 14C evaluator FAIL:',', '.join(failed));sys.exit(1)
-print('Stage 14C evaluator PASS: 14C.1-14C.28, 14C.T')
+print('Stage 14C evaluator PASS: 14C.1-14C.28, 14C.T, 14C.P15')

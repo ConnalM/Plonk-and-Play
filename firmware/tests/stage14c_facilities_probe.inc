@@ -19,10 +19,37 @@ static void stage14cFacilitiesAcceptanceRun(){
   const auto go=start->noticeboard.current();
   char* startJson=static_cast<char*>(malloc(8192)); size_t startLength=0; if(startJson)memset(startJson,0,8192);
   const bool startReload=startJson&&start->browser.serializeStateForAcceptance(countdown,1000000,startJson,8192,startLength)&&strstr(startJson,"\"startPresentation\":{\"phase\":\"COUNTDOWN\"")&&strstr(startJson,"\"active\":true");
-  const bool startPresentation=startSubmitted&&countdown.lifecycle==pp::SessionLifecycle::Starting&&countdown.startPhase==pp::StartPresentationPhase::Countdown&&countdown.startPhaseUntil==startGo&&go.startPhase==pp::StartPresentationPhase::Go&&go.startPhaseUntil==startGo+1000000ULL&&go.startLightsGreen&&startReload;
-  s14c("14C.P2",startPresentation,"start_presentation_countdown_go=%u",startPresentation?1:0);
+  const bool startPresentation=startSubmitted&&countdown.lifecycle==pp::SessionLifecycle::Starting&&countdown.startPhase==pp::StartPresentationPhase::Countdown&&countdown.startPhaseUntil==startGo&&go.startPhase==pp::StartPresentationPhase::Go&&go.startPhaseUntil==startGo+1000000ULL&&!go.startLightsGreen&&startReload;
+  s14c("14C.P2",startPresentation,"start_presentation_countdown_go_lights_out=%u",startPresentation?1:0);
   free(startJson);
   start->~Stage14CFixture();
+
+  // The authoritative GO style is independent of the configured red count.
+  // Exercise both red-count choices and both five-position GO styles through
+  // the same Race Control, Noticeboard and production state serializer.
+  auto checkGoStyle=[](uint8_t reds,uint8_t signal,uint32_t correlation,pp::Time request)->bool{
+    auto* fixture=::new(stage14cStorage)Stage14CFixture();
+    fixture->setup.redLightCount=reds; fixture->setup.startSignal=signal;
+    fixture->control.setProposedRaceSetup(fixture->setup);
+    const bool submitted=fixture->browser.submitStart(correlation,pp::ClientContext::RaceDirectorSmug,Stage14CFixture::Owner);
+    if(!submitted){fixture->~Stage14CFixture(); return false;}
+    fixture->control.tick(request); fixture->engine.tick();
+    if(!fixture->control.definition()){fixture->~Stage14CFixture(); return false;}
+    const pp::Time goAt=fixture->control.scheduledGo();
+    const pp::Time first=goAt-pp::Time(reds)*fixture->control.definition()->redIntervalUs()-fixture->control.finalDelay();
+    fixture->control.tick(first); fixture->engine.tick();
+    const auto firstState=fixture->noticeboard.currentAt(first);
+    fixture->control.tick(goAt); fixture->engine.tick();
+    const auto goState=fixture->noticeboard.currentAt(goAt);
+    char* json=static_cast<char*>(malloc(8192)); size_t length=0; if(json)memset(json,0,8192);
+    const bool serialized=json&&fixture->browser.serializeStateForAcceptance(goState,goAt,json,8192,length)&&strstr(json,signal==1?"\"green\":true":"\"green\":false");
+    fixture->control.tick(goAt+1000001ULL); fixture->engine.tick();
+    const auto afterState=fixture->noticeboard.currentAt(goAt+1000001ULL);
+    const bool ok=submitted&&firstState.startPhase==pp::StartPresentationPhase::Countdown&&firstState.redLightCount==reds&&firstState.redLightsLit==1&&goState.startPhase==pp::StartPresentationPhase::Go&&goState.redLightCount==reds&&goState.startLightsGreen==(signal==1)&&serialized&&afterState.startPhase==pp::StartPresentationPhase::None&&!afterState.startLightsGreen;
+    free(json); fixture->~Stage14CFixture(); return ok;
+  };
+  const bool goStyles=checkGoStyle(3,0,2151,10000000)&&checkGoStyle(5,0,2152,20000000)&&checkGoStyle(3,1,2153,30000000)&&checkGoStyle(5,1,2154,40000000);
+  s14c("14C.P15",goStyles,"go_styles_3red_lightsout_5red_lightsout_3red_green_5red_green=%u",goStyles?1:0);
 
   auto* resume=::new(stage14cStorage)Stage14CFixture();
   const bool resumeStarted=resume->start(); const pp::Time resumeBase=resume->control.scheduledGo();

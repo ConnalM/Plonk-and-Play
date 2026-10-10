@@ -66,7 +66,11 @@ public:
   SessionMode mode()const{return definition_?definition_->mode():SessionMode::None;}
   Time scheduledGo()const{return go_;}
   Time startPresentationUntil()const{return goPresentationUntil_?goPresentationUntil_:go_;}
-  bool startLightsGreen(Time now)const{return state_==SessionLifecycle::Racing&&goPresentationUntil_&&now<goPresentationUntil_;}
+  // GREEN is an explicit Session Definition choice.  The one-second
+  // authoritative GO interval exists for both styles, but only GREEN
+  // illuminates the five physical pod positions; LIGHTS OUT leaves them
+  // dormant at GO and during ordinary racing.
+  bool startLightsGreen(Time now)const{return state_==SessionLifecycle::Racing&&goPresentationUntil_&&now<goPresentationUntil_&&definition_&&definition_->startSignal()==1;}
   Time pauseEffectiveAt()const{return pauseAt_;}
   Time scheduledRestartAt()const{return scheduledRestart_;}
   Time durationExpiryAt()const{return durationExpiry_;}
