@@ -34,7 +34,8 @@ replace_in_function("function race(){", "function paused(){", "Racer ${e.raceEnt
 replace_in_function("function renderResults(r){", "async function results(){", "<b>Racer ${e.raceEntryId}</b>", "<b>Racer ${e.mugId??'—'}</b>", 1, "results racer identity")
 replace_in_function("async function practice(){", "async function details(){", "<b>Racer ${e.raceEntryId}</b>", "<b>Racer ${e.mugId??'—'}</b>", 1, "practice summary racer identity")
 replace_once("async function req(path,extra={},setup=false){if(busy)return;busy=true;render();let id=corr++", "async function req(path,extra={},setup=false){if(busy)return;busy=true;if(setup){document.querySelectorAll('#fields input,#fields select,.modes button').forEach(x=>x.disabled=true);note('Updating race setup…')}else render();let id=corr++", "setup pending presentation")
-replace_once("if(V==='practice')return practice();if(V==='results')return results();if(V==='setup')return setup();home()", "if(V==='practice')return practice();if(V==='details')return details();if(V==='history')return history();if(V==='results')return results();if(V==='setup')return setup();home()", "legitimate completed view persistence")
+# The source page now owns the complete view dispatch, including Results,
+# Details, History and presentation-only navigation placeholders.
 
 # Normal-product Race Director UX. /context is authoritative for this Browser's
 # role; /bootstrap is the existing legitimate request for an unowned Director.

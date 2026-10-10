@@ -61,7 +61,7 @@ checks = {
     "normal_browser_poll_overlap_guard": "async function poll(){if(polling)return;polling=true;" in normal and "finally{polling=false}" in normal and "setInterval(poll,1000)" in normal,
     "normal_browser_runtime_regression": "browser_normal_poll_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
     "normal_browser_results_regression": "browser_results_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8") and "resultDataKey" in normal and "if(!r?.sealed)" in normal,
-    "end_race_exposure_matches_authority": "${en?` <button class=\"btn primary\" id=\"endRace\">" in normal and "${pr?` <button class=\"btn primary\" id=\"end\">" not in normal,
+    "end_race_exposure_matches_authority": "${canEndRace?` <button class=\"btn primary\" id=\"endRace\">" in normal and "${pr?` <button class=\"btn primary\" id=\"end\">" not in normal,
     "endurance_default_duration_authority": "proposedRaceSetup.durationMinutes=10" in main,
     "browser_http_health_snapshot": "HTTP HEALTH" in main and "httpHealth(HttpHealth&" in browser and "else if(c=='h')browserHealth()" in main,
     "browser_route_trace": "RequestTrace trace(instance(), \"/state\")" in browser and "httpActiveHandlers_" in browser and "httpLastRoute_" in browser,

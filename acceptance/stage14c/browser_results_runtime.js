@@ -20,7 +20,7 @@ class Element {
   }
   get innerHTML(){return this._innerHTML;}
 }
-const ids=['logo','head','status','reason','app','overlay','notice','setupNav','resultsNav','start','change','devTab','devDrawer','devClose','devL1','devL2','devState','devLanes','devFact','devHealth','devHealthMore','devFixture'];
+const ids=['logo','head','status','reason','app','overlay','notice','setupNav','resultsNav','trackNav','racersNav','settingsNav','start','change','devTab','devDrawer','devClose','devL1','devL2','devState','devLanes','devFact','devHealth','devHealthMore','devFixture'];
 global.document={elements:{},querySelector(sel){if(sel.startsWith('#')) return this.elements[sel.slice(1)]||null; if(sel==='.historyItem') return Object.values(this.elements).find(e=>e.id.startsWith('historyItem_'))||null; return null;},querySelectorAll(sel){if(sel==='.historyItem') return Object.values(this.elements).filter(e=>e.id.startsWith('historyItem_')); return []}};
 for(const id of ids) document.elements[id]=new Element(id);
 global.window=global;global.$=s=>document.querySelector(s);global.performance={now:()=>1000};
@@ -69,5 +69,13 @@ const expect=(v,m)=>{if(!v)throw new Error(m)};
  await intervals[0](); await sleep(); expect(resultRequests===4,'READY after abandonment/race-again resumed current-result retrieval');
  state={lifecycle:'RACING',sessionMode:'LAP_RACE',resultSealed:false,practiceSummaryAvailable:false,entries:[]}; await intervals[0](); await sleep(); expect(!document.elements.app.innerHTML.includes('id="endRace"'),'Lap Race offered invalid active END RACE');
  state={lifecycle:'RACING',sessionMode:'ENDURANCE',resultSealed:false,practiceSummaryAvailable:false,entries:[]}; await intervals[0](); await sleep(); expect(document.elements.app.innerHTML.includes('id="endRace"'),'Endurance did not offer active END RACE');
+ failCurrent=false; state={lifecycle:'RACING',sessionMode:'LAP_RACE',resultSealed:false,practiceSummaryAvailable:false,entries:[]}; await intervals[0](); await sleep();
+ state={lifecycle:'FINISHED',sessionMode:'LAP_RACE',resultSealed:true,practiceSummaryAvailable:false,historySequence:1,entries:[]}; await intervals[0](); await sleep();
+ expect(document.elements.app.innerHTML.includes('>RESULTS</div>'),'FINISHED authoritative result did not render Results automatically');
+ document.elements.setupNav.onclick(); await sleep(); await intervals[0](); await sleep(); expect(document.elements.app.innerHTML.includes('RACE SETUP'),'Race Setup navigation was overridden by FINISHED polling');
+ document.elements.trackNav.onclick(); await sleep(); expect(document.elements.app.innerHTML.includes('Track Setup'),'Track Setup navigation did not render');
+ document.elements.racersNav.onclick(); await sleep(); expect(document.elements.app.innerHTML.includes('Racers'),'Racers navigation did not render');
+ document.elements.settingsNav.onclick(); await sleep(); expect(document.elements.app.innerHTML.includes('Settings'),'Settings navigation did not render');
+ document.elements.resultsNav.onclick(); await sleep(); expect(document.elements.app.innerHTML.includes('RESULTS'),'returning to Results did not render');
  console.log('Stage 14C normal Browser Results runtime PASS: unavailable-result loop bounded, current and historical Results cached/stable, navigation and abandonment recovery work, Lap/Endurance END RACE exposure correct');
 })().catch(e=>{console.error('Stage 14C normal Browser Results runtime FAIL:',e.stack||e.message);process.exitCode=1});
