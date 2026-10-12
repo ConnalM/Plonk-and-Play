@@ -141,6 +141,17 @@ public:
 
   uint64_t droppedObservations() const { return droppedObservations_; }
 
+  bool status(SessionStatus& session, StorageStatus& storage,
+              size_t& retainedRecords) const {
+    retainedRecords = recorder_.count();
+    const bool sessionOk = recorder_.status(session);
+    const bool storageOk = recorder_.storageStatus(storage);
+    return sessionOk && storageOk;
+  }
+
+  DiagnosticRecorder& recorder() { return recorder_; }
+  const DiagnosticRecorder& recorder() const { return recorder_; }
+
 private:
   static constexpr size_t PendingCapacity = 8;
   struct Pending {

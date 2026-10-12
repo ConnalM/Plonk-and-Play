@@ -153,3 +153,43 @@ applied, applied but not rendered, and the complete chain. Phase 6 does not
 add diagnostic state delivery, SSE/polling, a Browser product state machine,
 general screen instrumentation, detector/lap tracing or persistence tracing.
 
+## 13. Phase 7 resource, retrieval and robustness foundation
+
+Phase 7 measures the bounded development implementations and exposes the
+existing diagnostic session through observation-only status and cursor-based
+retrieval. `GET /diag/status` reports session identity/lifecycle, storage
+health/backend/failure, retained record and payload-byte occupancy, dropped
+counts, and volatility or incompleteness. `GET /diag/records?cursor=N` returns one current record at a
+time with its envelope provenance and a provisional hexadecimal payload view.
+This transport representation is development inspection only; it does not
+freeze the final export encoding, permission model, privacy policy, SD layout,
+or product retention capacity.
+
+Retrieval is a bounded moving view. Each request reads the current retained
+count at its cursor; records appended after a read are visible from a later
+cursor, and reads do not clear or mutate evidence. End-of-view, read failure,
+and incomplete evidence are explicit in the response. The implementation uses
+bounded per-request buffers and no new diagnostic task, queue, or SD I/O path.
+Status/retrieval failures remain observation-only and cannot affect product
+authority or timing.
+
+Phase 7's host/file and in-memory limits remain provisional development/test
+values. The resource campaign records measured sizes, latency and loss
+behavior for later capacity and performance decisions. Production ESP32-S3 SD
+storage and final recovery/housekeeping remain outside this phase.
+
+## 14. Phase 7 measured baseline
+
+The focused host campaign measured an 80-byte `RecordEnvelope` and a 120-byte
+`RetrievalChunk`. The exercised in-memory test bound retained eight records and
+reported two explicit drops after exhaustion; the development file bound is 64
+records with a 4096-byte payload limit. Each `/diag/records` request uses a
+4096-byte payload buffer and a 10240-byte provisional JSON inspection buffer.
+
+The standard instrumented ESP32 builds used `PP_MAX_ENTRIES=8`. The demo image
+used 101304 bytes static RAM and 937385 bytes application flash; the acceptance
+image used 98808 bytes static RAM and 991885 bytes application flash. These are
+baseline measurements, not acceptance thresholds. Sustained Wokwi load, live
+heap/stack pressure and SD latency remain environment or real-hardware campaign
+items and do not become claims from this host test.
+

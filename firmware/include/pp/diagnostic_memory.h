@@ -209,6 +209,7 @@ public:
     const StorageResult result = storage_.tryAppend(record, candidate);
     if (result == StorageResult::Accepted) {
       status_.nextSequence = candidate;
+      status_.bytesRecorded += record.payloadBytes;
       sequence = candidate;
       return RecorderResult::Accepted;
     }
@@ -226,6 +227,11 @@ public:
   }
 
   bool status(SessionStatus& status) const override { status = status_; return true; }
+
+  bool storageStatus(StorageStatus& status) const override {
+    status = storage_.status();
+    return true;
+  }
 
   size_t count() const override { return storage_.count(); }
 

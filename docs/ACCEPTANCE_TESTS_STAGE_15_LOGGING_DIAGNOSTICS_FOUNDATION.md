@@ -81,6 +81,30 @@ No numeric capacity, queue, file-size, or performance threshold is frozen by thi
 | PS15.50 | Diagnostic recorder/backend failure cannot prevent notification handling, State collection, State application or render. | Phase 6 failure-independence test. |
 | PS15.51 | Phase 6 uses only existing notification, State and render paths; it adds no diagnostic state channel, polling/SSE transport, Browser authority or product semantics. | Structural review and Stage 1–14C applicable regressions. |
 
+## Phase 7 focused checks
+
+| PS15.52 | Diagnostic status reports the current session identity/lifecycle, separate storage health/backend/failure, retained/drop counts, volatility and incompleteness. | Phase 7 contract test and `/diag/status` structural check. |
+| PS15.53 | Cursor retrieval returns ordered structured records with controller/session/client provenance and deterministic next-cursor/end markers. | Phase 7 retrieval test. |
+| PS15.54 | Retrieval is bounded and chunked; empty/end-of-view, read failure and incomplete evidence are explicit, and reads do not mutate or clear records. | Phase 7 retrieval/resource test. |
+| PS15.55 | Appends after an earlier read are visible from a later cursor without claiming an atomic snapshot. | Phase 7 moving-view test. |
+| PS15.56 | Overflow/drop and backend append/read/finalize failures are surfaced through status/retrieval without retry storms or product-state mutation. | Phase 7 failure/overflow test. |
+| PS15.57 | Host/file, in-memory and deterministic failure-injection implementations remain interchangeable at the DiagnosticStorage boundary; no host filesystem is required by Wokwi firmware. | Phase 1–7 backend contract tests and structural review. |
+| PS15.58 | Resource measurements cover record/chunk sizes, bounded request allocation, retained/drop behavior and representative retrieval cost without freezing final capacities or thresholds. | Phase 7 measurement output and firmware build review. |
+| PS15.59 | Diagnostic status/retrieval endpoints remain observation-only and do not alter racing, authority, timing, persistence or Browser product behavior. | Phase 1–7 failure-independence checks and Stage 1–14C applicable regressions. |
+
+### Phase 7 measurement record
+
+The host retrieval campaign measured `sizeof(RecordEnvelope)=80` and
+`sizeof(RetrievalChunk)=120`, retained eight records, and explicitly dropped
+two records after the provisional in-memory bound was reached. The development
+file backend remains bounded at 64 records and 4096 payload bytes. Firmware
+baseline measurements with `PP_MAX_ENTRIES=8` are 101304 static RAM / 937385
+application flash for `stage14cdemo`, and 98808 static RAM / 991885 application
+flash for `stage14cacceptance`. `/diag/records` is bounded to a 4096-byte
+payload buffer and 10240-byte provisional JSON inspection response per request.
+No numeric performance threshold or production capacity is frozen by these
+measurements.
+
 ## Final acceptance gates, intentionally outstanding
 
 Final Stage 15 acceptance/freeze requires, in addition:

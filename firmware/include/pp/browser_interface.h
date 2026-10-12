@@ -7,6 +7,7 @@
 #include "noticeboard.h"
 #include "system_time.h"
 #include "diagnostic_trace.h"
+#include "diagnostic_retrieval.h"
 namespace pp {
 // Browser identity and the retained Master binding are Browser Interface State.
 // Race Control receives only the logical ClientContext attached to a Bus message.
@@ -1491,6 +1492,128 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     trace.complete(sent);
     return sent;
   }
+  static esp_err_t diagnosticStatusRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/diag/status");
+    BrowserInterface* browser = instance();
+    if (!browser->diagnosticTrace_) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      httpd_resp_sendstr(request, "diagnostics unavailable");
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return ESP_FAIL;
+    }
+    diagnostic::SessionStatus session{};
+    diagnostic::StorageStatus storage{};
+    size_t retained = 0;
+    if (!browser->diagnosticTrace_->status(session, storage, retained)) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      httpd_resp_sendstr(request, "diagnostic status unavailable");
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return ESP_FAIL;
+    }
+    char* json = static_cast<char*>(malloc(1024));
+    if (!json) {
+      httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "diagnostic status buffer unavailable");
+      trace.complete(ESP_ERR_NO_MEM);
+      return ESP_FAIL;
+    }
+    const int length = snprintf(json, 1024,
+      "{\"formatVersion\":1,\"controllerEpoch\":%llu,\"session\":%llu,\"lifecycle\":%u,\"storageHealth\":%u,\"backend\":%u,\"lastFailure\":%u,\"nextSequence\":%llu,\"bytesRecorded\":%llu,\"retainedRecords\":%u,\"droppedRecords\":%llu,\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"retrievalAvailable\":%s}",
+      static_cast<unsigned long long>(session.controllerEpoch.value),
+      static_cast<unsigned long long>(session.session.value),
+      static_cast<unsigned>(session.lifecycle), static_cast<unsigned>(storage.health),
+      static_cast<unsigned>(storage.backend), static_cast<unsigned>(storage.lastFailure),
+      static_cast<unsigned long long>(session.nextSequence), static_cast<unsigned long long>(session.bytesRecorded), static_cast<unsigned>(retained),
+      static_cast<unsigned long long>(session.droppedRecords), session.evidenceVolatile ? "true" : "false",
+      session.evidenceIncomplete ? "true" : "false", retained ? "true" : "false");
+    if (length < 0 || length >= 1024) {
+      free(json);
+      httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "diagnostic status serialization failed");
+      trace.complete(ESP_ERR_INVALID_SIZE);
+      return ESP_FAIL;
+    }
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    const esp_err_t sent = httpd_resp_send(request, json, length);
+    free(json);
+    trace.complete(sent);
+    return sent;
+  }
+  static esp_err_t diagnosticRecordsRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/diag/records");
+    BrowserInterface* browser = instance();
+    if (!browser->diagnosticTrace_) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      httpd_resp_sendstr(request, "diagnostics unavailable");
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return ESP_FAIL;
+    }
+    char query[96]{};
+    size_t cursor = 0;
+    if (httpd_req_get_url_query_str(request, query, sizeof(query)) == ESP_OK) {
+      char value[24]{};
+      if (httpd_query_key_value(query, "cursor", value, sizeof(value)) == ESP_OK) {
+        char* end = nullptr;
+        const unsigned long parsed = strtoul(value, &end, 10);
+        if (!end || *end || parsed > SIZE_MAX) {
+          httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "invalid diagnostic cursor");
+          trace.complete(ESP_ERR_INVALID_ARG);
+          return ESP_FAIL;
+        }
+        cursor = static_cast<size_t>(parsed);
+      }
+    }
+    uint8_t* payload = static_cast<uint8_t*>(malloc(diagnostic::DiagnosticRetrieval::MaxPayloadBytes));
+    char* json = static_cast<char*>(malloc(diagnostic::DiagnosticRetrieval::MaxPayloadBytes * 2U + 2048U));
+    if (!payload || !json) {
+      free(payload); free(json);
+      httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "diagnostic retrieval buffer unavailable");
+      trace.complete(ESP_ERR_NO_MEM);
+      return ESP_FAIL;
+    }
+    diagnostic::SessionStatus session{};
+    diagnostic::StorageStatus storage{};
+    size_t retained = 0;
+    browser->diagnosticTrace_->status(session, storage, retained);
+    diagnostic::RetrievalChunk chunk{};
+    const bool readOk = diagnostic::DiagnosticRetrieval::next(
+      browser->diagnosticTrace_->recorder(), cursor, payload,
+      diagnostic::DiagnosticRetrieval::MaxPayloadBytes, chunk);
+    size_t used = 0;
+    if (!appendJson(json, diagnostic::DiagnosticRetrieval::MaxPayloadBytes * 2U + 2048U, used,
+        "{\"formatVersion\":1,\"cursor\":%u,\"nextCursor\":%u,\"retainedRecords\":%u,\"end\":%s,\"available\":%s,\"readFailed\":%s,\"evidenceIncomplete\":%s,\"session\":%llu,\"controllerEpoch\":%llu,\"payloadHex\":\"",
+        static_cast<unsigned>(chunk.cursor), static_cast<unsigned>(chunk.nextCursor), static_cast<unsigned>(retained),
+        chunk.end ? "true" : "false", chunk.available ? "true" : "false", chunk.readFailed ? "true" : "false",
+        chunk.evidenceIncomplete ? "true" : "false", static_cast<unsigned long long>(session.session.value),
+        static_cast<unsigned long long>(session.controllerEpoch.value))) {
+      free(payload); free(json); httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "diagnostic retrieval serialization failed"); trace.complete(ESP_ERR_INVALID_SIZE); return ESP_FAIL;
+    }
+    static const char hex[] = "0123456789ABCDEF";
+    for (size_t i = 0; i < chunk.payloadBytes; ++i) {
+      if (!appendJson(json, diagnostic::DiagnosticRetrieval::MaxPayloadBytes * 2U + 2048U, used,
+                      "%c%c", hex[payload[i] >> 4], hex[payload[i] & 0x0F])) {
+        free(payload); free(json); httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "diagnostic retrieval serialization failed"); trace.complete(ESP_ERR_INVALID_SIZE); return ESP_FAIL;
+      }
+    }
+    if (chunk.available && !appendJson(json, diagnostic::DiagnosticRetrieval::MaxPayloadBytes * 2U + 2048U, used,
+        "\",\"sequence\":%llu,\"kind\":%u,\"severity\":%u,\"timestamp\":%llu,\"client\":%llu,\"traceId\":%llu,\"requestCorrelation\":%u,\"eventCorrelation\":%u,\"parentCorrelation\":%u,\"payloadType\":%u,\"operation\":%u,\"payloadBytes\":%u}",
+        static_cast<unsigned long long>(chunk.envelope.sequence), static_cast<unsigned>(chunk.envelope.kind),
+        static_cast<unsigned>(chunk.envelope.severity), static_cast<unsigned long long>(chunk.envelope.timestamp),
+        static_cast<unsigned long long>(chunk.envelope.client.value), static_cast<unsigned long long>(chunk.envelope.traceId),
+        static_cast<unsigned>(chunk.envelope.correlation.request), static_cast<unsigned>(chunk.envelope.correlation.event),
+        static_cast<unsigned>(chunk.envelope.correlation.parent), static_cast<unsigned>(chunk.envelope.payloadType),
+        static_cast<unsigned>(chunk.envelope.operation), static_cast<unsigned>(chunk.payloadBytes))) {
+      free(payload); free(json); httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "diagnostic retrieval serialization failed"); trace.complete(ESP_ERR_INVALID_SIZE); return ESP_FAIL;
+    } else if (!chunk.available && !appendJson(json, diagnostic::DiagnosticRetrieval::MaxPayloadBytes * 2U + 2048U, used, "\"}")) {
+      free(payload); free(json); httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "diagnostic retrieval serialization failed"); trace.complete(ESP_ERR_INVALID_SIZE); return ESP_FAIL;
+    }
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    const esp_err_t sent = httpd_resp_send(request, json, used);
+    free(payload); free(json);
+    trace.complete(sent);
+    (void)readOk;
+    return sent;
+  }
   static esp_err_t health(httpd_req_t* request) {
     RequestTrace trace(instance(), "/health");
     httpd_resp_set_type(request, "application/json");
@@ -1524,6 +1647,8 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/diag/bootstrap", HTTP_GET, bootstrapDiagnostic, nullptr},
       {"/diag/browser", HTTP_POST, browserActionRoute, nullptr},
       {"/diag/browser-observation", HTTP_POST, browserObservationRoute, nullptr},
+      {"/diag/status", HTTP_GET, diagnosticStatusRoute, nullptr},
+      {"/diag/records", HTTP_GET, diagnosticRecordsRoute, nullptr},
       {"/proposal", HTTP_GET, proposalRoute, nullptr},
       {"/practice-summary", HTTP_GET, practiceSummaryRoute, nullptr},
       {"/finish-display", HTTP_GET, finishDisplayRoute, nullptr},

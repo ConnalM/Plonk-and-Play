@@ -183,6 +183,7 @@ struct SessionStatus {
   StorageHealth storage = StorageHealth::Fault;
   FailureReason lastFailure = FailureReason::None;
   uint64_t nextSequence = 0;
+  uint64_t bytesRecorded = 0;
   uint64_t droppedRecords = 0;
   bool evidenceVolatile = false;
   bool evidenceIncomplete = false;
@@ -210,6 +211,12 @@ public:
   virtual RecorderResult interrupt(SessionStatus& status) = 0;
   virtual RecorderResult tryAppend(const RecordView& record, uint64_t& sequence) = 0;
   virtual bool status(SessionStatus& status) const = 0;
+  // Backend health is exposed separately from session lifecycle so an active
+  // RAM-only/degraded session remains a valid active session.
+  virtual bool storageStatus(StorageStatus& status) const {
+    status = StorageStatus{};
+    return false;
+  }
   virtual size_t count() const = 0;
   virtual bool read(size_t index, RecordEnvelope& envelope, uint8_t* payload,
                     size_t capacity, size_t& length) const = 0;
