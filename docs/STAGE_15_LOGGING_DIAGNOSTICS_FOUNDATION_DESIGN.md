@@ -1,0 +1,58 @@
+# Stage 15 Logging and Diagnostics Foundation Design
+
+**Status:** Foundation Design ACCEPTED/FROZEN for implementation. Final Stage 15 acceptance/freeze is not granted.
+
+## 1. Scope
+
+This foundation records observations about Browser actions, P&P requests and decisions, authoritative state changes, notifications, rendering, storage, and system health. It does not become product state, race authority, timing authority, classification authority, Browser configuration authority, or product persistence.
+
+The implementation must preserve all Stage 1–14C semantics and the preserved Stage 14C candidate.
+
+## 2. Session and storage-health state
+
+The diagnostic session lifecycle is exactly:
+
+`DISABLED`, `STARTING`, `ACTIVE`, `STOPPING`, `COMPLETED`, `INTERRUPTED`.
+
+Storage health is a separate dimension. The foundation contract uses:
+
+`DURABLE_SD`, `RAM_ONLY`, `DEGRADED`, `FAULT`.
+
+`DEGRADED_RAM_ONLY` is not a lifecycle state. An `ACTIVE` session may be `RAM_ONLY` or `DEGRADED`.
+
+Starting without durable storage is permitted. The session starts in clearly identified RAM-only/degraded operation with an explicit warning that evidence is volatile, may be incomplete, and is lost on controller restart unless committed elsewhere.
+
+## 3. Ownership
+
+There is one active Development diagnostic session per P&P controller. A request to start another session returns `ALREADY_ACTIVE` together with the existing session status and identity. It never creates, replaces, merges, or silently joins a session.
+
+Other Browser clients may observe or contribute to the existing session. Each client has an independent client identity recorded in its diagnostic events.
+
+## 4. Structured records
+
+Every record has a versioned envelope containing controller epoch, session identity, client identity where applicable, sequence, diagnostic timestamp, event kind, severity, correlation fields, payload type, and structured payload.
+
+The correlation chain is:
+
+`USER ACTION → Browser request → interface request → Message Bus → P&P decision → authoritative change → notification → Browser collection → render observation`.
+
+Message Bus facts and Noticeboard/SSE notifications remain separate from diagnostic records. Missed diagnostic events must not affect product behavior.
+
+## 5. Recorder and backend boundary
+
+The `DiagnosticRecorder` owns session lifecycle, record sequencing, attribution, status, and fault reporting. The `DiagnosticStorage` boundary abstracts RAM, host/file-backed development storage, Wokwi-compatible development storage, failure-injection storage, and the future ESP32-S3 SD/FATFS backend.
+
+The Phase 1 interfaces do not freeze capacities, queue sizes, file sizes, export encoding, SD layout, or performance thresholds.
+
+Recorder operations must be bounded and non-blocking from timing-critical product code. A diagnostic failure may drop or mark evidence, but must not block or alter racing, timing, classification, persistence authority, or Browser authority.
+
+## 6. Restart and recovery
+
+Each controller boot creates a new controller epoch. Durable diagnostic evidence follows the selected backend recovery rules. A RAM-only active session cannot be reconstructed after restart and is reported as interrupted/lost rather than completed.
+
+Browser reload/reconnect reconstructs diagnostic status from P&P authority. No active-race recovery is introduced.
+
+## 7. Final acceptance boundary
+
+Foundation Design Freeze permits implementation. Final Stage 15 acceptance/freeze additionally requires resource measurement, production ESP32-S3 plus SD/FATFS evidence, permission/security, privacy/redaction, final Browser UX, export encoding, SD housekeeping/wear policy, exact render-evidence rules, and implementation-informed storage-health recovery details.
+
