@@ -79,6 +79,7 @@ public:
   StorageStatus status() const override {
     StorageStatus result{};
     result.health = health_;
+    result.backend = BackendKind::Memory;
     result.lastFailure = lastFailure_;
     result.durable = false;
     return result;
@@ -116,6 +117,7 @@ private:
       case StorageResult::CommitFailed: return FailureReason::CommitFailure;
       case StorageResult::Corrupt: return FailureReason::CorruptRecord;
       case StorageResult::UnsupportedVersion: return FailureReason::UnsupportedVersion;
+      case StorageResult::Incomplete: return FailureReason::UnfinalizedSession;
       case StorageResult::Invalid: return FailureReason::InvalidRequest;
       default: return FailureReason::RecorderFault;
     }
@@ -247,6 +249,7 @@ private:
       case StorageResult::CommitFailed: return FailureReason::CommitFailure;
       case StorageResult::Corrupt: return FailureReason::CorruptRecord;
       case StorageResult::UnsupportedVersion: return FailureReason::UnsupportedVersion;
+      case StorageResult::Incomplete: return FailureReason::UnfinalizedSession;
       default: return FailureReason::RecorderFault;
     }
   }

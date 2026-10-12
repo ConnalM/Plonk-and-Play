@@ -26,6 +26,14 @@ enum class StorageHealth : uint8_t {
   Fault = 3,
 };
 
+enum class BackendKind : uint8_t {
+  Unknown = 0,
+  Memory = 1,
+  DevelopmentFile = 2,
+  FailureInjection = 3,
+  ProductionSd = 4,
+};
+
 enum class EventKind : uint8_t {
   UserAction = 0,
   BrowserRequest = 1,
@@ -72,6 +80,7 @@ enum class StorageResult : uint8_t {
   UnsupportedVersion = 6,
   Busy = 7,
   Invalid = 8,
+  Incomplete = 9,
 };
 
 enum class FailureReason : uint8_t {
@@ -87,6 +96,7 @@ enum class FailureReason : uint8_t {
   InvalidRequest = 9,
   BackendUnavailable = 10,
   WriteFailure = 11,
+  UnfinalizedSession = 12,
 };
 
 struct ControllerEpoch {
@@ -156,6 +166,7 @@ struct SessionStatus {
 
 struct StorageStatus {
   StorageHealth health = StorageHealth::Fault;
+  BackendKind backend = BackendKind::Unknown;
   FailureReason lastFailure = FailureReason::None;
   bool durable = false;
 };

@@ -62,3 +62,9 @@ Phase 2 provides an in-memory recorder and backend solely to exercise the contra
 
 The Phase 2 bound is a test/development implementation detail. It is not a product retention capacity, SD capacity, or final performance threshold.
 
+## 9. Phase 3 development storage
+
+Phase 3 adds a host/file-backed development backend and a deterministic failure-injection wrapper. The file representation is explicitly development/test-only, versioned, checksummed, session-scoped, and capable of recognizing finalized, unfinalized, corrupt, and unsupported-version data. It is not the production SD layout or final export encoding.
+
+The in-memory backend remains the firmware-compatible development backend for Wokwi tests. No Wokwi firmware access to host files is required, and no separate Wokwi storage architecture is introduced in Phase 3.
+

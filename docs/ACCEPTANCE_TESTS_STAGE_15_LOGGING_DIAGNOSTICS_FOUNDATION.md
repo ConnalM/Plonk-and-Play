@@ -39,6 +39,17 @@ No numeric capacity, queue, file-size, or performance threshold is frozen by thi
 | PS15.24 | Backend append failure latches fault, reports the failure, and causes later submissions to return without retrying the backend. | Phase 2 failure-injection test. |
 | PS15.25 | Interruption reports `INTERRUPTED` and incomplete evidence without creating product state. | Phase 2 unit test. |
 
+## Phase 3 focused checks
+
+| ID | Requirement | Evidence |
+|---|---|---|
+| PS15.26 | Host/file-backed development storage creates, appends, finalizes, reads, and reconstructs ordered records. | Phase 3 backend contract test. |
+| PS15.27 | Development files retain controller/session provenance and checksummed versioned record envelopes. | Phase 3 backend contract test. |
+| PS15.28 | Unfinalized sessions are recognized as incomplete and are not promoted to completed evidence. | Phase 3 recovery test. |
+| PS15.29 | Corrupt and unsupported-version development files are rejected deterministically. | Phase 3 recovery test. |
+| PS15.30 | Start, append, finalize, recover, read, and unavailable failures can be injected deterministically without timing or randomness. | Phase 3 failure-injection test. |
+| PS15.31 | Memory and host/file backends satisfy the same DiagnosticStorage contract; no distinct Wokwi host-filesystem backend is required. | Phase 3 contract test and structural review. |
+
 ## Final acceptance gates, intentionally outstanding
 
 Final Stage 15 acceptance/freeze requires, in addition:
