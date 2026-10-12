@@ -1,5 +1,6 @@
 #include "pp/diagnostic_memory.h"
 #include "pp/diagnostic_trace.h"
+#include "pp/race_control.h"
 
 using namespace pp;
 using namespace pp::diagnostic;
@@ -29,7 +30,54 @@ static Message notice() {
   return message;
 }
 
+static bool actualRaceControlTrace() {
+  Bus bus;
+  const auto presentation = bus.attach(Role::Presentation);
+  const auto controlEndpoint = bus.attach(Role::RaceControl);
+  const auto observer = bus.attach(Role::Diagnostics);
+  ActiveSessionDefinition active;
+  RaceControlModule control(bus, controlEndpoint, active);
+  ProposedRaceSetup setup{};
+  setup.entries[0].startFinish = SessionInputRole{InputIdentity{1, 1}, 1, InputRole::StartFinish};
+  setup.entries[0].mugId = 91;
+  setup.activeLanes = 1;
+  setup.lapTarget = 2;
+  setup.mode = SessionMode::LapRace;
+  if (!bus.subscribe(controlEndpoint, Type::StartRequest) ||
+      !bus.subscribe(presentation, Type::GoScheduled) ||
+      !bus.subscribe(observer, Type::StartRequest) ||
+      !bus.subscribe(observer, Type::RequestResult) ||
+      !bus.subscribe(observer, Type::NoticeboardChanged)) return false;
+  control.setProposedRaceSetup(setup);
+
+  MemoryDiagnosticStorage storage;
+  InMemoryDiagnosticRecorder recorder(storage);
+  SessionStartRequest session{}; session.controllerEpoch.value = 88; session.client.value = 4;
+  SessionStatus status{};
+  if (recorder.start(session, status) != RecorderResult::Accepted) return false;
+  ControllerOperationTrace trace(recorder);
+  Message request = startRequest(501);
+  if (bus.publish(presentation, request) != Delivery::Delivered) return false;
+  control.tick(1000);
+  Message observed{};
+  Time timestamp = 100;
+  while (bus.receive(observer, observed)) trace.observe(observed, static_cast<uint8_t>(control.state()), timestamp++);
+  if (recorder.count() != 4 || control.state() != pp::SessionLifecycle::Starting) return false;
+
+  Message duplicate = startRequest(502);
+  if (bus.publish(presentation, duplicate) != Delivery::Delivered) return false;
+  control.tick(1001);
+  while (bus.receive(observer, observed)) trace.observe(observed, static_cast<uint8_t>(control.state()), timestamp++);
+  if (recorder.count() != 6 || control.state() != pp::SessionLifecycle::Starting) return false;
+  RecordEnvelope envelope{}; uint8_t payload[4]{}; size_t length = 0;
+  if (!recorder.read(5, envelope, payload, sizeof(payload), length) ||
+      envelope.kind != EventKind::RequestRejected || envelope.correlation.request != 502 ||
+      envelope.operation != OperationName::Start) return false;
+  return true;
+}
+
 int main() {
+  if (!actualRaceControlTrace()) return 1;
   MemoryDiagnosticStorage storage;
   InMemoryDiagnosticRecorder recorder(storage);
   SessionStartRequest session{};
