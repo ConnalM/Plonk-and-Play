@@ -51,6 +51,11 @@ enum class EventKind : uint8_t {
   ResourceHealth = 13,
   SessionStateChange = 14,
   StorageHealthChange = 15,
+  BrowserNotification = 16,
+  StateFetchStarted = 17,
+  StateReceived = 18,
+  StateApplied = 19,
+  Reconstruction = 20,
 };
 
 // A named product operation is diagnostic metadata. It never becomes a

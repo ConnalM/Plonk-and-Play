@@ -71,6 +71,16 @@ No numeric capacity, queue, file-size, or performance threshold is frozen by thi
 | PS15.43 | Diagnostic recorder/backend failure cannot prevent or alter the real Browser request dispatch or its P&P result. | Phase 5 failure-independence test. |
 | PS15.44 | The Browser trace remains bounded and non-blocking and leaves existing product request/result, authority, and race semantics unchanged. | Phase 1–4 regressions plus Stage 1–14C applicable regressions. |
 
+## Phase 6 focused checks
+
+| PS15.45 | An accepted START can be traced through the existing NoticeboardChanged notification, Browser receipt, authoritative State fetch/receipt, State application and actual Browser render observation. | Phase 6 trace test and standard Browser path review. |
+| PS15.46 | Notification receipt, State fetch, State application and render evidence preserve client, trace, visible correlation, P&P correlation, revision/epoch and diagnostic sequence as separate identities. | Phase 6 contract test. |
+| PS15.47 | Reconstruction/reconnect during an active state records State acquisition/application/render without manufacturing a START action. | Phase 6 reconstruction test. |
+| PS15.48 | Two Browser clients observing one change remain individually attributable and cannot affect authority or each other. | Phase 6 multi-client test. |
+| PS15.49 | The evidence distinguishes missing notification, incomplete State acquisition, State received but not applied, applied but not rendered, and a complete chain. | Phase 6 incomplete-chain test. |
+| PS15.50 | Diagnostic recorder/backend failure cannot prevent notification handling, State collection, State application or render. | Phase 6 failure-independence test. |
+| PS15.51 | Phase 6 uses only existing notification, State and render paths; it adds no diagnostic state channel, polling/SSE transport, Browser authority or product semantics. | Structural review and Stage 1–14C applicable regressions. |
+
 ## Final acceptance gates, intentionally outstanding
 
 Final Stage 15 acceptance/freeze requires, in addition:

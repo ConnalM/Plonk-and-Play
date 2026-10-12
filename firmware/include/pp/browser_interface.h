@@ -1199,6 +1199,102 @@ private:
     httpd_resp_set_status(request, "204 No Content");
     return httpd_resp_send(request, nullptr, 0);
   }
+  static esp_err_t browserObservationRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/diag/browser-observation");
+    BrowserInterface* browser = instance();
+    const uint64_t owner = client(request);
+    if (!browser->diagnosticTrace_ || request->content_len <= 0 || request->content_len >= 768) {
+      httpd_resp_set_status(request, "204 No Content");
+      const esp_err_t sent = httpd_resp_send(request, nullptr, 0);
+      trace.complete(sent);
+      return sent;
+    }
+    char* body = static_cast<char*>(malloc(static_cast<size_t>(request->content_len) + 1U));
+    if (!body) {
+      httpd_resp_set_status(request, "204 No Content");
+      const esp_err_t sent = httpd_resp_send(request, nullptr, 0);
+      trace.complete(sent);
+      return sent;
+    }
+    memset(body, 0, static_cast<size_t>(request->content_len) + 1U);
+    int received = 0;
+    while (received < request->content_len) {
+      const int part = httpd_req_recv(request, body + received, request->content_len - received);
+      if (part <= 0) break;
+      received += part;
+    }
+    const auto number = [&](const char* key, uint32_t fallback = 0U) {
+      const char* p = strstr(body, key);
+      const char* colon = p ? strchr(p, ':') : nullptr;
+      return colon ? static_cast<uint32_t>(strtoul(colon + 1, nullptr, 10)) : fallback;
+    };
+    const auto number64 = [&](const char* key, uint64_t fallback = 0ULL) {
+      const char* p = strstr(body, key);
+      const char* colon = p ? strchr(p, ':') : nullptr;
+      return colon ? static_cast<uint64_t>(strtoull(colon + 1, nullptr, 10)) : fallback;
+    };
+    const auto text = [&](const char* key, char* out, size_t capacity) {
+      if (!out || capacity == 0) return;
+      out[0] = 0;
+      const char* p = strstr(body, key);
+      const char* start = p ? strchr(p, '"') : nullptr;
+      if (!start) return;
+      ++start;
+      const char* end = strchr(start, '"');
+      if (!end) return;
+      const size_t length = size_t(end - start) < capacity - 1 ? size_t(end - start) : capacity - 1;
+      memcpy(out, start, length);
+      out[length] = 0;
+    };
+    char kind[32]{};
+    char lifecycle[20]{};
+    char mode[20]{};
+    char operation[32]{};
+    char phase[24]{};
+    text("\"kind\"", kind, sizeof(kind));
+    text("\"lifecycle\"", lifecycle, sizeof(lifecycle));
+    text("\"sessionMode\"", mode, sizeof(mode));
+    text("\"operation\"", operation, sizeof(operation));
+    text("\"phase\"", phase, sizeof(phase));
+    const uint64_t traceId = number64("\"diagnosticTraceId\"");
+    const uint32_t visible = number("\"correlationId\"");
+    const uint32_t revision = number("\"revision\"");
+    const uint32_t eventId = number("\"eventId\"");
+    const uint32_t detail = number("\"detail\"");
+    const uint32_t phaseCode = strcmp(phase, "COUNTDOWN") == 0 ? 1U :
+      strcmp(phase, "RESUME_COUNTDOWN") == 0 ? 2U :
+      strcmp(phase, "GO") == 0 ? 3U : 0U;
+    const uint32_t observationDetail = detail ? detail : phaseCode;
+    const uint32_t notificationType = strcmp(kind, "presentation") == 0 ? 2U : 1U;
+    const uint8_t lifecycleCode = strcmp(lifecycle, "STARTING") == 0 ? 2 :
+      strcmp(lifecycle, "RACING") == 0 ? 3 : strcmp(lifecycle, "PAUSED") == 0 ? 4 :
+      strcmp(lifecycle, "FINISHED") == 0 ? 6 : strcmp(lifecycle, "READY") == 0 ? 1 : 0;
+    const uint8_t modeCode = strcmp(mode, "OPEN_PRACTICE") == 0 ? 2 :
+      strcmp(mode, "ENDURANCE") == 0 ? 3 : strcmp(mode, "LAP_RACE") == 0 ? 1 : 0;
+    const diagnostic::OperationName op = diagnosticOperationName(operation);
+    diagnostic::ClientId clientId{};
+    clientId.value = owner;
+    if (strcmp(kind, "notification") == 0 || strcmp(kind, "presentation") == 0) {
+      browser->diagnosticTrace_->observeBrowserNotification(
+          clientId, traceId, visible, revision, eventId,
+          notificationType, op, systemTime());
+    } else {
+      diagnostic::EventKind event = diagnostic::EventKind::StateFetchStarted;
+      if (strcmp(kind, "state_received") == 0) event = diagnostic::EventKind::StateReceived;
+      else if (strcmp(kind, "state_applied") == 0) event = diagnostic::EventKind::StateApplied;
+      else if (strcmp(kind, "rendered") == 0) event = diagnostic::EventKind::BrowserRender;
+      else if (strcmp(kind, "reconstruction") == 0) event = diagnostic::EventKind::Reconstruction;
+      else if (strcmp(kind, "state_fetch_started") != 0) event = diagnostic::EventKind::ResourceHealth;
+      browser->diagnosticTrace_->observeBrowserState(
+          event, clientId, traceId, visible, revision,
+          lifecycleCode, modeCode, observationDetail, op, systemTime());
+    }
+    free(body);
+    httpd_resp_set_status(request, "204 No Content");
+    const esp_err_t sent = httpd_resp_send(request, nullptr, 0);
+    trace.complete(sent);
+    return sent;
+  }
   static esp_err_t bootstrapRoute(httpd_req_t* request) {
     const uint64_t owner = client(request);
     if (request->content_len != 0) {
@@ -1427,6 +1523,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/events", HTTP_GET, events, nullptr},
       {"/diag/bootstrap", HTTP_GET, bootstrapDiagnostic, nullptr},
       {"/diag/browser", HTTP_POST, browserActionRoute, nullptr},
+      {"/diag/browser-observation", HTTP_POST, browserObservationRoute, nullptr},
       {"/proposal", HTTP_GET, proposalRoute, nullptr},
       {"/practice-summary", HTTP_GET, practiceSummaryRoute, nullptr},
       {"/finish-display", HTTP_GET, finishDisplayRoute, nullptr},

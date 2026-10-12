@@ -109,6 +109,36 @@ public:
     }
   }
 
+  // Browser presentation observations are evidence only.  The generic
+  // Noticeboard contract remains unchanged; revision/event values are carried
+  // in diagnostic correlation fields where the Browser has them.
+  void observeBrowserNotification(ClientId client, uint64_t traceId,
+                                  uint32_t visibleCorrelation,
+                                  uint32_t revision, uint32_t eventId,
+                                  uint32_t notificationType,
+                                  OperationName operation = OperationName::Unknown,
+                                  Time timestamp = 0) {
+    Correlation correlation{};
+    correlation.request = visibleCorrelation;
+    correlation.event = revision;
+    correlation.parent = eventId;
+    append(EventKind::BrowserNotification, operation, correlation,
+           0, notificationType, timestamp, client, traceId);
+  }
+
+  void observeBrowserState(EventKind kind, ClientId client, uint64_t traceId,
+                          uint32_t visibleCorrelation, uint32_t revision,
+                          uint8_t lifecycle, uint8_t sessionMode,
+                          uint32_t detail = 0,
+                          OperationName operation = OperationName::Unknown,
+                          Time timestamp = 0) {
+    Correlation correlation{};
+    correlation.request = visibleCorrelation;
+    correlation.event = revision;
+    append(kind, operation, correlation, lifecycle, detail,
+           timestamp, client, traceId, sessionMode);
+  }
+
   uint64_t droppedObservations() const { return droppedObservations_; }
 
 private:
@@ -183,10 +213,11 @@ private:
 
   void append(EventKind kind, OperationName operation, Correlation correlation,
               uint8_t lifecycle, uint32_t payloadType, Time timestamp,
-              ClientId client, uint64_t traceId) {
+              ClientId client, uint64_t traceId, uint8_t sessionMode = 0xFF) {
     SessionStatus status{};
     if (!recorder_.status(status)) { ++droppedObservations_; return; }
-    const uint8_t payload[2] = {lifecycle, static_cast<uint8_t>(payloadType)};
+    const uint8_t payload[2] = {
+      lifecycle, sessionMode == 0xFF ? static_cast<uint8_t>(payloadType) : sessionMode};
     RecordView record{};
     record.envelope.controllerEpoch = status.controllerEpoch;
     record.envelope.session = status.session;

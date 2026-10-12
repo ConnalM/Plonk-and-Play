@@ -121,3 +121,35 @@ Phase 5 does not define final Browser diagnostic UX, security/permission or
 privacy policy, export encoding, storage capacities, SD layout, SSE/state
 tracing, or render-evidence semantics.
 
+## 12. Phase 6 authoritative state to Browser render trace
+
+Phase 6 observes the existing presentation path only:
+
+`authoritative P&P change → NoticeboardChanged → existing notification → Browser receipt → authoritative /state collection → state application → render evidence`.
+
+The generic NoticeboardChanged contract remains unchanged and carries no new
+product correlation. Diagnostic records may associate a notification with a
+trace only where the existing metadata makes that association legitimate; a
+generic notification without proven causation is recorded as such. Browser
+notification receipt is attributed to the server-assigned Browser client and
+preserves any available diagnostic trace, visible correlation, revision and
+event identifiers separately.
+
+State-fetch start/receipt, state application and render evidence are separate
+observation records. They carry compact lifecycle/session information and the
+existing P&P revision/epoch identifiers where available; they do not duplicate
+full State or invent a Browser-owned revision. Render evidence is a narrow
+observation of the existing DOM/presentation update, not a screenshot system,
+renderer duplicate or authority source. Diagnostic submission is fire-and-
+forget and must never be required for notification handling, state collection,
+state application or rendering.
+
+Initial connection, reload, reconnect and controller-epoch reconstruction are
+marked as reconstruction observations. They do not manufacture a START trace.
+Multiple Browser clients remain independently attributable while observing the
+same authoritative state. The trace must make it possible to distinguish a
+missing notification, incomplete state acquisition, state received but not
+applied, applied but not rendered, and the complete chain. Phase 6 does not
+add diagnostic state delivery, SSE/polling, a Browser product state machine,
+general screen instrumentation, detector/lap tracing or persistence tracing.
+
