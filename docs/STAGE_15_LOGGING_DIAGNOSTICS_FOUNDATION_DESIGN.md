@@ -68,3 +68,27 @@ Phase 3 adds a host/file-backed development backend and a deterministic failure-
 
 The in-memory backend remains the firmware-compatible development backend for Wokwi tests. No Wokwi firmware access to host files is required, and no separate Wokwi storage architecture is introduced in Phase 3.
 
+## 10. Phase 4 controller-side operation trace
+
+Phase 4 adds one observation-only controller trace spine for an existing named
+operation, initially `START`. The development/demo controller observes the
+existing `StartRequest`, `RequestResult`, authoritative state transition, and
+generic `NoticeboardChanged` messages through a separate Diagnostics bus
+observer. It records the operation name, existing request correlation, event
+ordering, and the observed authoritative lifecycle snapshot in the existing
+bounded in-memory recorder.
+
+There is no new product request path and no new product message contract. The
+current `RequestResult` is the available Race Control decision/result boundary;
+there is no separate downstream decision message to correlate. A generic
+`NoticeboardChanged` has no request correlation, so the trace associates it with
+the pending accepted START observation only and records that limitation rather
+than changing the frozen Noticeboard contract.
+
+Accepted and rejected START requests are both observable. A rejected request
+must not produce a diagnostic state-transition record. Recorder/backend failure
+may lose or mark diagnostic evidence but cannot affect request acceptance,
+authoritative state, timing, or Noticeboard publication. Phase 4 does not add
+Browser click/render tracing, detector/lap tracing, persistence tracing, SD,
+SSE transport tracing, or final diagnostic UX.
+

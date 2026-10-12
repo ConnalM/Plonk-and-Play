@@ -15,6 +15,7 @@ static RecordView makeRecord(const SessionStatus& status, ClientId client, uint3
   view.envelope.session = status.session;
   view.envelope.client = client;
   view.envelope.kind = EventKind::BrowserRequest;
+  view.envelope.operation = OperationName::Start;
   view.envelope.correlation.request = request;
   view.envelope.timestamp = request * 10;
   view.payload = payload;
@@ -45,7 +46,7 @@ int main() {
   DevelopmentFileStorage recovered(path);
   if (recovered.recover() != StorageResult::Accepted || recovered.count() != 3 || !recovered.finalized()) return 6;
   RecordEnvelope envelope{}; uint8_t payload[8]{}; size_t length = 0;
-  if (!recovered.read(1, envelope, payload, sizeof(payload), length) || envelope.sequence != 2 || envelope.client.value != 2 || length != 2 || payload[0] != 1) return 7;
+  if (!recovered.read(1, envelope, payload, sizeof(payload), length) || envelope.sequence != 2 || envelope.client.value != 2 || envelope.operation != OperationName::Start || length != 2 || payload[0] != 1) return 7;
 
   // An unfinalized file is recognized as incomplete while valid frames remain
   // readable; it is not silently promoted to a completed session.

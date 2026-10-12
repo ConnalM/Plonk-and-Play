@@ -14,6 +14,10 @@
 #include "pp/browser_interface.h"
 #include "pp/verification.h"
 #include "pp/persistent_storage.h"
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+#include "pp/diagnostic_memory.h"
+#include "pp/diagnostic_trace.h"
+#endif
 #ifndef PP_DIAGNOSTICS
 #define PP_DIAGNOSTICS 1
 #endif
@@ -94,6 +98,12 @@ pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthor
 const auto testPublisher=bus.attach(pp::Role::Diagnostics);
 const auto testObserver=bus.attach(pp::Role::Diagnostics);
 const auto inputObserver=bus.attach(pp::Role::Diagnostics);
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+const auto controllerTraceObserver=bus.attach(pp::Role::Diagnostics);
+pp::diagnostic::MemoryDiagnosticStorage controllerTraceStorage;
+pp::diagnostic::InMemoryDiagnosticRecorder controllerTraceRecorder(controllerTraceStorage);
+pp::diagnostic::ControllerOperationTrace controllerTrace(controllerTraceRecorder);
+#endif
 pp::MemoryModule memoryModule(bus,memoryEndpoint,memory);
 pp::Configuration workingConfiguration;
 pp::ProposedRaceSetup proposedRaceSetup{ {pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish}, 1, 10, pp::LapFinishBehaviour::Immediate, 1, true, false };
@@ -389,6 +399,13 @@ void observeDiagnosticEvents(){
     }
   }
 }
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+void observeControllerTrace(){
+  pp::Message event;
+  while(bus.receive(controllerTraceObserver,event))
+    controllerTrace.observe(event,static_cast<uint8_t>(raceControl.state()),systemTime());
+}
+#endif
 #ifdef PP_ACCEPTANCE
 #include "../tests/acceptance_probe.inc"
 #endif
@@ -507,6 +524,11 @@ void setup(){
   storage.begin();browserAuthority.begin();
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   diagnostics.log("[INIT] Development persistence backend READY (versioned NVS/Wokwi boundary)");
+  pp::diagnostic::SessionStartRequest traceStart{};
+  traceStart.controllerEpoch.value=systemTime()|uint64_t(1);
+  traceStart.client.value=1;
+  pp::diagnostic::SessionStatus traceStatus{};
+  controllerTraceRecorder.start(traceStart,traceStatus);
 #endif
 #if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   browserAuthority.clearForFixture();
@@ -522,6 +544,7 @@ void setup(){
   // in control flow. High-frequency NoticeboardChanged and ordinary bus
   // traffic remain intentionally unobserved here.
   for(pp::Type type : {pp::Type::StartRequest,pp::Type::RequestResult,pp::Type::SessionOperationRequest,pp::Type::SessionOperation,pp::Type::GoScheduled,pp::Type::LapCompleted,pp::Type::Paused,pp::Type::RestartScheduled,pp::Type::Resumed,pp::Type::FalseStart,pp::Type::EnduranceExpired,pp::Type::CompetitionComplete,pp::Type::HistoryStored,pp::Type::StorageFault,pp::Type::RaceIntegrityFault,pp::Type::PauseSettled,pp::Type::FinishSettled}) testsPassed&=bus.subscribe(testObserver,type);
+  for(pp::Type type : {pp::Type::StartRequest,pp::Type::RequestResult,pp::Type::NoticeboardChanged}) testsPassed&=bus.subscribe(controllerTraceObserver,type);
 #endif
   testsPassed&=bus.subscribe(input.endpoint,pp::Type::SessionOperation);
   testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::InputEvent);
@@ -640,6 +663,7 @@ void loop(){
 #endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   observeDiagnosticEvents();
+  observeControllerTrace();
 #endif
   observeInputEvents();
   pp::Message message;

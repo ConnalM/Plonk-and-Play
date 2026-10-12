@@ -16,7 +16,7 @@ class DevelopmentFileStorage final : public DiagnosticStorage {
 public:
   static constexpr uint32_t HeaderMagic = 0x44474C31u; // DGL1
   static constexpr uint32_t FrameMagic = 0x44475231u;  // DGR1
-  static constexpr uint16_t FormatVersion = 1;
+  static constexpr uint16_t FormatVersion = 2;
   static constexpr size_t DevelopmentFileMaxRecords = 64;
   static constexpr size_t DevelopmentFileMaxPayloadBytes = 4096;
 
@@ -205,7 +205,7 @@ private:
     appendU32(bytes, FrameMagic); appendU16(bytes, FormatVersion); appendU16(bytes, 0);
     appendU16(bytes, record.envelope.formatVersion); bytes.push_back(static_cast<uint8_t>(record.envelope.kind)); bytes.push_back(static_cast<uint8_t>(record.envelope.severity));
     appendU64(bytes, record.envelope.controllerEpoch.value); appendU64(bytes, record.envelope.session.value); appendU64(bytes, record.envelope.client.value); appendU64(bytes, sequence); appendU64(bytes, record.envelope.timestamp);
-    appendU32(bytes, record.envelope.correlation.request); appendU32(bytes, record.envelope.correlation.event); appendU32(bytes, record.envelope.correlation.parent); appendU32(bytes, record.envelope.payloadType);
+    appendU32(bytes, record.envelope.correlation.request); appendU32(bytes, record.envelope.correlation.event); appendU32(bytes, record.envelope.correlation.parent); appendU32(bytes, record.envelope.payloadType); bytes.push_back(static_cast<uint8_t>(record.envelope.operation));
     appendU32(bytes, static_cast<uint32_t>(record.payloadBytes));
     bytes.insert(bytes.end(), record.payload, record.payload + record.payloadBytes);
     appendU32(bytes, checksum(bytes.data(), bytes.size()));
@@ -213,16 +213,16 @@ private:
 
   static bool readFrame(std::istream& stream, StoredRecord& stored) {
     std::vector<uint8_t> bytes;
-    uint32_t magic = 0; uint16_t version = 0, reserved = 0, envelopeVersion = 0; uint8_t kind = 0, severity = 0; uint64_t epoch = 0, session = 0, client = 0, sequence = 0, timestamp = 0; uint32_t request = 0, event = 0, parent = 0, payloadType = 0, payloadLength = 0;
+    uint32_t magic = 0; uint16_t version = 0, reserved = 0, envelopeVersion = 0; uint8_t kind = 0, severity = 0, operation = 0; uint64_t epoch = 0, session = 0, client = 0, sequence = 0, timestamp = 0; uint32_t request = 0, event = 0, parent = 0, payloadType = 0, payloadLength = 0;
     if (!readU32(stream, magic) || !readU16(stream, version) || !readU16(stream, reserved) || !readU16(stream, envelopeVersion)) return false;
-    if (!stream.read(reinterpret_cast<char*>(&kind), 1) || !stream.read(reinterpret_cast<char*>(&severity), 1) || !readU64(stream, epoch) || !readU64(stream, session) || !readU64(stream, client) || !readU64(stream, sequence) || !readU64(stream, timestamp) || !readU32(stream, request) || !readU32(stream, event) || !readU32(stream, parent) || !readU32(stream, payloadType) || !readU32(stream, payloadLength)) return false;
+    if (!stream.read(reinterpret_cast<char*>(&kind), 1) || !stream.read(reinterpret_cast<char*>(&severity), 1) || !readU64(stream, epoch) || !readU64(stream, session) || !readU64(stream, client) || !readU64(stream, sequence) || !readU64(stream, timestamp) || !readU32(stream, request) || !readU32(stream, event) || !readU32(stream, parent) || !readU32(stream, payloadType) || !stream.read(reinterpret_cast<char*>(&operation), 1) || !readU32(stream, payloadLength)) return false;
     if (magic != FrameMagic || version != FormatVersion || payloadLength > DevelopmentFileMaxPayloadBytes) return false;
     stored.payload.resize(payloadLength);
     if (payloadLength && !stream.read(reinterpret_cast<char*>(stored.payload.data()), static_cast<std::streamsize>(payloadLength))) return false;
     uint32_t supplied = 0; if (!readU32(stream, supplied)) return false;
-    appendU32(bytes, magic); appendU16(bytes, version); appendU16(bytes, reserved); appendU16(bytes, envelopeVersion); bytes.push_back(kind); bytes.push_back(severity); appendU64(bytes, epoch); appendU64(bytes, session); appendU64(bytes, client); appendU64(bytes, sequence); appendU64(bytes, timestamp); appendU32(bytes, request); appendU32(bytes, event); appendU32(bytes, parent); appendU32(bytes, payloadType); appendU32(bytes, payloadLength); bytes.insert(bytes.end(), stored.payload.begin(), stored.payload.end());
+    appendU32(bytes, magic); appendU16(bytes, version); appendU16(bytes, reserved); appendU16(bytes, envelopeVersion); bytes.push_back(kind); bytes.push_back(severity); appendU64(bytes, epoch); appendU64(bytes, session); appendU64(bytes, client); appendU64(bytes, sequence); appendU64(bytes, timestamp); appendU32(bytes, request); appendU32(bytes, event); appendU32(bytes, parent); appendU32(bytes, payloadType); bytes.push_back(operation); appendU32(bytes, payloadLength); bytes.insert(bytes.end(), stored.payload.begin(), stored.payload.end());
     if (supplied != checksum(bytes.data(), bytes.size())) return false;
-    stored.envelope.formatVersion = envelopeVersion; stored.envelope.kind = static_cast<EventKind>(kind); stored.envelope.severity = static_cast<Severity>(severity); stored.envelope.controllerEpoch.value = epoch; stored.envelope.session.value = session; stored.envelope.client.value = client; stored.envelope.sequence = sequence; stored.envelope.timestamp = timestamp; stored.envelope.correlation.request = request; stored.envelope.correlation.event = event; stored.envelope.correlation.parent = parent; stored.envelope.payloadType = payloadType;
+    stored.envelope.formatVersion = envelopeVersion; stored.envelope.kind = static_cast<EventKind>(kind); stored.envelope.severity = static_cast<Severity>(severity); stored.envelope.controllerEpoch.value = epoch; stored.envelope.session.value = session; stored.envelope.client.value = client; stored.envelope.sequence = sequence; stored.envelope.timestamp = timestamp; stored.envelope.correlation.request = request; stored.envelope.correlation.event = event; stored.envelope.correlation.parent = parent; stored.envelope.payloadType = payloadType; stored.envelope.operation = static_cast<OperationName>(operation);
     return true;
   }
 

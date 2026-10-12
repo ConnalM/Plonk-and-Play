@@ -53,6 +53,13 @@ enum class EventKind : uint8_t {
   StorageHealthChange = 15,
 };
 
+// A named product operation is diagnostic metadata. It never becomes a
+// second command path or a replacement for the product Message contract.
+enum class OperationName : uint8_t {
+  Unknown = 0,
+  Start = 1,
+};
+
 enum class Severity : uint8_t {
   Trace = 0,
   Info = 1,
@@ -125,7 +132,7 @@ struct Correlation {
 };
 
 struct RecordEnvelope {
-  static constexpr uint16_t CurrentFormatVersion = 1;
+  static constexpr uint16_t CurrentFormatVersion = 2;
 
   uint16_t formatVersion = CurrentFormatVersion;
   EventKind kind = EventKind::StateChange;
@@ -137,6 +144,7 @@ struct RecordEnvelope {
   Time timestamp = 0;
   Correlation correlation{};
   uint32_t payloadType = 0;
+  OperationName operation = OperationName::Unknown;
 };
 
 // The payload is borrowed for the duration of tryAppend(). Backends own any

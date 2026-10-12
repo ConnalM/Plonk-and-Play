@@ -7,7 +7,7 @@ static_assert(static_cast<unsigned>(SessionLifecycle::Active) == 2, "lifecycle c
 static_assert(static_cast<unsigned>(SessionLifecycle::Interrupted) == 5, "lifecycle contract");
 static_assert(static_cast<unsigned>(StorageHealth::RamOnly) == 1, "storage contract");
 static_assert(static_cast<unsigned>(RecorderResult::AlreadyActive) == 3, "already-active contract");
-static_assert(RecordEnvelope::CurrentFormatVersion == 1, "record version contract");
+static_assert(RecordEnvelope::CurrentFormatVersion == 2, "record version contract");
 
 class ContractRecorder final : public DiagnosticRecorder {
 public:

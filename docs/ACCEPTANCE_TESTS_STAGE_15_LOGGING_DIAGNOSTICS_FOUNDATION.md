@@ -50,6 +50,17 @@ No numeric capacity, queue, file-size, or performance threshold is frozen by thi
 | PS15.30 | Start, append, finalize, recover, read, and unavailable failures can be injected deterministically without timing or randomness. | Phase 3 failure-injection test. |
 | PS15.31 | Memory and host/file backends satisfy the same DiagnosticStorage contract; no distinct Wokwi host-filesystem backend is required. | Phase 3 contract test and structural review. |
 
+## Phase 4 focused checks
+
+| ID | Requirement | Evidence |
+|---|---|---|
+| PS15.32 | The controller-side trace identifies START by operation name and preserves the existing request correlation. | Phase 4 trace test. |
+| PS15.33 | Accepted START records the observed request, decision/result, authoritative lifecycle transition, and generic Noticeboard invalidation in coherent order. | Phase 4 trace test and development integration. |
+| PS15.34 | Rejected START records the operation, correlation, and rejection reason without a false authoritative transition. | Phase 4 trace test. |
+| PS15.35 | Noticeboard correlation limitations are recorded without changing the frozen generic Noticeboard message contract. | Phase 4 structural review. |
+| PS15.36 | Recorder/backend failure cannot change START acceptance, rejection, state transition, or product operation count. | Phase 4 failure-independence test. |
+| PS15.37 | The trace observes the existing path through a separate Diagnostics observer; it does not create duplicate product requests or delay bus delivery. | Phase 4 integration/structural test. |
+
 ## Final acceptance gates, intentionally outstanding
 
 Final Stage 15 acceptance/freeze requires, in addition:
