@@ -6,10 +6,9 @@
 namespace pp {
 namespace diagnostic {
 
-// ControllerOperationTrace is an observation-only spine for one named
-// operation.  It buffers a NoticeboardChanged observation until the matching
-// RequestResult is seen so a rejected request can never acquire a false state
-// transition in the diagnostic evidence.
+// Observation-only trace spine. Browser/HTTP observations are joined to the
+// existing P&P request path by product correlation and a separate traceId;
+// neither is used to authorise or alter product requests.
 class ControllerOperationTrace final {
 public:
   explicit ControllerOperationTrace(DiagnosticRecorder& recorder)
@@ -18,47 +17,89 @@ public:
                                     ClientId observerClient)
       : recorder_(recorder), observerClient_(observerClient) {}
 
+  void observeBrowserAction(OperationName operation, uint32_t visibleCorrelation,
+                            ClientId client, uint64_t traceId,
+                            Time timestamp = 0) {
+    Correlation correlation{};
+    correlation.request = visibleCorrelation;
+    append(EventKind::UserAction, operation, correlation, 0, 0, timestamp,
+           client, traceId);
+  }
+
+  // Called after the normal HTTP/interface path has accepted a product request
+  // for bus publication. It records the Browser correlation and joins it to
+  // the internal bus correlation without changing either.
+  void observeInterfaceRequest(OperationName operation, uint32_t visibleCorrelation,
+                               uint32_t internalCorrelation, ClientId client,
+                               uint64_t traceId, Time timestamp = 0) {
+    Correlation correlation{};
+    correlation.request = visibleCorrelation;
+    correlation.parent = internalCorrelation;
+    append(EventKind::BrowserRequest, operation, correlation, 0, 0, timestamp,
+           client, traceId);
+    if (!internalCorrelation) return;
+    Pending* pending = allocate(internalCorrelation);
+    if (!pending) return;
+    pending->operation = operation;
+    pending->visibleCorrelation = visibleCorrelation;
+    pending->client = client;
+    pending->traceId = traceId;
+    pending->timestamp = timestamp;
+  }
+
   void observe(const Message& message, uint8_t authoritativeLifecycle,
                Time timestamp = 0) {
     switch (message.type) {
       case Type::StartRequest:
-      {
-        pending_ = Pending{};
-        pending_.active = message.correlation != 0;
-        pending_.correlation = message.correlation;
+      case Type::SetupRequest:
+      case Type::SessionOperationRequest: {
+        const OperationName operation = operationFor(message);
+        Pending* pending = find(message.correlation);
+        if (!pending) pending = allocate(message.correlation);
+        if (!pending) { ++droppedObservations_; return; }
+        pending->operation = operation;
+        pending->awaitsNotice = operation == OperationName::Start;
+        if (!pending->client.valid()) pending->client = observerClient_;
         Correlation correlation{};
         correlation.request = message.correlation;
+        correlation.parent = pending->visibleCorrelation;
         correlation.event = message.eventId;
-        append(EventKind::BusRequest, OperationName::Start, correlation,
-               authoritativeLifecycle, 0, timestamp);
+        append(EventKind::BusRequest, operation, correlation,
+               authoritativeLifecycle, 0, timestamp, pending->client,
+               pending->traceId);
         break;
       }
-      case Type::NoticeboardChanged:
-        if (pending_.active) {
-          pending_.noticeSeen = true;
-          pending_.lifecycle = authoritativeLifecycle;
-          pending_.eventId = message.eventId;
-          pending_.timestamp = timestamp;
-        }
+      case Type::NoticeboardChanged: {
+        Pending* pending = latestNoticePending();
+        if (!pending) return;
+        pending->noticeSeen = true;
+        pending->lifecycle = authoritativeLifecycle;
+        pending->eventId = message.eventId;
+        pending->timestamp = timestamp;
+        if (pending->resultSeen) flushNotice(*pending);
         break;
-      case Type::RequestResult:
-      {
-        if (!pending_.active || message.correlation != pending_.correlation) return;
+      }
+      case Type::RequestResult: {
+        Pending* pending = find(message.correlation);
+        if (!pending) return;
         Correlation correlation{};
         correlation.request = message.correlation;
+        correlation.parent = pending->visibleCorrelation;
         correlation.event = message.eventId;
         append(message.requestResult == RequestResult::Accepted
                    ? EventKind::RequestAccepted
                    : EventKind::RequestRejected,
-               OperationName::Start,
+               pending->operation,
                correlation,
-               authoritativeLifecycle, static_cast<uint32_t>(message.rejection) +
-                   (message.requestResult == RequestResult::Accepted ? 0u : 0x100u), timestamp);
-        if (message.requestResult == RequestResult::Accepted) {
-          pending_.resultSeen = true;
-          flushNotice();
+               authoritativeLifecycle,
+               static_cast<uint32_t>(message.rejection) +
+                   (message.requestResult == RequestResult::Accepted ? 0u : 0x100u),
+               timestamp, pending->client, pending->traceId);
+        if (message.requestResult == RequestResult::Accepted && pending->awaitsNotice) {
+          pending->resultSeen = true;
+          if (pending->noticeSeen) flushNotice(*pending);
         } else {
-          pending_ = Pending{};
+          *pending = Pending{};
         }
         break;
       }
@@ -71,46 +112,91 @@ public:
   uint64_t droppedObservations() const { return droppedObservations_; }
 
 private:
+  static constexpr size_t PendingCapacity = 8;
   struct Pending {
     bool active = false;
     bool resultSeen = false;
     bool noticeSeen = false;
-    uint32_t correlation = 0;
+    bool awaitsNotice = false;
+    uint32_t internalCorrelation = 0;
+    uint32_t visibleCorrelation = 0;
     uint32_t eventId = 0;
     uint8_t lifecycle = 0;
     Time timestamp = 0;
+    ClientId client{};
+    uint64_t traceId = 0;
+    OperationName operation = OperationName::Unknown;
   };
 
-  void flushNotice() {
-    if (!pending_.resultSeen || !pending_.noticeSeen) return;
+  static OperationName operationFor(const Message& message) {
+    if (message.type == Type::StartRequest) return OperationName::Start;
+    if (message.type == Type::SetupRequest) return OperationName::Setup;
+    switch (message.operation) {
+      case SessionOperation::Pause: return OperationName::Pause;
+      case SessionOperation::Resume: return OperationName::Resume;
+      case SessionOperation::RestartRace: return OperationName::RestartRace;
+      case SessionOperation::EndRace: return OperationName::EndRace;
+      case SessionOperation::RaceAgain: return OperationName::RaceAgain;
+      case SessionOperation::EndSession: return OperationName::EndSession;
+      case SessionOperation::SkipFinishDisplay: return OperationName::SkipFinishDisplay;
+      default: return OperationName::Unknown;
+    }
+  }
+
+  Pending* find(uint32_t internalCorrelation) {
+    for (auto& pending : pending_)
+      if (pending.active && pending.internalCorrelation == internalCorrelation) return &pending;
+    return nullptr;
+  }
+  Pending* allocate(uint32_t internalCorrelation) {
+    if (!internalCorrelation) return nullptr;
+    for (auto& pending : pending_) if (!pending.active) {
+      pending = Pending{};
+      pending.active = true;
+      pending.internalCorrelation = internalCorrelation;
+      return &pending;
+    }
+    ++droppedObservations_;
+    return nullptr;
+  }
+  Pending* latestNoticePending() {
+    Pending* selected = nullptr;
+    for (auto& pending : pending_)
+      if (pending.active && pending.awaitsNotice &&
+          (!selected || pending.internalCorrelation > selected->internalCorrelation)) selected = &pending;
+    return selected;
+  }
+  void flushNotice(Pending& pending) {
+    if (!pending.resultSeen || !pending.noticeSeen) return;
     Correlation correlation{};
-    correlation.request = pending_.correlation;
-    correlation.event = pending_.eventId;
-    append(EventKind::StateChange, OperationName::Start, correlation,
-           pending_.lifecycle, pending_.lifecycle, pending_.timestamp);
-    append(EventKind::NoticeboardChanged, OperationName::Start, correlation,
-           pending_.lifecycle, 0, pending_.timestamp);
-    pending_ = Pending{};
+    correlation.request = pending.internalCorrelation;
+    correlation.parent = pending.visibleCorrelation;
+    correlation.event = pending.eventId;
+    append(EventKind::StateChange, pending.operation, correlation,
+           pending.lifecycle, pending.lifecycle, pending.timestamp,
+           pending.client, pending.traceId);
+    append(EventKind::NoticeboardChanged, pending.operation, correlation,
+           pending.lifecycle, 0, pending.timestamp,
+           pending.client, pending.traceId);
+    pending = Pending{};
   }
 
   void append(EventKind kind, OperationName operation, Correlation correlation,
-              uint8_t lifecycle, uint32_t payloadType, Time timestamp) {
+              uint8_t lifecycle, uint32_t payloadType, Time timestamp,
+              ClientId client, uint64_t traceId) {
     SessionStatus status{};
-    if (!recorder_.status(status)) {
-      ++droppedObservations_;
-      return;
-    }
+    if (!recorder_.status(status)) { ++droppedObservations_; return; }
     const uint8_t payload[2] = {lifecycle, static_cast<uint8_t>(payloadType)};
     RecordView record{};
     record.envelope.controllerEpoch = status.controllerEpoch;
     record.envelope.session = status.session;
-    record.envelope.client = observerClient_;
+    record.envelope.client = client.valid() ? client : observerClient_;
     record.envelope.timestamp = timestamp;
     record.envelope.kind = kind;
     record.envelope.severity = kind == EventKind::RequestRejected
-                                   ? Severity::Warning
-                                   : Severity::Info;
+                                   ? Severity::Warning : Severity::Info;
     record.envelope.correlation = correlation;
+    record.envelope.traceId = traceId;
     record.envelope.payloadType = payloadType;
     record.envelope.operation = operation;
     record.payload = payload;
@@ -122,7 +208,7 @@ private:
 
   DiagnosticRecorder& recorder_;
   ClientId observerClient_;
-  Pending pending_{};
+  Pending pending_[PendingCapacity]{};
   uint64_t droppedObservations_ = 0;
 };
 

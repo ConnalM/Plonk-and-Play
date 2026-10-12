@@ -58,6 +58,14 @@ enum class EventKind : uint8_t {
 enum class OperationName : uint8_t {
   Unknown = 0,
   Start = 1,
+  Setup = 2,
+  Pause = 3,
+  Resume = 4,
+  RestartRace = 5,
+  EndRace = 6,
+  RaceAgain = 7,
+  EndSession = 8,
+  SkipFinishDisplay = 9,
 };
 
 enum class Severity : uint8_t {
@@ -132,7 +140,7 @@ struct Correlation {
 };
 
 struct RecordEnvelope {
-  static constexpr uint16_t CurrentFormatVersion = 2;
+  static constexpr uint16_t CurrentFormatVersion = 3;
 
   uint16_t formatVersion = CurrentFormatVersion;
   EventKind kind = EventKind::StateChange;
@@ -143,6 +151,9 @@ struct RecordEnvelope {
   uint64_t sequence = 0;
   Time timestamp = 0;
   Correlation correlation{};
+  // Diagnostic-only identity linking Browser action/HTTP observations to the
+  // controller trace. It is deliberately separate from product correlation.
+  uint64_t traceId = 0;
   uint32_t payloadType = 0;
   OperationName operation = OperationName::Unknown;
 };

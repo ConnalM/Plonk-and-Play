@@ -61,6 +61,16 @@ No numeric capacity, queue, file-size, or performance threshold is frozen by thi
 | PS15.36 | Recorder/backend failure cannot change START acceptance, rejection, state transition, or product operation count. | Phase 4 failure-independence test. |
 | PS15.37 | The trace observes the existing path through a separate Diagnostics observer; it does not create duplicate product requests or delay bus delivery. | Phase 4 integration/structural test. |
 
+## Phase 5 focused checks
+
+| PS15.38 | A Browser action observation, HTTP/interface receipt, existing P&P request, and RequestResult can be joined by one diagnostic trace identity while preserving the product correlations separately. | Phase 5 Browser trace test. |
+| PS15.39 | Browser client attribution is preserved for multiple clients contributing to one controller diagnostic session. | Phase 5 multi-client trace test. |
+| PS15.40 | Accepted and rejected Browser requests are observable with operation name and result; a rejected request never gains a false authoritative transition. | Phase 5 trace test. |
+| PS15.41 | Duplicate/repeated actions remain individually attributable; diagnostic observation does not suppress, retry, manufacture, or duplicate the product request. | Phase 5 request-path test and structural review. |
+| PS15.42 | Missing or malformed optional Browser diagnostic metadata is ignored without changing product request parsing or authority. | Phase 5 parser/contract test. |
+| PS15.43 | Diagnostic recorder/backend failure cannot prevent or alter the real Browser request dispatch or its P&P result. | Phase 5 failure-independence test. |
+| PS15.44 | The Browser trace remains bounded and non-blocking and leaves existing product request/result, authority, and race semantics unchanged. | Phase 1–4 regressions plus Stage 1–14C applicable regressions. |
+
 ## Final acceptance gates, intentionally outstanding
 
 Final Stage 15 acceptance/freeze requires, in addition:

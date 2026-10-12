@@ -92,3 +92,32 @@ authoritative state, timing, or Noticeboard publication. Phase 4 does not add
 Browser click/render tracing, detector/lap tracing, persistence tracing, SD,
 SSE transport tracing, or final diagnostic UX.
 
+## 11. Phase 5 Browser/HTTP request trace
+
+Phase 5 extends the observation spine to the Browser request boundary for the
+development/diagnostic Browser path. A Browser action observation and the
+corresponding HTTP/interface receipt carry the server-attributed Browser
+client identity, the Browser-visible product correlation, and a separate
+diagnostic trace identity. The existing internal P&P correlation remains
+unchanged and is recorded separately, so diagnostic metadata cannot become a
+permission, sporting, timing, configuration, or result authority.
+
+The trace distinguishes an observed Browser action from a request received at
+the HTTP boundary and from the existing Message Bus request/result records.
+An action record without a request record means that the request was not
+observed at the controller boundary; a request without a later bus/result
+record remains an explicit transport/interface gap. Malformed or absent
+optional diagnostic metadata is ignored by product request parsing and never
+changes request acceptance.
+
+The Browser-side observation is fire-and-forget and is never a prerequisite
+for dispatching the real product request. It does not retry, suppress, or
+duplicate a product request. Multiple Browser clients contribute to the one
+active diagnostic session using their server-attributed client identities.
+The bounded recorder may drop diagnostic records or latch a fault without
+changing product operation behaviour.
+
+Phase 5 does not define final Browser diagnostic UX, security/permission or
+privacy policy, export encoding, storage capacities, SD layout, SSE/state
+tracing, or render-evidence semantics.
+

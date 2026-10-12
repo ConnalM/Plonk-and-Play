@@ -529,6 +529,7 @@ void setup(){
   traceStart.client.value=1;
   pp::diagnostic::SessionStatus traceStatus{};
   controllerTraceRecorder.start(traceStart,traceStatus);
+  browser.setDiagnosticTrace(&controllerTrace);
 #endif
 #if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   browserAuthority.clearForFixture();

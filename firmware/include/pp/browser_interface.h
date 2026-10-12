@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include "noticeboard.h"
 #include "system_time.h"
+#include "diagnostic_trace.h"
 namespace pp {
 // Browser identity and the retained Master binding are Browser Interface State.
 // Race Control receives only the logical ClientContext attached to a Bus message.
@@ -44,9 +45,12 @@ public:
                    TrackRecordStore* records = nullptr)
       : bus_(bus), endpoint_(endpoint), noticeboard_(noticeboard),
         authority_(authority ? authority : &fallback_), history_(history), records_(records) {
+    controllerEpoch_ = newControllerEpoch();
     uint64_t persisted = 0;
     if (authority_->loadMaster(persisted) && persisted) masterFingerprint_ = persisted;
   }
+  uint64_t controllerEpoch() const { return controllerEpoch_; }
+  void setDiagnosticTrace(diagnostic::ControllerOperationTrace* trace) { diagnosticTrace_ = trace; }
   void begin() {
     WiFi.persistent(false);
     WiFi.mode(WIFI_STA);
@@ -59,11 +63,33 @@ public:
   void tick() {
     Message message;
     while (bus_.receive(endpoint_, message)) {
-      if (message.type == Type::NoticeboardChanged) ++noticeRevision_;
-      else if (message.type == Type::LapCompleted) {
+      if (message.type == Type::NoticeboardChanged) {
+        ++noticeRevision_;
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+        if (lapNoticePending_) {
+          lapNoticeRevision_ = noticeRevision_;
+          lapNoticePending_ = false;
+          Serial.printf("[SSE] notice_changed revision=%lu lap_entry=%lu lap=%lu event_id=%lu relevant_us=%llu at_us=%llu\n",
+            static_cast<unsigned long>(noticeRevision_),
+            static_cast<unsigned long>(lapNoticeEntry_),
+            static_cast<unsigned long>(lapNoticeNumber_),
+            static_cast<unsigned long>(lapNoticeEventId_),
+            static_cast<unsigned long long>(lapNoticeRelevantUs_),
+            static_cast<unsigned long long>(systemTime()));
+        }
+#endif
+      } else if (message.type == Type::LapCompleted) {
         lastFact_ = message;
         hasFact_ = true;
         ++factRevision_;
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+        recordLapDisplayPass(message);
+        lapNoticePending_ = true;
+        lapNoticeEntry_ = message.raceEntryId;
+        lapNoticeNumber_ = message.lapNumber;
+        lapNoticeEventId_ = message.eventId;
+        lapNoticeRelevantUs_ = message.relevantTime;
+#endif
       } else if (message.type == Type::GoScheduled) {
         scheduledGo_ = message.relevantTime;
       } else if (message.type == Type::Paused || message.type == Type::RestartScheduled || message.type == Type::Resumed || message.type == Type::FalseStart || message.type == Type::HistoryStored || message.type == Type::StorageFault) {
@@ -89,13 +115,22 @@ public:
     }
     wifiConnected_ = true;
     if (!server_) startServer();
+    updatePresentation(systemTime());
+    // Noticeboard changes are coalesced into one bounded SSE notification.
+    // The Browser still reads authoritative state through the existing routes.
+    if (server_ && eventConnected_ && eventGeneration_ != 0) {
+      const bool changed = noticeRevision_ != eventSentRevision_;
+      const bool presentationChanged = presentationSequence_ != presentationSentSequence_;
+      const bool keepalive = static_cast<uint32_t>(now - eventLastSendMs_) >= 10000U;
+      if ((changed || presentationChanged || keepalive) && !eventWorkQueued_) queueEventWork();
+    }
   }
   // The public overload is retained for non-Browser test fixtures. HTTP calls
   // always include their server-resolved owner token below.
   bool submitStart(uint32_t visibleCorrelation, ClientContext context) {
     return submitStart(visibleCorrelation, context, 0);
   }
-  bool submitStart(uint32_t visibleCorrelation, ClientContext context, uint64_t owner, SessionMode mode=SessionMode::None, uint16_t durationMinutes=0, uint8_t finishPolicy=0) {
+  bool submitStart(uint32_t visibleCorrelation, ClientContext context, uint64_t owner, SessionMode mode=SessionMode::None, uint16_t durationMinutes=0, uint8_t finishPolicy=0, uint64_t traceId=0) {
     if (!visibleCorrelation) return false;
     Message request{};
     request.type = Type::StartRequest;
@@ -107,6 +142,7 @@ public:
     request.sessionMode = SessionMode::None;
     request.durationMinutes = 0;
     request.finishPolicy = 0;
+    if (diagnosticTrace_) { diagnostic::ClientId clientId{}; clientId.value = owner; diagnosticTrace_->observeInterfaceRequest(diagnostic::OperationName::Start, visibleCorrelation, request.correlation, clientId, traceId, systemTime()); }
     if (bus_.publish(endpoint_, request) != Delivery::Delivered) return false;
     Pending& pending = pending_[nextPending_++ % ResultCapacity];
     pending.internal = request.correlation;
@@ -117,12 +153,13 @@ public:
   }
   bool submitSetup(uint32_t visibleCorrelation, ClientContext context, uint64_t owner,
                    SessionMode mode, uint32_t lapTarget, uint16_t durationMinutes,
-                   uint8_t finishPolicy, uint32_t proposalRevision) {
+                   uint8_t finishPolicy, uint32_t proposalRevision, uint64_t traceId=0) {
     if (!visibleCorrelation) return false;
     Message request{}; request.type=Type::SetupRequest; request.correlation=nextInternalCorrelation();
     request.clientContext=context; request.sessionMode=mode; request.setupLapTarget=lapTarget;
     request.setupDurationMinutes=durationMinutes; request.setupFinishPolicy=finishPolicy;
     request.proposalRevision=proposalRevision;
+    if (diagnosticTrace_) { diagnostic::ClientId clientId{}; clientId.value = owner; diagnosticTrace_->observeInterfaceRequest(diagnostic::OperationName::Setup, visibleCorrelation, request.correlation, clientId, traceId, systemTime()); }
     if(bus_.publish(endpoint_,request)!=Delivery::Delivered) return false;
     Pending& pending=pending_[nextPending_++ % ResultCapacity]; pending.internal=request.correlation;
     pending.visible=visibleCorrelation; pending.owner=owner; pending.ready=true; return true;
@@ -130,9 +167,10 @@ public:
   void clearForFixture(){masterFingerprint_=0;clearRaceForFixture();}
   void clearRaceForFixture(){for(auto& p:pending_)p.ready=false;for(auto& r:results_)r.ready=false;hasFact_=false;lastFact_={};noticeRevision_=0;factRevision_=0;scheduledGo_=0;}
   void setFixtureCallbacks(bool (*pass)(uint8_t), void (*reset)()){fixturePass_=pass;fixtureReset_=reset;}
-  bool submitOperation(uint32_t visibleCorrelation, SessionOperation operation, ClientContext context, uint64_t owner, bool confirmed=false) {
+  bool submitOperation(uint32_t visibleCorrelation, SessionOperation operation, ClientContext context, uint64_t owner, bool confirmed=false, uint64_t traceId=0) {
     if (!visibleCorrelation) return false;
     Message request{}; request.type=Type::SessionOperationRequest; request.correlation=nextInternalCorrelation(); request.operation=operation; request.clientContext=context;request.probe=confirmed?1:0;
+    if (diagnosticTrace_) { diagnostic::ClientId clientId{}; clientId.value = owner; diagnosticTrace_->observeInterfaceRequest(diagnosticOperation(operation), visibleCorrelation, request.correlation, clientId, traceId, systemTime()); }
     if (bus_.publish(endpoint_,request)!=Delivery::Delivered) return false;
     Pending& pending=pending_[nextPending_++%ResultCapacity]; pending.internal=request.correlation; pending.visible=visibleCorrelation; pending.owner=owner; pending.ready=true; return true;
   }
@@ -220,7 +258,7 @@ public:
   static constexpr size_t ResultsJsonCapacity = 4096;
   static constexpr size_t RecordsJsonCapacity = 2048;
   bool serializeStateForAcceptance(char* out,size_t cap,size_t&length)const{return serializeState(current(),systemTime(),out,cap,length);}
-  bool serializeProposalForAcceptance(char*out,size_t cap,size_t&length)const{return serializeProposal(proposedRaceSetup(),proposalRevision(),readiness(),out,cap,length);}
+  bool serializeProposalForAcceptance(char*out,size_t cap,size_t&length)const{return serializeProposal(proposedRaceSetup(),controllerEpoch_,proposalRevision(),readiness(),out,cap,length);}
   bool serializePracticeSummaryForAcceptance(char*out,size_t cap,size_t&length)const{return serializePracticeSummary(noticeboard_.practiceSummary(),out,cap,length);}
   bool serializeResultsForAcceptance(char* out,size_t cap,size_t&length)const{auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));if(!loaded)return false;const bool ok=serializeResults(displayResult(*loaded),out,cap,length);free(loaded);return ok;}
   bool serializeDetailsForAcceptance(char* out,size_t cap,size_t&length)const{auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));if(!loaded)return false;const bool ok=serializeDetails(displayResult(*loaded),out,cap,length);free(loaded);return ok;}
@@ -231,6 +269,11 @@ public:
   static bool serializeDetailsForAcceptance(const RaceEngineModule::CompletedRaceResult& value,char*out,size_t cap,size_t&length){return serializeDetails(value,out,cap,length);}
   static bool serializeRecordsForAcceptance(TrackRecordStore* records,uint8_t count,char*out,size_t cap,size_t&length){return serializeRecords(records,count,out,cap,length);}
 private:
+  static uint64_t newControllerEpoch() {
+    const uint64_t value = (static_cast<uint64_t>(esp_random()) << 32) |
+                           static_cast<uint64_t>(esp_random());
+    return value ? value : 1;
+  }
   static constexpr size_t ResultCapacity = 8;
   struct StoredResult {
     uint32_t internal = 0;
@@ -260,7 +303,15 @@ private:
   VolatileAuthorityStore fallback_;
   httpd_handle_t server_ = nullptr;
   uint64_t masterFingerprint_ = 0;
+  uint64_t controllerEpoch_ = 0;
+  diagnostic::ControllerOperationTrace* diagnosticTrace_ = nullptr;
   uint32_t noticeRevision_ = 0;
+  // Clock/start-light presentation is a separate P&P-driven stream. It does
+  // not advance the Noticeboard revision or generate NOTICEBOARD_CHANGED.
+  volatile uint32_t presentationSequence_ = 0;
+  volatile uint32_t presentationSentSequence_ = 0;
+  bool presentationKnown_ = false;
+  NoticeboardPresentationState presentation_{};
   uint32_t factRevision_ = 0;
   uint32_t nextCorrelation_ = 1;
   Message lastFact_{};
@@ -278,8 +329,44 @@ private:
   int httpLastError_ = 0;
   uint32_t httpLastDiagnosticMs_ = 0;
   char httpLastRoute_[32]{};
+  uint8_t bootNormalEntries_ = 0;
+  uint8_t bootStateEntries_ = 0;
+  uint8_t bootProposalEntries_ = 0;
+  uint8_t bootContextEntries_ = 0;
+  uint8_t bootEventsEntries_ = 0;
+  uint8_t bootNormalCompletions_ = 0;
+  uint8_t bootStateCompletions_ = 0;
+  uint8_t bootProposalCompletions_ = 0;
+  uint8_t bootContextCompletions_ = 0;
+  uint8_t bootEventsCompletions_ = 0;
   uint32_t serverStarts_ = 0;
   uint32_t serverStops_ = 0;
+  struct SseSession {
+    BrowserInterface* owner = nullptr;
+    httpd_handle_t server = nullptr;
+    int fd = -1;
+    uint32_t generation = 0;
+    volatile bool valid = false;
+  };
+  struct SseWork {
+    BrowserInterface* owner = nullptr;
+    uint32_t generation = 0;
+  };
+  SseSession* sseSession_ = nullptr;
+  volatile bool eventConnected_ = false;
+  volatile uint32_t eventGeneration_ = 0;
+  uint32_t nextEventGeneration_ = 0;
+  volatile bool eventWorkQueued_ = false;
+  volatile uint32_t eventSentRevision_ = 0;
+  uint32_t eventLastSendMs_ = 0;
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+  bool lapNoticePending_ = false;
+  uint32_t lapNoticeRevision_ = 0;
+  uint32_t lapNoticeEntry_ = 0;
+  uint32_t lapNoticeNumber_ = 0;
+  uint32_t lapNoticeEventId_ = 0;
+  uint64_t lapNoticeRelevantUs_ = 0;
+#endif
   Time scheduledGo_ = 0;
   StoredResult results_[ResultCapacity]{};
   Pending pending_[ResultCapacity]{};
@@ -289,16 +376,79 @@ private:
   DestructiveConfirmation confirmation_{};
   bool (*fixturePass_)(uint8_t) = nullptr;
   void (*fixtureReset_)() = nullptr;
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+  struct LapDisplayPending {
+    bool active = false;
+    uint32_t entry = 0;
+    uint32_t lap = 0;
+    uint32_t eventId = 0;
+    uint64_t passUs = 0;
+  };
+  LapDisplayPending lapDisplayPending_[8]{};
+  void recordLapDisplayPass(const Message& message) {
+    LapDisplayPending* slot = nullptr;
+    for (auto& pending : lapDisplayPending_) {
+      if (pending.active && pending.entry == message.raceEntryId && pending.lap == message.lapNumber) {
+        slot = &pending;
+        break;
+      }
+      if (!slot && !pending.active) slot = &pending;
+    }
+    if (!slot) slot = &lapDisplayPending_[message.eventId % 8U];
+    slot->active = true;
+    slot->entry = message.raceEntryId;
+    slot->lap = message.lapNumber;
+    slot->eventId = message.eventId;
+    slot->passUs = systemTime();
+    Serial.printf("[MEASURE] PASS_ACCEPTED lane_entry=%lu lap=%lu event_id=%lu at_us=%llu\n",
+      static_cast<unsigned long>(slot->entry), static_cast<unsigned long>(slot->lap),
+      static_cast<unsigned long>(slot->eventId), static_cast<unsigned long long>(slot->passUs));
+  }
+#endif
   struct RequestTrace {
     BrowserInterface* browser;
     const char* route;
     uint32_t started;
     esp_err_t result = ESP_OK;
     RequestTrace(BrowserInterface* value, const char* name)
-        : browser(value), route(name), started(millis()) { browser->requestEntered(route); }
-    ~RequestTrace() { browser->requestCompleted(route, result, static_cast<uint32_t>(millis() - started)); }
+        : browser(value), route(name), started(millis()) { browser->requestEntered(route); browser->bootRequestEntered(route); }
+    ~RequestTrace() { browser->requestCompleted(route, result, static_cast<uint32_t>(millis() - started)); browser->bootRequestCompleted(route, result); }
     void complete(esp_err_t value) { result = value; }
   };
+  void bootRequestEntered(const char* route) {
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    uint8_t* count = nullptr;
+    if (strcmp(route, "/normal") == 0) count = &bootNormalEntries_;
+    else if (strcmp(route, "/state") == 0) count = &bootStateEntries_;
+    else if (strcmp(route, "/proposal") == 0) count = &bootProposalEntries_;
+    else if (strcmp(route, "/context") == 0) count = &bootContextEntries_;
+    else if (strcmp(route, "/events") == 0) count = &bootEventsEntries_;
+    if (count && *count == 0) {
+      *count = 1;
+      Serial.printf("[BOOTHTTP] enter route=%s at_us=%llu\n", route,
+                    static_cast<unsigned long long>(systemTime()));
+    }
+#else
+    (void)route;
+#endif
+  }
+  void bootRequestCompleted(const char* route, esp_err_t result) {
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    uint8_t* count = nullptr;
+    if (strcmp(route, "/normal") == 0) count = &bootNormalCompletions_;
+    else if (strcmp(route, "/state") == 0) count = &bootStateCompletions_;
+    else if (strcmp(route, "/proposal") == 0) count = &bootProposalCompletions_;
+    else if (strcmp(route, "/context") == 0) count = &bootContextCompletions_;
+    else if (strcmp(route, "/events") == 0) count = &bootEventsCompletions_;
+    if (count && *count == 0) {
+      *count = 1;
+      Serial.printf("[BOOTHTTP] complete route=%s result=%d at_us=%llu\n", route, int(result),
+                    static_cast<unsigned long long>(systemTime()));
+    }
+#else
+    (void)route; (void)result;
+#endif
+  }
   bool diagnosticAllowed() {
     const uint32_t now = millis();
     if (static_cast<uint32_t>(now - httpLastDiagnosticMs_) < 1000U) return false;
@@ -367,6 +517,18 @@ private:
     token *= 0xff51afd7ed558ccdULL;
     token ^= token >> 33;
     return token ? token : 1;
+  }
+  static diagnostic::OperationName diagnosticOperation(SessionOperation operation) {
+    switch (operation) {
+      case SessionOperation::Pause: return diagnostic::OperationName::Pause;
+      case SessionOperation::Resume: return diagnostic::OperationName::Resume;
+      case SessionOperation::RestartRace: return diagnostic::OperationName::RestartRace;
+      case SessionOperation::EndRace: return diagnostic::OperationName::EndRace;
+      case SessionOperation::RaceAgain: return diagnostic::OperationName::RaceAgain;
+      case SessionOperation::EndSession: return diagnostic::OperationName::EndSession;
+      case SessionOperation::SkipFinishDisplay: return diagnostic::OperationName::SkipFinishDisplay;
+      default: return diagnostic::OperationName::Unknown;
+    }
   }
   uint32_t nextInternalCorrelation() {
     const uint32_t value = nextCorrelation_++;
@@ -463,8 +625,8 @@ private:
   }
   static const char* setupMode(SessionMode mode){return mode==SessionMode::OpenPractice?"OPEN_PRACTICE":mode==SessionMode::Endurance?"ENDURANCE":mode==SessionMode::None?"NONE":"LAP_RACE";}
   static const char* readinessText(StartReadiness value){switch(value){case StartReadiness::Ready:return "READY";case StartReadiness::InvalidRaceSetup:return "INVALID_RACE_SETUP";case StartReadiness::CapabilityUnavailable:return "CAPABILITY_UNAVAILABLE";default:return "LIFECYCLE_NOT_STARTABLE";}}
-  static bool serializeProposal(const ProposedRaceSetup* setup,uint32_t revision,StartReadiness readiness,char*out,size_t cap,size_t&length){
-    if(!setup)return false;size_t n=0;const bool blocking=readiness!=StartReadiness::Ready;const char*severity=blocking?"BLOCKING":"NONE";bool ok=appendJson(out,cap,n,"{\"formatVersion\":1,\"proposalRevision\":%lu,\"startable\":%s,\"readiness\":\"%s\",\"readinessContext\":{\"version\":1,\"code\":\"%s\",\"severity\":\"%s\",\"blocking\":%s,\"lane\":0},\"mode\":\"%s\",\"lapTarget\":%lu,\"durationMinutes\":%u,\"finishBehaviour\":\"%s\",\"activeLanes\":%u,\"supportedModes\":[{\"mode\":\"LAP_RACE\",\"available\":true},{\"mode\":\"OPEN_PRACTICE\",\"available\":true},{\"mode\":\"ENDURANCE\",\"available\":true},{\"mode\":\"TIMED_STAGE\",\"available\":false},{\"mode\":\"DRAG\",\"available\":false}],\"entries\":[",(unsigned long)revision,readiness==StartReadiness::Ready?"true":"false",readinessText(readiness),readinessCode(readiness),severity,blocking?"true":"false",setupMode(setup->mode),(unsigned long)setup->lapTarget,unsigned(setup->durationMinutes),finishBehaviour(setup->finish),unsigned(setup->activeLanes));
+  static bool serializeProposal(const ProposedRaceSetup* setup,uint64_t epoch,uint32_t revision,StartReadiness readiness,char*out,size_t cap,size_t&length){
+    if(!setup)return false;size_t n=0;const bool blocking=readiness!=StartReadiness::Ready;const char*severity=blocking?"BLOCKING":"NONE";bool ok=appendJson(out,cap,n,"{\"formatVersion\":1,\"controllerEpoch\":\"%llu\",\"proposalRevision\":%lu,\"startable\":%s,\"readiness\":\"%s\",\"readinessContext\":{\"version\":1,\"code\":\"%s\",\"severity\":\"%s\",\"blocking\":%s,\"lane\":0},\"mode\":\"%s\",\"lapTarget\":%lu,\"durationMinutes\":%u,\"finishBehaviour\":\"%s\",\"activeLanes\":%u,\"supportedModes\":[{\"mode\":\"LAP_RACE\",\"available\":true},{\"mode\":\"OPEN_PRACTICE\",\"available\":true},{\"mode\":\"ENDURANCE\",\"available\":true},{\"mode\":\"TIMED_STAGE\",\"available\":false},{\"mode\":\"DRAG\",\"available\":false}],\"entries\":[",(unsigned long long)epoch,(unsigned long)revision,readiness==StartReadiness::Ready?"true":"false",readinessText(readiness),readinessCode(readiness),severity,blocking?"true":"false",setupMode(setup->mode),(unsigned long)setup->lapTarget,unsigned(setup->durationMinutes),finishBehaviour(setup->finish),unsigned(setup->activeLanes));
     for(uint8_t i=0;i<setup->activeLanes&&i<PP_MAX_ENTRIES;++i){const auto&e=setup->entries[i];ok=appendJson(out,cap,n,"%s{\"index\":%u,\"lane\":%u,\"inputDevice\":%lu,\"inputCapability\":%u,\"mugId\":%lu}",i?",":"",unsigned(i),unsigned(e.startFinish.lane),(unsigned long)e.startFinish.input.device,unsigned(e.startFinish.input.capability),(unsigned long)e.mugId)&&ok;}
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
   }
@@ -510,12 +672,35 @@ private:
   static esp_err_t state(httpd_req_t* request) {
     RequestTrace trace(instance(), "/state");
     client(request);
+    const uint64_t traceEnterUs = systemTime();
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    const int traceFd = httpd_req_to_sockfd(request);
+    Serial.printf("[HTTP STATE] enter fd=%d at_us=%llu\\n", traceFd,
+                  static_cast<unsigned long long>(traceEnterUs));
+#endif
+    const uint64_t snapshotStartUs = systemTime();
     const NoticeboardState value = instance()->current();
+    const uint64_t snapshotEndUs = systemTime();
+    const uint64_t serializeStartUs = systemTime();
     char* json=static_cast<char*>(malloc(StateJsonCapacity)); size_t length=0;
     if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"state buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}
     if(!serializeState(value,systemTime(),json,StateJsonCapacity,length)){free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"state entry count exceeds capacity");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}
+    const uint64_t serializeEndUs = systemTime();
     httpd_resp_set_type(request,"application/json"); httpd_resp_set_hdr(request,"Cache-Control","no-store");
-    const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);trace.complete(sent);return sent;
+    const uint64_t sendStartUs = systemTime();
+    const esp_err_t sent=httpd_resp_sendstr(request,json);
+    const uint64_t sendEndUs = systemTime();
+    free(json);trace.complete(sent);
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    const uint64_t exitUs = systemTime();
+    Serial.printf("[HTTP STATE] exit fd=%d result=%d enter=%llu snapshot=%llu-%llu serialize=%llu-%llu send=%llu-%llu exit=%llu bytes=%u\\n",
+                  traceFd, int(sent), static_cast<unsigned long long>(traceEnterUs),
+                  static_cast<unsigned long long>(snapshotStartUs), static_cast<unsigned long long>(snapshotEndUs),
+                  static_cast<unsigned long long>(serializeStartUs), static_cast<unsigned long long>(serializeEndUs),
+                  static_cast<unsigned long long>(sendStartUs), static_cast<unsigned long long>(sendEndUs),
+                  static_cast<unsigned long long>(exitUs), static_cast<unsigned>(length));
+#endif
+    return sent;
   }
   static const char* finishBehaviour(LapFinishBehaviour value) {
     return value==LapFinishBehaviour::CompleteCurrentLap?"COMPLETE_CURRENT_LAP":value==LapFinishBehaviour::CompleteFullRaceDistance?"COMPLETE_FULL_RACE_DISTANCE":"IMMEDIATE";
@@ -570,6 +755,267 @@ private:
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
     const esp_err_t sent = httpd_resp_sendstr(request, json); trace.complete(sent); return sent;
   }
+  static void freeSseSession(void* context) {
+    auto* session = static_cast<SseSession*>(context);
+    if (!session) return;
+    session->valid = false;
+    BrowserInterface* browser = session->owner;
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    Serial.printf("[SSE] disconnected generation=%lu fd=%d at_us=%llu\n",
+      static_cast<unsigned long>(session->generation), session->fd,
+      static_cast<unsigned long long>(systemTime()));
+#endif
+    if (browser && browser->sseSession_ == session) {
+      browser->sseSession_ = nullptr;
+      browser->eventConnected_ = false;
+      browser->eventGeneration_ = 0;
+    }
+    delete session;
+  }
+  static void eventWork(void* argument) {
+    auto* work = static_cast<SseWork*>(argument);
+    if (!work) return;
+    if (work->owner) work->owner->sendEventNotification(work->generation);
+    delete work;
+  }
+  void updatePresentation(Time now) {
+    const NoticeboardPresentationState next = noticeboard_.presentationAt(now);
+    const uint64_t nextSecond = next.durationExpired
+      ? next.overtime / 1000000ULL
+      : next.remainingDuration / 1000000ULL;
+    const uint64_t oldSecond = presentation_.durationExpired
+      ? presentation_.overtime / 1000000ULL
+      : presentation_.remainingDuration / 1000000ULL;
+    const bool changed = !presentationKnown_ ||
+      next.lifecycle != presentation_.lifecycle ||
+      next.sessionMode != presentation_.sessionMode ||
+      next.durationExpired != presentation_.durationExpired ||
+      nextSecond != oldSecond ||
+      next.startPhase != presentation_.startPhase ||
+      next.redLightsLit != presentation_.redLightsLit ||
+      next.redLightCount != presentation_.redLightCount ||
+      next.startLightsGreen != presentation_.startLightsGreen;
+    if (changed) {
+      presentation_ = next;
+      presentationKnown_ = true;
+      ++presentationSequence_;
+    }
+  }
+
+  void queueEventWork() {
+    if (!server_ || !eventConnected_ || eventGeneration_ == 0 || eventWorkQueued_) return;
+    auto* work = new SseWork{};
+    if (!work) return;
+    work->owner = this;
+    work->generation = eventGeneration_;
+    eventWorkQueued_ = true;
+    const esp_err_t queued = httpd_queue_work(server_, &BrowserInterface::eventWork, work);
+    if (queued != ESP_OK) {
+      eventWorkQueued_ = false;
+      delete work;
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+      Serial.printf("[SSE] queue_failed revision=%lu at_us=%llu result=%d\n",
+        static_cast<unsigned long>(noticeRevision_),
+        static_cast<unsigned long long>(systemTime()), int(queued));
+#endif
+      return;
+    }
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    const bool lap = lapNoticeRevision_ == noticeRevision_;
+    Serial.printf("[SSE] queued generation=%lu revision=%lu lap_entry=%lu lap=%lu event_id=%lu notify_us=%llu\n",
+      static_cast<unsigned long>(eventGeneration_),
+      static_cast<unsigned long>(noticeRevision_),
+      static_cast<unsigned long>(lap ? lapNoticeEntry_ : 0),
+      static_cast<unsigned long>(lap ? lapNoticeNumber_ : 0),
+      static_cast<unsigned long>(lap ? lapNoticeEventId_ : 0),
+      static_cast<unsigned long long>(systemTime()));
+#endif
+  }
+  void sendEventNotification(uint32_t generation) {
+    const httpd_handle_t handle = server_;
+    SseSession* session = sseSession_;
+    if (!handle || !session || !session->valid || session->server != handle ||
+        session->generation != generation || eventGeneration_ != generation) {
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+      Serial.printf("[SSE] stale_work generation=%lu current=%lu at_us=%llu\n",
+        static_cast<unsigned long>(generation),
+        static_cast<unsigned long>(eventGeneration_),
+        static_cast<unsigned long long>(systemTime()));
+#endif
+      eventWorkQueued_ = false;
+      return;
+    }
+    const int fd = session->fd;
+    if (httpd_sess_get_ctx(handle, fd) != session) {
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+      Serial.printf("[SSE] session_mismatch generation=%lu fd=%d at_us=%llu\n",
+        static_cast<unsigned long>(generation), fd,
+        static_cast<unsigned long long>(systemTime()));
+#endif
+      session->valid = false;
+      if (sseSession_ == session) {
+        sseSession_ = nullptr;
+        eventConnected_ = false;
+        eventGeneration_ = 0;
+      }
+      eventWorkQueued_ = false;
+      return;
+    }
+    char payload[192];
+    const uint32_t revision = noticeRevision_;
+    const bool noticePending = revision != eventSentRevision_;
+    const uint32_t presentationSequence = presentationSequence_;
+    const bool presentationPending = presentationSequence != presentationSentSequence_;
+    const bool keepalive = !noticePending && !presentationPending;
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    const uint32_t payloadEntry = lapNoticeRevision_ == revision ? lapNoticeEntry_ : 0;
+    const uint32_t payloadLap = lapNoticeRevision_ == revision ? lapNoticeNumber_ : 0;
+    const uint32_t payloadEventId = lapNoticeRevision_ == revision ? lapNoticeEventId_ : 0;
+#else
+    const uint32_t payloadEntry = 0;
+    const uint32_t payloadLap = 0;
+    const uint32_t payloadEventId = 0;
+#endif
+    int length = 0;
+    if (keepalive) {
+      length = snprintf(payload, sizeof(payload), ": ping\n\n");
+    } else if (noticePending) {
+      length = snprintf(payload, sizeof(payload), "data: {\"revision\":%lu,\"serverUs\":%llu,\"lapEntry\":%lu,\"lap\":%lu,\"eventId\":%lu}\n\n",
+                        (unsigned long)revision, (unsigned long long)systemTime(),
+                        static_cast<unsigned long>(payloadEntry), static_cast<unsigned long>(payloadLap),
+                        static_cast<unsigned long>(payloadEventId));
+    } else {
+      const auto& p = presentation_;
+      length = snprintf(payload, sizeof(payload),
+        "event: presentation\ndata: {\"l\":\"%s\",\"m\":\"%s\",\"t\":%llu,\"r\":%llu,\"o\":%llu,\"x\":%s,\"p\":\"%s\",\"n\":%u,\"c\":%u,\"g\":%s}\n\n",
+        lifecycle(p.lifecycle), setupMode(p.sessionMode),
+        (unsigned long long)systemTime(),
+        (unsigned long long)p.remainingDuration, (unsigned long long)p.overtime,
+        p.durationExpired ? "true" : "false", startPhase(p.startPhase),
+        unsigned(p.redLightsLit), unsigned(p.redLightCount),
+        p.startLightsGreen ? "true" : "false");
+    }
+    char frame[256];
+    int frameLength = 0;
+    if (length > 0) {
+      const int header = snprintf(frame, sizeof(frame), "%x\r\n", unsigned(length));
+      if (header > 0 && size_t(header + length + 2) < sizeof(frame)) {
+        memcpy(frame + header, payload, size_t(length));
+        frame[header + length] = '\r';
+        frame[header + length + 1] = '\n';
+        frameLength = header + length + 2;
+      }
+    }
+    const int sent = frameLength > 0 ? httpd_socket_send(handle, fd, frame, size_t(frameLength), 0) : -1;
+    if (sent < 0 || sent != frameLength) {
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+      Serial.printf("[SSE] send_failed revision=%lu lap_entry=%lu event_id=%lu at_us=%llu result=%d\n",
+        static_cast<unsigned long>(revision),
+        static_cast<unsigned long>(lapNoticeRevision_ == revision ? lapNoticeEntry_ : 0),
+        static_cast<unsigned long>(lapNoticeRevision_ == revision ? lapNoticeEventId_ : 0),
+        static_cast<unsigned long long>(systemTime()), sent);
+#endif
+      session->valid = false;
+      if (sseSession_ == session) {
+        sseSession_ = nullptr;
+        eventConnected_ = false;
+        eventGeneration_ = 0;
+      }
+      httpd_sess_trigger_close(handle, fd);
+    } else {
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+      Serial.printf("[SSE] sent generation=%lu revision=%lu lap_entry=%lu lap=%lu event_id=%lu at_us=%llu\n",
+        static_cast<unsigned long>(generation),
+        static_cast<unsigned long>(revision),
+        static_cast<unsigned long>(lapNoticeRevision_ == revision ? lapNoticeEntry_ : 0),
+        static_cast<unsigned long>(lapNoticeRevision_ == revision ? lapNoticeNumber_ : 0),
+        static_cast<unsigned long>(lapNoticeRevision_ == revision ? lapNoticeEventId_ : 0),
+        static_cast<unsigned long long>(systemTime()));
+#endif
+      if (noticePending) eventSentRevision_ = revision;
+      if (!noticePending && !keepalive && presentationSequence == presentationSequence_) {
+        presentationSentSequence_ = presentationSequence;
+      }
+      eventLastSendMs_ = millis();
+      if (sseSession_ != session || !session->valid || eventGeneration_ != generation) {
+        session->valid = false;
+        if (sseSession_ == session) {
+          sseSession_ = nullptr;
+          eventConnected_ = false;
+          eventGeneration_ = 0;
+        }
+      } else {
+        (void)httpd_sess_update_lru_counter(handle, fd);
+      }
+    }
+    eventWorkQueued_ = false;
+  }
+  static esp_err_t events(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/events");
+    client(request);
+    BrowserInterface* browser = instance();
+    const int fd = httpd_req_to_sockfd(request);
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    Serial.printf("[SSE] handler_enter fd=%d revision=%lu at_us=%llu\n",
+      fd, static_cast<unsigned long>(browser ? browser->noticeRevision_ : 0),
+      static_cast<unsigned long long>(systemTime()));
+#endif
+    if (!browser || fd < 0) { trace.complete(ESP_ERR_INVALID_ARG); return ESP_FAIL; }
+    if (browser->sseSession_) {
+      browser->sseSession_->valid = false;
+      httpd_sess_trigger_close(browser->sseSession_->server, browser->sseSession_->fd);
+      browser->sseSession_ = nullptr;
+      browser->eventConnected_ = false;
+      browser->eventGeneration_ = 0;
+    }
+    httpd_resp_set_type(request, "text/event-stream");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-cache");
+    httpd_resp_set_hdr(request, "Connection", "keep-alive");
+    char initial[128];
+    const int length = snprintf(initial, sizeof(initial), "retry: 2000\ndata: {\"revision\":%lu}\n\n",
+                                (unsigned long)browser->noticeRevision_);
+ #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    Serial.printf("[SSE] initial_send fd=%d bytes=%d at_us=%llu\n", fd, length,
+      static_cast<unsigned long long>(systemTime()));
+ #endif
+    const esp_err_t sent = length > 0 ? httpd_resp_send_chunk(request, initial, size_t(length)) : ESP_FAIL;
+    if (sent != ESP_OK) {
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+      Serial.printf("[SSE] initial_result fd=%d result=%d at_us=%llu\n", fd, int(sent),
+        static_cast<unsigned long long>(systemTime()));
+#endif
+      trace.complete(sent); return ESP_FAIL;
+    }
+    // Keep the chunked response open for the EventSource client.  Subsequent
+    // notifications are sent from the HTTPD work queue, never by blocking
+    // this request handler.  The context also marks this socket as the
+    // browser's asynchronous notification session for diagnostics.
+    auto* session = new SseSession{};
+    if (!session) { trace.complete(ESP_ERR_NO_MEM); return ESP_FAIL; }
+    session->owner = browser;
+    session->server = browser->server_;
+    session->fd = fd;
+    session->generation = ++browser->nextEventGeneration_;
+    if (session->generation == 0) session->generation = ++browser->nextEventGeneration_;
+    session->valid = true;
+    httpd_sess_set_ctx(browser->server_, fd, session, &BrowserInterface::freeSseSession);
+    browser->sseSession_ = session;
+    browser->eventConnected_ = true;
+    browser->eventGeneration_ = session->generation;
+    browser->eventSentRevision_ = browser->noticeRevision_;
+    browser->eventLastSendMs_ = millis();
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    Serial.printf("[SSE] async_session fd=%d generation=%lu revision=%lu at_us=%llu\n", fd,
+      static_cast<unsigned long>(session->generation),
+      static_cast<unsigned long>(browser->noticeRevision_),
+      static_cast<unsigned long long>(systemTime()));
+    Serial.printf("[SSE] connected revision=%lu at_us=%llu\n",
+      static_cast<unsigned long>(browser->noticeRevision_),
+      static_cast<unsigned long long>(systemTime()));
+#endif
+    trace.complete(ESP_OK);
+    return ESP_OK;
+  }
   static esp_err_t fact(httpd_req_t* request) {
     RequestTrace trace(instance(), "/fact");
     client(request);
@@ -595,7 +1041,93 @@ private:
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
     const esp_err_t sent = httpd_resp_sendstr(request, json); trace.complete(sent); return sent;
   }
-  static bool correlationFromBody(httpd_req_t* request, uint32_t& correlation, SessionMode* requestedMode=nullptr, uint16_t* durationMinutes=nullptr, uint8_t* finishPolicy=nullptr) {
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+  static esp_err_t browserLapDisplayed(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/diag/lap-displayed");
+    if (request->content_len <= 0 || request->content_len >= 1024) {
+      httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "lap display report required");
+      trace.complete(ESP_ERR_INVALID_ARG);
+      return ESP_FAIL;
+    }
+    char* body = static_cast<char*>(malloc(static_cast<size_t>(request->content_len) + 1U));
+    if (!body) {
+      httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "lap display report unavailable");
+      trace.complete(ESP_ERR_NO_MEM);
+      return ESP_FAIL;
+    }
+    memset(body, 0, static_cast<size_t>(request->content_len) + 1U);
+    int received = 0;
+    while (received < request->content_len) {
+      const int part = httpd_req_recv(request, body + received, request->content_len - received);
+      if (part <= 0) {
+        httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "lap display report unreadable");
+        trace.complete(ESP_FAIL);
+        free(body);
+        return ESP_FAIL;
+      }
+      received += part;
+    }
+    const auto number = [&](const char* key, uint32_t fallback = 0U) {
+      const char* p = strstr(body, key);
+      const char* colon = p ? strchr(p, ':') : nullptr;
+      return colon ? static_cast<uint32_t>(strtoul(colon + 1, nullptr, 10)) : fallback;
+    };
+    const uint32_t entry = number("\"entry\"");
+    const uint32_t lane = number("\"lane\"");
+    const uint32_t lap = number("\"lap\"");
+    const uint32_t revision = number("\"revision\"");
+    const uint32_t eventId = number("\"eventId\"");
+    const auto number64 = [&](const char* key, uint64_t fallback = 0ULL) {
+      const char* p = strstr(body, key);
+      const char* colon = p ? strchr(p, ':') : nullptr;
+      return colon ? static_cast<uint64_t>(strtoull(colon + 1, nullptr, 10)) : fallback;
+    };
+    const uint64_t serverUs = number64("\"serverUs\"");
+    const uint64_t sseReceivedMs = number64("\"sseReceivedMs\"");
+    const uint64_t refreshStartedMs = number64("\"refreshStartedMs\"");
+    const uint64_t stateStartMs = number64("\"stateStartMs\"");
+    const uint64_t stateEndMs = number64("\"stateEndMs\"");
+    const uint64_t proposalStartMs = number64("\"proposalStartMs\"");
+    const uint64_t proposalEndMs = number64("\"proposalEndMs\"");
+    const uint64_t contextStartMs = number64("\"contextStartMs\"");
+    const uint64_t contextEndMs = number64("\"contextEndMs\"");
+    const uint64_t appliedMs = number64("\"appliedMs\"");
+    const uint64_t renderStartedMs = number64("\"renderStartedMs\"");
+    const uint64_t domUpdatedMs = number64("\"domUpdatedMs\"");
+    const uint64_t displayedAt = systemTime();
+    BrowserInterface* browser = instance();
+    bool matched = false;
+    for (auto& pending : browser->lapDisplayPending_) {
+      if (!pending.active || pending.entry != entry || pending.lap != lap) continue;
+      const uint64_t elapsed = displayedAt >= pending.passUs ? displayedAt - pending.passUs : 0;
+      Serial.printf("[MEASURE] TRACE lane=%lu entry=%lu lap=%lu revision=%lu event_id=%lu server_sse_us=%llu http_recv_us=%llu sse_ms=%llu refresh_ms=%llu state_ms=%llu-%llu proposal_ms=%llu-%llu context_ms=%llu-%llu applied_ms=%llu render_ms=%llu dom_ms=%llu elapsed_ms=%llu\n",
+        static_cast<unsigned long>(lane), static_cast<unsigned long>(entry), static_cast<unsigned long>(lap),
+        static_cast<unsigned long>(revision), static_cast<unsigned long>(eventId),
+        static_cast<unsigned long long>(serverUs), static_cast<unsigned long long>(displayedAt),
+        static_cast<unsigned long long>(sseReceivedMs), static_cast<unsigned long long>(refreshStartedMs),
+        static_cast<unsigned long long>(stateStartMs), static_cast<unsigned long long>(stateEndMs),
+        static_cast<unsigned long long>(proposalStartMs), static_cast<unsigned long long>(proposalEndMs),
+        static_cast<unsigned long long>(contextStartMs), static_cast<unsigned long long>(contextEndMs),
+        static_cast<unsigned long long>(appliedMs), static_cast<unsigned long long>(renderStartedMs),
+        static_cast<unsigned long long>(domUpdatedMs), static_cast<unsigned long long>(elapsed / 1000ULL));
+      pending.active = false;
+      matched = true;
+      break;
+    }
+    if (!matched) {
+      Serial.printf("[MEASURE] BROWSER DISPLAYED unmatched lane=%lu entry=%lu lap=%lu revision=%lu event_id=%lu at_us=%llu\n",
+        static_cast<unsigned long>(lane), static_cast<unsigned long>(entry), static_cast<unsigned long>(lap),
+        static_cast<unsigned long>(revision), static_cast<unsigned long>(eventId),
+        static_cast<unsigned long long>(displayedAt));
+    }
+    free(body);
+    httpd_resp_set_type(request, "application/json");
+    const esp_err_t sent = httpd_resp_sendstr(request, matched ? "{\"accepted\":true}" : "{\"accepted\":false}");
+    trace.complete(sent);
+    return sent;
+  }
+#endif
+  static bool correlationFromBody(httpd_req_t* request, uint32_t& correlation, SessionMode* requestedMode=nullptr, uint16_t* durationMinutes=nullptr, uint8_t* finishPolicy=nullptr, uint64_t* traceId=nullptr) {
     if (request->content_len <= 0 || request->content_len >= 256) return false;
     char body[256]{};
     int received = 0;
@@ -611,15 +1143,61 @@ private:
     const unsigned long value = strtoul(colon + 1, &end, 10);
     if (!end || end == colon + 1 || value == 0 || value > UINT32_MAX) return false;
     correlation = uint32_t(value);
+    if (traceId) { const char* t = strstr(body, "\"diagnosticTraceId\""); const char* tc = t ? strchr(t, ':') : nullptr; *traceId = tc ? strtoull(tc + 1, nullptr, 10) : 0; }
     if(requestedMode){const char* mode=strstr(body,"OPEN_PRACTICE");const char* endurance=strstr(body,"ENDURANCE");*requestedMode=endurance?SessionMode::Endurance:(mode?SessionMode::OpenPractice:SessionMode::LapRace);}
     if(durationMinutes){const char* p=strstr(body,"durationMinutes");*durationMinutes=p?uint16_t(strtoul(strchr(p,':')+1,nullptr,10)):0;}
     if(finishPolicy){const char* named=strstr(body,"COMPLETE_CURRENT_LAP");const char* full=strstr(body,"COMPLETE_FULL_RACE_DISTANCE");const char* raw=strstr(body,"finishPolicy");*finishPolicy=named?1:full?2:(raw?uint8_t(strtoul(strchr(raw,':')+1,nullptr,10)):0);}
     return true;
   }
-  static bool setupFromBody(httpd_req_t* request,uint32_t& correlation,SessionMode& mode,uint32_t& lapTarget,uint16_t& duration,uint8_t& finish,uint32_t& revision){
+  static bool setupFromBody(httpd_req_t* request,uint32_t& correlation,SessionMode& mode,uint32_t& lapTarget,uint16_t& duration,uint8_t& finish,uint32_t& revision,uint64_t* traceId=nullptr){
     if(request->content_len<=0||request->content_len>=512)return false;char body[512]{};int received=0;while(received<request->content_len){const int part=httpd_req_recv(request,body+received,request->content_len-received);if(part<=0)return false;received+=part;}
     const char* c=strstr(body,"\"correlationId\"");const char* cc=c?strchr(c,':'):nullptr;const char* m=strstr(body,"\"mode\"");const char* mc=m?strchr(m,':'):nullptr;const char* lp=strstr(body,"\"lapTarget\"");const char* lc=lp?strchr(lp,':'):nullptr;const char* du=strstr(body,"\"durationMinutes\"");const char* dc=du?strchr(du,':'):nullptr;const char* fp=strstr(body,"\"finishPolicy\"");const char* fc=fp?strchr(fp,':'):nullptr;const char* rv=strstr(body,"\"proposalRevision\"");const char* rc=rv?strchr(rv,':'):nullptr;
-    if(!cc||!mc||!lc||!dc||!fc||!rc)return false;char* end=nullptr;const unsigned long cv=strtoul(cc+1,&end,10);if(!end||end==cc+1||cv==0||cv>UINT32_MAX)return false;correlation=uint32_t(cv);if(strstr(mc,"OPEN_PRACTICE"))mode=SessionMode::OpenPractice;else if(strstr(mc,"ENDURANCE"))mode=SessionMode::Endurance;else if(strstr(mc,"LAP_RACE"))mode=SessionMode::LapRace;else return false;lapTarget=uint32_t(strtoul(lc+1,nullptr,10));duration=uint16_t(strtoul(dc+1,nullptr,10));finish=uint8_t(strtoul(fc+1,nullptr,10));revision=uint32_t(strtoul(rc+1,nullptr,10));return true;
+    if(!cc||!mc||!lc||!dc||!fc||!rc)return false;char* end=nullptr;const unsigned long cv=strtoul(cc+1,&end,10);if(!end||end==cc+1||cv==0||cv>UINT32_MAX)return false;correlation=uint32_t(cv);if(strstr(mc,"OPEN_PRACTICE"))mode=SessionMode::OpenPractice;else if(strstr(mc,"ENDURANCE"))mode=SessionMode::Endurance;else if(strstr(mc,"LAP_RACE"))mode=SessionMode::LapRace;else return false;lapTarget=uint32_t(strtoul(lc+1,nullptr,10));duration=uint16_t(strtoul(dc+1,nullptr,10));finish=uint8_t(strtoul(fc+1,nullptr,10));revision=uint32_t(strtoul(rc+1,nullptr,10));if(traceId){const char* t=strstr(body,"\"diagnosticTraceId\"");const char* tc=t?strchr(t,':'):nullptr;*traceId=tc?strtoull(tc+1,nullptr,10):0;}return true;
+  }
+  static diagnostic::OperationName diagnosticOperationName(const char* value) {
+    if (!value) return diagnostic::OperationName::Unknown;
+    if (strstr(value, "RESTART")) return diagnostic::OperationName::RestartRace;
+    if (strstr(value, "START")) return diagnostic::OperationName::Start;
+    if (strstr(value, "SETUP")) return diagnostic::OperationName::Setup;
+    if (strstr(value, "PAUSE")) return diagnostic::OperationName::Pause;
+    if (strstr(value, "RESUME")) return diagnostic::OperationName::Resume;
+    if (strstr(value, "RESTART")) return diagnostic::OperationName::RestartRace;
+    if (strstr(value, "RACE_AGAIN")) return diagnostic::OperationName::RaceAgain;
+    if (strstr(value, "END_RACE")) return diagnostic::OperationName::EndRace;
+    if (strstr(value, "END_SESSION")) return diagnostic::OperationName::EndSession;
+    if (strstr(value, "SKIP")) return diagnostic::OperationName::SkipFinishDisplay;
+    return diagnostic::OperationName::Unknown;
+  }
+  static esp_err_t browserActionRoute(httpd_req_t* request) {
+    BrowserInterface* browser = instance();
+    char body[256]{};
+    if (request->content_len > 0 && request->content_len < int(sizeof(body))) {
+      int received = 0;
+      while (received < request->content_len) {
+        const int part = httpd_req_recv(request, body + received, request->content_len - received);
+        if (part <= 0) break;
+        received += part;
+      }
+      const char* op = strstr(body, "\"operation\"");
+      const char* opColon = op ? strchr(op, ':') : nullptr;
+      const char* trace = strstr(body, "\"diagnosticTraceId\"");
+      const char* traceColon = trace ? strchr(trace, ':') : nullptr;
+      const char* corr = strstr(body, "\"correlationId\"");
+      const char* corrColon = corr ? strchr(corr, ':') : nullptr;
+      const uint32_t visible = corrColon ? uint32_t(strtoul(corrColon + 1, nullptr, 10)) : 0;
+      const uint64_t traceId = traceColon ? strtoull(traceColon + 1, nullptr, 10) : 0;
+      char operation[40]{};
+      if (opColon) {
+        const char* start = strchr(opColon, '"');
+        if (start) { ++start; const char* end = strchr(start, '"'); if (end) { const size_t n = size_t(end - start) < sizeof(operation)-1 ? size_t(end - start) : sizeof(operation)-1; memcpy(operation, start, n); operation[n] = 0; } }
+      }
+      if (browser->diagnosticTrace_) {
+        diagnostic::ClientId clientId{}; clientId.value = client(request);
+        browser->diagnosticTrace_->observeBrowserAction(diagnosticOperationName(operation), visible, clientId, traceId, systemTime());
+      }
+    }
+    httpd_resp_set_status(request, "204 No Content");
+    return httpd_resp_send(request, nullptr, 0);
   }
   static esp_err_t bootstrapRoute(httpd_req_t* request) {
     const uint64_t owner = client(request);
@@ -646,13 +1224,13 @@ private:
     const esp_err_t sent = httpd_resp_sendstr(request, json); trace.complete(sent); return sent;
   }
   static esp_err_t startRoute(httpd_req_t* request) {
-    uint32_t correlation = 0;
-    if (!correlationFromBody(request, correlation)) {
+    uint32_t correlation = 0; uint64_t traceId = 0;
+    if (!correlationFromBody(request, correlation, nullptr, nullptr, nullptr, &traceId)) {
       httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "correlationId required");
       return ESP_FAIL;
     }
     const uint64_t owner = client(request);
-    if (!instance()->submitStart(correlation, instance()->context(owner), owner)) {
+    if (!instance()->submitStart(correlation, instance()->context(owner), owner, SessionMode::None, 0, 0, traceId)) {
       httpd_resp_set_status(request, "503 Service Unavailable");
       return httpd_resp_sendstr(request, "request unavailable");
     }
@@ -665,7 +1243,8 @@ private:
     return httpd_resp_sendstr(request, json);
   }
   static esp_err_t proposalRoute(httpd_req_t* request){
-    client(request);BrowserInterface* browser=instance();char* json=static_cast<char*>(malloc(4096));size_t length=0;if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal buffer unavailable");return ESP_FAIL;}if(!serializeProposal(browser->proposedRaceSetup(),browser->proposalRevision(),browser->readiness(),json,4096,length)){free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal unavailable");return ESP_FAIL;}httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);return sent;
+    RequestTrace trace(instance(), "/proposal");
+    client(request);BrowserInterface* browser=instance();char* json=static_cast<char*>(malloc(4096));size_t length=0;if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}if(!serializeProposal(browser->proposedRaceSetup(),browser->controllerEpoch_,browser->proposalRevision(),browser->readiness(),json,4096,length)){free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal unavailable");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);trace.complete(sent);return sent;
   }
   static esp_err_t practiceSummaryRoute(httpd_req_t* request){
     RequestTrace trace(instance(), "/practice-summary");client(request);BrowserInterface* browser=instance();char* json=static_cast<char*>(malloc(2048));size_t length=0;if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"practice summary buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}if(!serializePracticeSummary(browser->noticeboard_.practiceSummary(),json,2048,length)){free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"practice summary unavailable");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);trace.complete(sent);return sent;
@@ -675,12 +1254,12 @@ private:
   }
   static esp_err_t finishDisplaySkipRoute(httpd_req_t* request){return operationRoute(request,SessionOperation::SkipFinishDisplay);}
   static esp_err_t setupRoute(httpd_req_t* request){
-    uint32_t correlation=0,lapTarget=0,revision=0;SessionMode mode=SessionMode::None;uint16_t duration=0;uint8_t finish=0;if(!setupFromBody(request,correlation,mode,lapTarget,duration,finish,revision)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"complete proposal required");return ESP_FAIL;}const uint64_t owner=client(request);if(!instance()->submitSetup(correlation,instance()->context(owner),owner,mode,lapTarget,duration,finish,revision)){httpd_resp_set_status(request,"503 Service Unavailable");return httpd_resp_sendstr(request,"request unavailable");}char json[96];snprintf(json,sizeof(json),"{\"submitted\":true,\"correlationId\":%lu}",(unsigned long)correlation);httpd_resp_set_status(request,"202 Accepted");httpd_resp_set_type(request,"application/json");return httpd_resp_sendstr(request,json);
+    uint32_t correlation=0,lapTarget=0,revision=0;uint64_t traceId=0;SessionMode mode=SessionMode::None;uint16_t duration=0;uint8_t finish=0;if(!setupFromBody(request,correlation,mode,lapTarget,duration,finish,revision,&traceId)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"complete proposal required");return ESP_FAIL;}const uint64_t owner=client(request);if(!instance()->submitSetup(correlation,instance()->context(owner),owner,mode,lapTarget,duration,finish,revision,traceId)){httpd_resp_set_status(request,"503 Service Unavailable");return httpd_resp_sendstr(request,"request unavailable");}char json[96];snprintf(json,sizeof(json),"{\"submitted\":true,\"correlationId\":%lu}",(unsigned long)correlation);httpd_resp_set_status(request,"202 Accepted");httpd_resp_set_type(request,"application/json");return httpd_resp_sendstr(request,json);
   }
   static esp_err_t operationRoute(httpd_req_t* request, SessionOperation operation, bool confirmed=false) {
-    uint32_t correlation=0;if(!correlationFromBody(request,correlation)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"correlationId required");return ESP_FAIL;}
+    uint32_t correlation=0;uint64_t traceId=0;if(!correlationFromBody(request,correlation,nullptr,nullptr,nullptr,&traceId)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"correlationId required");return ESP_FAIL;}
     const uint64_t owner=client(request);
-    if(!instance()->submitOperation(correlation,operation,instance()->context(owner),owner,confirmed)){httpd_resp_set_status(request,"503 Service Unavailable");return httpd_resp_sendstr(request,"request unavailable");}
+    if(!instance()->submitOperation(correlation,operation,instance()->context(owner),owner,confirmed,traceId)){httpd_resp_set_status(request,"503 Service Unavailable");return httpd_resp_sendstr(request,"request unavailable");}
     char json[96];snprintf(json,sizeof(json),"{\"submitted\":true,\"correlationId\":%lu}",(unsigned long)correlation);httpd_resp_set_status(request,"202 Accepted");httpd_resp_set_type(request,"application/json");return httpd_resp_sendstr(request,json);
   }
   static esp_err_t pauseRoute(httpd_req_t* r){return operationRoute(r,SessionOperation::Pause);}
@@ -767,7 +1346,7 @@ private:
     static const char html[] = R"HTML(<!doctype html><meta charset="utf-8"><title>P&amp;P diagnostic Browser</title><style>body{font:16px system-ui;max-width:52rem;margin:2rem auto;padding:0 1rem}pre{background:#eee;padding:1rem;white-space:pre-wrap}.summary{background:#f5f5f5;padding:1rem;border-radius:.35rem;line-height:1.5}.status{font-size:1.3rem;font-weight:600;margin:.5rem 0}button{font:inherit;padding:.5rem;margin:.15rem}input:disabled,select:disabled{background:#eee;color:#555;border:2px solid #888;opacity:.7;cursor:not-allowed}.muted{color:#555}</style><h1>P&amp;P diagnostic Browser</h1><p id="connection">connecting</p><p id="role"></p><div id="human" class="summary">Loading race status...</div><p id="request"></p><button id="bootstrap">Make this Browser Race Director</button><button id="start">START</button><button id="pause">PAUSE</button><button id="honour">HONOUR RESTART</button><button id="grid">GRID RESTART</button><button id="raceAgain">RACE AGAIN</button><button id="restartRace">RESTART RACE</button><button id="endRace">END RACE</button><button id="results">RESULTS</button><button id="details">DETAILS</button><button id="history">HISTORY</button><button id="back">BACK</button><button id="home">HOME</button><button id="target3">NEXT RACE: 3 LAPS</button><div id="resultView" class="summary" hidden></div><h2>SIMULATED DETECTORS</h2><button id="lane1">LANE 1 LAP</button><button id="lane2">LANE 2 LAP</button><button id="resetTest">RESET TEST</button><h2>Engineering State</h2><pre id="state"></pre><h2>Latest Fact</h2><pre id="fact"></pre><script>let revision=null,hasState=false,nextCorrelation=1,polling=false,lastState=null;const $=x=>document.querySelector(x);const requestTimeoutMs=4000;async function get(path){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),requestTimeoutMs);try{const r=await fetch(path,{cache:'no-store',signal:controller.signal});if(r.status===204)return null;if(!r.ok)throw Error(r.status);return r.json()}finally{clearTimeout(timeout)}}function sec(us){return (Number(us||0)/1000000).toFixed(2)+' s'}function life(v){return ({READY:'Ready',STARTING:'Starting',RACING:'Racing',PAUSED:'Paused',RESTARTING:'Restarting',FINISHED:'Finished',FAULTED:'Faulted'})[v]||v}function meth(v){return v==='HONOUR'?'Honour Restart':v==='GRID'?'Grid Restart':'None'}function clock(us){const total=Math.max(0,Math.floor(Number(us||0)/1000000));return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0')}function overtimeClock(us){const totalTenths=Math.max(0,Math.floor(Number(us||0)/100000));const totalSeconds=Math.floor(totalTenths/10);const minutes=Math.floor(totalSeconds/60);const seconds=totalSeconds-minutes*60;const fraction=totalTenths-totalSeconds*10;return '+'+String(minutes).padStart(2,'0')+':'+String(seconds).padStart(2,'0')+'.'+String(fraction)}function render(){const v=lastState;if(!v)return;let h='<div class="status">'+life(v.lifecycle)+'</div>';if(v.lifecycle==='PAUSED')h+='<div>Paused at the authoritative P&amp;P time.</div>';if(v.lifecycle==='RESTARTING')h+='<div>'+meth(v.restartMethod)+' - restart countdown active.</div>';if(v.lifecycle==='RACING')h+=v.sessionMode==='OPEN_PRACTICE'?'<div>Open Practice is running  -  no official result.</div>':v.sessionMode==='ENDURANCE'?'<div>Endurance is running.</div>':'<div>Race is running.</div>';if(v.lifecycle==='FINISHED')h+='<div>Race finished.</div>';h+='<div>'+v.entries.map((e,i)=>'<b>Lane '+e.lane+':</b> '+(e.laps||0)+' laps').join('; ')+'.</div>';if(v.hasLap)h+='<div>Last completed lap: '+sec(v.lastLapTime)+'</div>';if(v.sessionMode==='ENDURANCE'&&v.lifecycle!=='READY'){const displayRemaining=v.lifecycle==='STARTING'?(Number(v.remainingDuration||0)||Number(v.durationMinutes||0)*60000000):Number(v.remainingDuration||0);h+='<div class="status">Time remaining: '+clock(displayRemaining)+(v.lifecycle==='STARTING'?' (starts at GO)':'')+'</div>';if(v.finishBehaviour==='COMPLETE_CURRENT_LAP'&&Number(v.overtime||0)>0)h+='<div class="status">Overtime: '+overtimeClock(v.overtime)+'</div>';}h+='<div class="muted">Race integrity: '+(v.raceIntegrity==='OK'?'OK':'FAULTED')+'; results: '+(v.resultValid?'valid':'invalid')+'</div>';if(v.resultSealed){if(v.sessionMode==='ENDURANCE'){h+='<div><b>Endurance complete.</b> '+(v.durationExpired?'Duration expired at 00:00.':'Session settled.')+' <b>fastest lap:</b> '+(v.fastestLap?sec(v.fastestLap):'none')+'</div>';}else h+='<div><b>Winning time:</b> '+sec(v.winningTime)+'; <b>finish settled:</b> '+sec(v.finishTime)+'; <b>fastest lap:</b> '+(v.fastestLap?sec(v.fastestLap):'none')+'</div>';}if(v.scheduledRestartAt&&v.lifecycle==='RESTARTING')h+='<div id="countdown" class="status">Restart countdown</div>';$('#human').innerHTML=h;if(v.lifecycle==='RESTARTING'&&v.scheduledRestartAt){const deadline=performance.now()+3000;clearInterval(window.restartTimer);window.restartTimer=setInterval(()=>{const c=$('#countdown');if(!c||!lastState||lastState.lifecycle!=='RESTARTING'){clearInterval(window.restartTimer);return}const left=Math.max(0,(deadline-performance.now())/1000);c.textContent=left>0?'Restarting - '+left.toFixed(1)+' s remaining':'Restarting - GO'},100)}}
 async function poll(){if(polling)return;polling=true;try{const oldRevision=revision;const n=await get('/noticeboard');const c=await get('/context');const state=await get('/state');const changed=!hasState||n.revision!==oldRevision;lastState=state;lastState.sampledAt=performance.now();$('#state').textContent=JSON.stringify(lastState,null,2);revision=n.revision;hasState=true;if(changed){try{$('#fact').textContent=JSON.stringify(await get('/fact'),null,2)}catch(e){}}if(window.reconcileModeFromState)window.reconcileModeFromState(lastState);render();$('#role').textContent=c.hasMaster?c.role:'No Race Director';window.browserHasMaster=!!c.hasMaster;$('#bootstrap').hidden=c.hasMaster;['start','pause','honour','grid'].forEach(id=>$('#'+id).disabled=!window.browserHasMaster);$('#raceAgain').disabled=!window.browserHasMaster||!lastState||lastState.lifecycle!=='FINISHED';$('#target3').disabled=!window.browserHasMaster||!lastState||lastState.lifecycle!=='READY';$('#connection').textContent='synchronised'}catch(e){$('#connection').textContent='unsynchronised';hasState=false}finally{polling=false}}
 window.pendingMode='LAP_RACE';window.pendingModeDirty=false;window.modeSelectionListeners=[];window.onPendingModeChange=fn=>{window.modeSelectionListeners.push(fn);fn(window.pendingMode,window.pendingModeDirty)};window.setPendingMode=(mode,dirty)=>{window.pendingMode=mode;window.pendingModeDirty=!!dirty;window.modeSelectionListeners.forEach(fn=>fn(window.pendingMode,window.pendingModeDirty))};window.reconcileModeFromState=v=>{if(!v||v.lifecycle==='READY')return;const mode=v.sessionMode||'LAP_RACE';if(window.pendingModeDirty&&window.pendingMode===mode)window.pendingModeDirty=false;if(!window.pendingModeDirty)window.setPendingMode(mode,false)};window.startRequestWithBody=async(body,name)=>{const id=nextCorrelation++,started=performance.now();body.correlationId=id;const r=await fetch('/request/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.status!==202){$('#request').textContent='Request '+name+' was not accepted for submission.';return}const timer=setInterval(async()=>{const x=await get('/request-result?correlationId='+id);if(x){$('#request').textContent=(x.result==='ACCEPTED'?'Accepted: ':'Rejected: ')+(x.reason||'')+' ('+((performance.now()-started)/1000).toFixed(2)+' s; correlation '+id+')';clearInterval(timer)}},100)};window.dispatchStart=()=>{const mode=window.pendingMode||'LAP_RACE';if(mode==='OPEN_PRACTICE')return window.startRequestWithBody({mode:'OPEN_PRACTICE'},'START');if(mode==='ENDURANCE'){const p=window.enduranceProposalValues?window.enduranceProposalValues():{durationMinutes:1,finishPolicy:0};return window.startRequestWithBody({mode:'ENDURANCE',durationMinutes:p.durationMinutes,finishPolicy:p.finishPolicy},'START')}return operation('/request/start','START')};async function operation(path,name){const id=nextCorrelation++,started=performance.now();const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:id})});if(r.status!==202){$('#request').textContent='Request '+name+' was not accepted for submission.';return}const timer=setInterval(async()=>{const x=await get('/request-result?correlationId='+id);if(x){$('#request').textContent=(x.result==='ACCEPTED'?'Accepted: ':'Rejected: ')+(x.reason||'')+' ('+((performance.now()-started)/1000).toFixed(2)+' s; correlation '+id+')';clearInterval(timer)}},100)}$('#bootstrap').onclick=async()=>{await fetch('/bootstrap',{method:'POST'});poll()};$('#start').onclick=()=>window.dispatchStart();$('#pause').onclick=()=>operation('/request/pause','PAUSE');$('#honour').onclick=()=>operation('/request/honour-restart','Honour Restart');$('#grid').onclick=()=>operation('/request/grid-restart','Grid Restart');$('#raceAgain').onclick=()=>operation('/request/race-again','Race Again');function rank(e){return(e.tied?'=':'')+e.rank}async function showResults(){const r=await get('/results');let h='<h2>Results</h2>';if(!r.sealed){h+='<p>No completed result.</p>'}else{if(r.mode==='ENDURANCE'){h+='<p>Endurance '+r.durationMinutes+' min; '+(r.finishBehaviour==='IMMEDIATE'?'Stop at Zero':'Finish Current Lap')+'. '+(r.expiryTime?'Duration boundary reached.':'')+'</p>';}else h+='<p>Winning time '+sec(r.winningTime)+'; finish settled '+sec(r.finishTime)+'.</p>';h+='<p>Fastest lap: '+(r.fastestLap?sec(r.fastestLap)+(r.fastestLapTied?' (tie)':''):'—')+'</p>';r.entries.forEach((e,i)=>h+='<p><b>'+rank(e)+' — Lane '+e.lane+'</b>: '+e.laps+' laps'+(e.classifiedLaps!==e.laps?' ('+e.classifiedLaps+' classified)':'')+(e.lapsBehind?' ('+e.lapsBehind+' behind)':'')+'; finish '+(e.completionTime?sec(e.completionTime):'—')+'; best lap '+(e.bestLap?sec(e.bestLap):'—')+'</p>')}$('#resultView').innerHTML=h;$('#resultView').hidden=false}async function showDetails(){const r=await get('/details');let h='<h2>Lap details</h2>';r.entries.forEach((e,i)=>{h+='<h3>Lane '+e.lane+' — entry '+e.raceEntryId+'</h3>';h+=e.records.length?'<ol>'+e.records.map(x=>'<li>Lap '+x.lapNumber+': '+sec(x.lapTime)+'</li>').join('')+'</ol>':'<p>No valid completed laps.</p>'});$('#resultView').innerHTML=h;$('#resultView').hidden=false}$('#results').onclick=showResults;$('#details').onclick=showDetails;$('#back').onclick=()=>{$('#resultView').hidden=true};$('#home').onclick=()=>{$('#resultView').hidden=true;$('#request').textContent='Home — race result remains available.'};async function fixture(action,name){const r=await fetch('/fixture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});$('#request').textContent=r.ok?(action==='lane1'?'Lane 1 lap triggered':action==='lane2'?'Lane 2 lap triggered':action==='target3'?'Next race set to 3 laps.':'TEST RESET complete'):(action==='lane1'||action==='lane2'?'An active session is required before triggering a simulated car.':name+' unavailable')}$('#lane1').onclick=()=>fixture('lane1','Lane 1 passage');$('#lane2').onclick=()=>fixture('lane2','Lane 2 passage');$('#resetTest').onclick=()=>fixture('reset','TEST RESET');$('#target3').onclick=()=>fixture('target3','Next-race setup');poll();setInterval(()=>poll(),250)</script>)HTML";
-    static const char destructiveControls[] = R"HTML(<script>async function destructive(open,confirmPath,label){const id=Date.now()%4294967295;const opened=await fetch(open,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:id})});if(!opened.ok){document.querySelector('#request').textContent=label+' is unavailable.';return}if(!confirm('Confirm '+label+'?')){document.querySelector('#request').textContent=label+' cancelled.';return}const r=await fetch(confirmPath,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:id})});document.querySelector('#request').textContent=r.status===202?label+' submitted.':label+' was not accepted for submission.'}document.querySelector('#restartRace').onclick=()=>destructive('/request/restart-race','/request/restart-race/confirm','Restart Race');document.querySelector('#endRace').onclick=()=>destructive('/request/end-race','/request/end-race/confirm','End Race');document.querySelector('#history').onclick=async()=>{const r=await fetch('/history');const h=await r.json();const v=document.querySelector('#resultView');const historyMode=x=>x.mode==='ENDURANCE'?'Endurance':x.mode==='OPEN_PRACTICE'?'Open Practice':'Lap Race';v.innerHTML='<h2>History</h2>'+(h.entries.length?h.entries.map(x=>{const rows=(x.entries||[]).map(e=>'Lane '+e.lane+': '+e.laps+' laps'+(e.classifiedLaps!==e.laps?' ('+e.classifiedLaps+' classified)':'')).join('; ');const end=x.mode==='ENDURANCE'?(' — '+x.durationMinutes+' min, '+(x.finishBehaviour==='IMMEDIATE'?'Stop at Zero':'Finish Current Lap')+(x.overtime?' — overtime':'')+(rows?'; '+rows:'')):(' — winning time '+(Number(x.winningTime)/1000000).toFixed(2)+' s');return '<p>Race '+x.sequence+': '+historyMode(x)+end+'</p>';}).join(''):'<p>No completed races.</p>');v.hidden=false};async function stage13Fact(){try{const f=await get('/fact');const old=document.querySelector('#stage13Fact');if(old)old.remove();if(f.type==='FALSE_START'){const msg=document.createElement('div');msg.id='stage13Fact';msg.className='status';msg.textContent='False start — Lane '+f.raceEntryId+' ('+f.policy+').';document.querySelector('#human').appendChild(msg)}}catch(e){}}function stage13Lights(){try{if(!lastState||lastState.lifecycle!=='STARTING'||!lastState.systemTime)return;const now=Number(lastState.systemTime)+(performance.now()-(lastState.sampledAt||performance.now()))*1000;const reds=Number(lastState.redLightCount||0),gap=Number(lastState.redIntervalUs||0),finalDelay=Number(lastState.finalDelayUs||0),first=Number(lastState.scheduledGo)-reds*gap-finalDelay;const lit=Math.max(0,Math.min(reds,Math.floor((now-first)/gap)+1));let line=document.querySelector('#stage13Lights');if(!line){line=document.createElement('div');line.id='stage13Lights';line.className='status';document.querySelector('#human').appendChild(line)}line.textContent=now>=Number(lastState.scheduledGo)?(lastState.startSignal===1?'GO — GREEN':'GO — LIGHTS OUT'):('Start sequence — '+lit+' of '+reds+' red lights');}catch(e){}}setInterval(stage13Lights,100);setInterval(stage13Fact,300);</script>)HTML";
+    static const char destructiveControls[] = R"HTML(<script>async function destructive(open,confirmPath,label){const id=Date.now()%4294967295;const opened=await fetch(open,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:id})});if(!opened.ok){document.querySelector('#request').textContent=label+' is unavailable.';return}if(!confirm('Confirm '+label+'?')){document.querySelector('#request').textContent=label+' cancelled.';return}const r=await fetch(confirmPath,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correlationId:id})});document.querySelector('#request').textContent=r.status===202?label+' submitted.':label+' was not accepted for submission.'}document.querySelector('#restartRace').onclick=()=>destructive('/request/restart-race','/request/restart-race/confirm','Restart Race');document.querySelector('#endRace').onclick=()=>destructive('/request/end-race','/request/end-race/confirm','End Race');document.querySelector('#history').onclick=async()=>{const r=await fetch('/history');const h=await r.json();const v=document.querySelector('#resultView');const historyMode=x=>x.mode==='ENDURANCE'?'Endurance':x.mode==='OPEN_PRACTICE'?'Open Practice':'Lap Race';v.innerHTML='<h2>History</h2>'+(h.entries.length?h.entries.map(x=>{const rows=(x.entries||[]).map(e=>'Lane '+e.lane+': '+e.laps+' laps'+(e.classifiedLaps!==e.laps?' ('+e.classifiedLaps+' classified)':'')).join('; ');const end=x.mode==='ENDURANCE'?(' — '+x.durationMinutes+' min, '+(x.finishBehaviour==='IMMEDIATE'?'Stop at Zero':'Finish Current Lap')+(x.overtime?' — overtime':'')+(rows?'; '+rows:'')):(' — winning time '+(Number(x.winningTime)/1000000).toFixed(2)+' s');return '<p>Race '+x.sequence+': '+historyMode(x)+end+'</p>';}).join(''):'<p>No completed races.</p>');v.hidden=false};async function stage13Fact(){try{const f=await get('/fact');const old=document.querySelector('#stage13Fact');if(old)old.remove();if(f.type==='FALSE_START'){const msg=document.createElement('div');msg.id='stage13Fact';msg.className='status';msg.textContent='False start — Lane '+f.raceEntryId+' ('+f.policy+').';document.querySelector('#human').appendChild(msg)}}catch(e){}}function stage13Lights(){try{if(!lastState)return;const p=lastState.startPresentation||{};let line=document.querySelector('#stage13Lights');if(!line){line=document.createElement('div');line.id='stage13Lights';line.className='status';document.querySelector('#human').appendChild(line)}const phase=p.phase||'NONE';line.textContent=phase==='GO'?(p.green?'GO — GREEN':'GO — LIGHTS OUT'):phase==='COUNTDOWN'?'Start sequence — '+(Number(p.redLightsLit||0))+' of '+(Number(p.redLightCount||0))+' red lights':phase==='RESUME_COUNTDOWN'?'Resume sequence — '+(Number(p.redLightsLit||0))+' of '+(Number(p.redLightCount||0))+' red lights':'';}catch(e){}}setInterval(stage13Lights,100);setInterval(stage13Fact,300);</script>)HTML";
     static const char recordControls[] = R"HTML(<script>const recordButton=document.createElement('button');recordButton.id='records';recordButton.textContent='RECORDS';document.querySelector('#history').after(recordButton);function recordTime(v){return v?sec(v):'—'}async function showRecords(){const r=await get('/records');const v=document.querySelector('#resultView');v.innerHTML='<h2>Records — '+r.track+'</h2><p>Record era '+r.era+'. '+r.entries.map(e=>'Lane '+e.lane+' PB: '+recordTime(e.pb)).join('; ')+ '; Track Record: '+recordTime(r.trackRecord)+'.</p><p><button id="clearHistory">CLEAR HISTORY</button><button id="clearLane1">CLEAR LANE 1 PB</button><button id="clearLane2">CLEAR LANE 2 PB</button><button id="clearTrack">CLEAR TRACK RECORD</button><button id="clearAll">CLEAR ALL RECORDS</button></p>';v.hidden=false;document.querySelector('#clearHistory').onclick=()=>destructive('/request/clear-history','/request/clear-history/confirm','Clear History');document.querySelector('#clearLane1').onclick=()=>destructive('/request/clear-lane-1-records','/request/clear-lane-1-records/confirm','Clear Lane 1 PB');document.querySelector('#clearLane2').onclick=()=>destructive('/request/clear-lane-2-records','/request/clear-lane-2-records/confirm','Clear Lane 2 PB');document.querySelector('#clearTrack').onclick=()=>destructive('/request/clear-track-record','/request/clear-track-record/confirm','Clear Track Record');document.querySelector('#clearAll').onclick=()=>destructive('/request/clear-all-records','/request/clear-all-records/confirm','Clear All Records')}recordButton.onclick=showRecords;</script>)HTML";
     // The sampled browser monotonic instant is presentation-only.  It lets a
     // reconnecting Browser animate the already-authoritative schedule without
@@ -800,6 +1379,22 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     if (httpd_resp_send_chunk(request, authorityPresentation, sizeof(authorityPresentation) - 1) != ESP_OK) { trace.complete(ESP_FAIL); return ESP_FAIL; }
     const esp_err_t sent = httpd_resp_send_chunk(request, nullptr, 0); trace.complete(sent); return sent;
   }
+  static esp_err_t bootstrapDiagnostic(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/diag/bootstrap");
+    char query[64]{};
+    char step[32] = "unknown";
+    if (httpd_req_get_url_query_str(request, query, sizeof(query)) == ESP_OK) {
+      httpd_query_key_value(query, "step", step, sizeof(step));
+    }
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    Serial.printf("[BOOTHTTP] browser_marker step=%s at_us=%llu\n", step,
+                  static_cast<unsigned long long>(systemTime()));
+#endif
+    httpd_resp_set_status(request, "204 No Content");
+    const esp_err_t sent = httpd_resp_send(request, nullptr, 0);
+    trace.complete(sent);
+    return sent;
+  }
   static esp_err_t health(httpd_req_t* request) {
     RequestTrace trace(instance(), "/health");
     httpd_resp_set_type(request, "application/json");
@@ -829,6 +1424,9 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/", HTTP_GET, page, nullptr},
       {"/state", HTTP_GET, state, nullptr},
       {"/noticeboard", HTTP_GET, notice, nullptr},
+      {"/events", HTTP_GET, events, nullptr},
+      {"/diag/bootstrap", HTTP_GET, bootstrapDiagnostic, nullptr},
+      {"/diag/browser", HTTP_POST, browserActionRoute, nullptr},
       {"/proposal", HTTP_GET, proposalRoute, nullptr},
       {"/practice-summary", HTTP_GET, practiceSummaryRoute, nullptr},
       {"/finish-display", HTTP_GET, finishDisplayRoute, nullptr},
@@ -837,6 +1435,9 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/history", HTTP_GET, historyRoute, nullptr},
       {"/records", HTTP_GET, recordsRoute, nullptr},
       {"/fact", HTTP_GET, fact, nullptr},
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+      {"/diag/lap-displayed", HTTP_POST, browserLapDisplayed, nullptr},
+#endif
       {"/health", HTTP_GET, health, nullptr},
       {"/context", HTTP_GET, contextRoute, nullptr},
       {"/bootstrap", HTTP_POST, bootstrapRoute, nullptr},
@@ -880,11 +1481,19 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   }
   void stopServer() {
     if (!server_) return;
+    if (sseSession_) sseSession_->valid = false;
+    eventConnected_ = false;
+    eventGeneration_ = 0;
+    eventWorkQueued_ = false;
     ++serverStops_;
     const httpd_handle_t old = server_;
     server_ = nullptr;
     const esp_err_t stopped = httpd_stop(old);
     if (stopped != ESP_OK) serverStartError_ = int(stopped);
+    if (sseSession_ && !sseSession_->valid) {
+      delete sseSession_;
+      sseSession_ = nullptr;
+    }
   }
 };
 }  // namespace pp
