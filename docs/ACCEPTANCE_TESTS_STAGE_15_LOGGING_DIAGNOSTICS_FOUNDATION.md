@@ -105,6 +105,21 @@ payload buffer and 10240-byte provisional JSON inspection response per request.
 No numeric performance threshold or production capacity is frozen by these
 measurements.
 
+## Phase 8 hardware definition
+
+The real-hardware checkpoint uses the established ESP32-8048S070 7-inch
+800x480 ESP32-S3 board: 16 MB flash, on-board PSRAM and an on-board microSD
+socket. The checkpoint uses the repository's esp32-8048s070 PlatformIO board
+definition, derived from the previously used esp32-s3-devkitc-1 target and
+corrected for the N16R8 16 MB/PSRAM hardware. The provisional SPI wiring used by
+the board microSD is CS GPIO10, MOSI GPIO11, SCK GPIO12 and MISO GPIO13. Only
+those four signals are part of the verified software definition; card-detect,
+write-protect and other board electrical details remain unspecified unless
+runtime evidence establishes them.
+
+These facts identify the Phase 8 test hardware. They do not freeze production
+diagnostic capacity, filesystem layout, export encoding or SD housekeeping.
+
 ## Final acceptance gates, intentionally outstanding
 
 Final Stage 15 acceptance/freeze requires, in addition:

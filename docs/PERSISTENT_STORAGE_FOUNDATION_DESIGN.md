@@ -68,6 +68,15 @@ Before final SD hardware is available, the same boundary is exercised with a fil
 
 The production backend remains an ESP32-S3 SD/FATFS implementation and requires a later real-hardware checkpoint.
 
+## Phase 8 hardware record
+
+The established Phase 8 hardware is the ESP32-8048S070 7-inch
+800x480 ESP32-S3 board with 16 MB flash, on-board PSRAM and microSD. Its
+provisional SPI microSD mapping for the diagnostic checkpoint is CS GPIO10,
+MOSI GPIO11, SCK GPIO12, and MISO GPIO13. This identifies the test hardware
+only; it does not define the eventual production SD filesystem or wiring
+contract beyond these verified board signals.
+
 ## Interim containment
 
 Before the SD backend is implemented, the current development History path must latch the first failed persistence operation, expose `persistencePending` and `persistenceFault`, publish/report the storage fault once, and stop retrying the same failed operation on every Race Engine tick. NVS preflight prediction is not a product requirement, and NVS is not the production History backend.

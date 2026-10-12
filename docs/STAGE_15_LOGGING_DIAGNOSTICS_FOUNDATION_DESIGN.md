@@ -193,3 +193,22 @@ baseline measurements, not acceptance thresholds. Sustained Wokwi load, live
 heap/stack pressure and SD latency remain environment or real-hardware campaign
 items and do not become claims from this host test.
 
+## 15. Phase 8 hardware baseline
+
+The Phase 8 real-hardware checkpoint targets the established ESP32-8048S070
+7-inch 800x480 ESP32-S3 display board. The board record identifies 16 MB flash,
+on-board PSRAM, and an on-board microSD socket. The checkpoint uses the
+repository's esp32-8048s070 PlatformIO board definition, derived from the
+previously used esp32-s3-devkitc-1 target and corrected for the N16R8
+16 MB/PSRAM hardware. It does not claim that display peripherals are part of
+the diagnostic firmware.
+
+The board microSD is exercised in SPI mode with the verified signal mapping:
+CS GPIO10, MOSI GPIO11, SCK GPIO12, and MISO GPIO13. No card-detect,
+write-protect, display, touch, or other electrical details are assumed. Runtime
+firmware must report the detected card, filesystem and capacity rather than
+assuming them.
+
+This is a Phase 8 hardware-test definition only. It does not freeze the
+production diagnostic directory layout, export encoding, capacity, wear policy,
+or final SD integration architecture.
