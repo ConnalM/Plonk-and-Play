@@ -56,3 +56,9 @@ Browser reload/reconnect reconstructs diagnostic status from P&P authority. No a
 
 Foundation Design Freeze permits implementation. Final Stage 15 acceptance/freeze additionally requires resource measurement, production ESP32-S3 plus SD/FATFS evidence, permission/security, privacy/redaction, final Browser UX, export encoding, SD housekeeping/wear policy, exact render-evidence rules, and implementation-informed storage-health recovery details.
 
+## 8. Phase 2 development implementation
+
+Phase 2 provides an in-memory recorder and backend solely to exercise the contract. It uses an explicitly named provisional test bound and retains records in insertion order. When the bound is reached, new records are dropped, loss is counted, and storage health becomes `DEGRADED`; records are not silently overwritten. Backend failures are latched as `FAULT`, subsequent submissions do not retry the failed backend operation, and the diagnostic session remains separate from product authority.
+
+The Phase 2 bound is a test/development implementation detail. It is not a product retention capacity, SD capacity, or final performance threshold.
+

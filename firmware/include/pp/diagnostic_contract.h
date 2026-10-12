@@ -85,6 +85,8 @@ enum class FailureReason : uint8_t {
   UnsupportedVersion = 7,
   RecorderFault = 8,
   InvalidRequest = 9,
+  BackendUnavailable = 10,
+  WriteFailure = 11,
 };
 
 struct ControllerEpoch {
@@ -147,6 +149,7 @@ struct SessionStatus {
   StorageHealth storage = StorageHealth::Fault;
   FailureReason lastFailure = FailureReason::None;
   uint64_t nextSequence = 0;
+  uint64_t droppedRecords = 0;
   bool evidenceVolatile = false;
   bool evidenceIncomplete = false;
 };
@@ -169,8 +172,12 @@ public:
   virtual RecorderResult start(const SessionStartRequest& request,
                                SessionStatus& status) = 0;
   virtual RecorderResult stop(SessionStatus& status) = 0;
+  virtual RecorderResult interrupt(SessionStatus& status) = 0;
   virtual RecorderResult tryAppend(const RecordView& record, uint64_t& sequence) = 0;
   virtual bool status(SessionStatus& status) const = 0;
+  virtual size_t count() const = 0;
+  virtual bool read(size_t index, RecordEnvelope& envelope, uint8_t* payload,
+                    size_t capacity, size_t& length) const = 0;
 };
 
 // Storage is a backend contract only. Phase 1 defines no SD, file, NVS, RAM,
@@ -181,6 +188,9 @@ public:
 
   virtual StorageResult begin(ControllerEpoch controllerEpoch) = 0;
   virtual StorageResult tryAppend(const RecordView& record, uint64_t sequence) = 0;
+  virtual size_t count() const = 0;
+  virtual bool read(size_t index, RecordEnvelope& envelope, uint8_t* payload,
+                    size_t capacity, size_t& length) const = 0;
   virtual StorageStatus status() const = 0;
   virtual StorageResult recover() = 0;
   virtual StorageResult close() = 0;

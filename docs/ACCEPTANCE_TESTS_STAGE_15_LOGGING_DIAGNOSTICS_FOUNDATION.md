@@ -26,6 +26,19 @@ No numeric capacity, queue, file-size, or performance threshold is frozen by thi
 | PS15.16 | Existing Serial, health, Message Bus, Noticeboard/SSE, persistence, Browser, and resource facilities can be represented and correlated. | Integration review. |
 | PS15.17 | Race behavior, timing, classification, persistence authority, and Browser product authority remain unchanged. | Stage 1–14C regression suite. |
 
+## Phase 2 focused checks
+
+| ID | Requirement | Evidence |
+|---|---|---|
+| PS15.18 | In-memory session follows normal start, active, stop, and completed transitions. | Phase 2 unit test. |
+| PS15.19 | Active-session START returns `ALREADY_ACTIVE` with the existing session identity and does not replace it. | Phase 2 unit test. |
+| PS15.20 | Multiple client identities are preserved in one session's records. | Phase 2 unit test. |
+| PS15.21 | In-memory operation reports `ACTIVE + RAM_ONLY` and explicit volatility. | Phase 2 unit test. |
+| PS15.22 | Records append in deterministic sequence order and can be retrieved in that order. | Phase 2 unit test. |
+| PS15.23 | Provisional test capacity is bounded; overflow drops new evidence, counts loss, marks incomplete/degraded, and does not overwrite earlier records. | Phase 2 unit test. |
+| PS15.24 | Backend append failure latches fault, reports the failure, and causes later submissions to return without retrying the backend. | Phase 2 failure-injection test. |
+| PS15.25 | Interruption reports `INTERRUPTED` and incomplete evidence without creating product state. | Phase 2 unit test. |
+
 ## Final acceptance gates, intentionally outstanding
 
 Final Stage 15 acceptance/freeze requires, in addition:

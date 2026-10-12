@@ -26,11 +26,18 @@ public:
     out = status_;
     return RecorderResult::Accepted;
   }
+  RecorderResult interrupt(SessionStatus& out) override {
+    status_.lifecycle = SessionLifecycle::Interrupted;
+    out = status_;
+    return RecorderResult::Accepted;
+  }
   RecorderResult tryAppend(const RecordView&, uint64_t& sequence) override {
     sequence = ++status_.nextSequence;
     return status_.lifecycle == SessionLifecycle::Active ? RecorderResult::Accepted : RecorderResult::NotActive;
   }
   bool status(SessionStatus& out) const override { out = status_; return true; }
+  size_t count() const override { return 0; }
+  bool read(size_t, RecordEnvelope&, uint8_t*, size_t, size_t& length) const override { length = 0; return false; }
 private:
   SessionStatus status_{};
 };
