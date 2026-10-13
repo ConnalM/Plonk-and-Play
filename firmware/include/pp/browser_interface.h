@@ -8,6 +8,7 @@
 #include "system_time.h"
 #include "diagnostic_trace.h"
 #include "diagnostic_retrieval.h"
+#include "control_lease.h"
 namespace pp {
 // Browser identity and the retained Master binding are Browser Interface State.
 // Race Control receives only the logical ClientContext attached to a Bus message.
@@ -48,7 +49,7 @@ public:
         authority_(authority ? authority : &fallback_), history_(history), records_(records) {
     controllerEpoch_ = newControllerEpoch();
     uint64_t persisted = 0;
-    if (authority_->loadMaster(persisted) && persisted) masterFingerprint_ = persisted;
+    if (authority_->loadMaster(persisted) && persisted) controlLease_.restore(persisted);
   }
   uint64_t controllerEpoch() const { return controllerEpoch_; }
   void setDiagnosticTrace(diagnostic::ControllerOperationTrace* trace) { diagnosticTrace_ = trace; }
@@ -123,7 +124,7 @@ public:
       const bool changed = noticeRevision_ != eventSentRevision_;
       const bool presentationChanged = presentationSequence_ != presentationSentSequence_;
       const bool keepalive = static_cast<uint32_t>(now - eventLastSendMs_) >= 10000U;
-      if ((changed || presentationChanged || keepalive) && !eventWorkQueued_) queueEventWork();
+      if ((changed || presentationChanged || controlNotificationPending_ || keepalive) && !eventWorkQueued_) queueEventWork();
     }
   }
   // The public overload is retained for non-Browser test fixtures. HTTP calls
@@ -165,7 +166,7 @@ public:
     Pending& pending=pending_[nextPending_++ % ResultCapacity]; pending.internal=request.correlation;
     pending.visible=visibleCorrelation; pending.owner=owner; pending.ready=true; return true;
   }
-  void clearForFixture(){masterFingerprint_=0;clearRaceForFixture();}
+  void clearForFixture(){controlLease_.reset();clearRaceForFixture();}
   void clearRaceForFixture(){for(auto& p:pending_)p.ready=false;for(auto& r:results_)r.ready=false;hasFact_=false;lastFact_={};noticeRevision_=0;factRevision_=0;scheduledGo_=0;}
   void setFixtureCallbacks(bool (*pass)(uint8_t), void (*reset)()){fixturePass_=pass;fixtureReset_=reset;}
   bool submitOperation(uint32_t visibleCorrelation, SessionOperation operation, ClientContext context, uint64_t owner, bool confirmed=false, uint64_t traceId=0) {
@@ -193,18 +194,62 @@ public:
   // this Browser Interface instance from racing in and replacing it. A failed
   // persistence attempt restores the no-Master state.
   bool bootstrap(uint64_t token) {
-    if (!token || masterFingerprint_) return false;
+    if (!token || controlLease_.hasOwner()) return false;
     const uint64_t candidate = fingerprint(token);
-    masterFingerprint_ = candidate;
-    if (authority_->saveMaster(candidate)) return true;
-    masterFingerprint_ = 0;
+    if (authority_->saveMaster(candidate) && controlLease_.restore(candidate)) return true;
     return false;
   }
-  bool hasMaster() const { return masterFingerprint_ != 0; }
+  bool hasMaster() const { return controlLease_.hasOwner(); }
   ClientContext context(uint64_t token) const {
-    return token && masterFingerprint_ == fingerprint(token)
+    return token && controlLease_.isOwner(fingerprint(token))
                ? ClientContext::RaceDirectorSmug
                : ClientContext::Spectator;
+  }
+  bool isControlOwner(uint64_t token) const { return token && controlLease_.isOwner(fingerprint(token)); }
+  bool controlOwnerConnected() const { return controlLease_.ownerConnected(); }
+  bool controlTakeoverPending() const { return controlLease_.pending(); }
+  uint32_t controlTakeoverRequestId() const { return controlLease_.requestId(); }
+  bool controlTakeoverRequestedBy(uint64_t token) const {
+    return token && controlLease_.requester() == fingerprint(token);
+  }
+  ControlLeaseResult requestControl(uint64_t token, uint32_t& requestId) {
+    const uint64_t candidate = fingerprint(token);
+    const ControlLease::Snapshot before = controlLease_.snapshot();
+    const ControlLeaseResult result = controlLease_.request(candidate, requestId);
+    if (result == ControlLeaseResult::Accepted &&
+        (!authority_->saveMaster(controlLease_.owner()))) {
+      controlLease_.restoreSnapshot(before);
+      requestId = 0;
+      return ControlLeaseResult::NotOwner;
+    }
+    if (result == ControlLeaseResult::Pending) {
+      controlNotificationRequestId_ = requestId;
+      controlNotificationPending_ = true;
+      if (server_ && eventConnected_) queueEventWork();
+    }
+    return result;
+  }
+  ControlLeaseResult respondControl(uint64_t token, bool allow, uint32_t& requestId) {
+    const uint64_t candidate = fingerprint(token);
+    const ControlLease::Snapshot before = controlLease_.snapshot();
+    const ControlLeaseResult result = controlLease_.respond(candidate, allow, requestId);
+    if (result == ControlLeaseResult::Accepted &&
+        (!authority_->saveMaster(controlLease_.owner()))) {
+      controlLease_.restoreSnapshot(before);
+      return ControlLeaseResult::NotOwner;
+    }
+    return result;
+  }
+  void controlConnected(uint64_t token) { if (token) controlLease_.connected(fingerprint(token)); }
+  void controlDisconnected(uint64_t token) { if (token) controlLease_.disconnected(fingerprint(token)); }
+  ControlLeaseResult controlResultFor(uint64_t token) const {
+    if (!token || controlLease_.lastRequestId() == 0) return ControlLeaseResult::NoPending;
+    const uint64_t candidate = fingerprint(token);
+    if (candidate == controlLease_.requester() || candidate == controlLease_.lastRequester() ||
+        (controlLease_.lastResult() == ControlLeaseResult::Accepted && controlLease_.isOwner(candidate))) {
+      return controlLease_.lastResult();
+    }
+    return ControlLeaseResult::NoPending;
   }
   NoticeboardState current() const { return noticeboard_.current(); }
   uint32_t noticeRevision() const { return noticeRevision_; }
@@ -303,7 +348,7 @@ private:
   TrackRecordStore* records_ = nullptr;
   VolatileAuthorityStore fallback_;
   httpd_handle_t server_ = nullptr;
-  uint64_t masterFingerprint_ = 0;
+  ControlLease controlLease_{};
   uint64_t controllerEpoch_ = 0;
   diagnostic::ControllerOperationTrace* diagnosticTrace_ = nullptr;
   uint32_t noticeRevision_ = 0;
@@ -346,6 +391,7 @@ private:
     BrowserInterface* owner = nullptr;
     httpd_handle_t server = nullptr;
     int fd = -1;
+    uint64_t clientToken = 0;
     uint32_t generation = 0;
     volatile bool valid = false;
   };
@@ -360,6 +406,8 @@ private:
   volatile bool eventWorkQueued_ = false;
   volatile uint32_t eventSentRevision_ = 0;
   uint32_t eventLastSendMs_ = 0;
+  volatile bool controlNotificationPending_ = false;
+  volatile uint32_t controlNotificationRequestId_ = 0;
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   bool lapNoticePending_ = false;
   uint32_t lapNoticeRevision_ = 0;
@@ -770,6 +818,7 @@ private:
       browser->sseSession_ = nullptr;
       browser->eventConnected_ = false;
       browser->eventGeneration_ = 0;
+      browser->controlDisconnected(session->clientToken);
     }
     delete session;
   }
@@ -867,7 +916,9 @@ private:
     const bool noticePending = revision != eventSentRevision_;
     const uint32_t presentationSequence = presentationSequence_;
     const bool presentationPending = presentationSequence != presentationSentSequence_;
-    const bool keepalive = !noticePending && !presentationPending;
+    const bool controlPending = controlNotificationPending_;
+    const uint32_t controlRequestId = controlNotificationRequestId_;
+    const bool keepalive = !noticePending && !presentationPending && !controlPending;
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
     const uint32_t payloadEntry = lapNoticeRevision_ == revision ? lapNoticeEntry_ : 0;
     const uint32_t payloadLap = lapNoticeRevision_ == revision ? lapNoticeNumber_ : 0;
@@ -885,6 +936,9 @@ private:
                         (unsigned long)revision, (unsigned long long)systemTime(),
                         static_cast<unsigned long>(payloadEntry), static_cast<unsigned long>(payloadLap),
                         static_cast<unsigned long>(payloadEventId));
+    } else if (controlPending) {
+      length = snprintf(payload, sizeof(payload), "event: control\ndata: {\"kind\":\"TAKEOVER\",\"requestId\":%lu}\n\n",
+                        static_cast<unsigned long>(controlRequestId));
     } else {
       const auto& p = presentation_;
       length = snprintf(payload, sizeof(payload),
@@ -934,8 +988,11 @@ private:
         static_cast<unsigned long long>(systemTime()));
 #endif
       if (noticePending) eventSentRevision_ = revision;
-      if (!noticePending && !keepalive && presentationSequence == presentationSequence_) {
+      if (!noticePending && !controlPending && !keepalive && presentationSequence == presentationSequence_) {
         presentationSentSequence_ = presentationSequence;
+      }
+      if (controlPending && controlRequestId == controlNotificationRequestId_) {
+        controlNotificationPending_ = false;
       }
       eventLastSendMs_ = millis();
       if (sseSession_ != session || !session->valid || eventGeneration_ != generation) {
@@ -953,7 +1010,7 @@ private:
   }
   static esp_err_t events(httpd_req_t* request) {
     RequestTrace trace(instance(), "/events");
-    client(request);
+    const uint64_t browserToken = client(request);
     BrowserInterface* browser = instance();
     const int fd = httpd_req_to_sockfd(request);
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
@@ -962,7 +1019,13 @@ private:
       static_cast<unsigned long long>(systemTime()));
 #endif
     if (!browser || fd < 0) { trace.complete(ESP_ERR_INVALID_ARG); return ESP_FAIL; }
+    if (browser->sseSession_ && browser->sseSession_->valid && browser->sseSession_->clientToken != browserToken) {
+      httpd_resp_set_status(request, "409 Conflict");
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return ESP_FAIL;
+    }
     if (browser->sseSession_) {
+      browser->controlDisconnected(browser->sseSession_->clientToken);
       browser->sseSession_->valid = false;
       httpd_sess_trigger_close(browser->sseSession_->server, browser->sseSession_->fd);
       browser->sseSession_ = nullptr;
@@ -996,6 +1059,7 @@ private:
     session->owner = browser;
     session->server = browser->server_;
     session->fd = fd;
+    session->clientToken = browserToken;
     session->generation = ++browser->nextEventGeneration_;
     if (session->generation == 0) session->generation = ++browser->nextEventGeneration_;
     session->valid = true;
@@ -1005,6 +1069,7 @@ private:
     browser->eventGeneration_ = session->generation;
     browser->eventSentRevision_ = browser->noticeRevision_;
     browser->eventLastSendMs_ = millis();
+    browser->controlConnected(browserToken);
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
     Serial.printf("[SSE] async_session fd=%d generation=%lu revision=%lu at_us=%llu\n", fd,
       static_cast<unsigned long>(session->generation),
@@ -1309,13 +1374,72 @@ private:
     httpd_resp_set_type(request, "application/json");
     return httpd_resp_sendstr(request, "{\"bootstrap\":true,\"role\":\"Race Director\"}");
   }
+  static const char* controlResultText(ControlLeaseResult result) {
+    switch (result) {
+      case ControlLeaseResult::Accepted: return "ACCEPTED";
+      case ControlLeaseResult::Pending: return "PENDING";
+      case ControlLeaseResult::AlreadyOwner: return "ALREADY_OWNER";
+      case ControlLeaseResult::AlreadyPending: return "ALREADY_PENDING";
+      case ControlLeaseResult::Refused: return "REFUSED";
+      case ControlLeaseResult::NoPending: return "NONE";
+      default: return "REJECTED";
+    }
+  }
+  static esp_err_t takeControlRoute(httpd_req_t* request) {
+    BrowserInterface* browser = instance();
+    const uint64_t owner = client(request);
+    uint32_t requestId = 0;
+    const ControlLeaseResult result = browser->requestControl(owner, requestId);
+    const bool accepted = result == ControlLeaseResult::Accepted || result == ControlLeaseResult::AlreadyOwner;
+    char json[160];
+    snprintf(json, sizeof(json), "{\"result\":\"%s\",\"requestId\":%lu,\"hasMaster\":%s}",
+             controlResultText(result), static_cast<unsigned long>(requestId),
+             browser->hasMaster() ? "true" : "false");
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    httpd_resp_set_status(request, accepted ? "200 OK" : (result == ControlLeaseResult::Pending ? "202 Accepted" : "409 Conflict"));
+    return httpd_resp_sendstr(request, json);
+  }
+  static esp_err_t allowControlRoute(httpd_req_t* request) {
+    BrowserInterface* browser = instance();
+    const uint64_t owner = client(request);
+    uint32_t requestId = 0;
+    const ControlLeaseResult result = browser->respondControl(owner, true, requestId);
+    char json[128];
+    snprintf(json, sizeof(json), "{\"result\":\"%s\",\"requestId\":%lu}",
+             controlResultText(result), static_cast<unsigned long>(requestId));
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    httpd_resp_set_status(request, result == ControlLeaseResult::Accepted ? "200 OK" : "409 Conflict");
+    return httpd_resp_sendstr(request, json);
+  }
+  static esp_err_t keepControlRoute(httpd_req_t* request) {
+    BrowserInterface* browser = instance();
+    const uint64_t owner = client(request);
+    uint32_t requestId = 0;
+    const ControlLeaseResult result = browser->respondControl(owner, false, requestId);
+    char json[128];
+    snprintf(json, sizeof(json), "{\"result\":\"%s\",\"requestId\":%lu}",
+             controlResultText(result), static_cast<unsigned long>(requestId));
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    httpd_resp_set_status(request, result == ControlLeaseResult::Refused ? "200 OK" : "409 Conflict");
+    return httpd_resp_sendstr(request, json);
+  }
   static esp_err_t contextRoute(httpd_req_t* request) {
     RequestTrace trace(instance(), "/context");
     const uint64_t owner = client(request);
-    char json[96];
-    snprintf(json, sizeof(json), "{\"role\":\"%s\",\"hasMaster\":%s}",
+    char json[320];
+    const ControlLeaseResult result = instance()->controlResultFor(owner);
+    snprintf(json, sizeof(json), "{\"role\":\"%s\",\"hasMaster\":%s,\"isMaster\":%s,\"ownerConnected\":%s,\"takeoverPending\":%s,\"takeoverRequestedByThis\":%s,\"takeoverRequestId\":%lu,\"takeoverResult\":\"%s\"}",
              instance()->context(owner) == ClientContext::RaceDirectorSmug ? "Race Director" : "Spectator",
-             instance()->hasMaster() ? "true" : "false");
+             instance()->hasMaster() ? "true" : "false",
+             instance()->isControlOwner(owner) ? "true" : "false",
+             instance()->controlOwnerConnected() ? "true" : "false",
+             instance()->controlTakeoverPending() ? "true" : "false",
+             instance()->controlTakeoverRequestedBy(owner) ? "true" : "false",
+             static_cast<unsigned long>(instance()->controlTakeoverPending() ? instance()->controlTakeoverRequestId() : 0),
+             controlResultText(result));
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
     const esp_err_t sent = httpd_resp_sendstr(request, json); trace.complete(sent); return sent;
@@ -1492,9 +1616,69 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     trace.complete(sent);
     return sent;
   }
+  static bool diagnosticControlAllowed(httpd_req_t* request, BrowserInterface* browser, uint64_t& owner) {
+    owner = client(request);
+    if (browser && browser->isControlOwner(owner)) return true;
+    httpd_resp_send_err(request, HTTPD_403_FORBIDDEN, "controlling Race Director required");
+    return false;
+  }
+  static const char* diagnosticResultText(diagnostic::RecorderResult result) {
+    switch (result) {
+      case diagnostic::RecorderResult::Accepted: return "ACCEPTED";
+      case diagnostic::RecorderResult::AlreadyActive: return "ALREADY_ACTIVE";
+      case diagnostic::RecorderResult::NotActive: return "NOT_ACTIVE";
+      case diagnostic::RecorderResult::Fault: return "FAULT";
+      default: return "REJECTED";
+    }
+  }
+  static esp_err_t diagnosticStartRoute(httpd_req_t* request) {
+    BrowserInterface* browser = instance();
+    uint64_t owner = 0;
+    if (!diagnosticControlAllowed(request, browser, owner)) return ESP_FAIL;
+    if (!browser->diagnosticTrace_) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      httpd_resp_sendstr(request, "diagnostics unavailable");
+      return ESP_FAIL;
+    }
+    diagnostic::SessionStartRequest start{};
+    start.controllerEpoch.value = browser->controllerEpoch_;
+    start.client.value = owner;
+    diagnostic::SessionStatus status{};
+    const diagnostic::RecorderResult result = browser->diagnosticTrace_->recorder().start(start, status);
+    char json[192];
+    snprintf(json, sizeof(json), "{\"result\":\"%s\",\"session\":%llu,\"controllerEpoch\":%llu,\"lifecycle\":%u}",
+             diagnosticResultText(result), static_cast<unsigned long long>(status.session.value),
+             static_cast<unsigned long long>(status.controllerEpoch.value), static_cast<unsigned>(status.lifecycle));
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    httpd_resp_set_status(request, result == diagnostic::RecorderResult::Accepted ? "202 Accepted" :
+      (result == diagnostic::RecorderResult::AlreadyActive ? "409 Conflict" : "503 Service Unavailable"));
+    return httpd_resp_sendstr(request, json);
+  }
+  static esp_err_t diagnosticStopRoute(httpd_req_t* request) {
+    BrowserInterface* browser = instance();
+    uint64_t owner = 0;
+    if (!diagnosticControlAllowed(request, browser, owner)) return ESP_FAIL;
+    if (!browser->diagnosticTrace_) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      httpd_resp_sendstr(request, "diagnostics unavailable");
+      return ESP_FAIL;
+    }
+    diagnostic::SessionStatus status{};
+    const diagnostic::RecorderResult result = browser->diagnosticTrace_->recorder().stop(status);
+    char json[192];
+    snprintf(json, sizeof(json), "{\"result\":\"%s\",\"session\":%llu,\"lifecycle\":%u}",
+             diagnosticResultText(result), static_cast<unsigned long long>(status.session.value), static_cast<unsigned>(status.lifecycle));
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    httpd_resp_set_status(request, result == diagnostic::RecorderResult::Accepted ? "200 OK" : "409 Conflict");
+    return httpd_resp_sendstr(request, json);
+  }
   static esp_err_t diagnosticStatusRoute(httpd_req_t* request) {
     RequestTrace trace(instance(), "/diag/status");
     BrowserInterface* browser = instance();
+    uint64_t owner = 0;
+    if (!diagnosticControlAllowed(request, browser, owner)) { trace.complete(ESP_ERR_INVALID_STATE); return ESP_FAIL; }
     if (!browser->diagnosticTrace_) {
       httpd_resp_set_status(request, "503 Service Unavailable");
       httpd_resp_sendstr(request, "diagnostics unavailable");
@@ -1541,6 +1725,8 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   static esp_err_t diagnosticRecordsRoute(httpd_req_t* request) {
     RequestTrace trace(instance(), "/diag/records");
     BrowserInterface* browser = instance();
+    uint64_t owner = 0;
+    if (!diagnosticControlAllowed(request, browser, owner)) { trace.complete(ESP_ERR_INVALID_STATE); return ESP_FAIL; }
     if (!browser->diagnosticTrace_) {
       httpd_resp_set_status(request, "503 Service Unavailable");
       httpd_resp_sendstr(request, "diagnostics unavailable");
@@ -1647,6 +1833,8 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/diag/bootstrap", HTTP_GET, bootstrapDiagnostic, nullptr},
       {"/diag/browser", HTTP_POST, browserActionRoute, nullptr},
       {"/diag/browser-observation", HTTP_POST, browserObservationRoute, nullptr},
+      {"/diag/session/start", HTTP_POST, diagnosticStartRoute, nullptr},
+      {"/diag/session/stop", HTTP_POST, diagnosticStopRoute, nullptr},
       {"/diag/status", HTTP_GET, diagnosticStatusRoute, nullptr},
       {"/diag/records", HTTP_GET, diagnosticRecordsRoute, nullptr},
       {"/proposal", HTTP_GET, proposalRoute, nullptr},
@@ -1663,6 +1851,9 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/health", HTTP_GET, health, nullptr},
       {"/context", HTTP_GET, contextRoute, nullptr},
       {"/bootstrap", HTTP_POST, bootstrapRoute, nullptr},
+      {"/request/take-control", HTTP_POST, takeControlRoute, nullptr},
+      {"/request/take-control/allow", HTTP_POST, allowControlRoute, nullptr},
+      {"/request/take-control/keep", HTTP_POST, keepControlRoute, nullptr},
       {"/request/start", HTTP_POST, startRoute, nullptr},
       {"/request/setup", HTTP_POST, setupRoute, nullptr},
       {"/request/pause", HTTP_POST, pauseRoute, nullptr},
@@ -1703,6 +1894,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   }
   void stopServer() {
     if (!server_) return;
+    if (sseSession_) controlDisconnected(sseSession_->clientToken);
     if (sseSession_) sseSession_->valid = false;
     eventConnected_ = false;
     eventGeneration_ = 0;
