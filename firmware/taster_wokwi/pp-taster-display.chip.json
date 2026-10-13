@@ -1,0 +1,6 @@
+{
+  "name": "P&P Taster 800x480 Display",
+  "author": "P&P",
+  "pins": [ "VCC", "GND", "IN", "OUT" ],
+  "display": { "width": 800, "height": 480 }
+}

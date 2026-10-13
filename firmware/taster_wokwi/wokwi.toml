@@ -1,0 +1,4 @@
+board = "esp32-s3-devkitc-1"
+firmware = "../.pio/build/stage8atasterwokwi/firmware.bin"
+elf = "../.pio/build/stage8atasterwokwi/firmware.elf"
+diagram = "diagram.json"

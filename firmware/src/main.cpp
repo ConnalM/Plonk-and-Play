@@ -12,6 +12,9 @@
 #include "pp/record_store.h"
 #include "pp/noticeboard.h"
 #include "pp/browser_interface.h"
+#if defined(PP_STAGE8A_TASTER_WOKWI)
+#include "pp/taster_runtime.h"
+#endif
 #include "pp/verification.h"
 #include "pp/persistent_storage.h"
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
@@ -95,6 +98,9 @@ pp::OutputModule output{bus.attach(pp::Role::Output)};
 const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
 pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
 pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthority,&history,&records);
+#if defined(PP_STAGE8A_TASTER_WOKWI)
+pp::TasterRuntime taster(browser);
+#endif
 const auto testPublisher=bus.attach(pp::Role::Diagnostics);
 const auto testObserver=bus.attach(pp::Role::Diagnostics);
 const auto inputObserver=bus.attach(pp::Role::Diagnostics);
@@ -160,7 +166,9 @@ void browserFixtureReset(){ activeSession.clearForFixture(); raceControl.resetRa
 // The build environment is diagnostic identity only. It never supplies product
 // State or changes P&P behaviour.
 const char* buildIdentity(){
- #if defined(PP_STAGE10_DEMO)
+ #if defined(PP_STAGE8A_TASTER_WOKWI)
+  return "P&P STAGE 8A TASTER WOKWI";
+ #elif defined(PP_STAGE10_DEMO)
   return "P&P STAGE 10 DEMO";
 #elif defined(PP_STAGE11_DEMO)
   return "P&P STAGE 11 DEMO";
@@ -578,6 +586,9 @@ void setup(){
   browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset);
 #endif
   browser.begin();
+#if defined(PP_STAGE8A_TASTER_WOKWI)
+  taster.begin();
+#endif
   diagnostics.log("[INIT] Message Bus READY: bounded mailboxes; authority checked");
   testsPassed&=pp::busSelfTest(bus,testPublisher,testObserver,input.endpoint,report);
   diagnostics.log("[BUS SELF-TEST] %s",testsPassed?"PASS":"FAIL");
@@ -628,6 +639,9 @@ void loop(){
   logLifecycleTransition();
 #endif
   browser.tick();
+#if defined(PP_STAGE8A_TASTER_WOKWI)
+  taster.tick();
+#endif
   if(!browserWifiStateKnown||browserWifiState!=browser.wifiConnected()){
     browserWifiStateKnown=true;browserWifiState=browser.wifiConnected();
     if(browserWifiState){
@@ -673,7 +687,7 @@ void loop(){
       bootFailed=true;diagnostics.log("STAGE1_FAIL configuration response");
     }else{
       workingConfiguration=message.configuration;
-#if defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14C_DEMO)
+#if defined(PP_STAGE8A_TASTER_WOKWI) || defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14C_DEMO)
       proposedRaceSetup.startFinish={pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish};
       proposedRaceSetup.secondStartFinish={pp::InputModule::simulatedDetectorBIdentity(),2,pp::InputRole::StartFinish};
       proposedRaceSetup.selectedMugId=91;proposedRaceSetup.secondMugId=92;proposedRaceSetup.activeLanes=2;
