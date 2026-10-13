@@ -109,16 +109,38 @@ measurements.
 
 The real-hardware checkpoint uses the established ESP32-8048S070 7-inch
 800x480 ESP32-S3 board: 16 MB flash, on-board PSRAM and an on-board microSD
-socket. The checkpoint uses the repository's esp32-8048s070 PlatformIO board
-definition, derived from the previously used esp32-s3-devkitc-1 target and
-corrected for the N16R8 16 MB/PSRAM hardware. The provisional SPI wiring used by
-the board microSD is CS GPIO10, MOSI GPIO11, SCK GPIO12 and MISO GPIO13. Only
-those four signals are part of the verified software definition; card-detect,
-write-protect and other board electrical details remain unspecified unless
-runtime evidence establishes them.
+socket. The checkpoint uses the repository's `esp32-8048s070` PlatformIO board
+definition, derived from the previously used `esp32-s3-devkitc-1` target and
+corrected for the N16R8 16 MB/PSRAM hardware. The provisional SPI wiring used by the board microSD is CS GPIO10,
+MOSI GPIO11, SCK GPIO12 and MISO GPIO13. Only those four signals are part of
+the verified software definition; card-detect, write-protect and other board
+electrical details remain unspecified unless runtime evidence establishes them.
 
 These facts identify the Phase 8 test hardware. They do not freeze production
 diagnostic capacity, filesystem layout, export encoding or SD housekeeping.
+
+## Phase 8 status
+
+**Phase 8A — Taster convergence: ACCEPTED.** The Taster implementation is a
+presentation/control surface over the existing P&P authority. It uses the
+normal request and authoritative-state boundaries, carries no competing setup
+or race authority, and has passed its focused structural and contract checks.
+
+The full concurrent runtime choreography of Browser ↔ P&P ↔ Taster has not
+been directly demonstrated in one Wokwi runtime. This is an explicit evidence
+limitation, not a reason to create a new Phase 8A orchestration framework.
+
+**Phase 8B — real hardware: PENDING.** The physical ESP32-8048S070 and SD
+checkpoint remains outstanding. Phase 8B must run the real P&P core with the
+normal Browser and physical Taster over the same authoritative instance, and
+must demonstrate READY convergence, START from Taster, PAUSE from Browser,
+RESUME from Taster, rejected-request behaviour, completion/results agreement,
+and Taster reconstruction.
+
+Phase 8B must also complete the existing boot, flash, PSRAM, LCD/backlight,
+encoder/touch where fitted, SD, persistence/reconstruction, resource,
+timing/stability and failure-behaviour checks. No Wokwi or host result is
+claimed as real-hardware evidence.
 
 ## Final acceptance gates, intentionally outstanding
 
