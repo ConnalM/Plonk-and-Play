@@ -633,7 +633,10 @@ Hiding an invalid control is a usability measure, not the security/validity mech
 
 ### 12.2 One Master / Race Director
 
-There is one Master control authority at a time: the **Race Director**.
+There is one control lease at a time. The **Master**, **Race Director** and
+controlling **SMUG** are the same authority and are different names for the
+client holding that lease. SMUG is not a second ownership system or an
+account identity.
 
 The controller-side Presentation / User Interaction responsibility owns client/session identity, which client currently holds Race Director authority, and deliberate transfer or recovery of that authority. It determines whether a particular client is permitted to submit Race Director Requests.
 
@@ -651,11 +654,34 @@ Connecting another browser must never accidentally create another Race Director.
 
 Master authority belongs to a client/browser session, not to the human identity of the Race Director. When no Master binding exists, a client becomes suitable for initial Race Director assignment only by performing the deliberate bootstrap action. Opening, polling, State retrieval, connection order and Race Director Requests never make a client suitable or assign Master authority.
 
-A second control client may view the control screen but remains non-Master. It may deliberately choose **Take Control**. If another Race Director is still active, takeover should require an explicit confirmation. Authority then transfers and the former client immediately loses its Master privilege.
+A second control client may view the control screen but remains non-Master. It
+may deliberately choose **Take Control**. P&P owns the takeover request and
+there may be only one pending request. If the current controller is connected,
+P&P presents that controller with an authoritative request — **ALLOW** or
+**KEEP CONTROL**. ALLOW atomically transfers the single Master/Race
+Director/SMUG lease to the requester and the former controller immediately
+loses the privilege. KEEP CONTROL leaves ownership unchanged and informs the
+requester that the request was refused. A connected controller's failure to
+answer never transfers control after an arbitrary timeout.
+
+If P&P authoritatively establishes that the controlling client has genuinely
+disconnected, another client may deliberately acquire the lease without that
+client's approval. The technical disconnection test is an implementation
+matter, but it must be based on an authoritative client/session boundary, not
+an arbitrary inactivity timeout. A pending request remains P&P state: a
+controller that reloads or reconnects with the same valid client identity
+reconstructs the outstanding prompt. A controller returning after a completed
+transfer has no automatic right to regain the lease and must use Take Control
+normally. Only one pending request is accepted; concurrent requests are
+rejected as busy/already pending.
 
 This is deliberately a trust model rather than an account/security system. P&P enforces exactly one Master but does not require user accounts, passwords or PINs merely to arbitrate control around a home slot-car track.
 
-Loss, sleep or disconnection of the Race Director client does not affect Race Control or the running race. Another client can deliberately recover Master authority. Changing Race Director changes who may issue Race Director Requests; Race Control itself never moves into the browser.
+Loss, sleep or disconnection of the Race Director client does not affect Race
+Control or the running race. Transfer changes only which client may issue
+Race Director Requests; it never interrupts a session, changes timing,
+classification or results, and Race Control itself never moves into the
+browser.
 
 ### 12.3 Non-Master clients
 
@@ -865,7 +891,7 @@ Human-interface participants such as the Browser and Taster are two-way: they co
 
 ## 13.6 Manual User Gateway (MUG)
 
-A **Manual User Gateway (MUG)** is a phone, tablet, computer or other browser host acting as a human-facing P&P interface.
+A **Manual User Gateway (MUG)** is a phone, tablet, computer or other browser host acting as a human-facing P&P interface. The ownership and takeover semantics of the physical Taster are deliberately deferred to the Phase 8B hardware/product checkpoint; this section defines browser/client control only.
 
 Multiple MUGs may be connected simultaneously. One MUG may hold Race Director authority while others operate as permitted driver, display or spectator clients. A MUG does not own race state and its disconnection must not stop the race.
 

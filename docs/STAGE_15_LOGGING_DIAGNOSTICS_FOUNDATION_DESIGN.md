@@ -8,6 +8,42 @@ This foundation records observations about Browser actions, P&P requests and dec
 
 The implementation must preserve all Stage 1–14C semantics and the preserved Stage 14C candidate.
 
+## 1A. Diagnostic privacy and access contract
+
+Diagnostic recording is for technical and product diagnosis only. P&P may
+record structured technical information needed to diagnose behaviour,
+including controller/build identity, lifecycle and race state, race
+configuration, lane information, timings, requests/results, correlation and
+trace identities, detector/input events, persistence/storage events,
+resource/health information, Browser/Taster observations, errors, drops and
+diagnostic health.
+
+Racer/MUG names or identifiers may appear when they are genuinely part of the
+product state being diagnosed. They must not be duplicated merely for
+logging. Diagnostics must never deliberately record Wi-Fi passwords,
+passwords, secrets, authentication tokens, private/signing keys,
+cookies/session credentials, complete HTTP headers for convenience, arbitrary
+Browser form contents, or unrelated user data. Free-form or unknown external
+data is not copied automatically; records use defined structured fields.
+
+Normal diagnostics may run automatically during ordinary P&P operation.
+Development diagnostics are an explicit troubleshooting facility under the
+advanced diagnostic facilities and require the same P&P
+Master/Race-Director/controlling-SMUG control lease used by other advanced
+controls. Starting, stopping, listing and downloading Development diagnostic
+sessions require that same lease. No separate SMUG capability, account,
+password, PIN or authentication system is introduced. Diagnostic access never
+grants Race Control or Race Engine authority, and diagnostic, access or export
+failure must not alter product/race operation.
+
+No elaborate account/login system is introduced solely for Stage 15. The
+existing/frozen P&P configuration and access model must enforce the
+Development boundary at the request boundary. The current implementation
+audit has identified that the existing diagnostic HTTP routes do not yet
+perform a request-level check against the authoritative Master/Race
+Director/controlling-SMUG lease; this is an explicit implementation gap, not a
+permission that may be inferred from Browser presentation alone.
+
 ## 2. Session and storage-health state
 
 The diagnostic session lifecycle is exactly:
@@ -24,7 +60,7 @@ Starting without durable storage is permitted. The session starts in clearly ide
 
 ## 3. Ownership
 
-There is one active Development diagnostic session per P&P controller. A request to start another session returns `ALREADY_ACTIVE` together with the existing session status and identity. It never creates, replaces, merges, or silently joins a session.
+There is one active Development diagnostic session per P&P controller. A request to start another session returns `ALREADY_ACTIVE` together with the existing session status and identity. It never creates, replaces, merges, or silently joins a session. Access to these session controls is checked against the authoritative single Master/Race Director/controlling-SMUG lease; Browser presentation flags are not an authorization source.
 
 Other Browser clients may observe or contribute to the existing session. Each client has an independent client identity recorded in its diagnostic events.
 
@@ -198,8 +234,8 @@ items and do not become claims from this host test.
 The Phase 8 real-hardware checkpoint targets the established ESP32-8048S070
 7-inch 800x480 ESP32-S3 display board. The board record identifies 16 MB flash,
 on-board PSRAM, and an on-board microSD socket. The checkpoint uses the
-repository's esp32-8048s070 PlatformIO board definition, derived from the
-previously used esp32-s3-devkitc-1 target and corrected for the N16R8
+repository's `esp32-8048s070` PlatformIO board definition, derived from the
+previously used `esp32-s3-devkitc-1` target and corrected for the N16R8
 16 MB/PSRAM hardware. It does not claim that display peripherals are part of
 the diagnostic firmware.
 

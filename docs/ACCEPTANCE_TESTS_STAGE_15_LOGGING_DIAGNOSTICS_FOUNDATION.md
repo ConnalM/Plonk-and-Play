@@ -4,6 +4,35 @@
 
 No numeric capacity, queue, file-size, or performance threshold is frozen by this document before the resource-measurement campaign.
 
+## Diagnostic privacy and access checks
+
+| ID | Requirement | Evidence/status |
+|---|---|---|
+| PS15.60 | Diagnostic records contain only defined technical/product fields required for diagnosis; product identities are included only when genuinely part of the state being diagnosed. | Policy and payload review. |
+| PS15.61 | Diagnostics never deliberately record passwords, secrets, authentication tokens, private/signing keys, cookies/session credentials, complete HTTP headers for convenience, arbitrary Browser form contents or unrelated user data. | Redaction/privacy review. |
+| PS15.62 | Normal diagnostics may run automatically; Development diagnostics are explicit advanced facilities and require the authoritative P&P Master/Race Director/controlling-SMUG lease. | Access-control integration test. |
+| PS15.63 | Starting, stopping, listing and downloading Development diagnostic sessions use that same single control-lease boundary; no separate diagnostic authentication is introduced. | Access-control integration test. |
+| PS15.64 | Diagnostic access does not grant Race Control/Race Engine authority, and diagnostic, access or export failure cannot alter product/race operation. | Authority and failure-independence test. |
+| PS15.65 | No new elaborate account/login system is introduced solely for Stage 15; the existing/frozen P&P access model enforces the boundary or the gap is returned for decision before exposure. | Architecture/access review. |
+
+The current implementation does not yet provide request-level authorization
+against the authoritative Master/Race Director/controlling-SMUG lease on the
+Development diagnostic HTTP routes. PS15.62, PS15.63 and the enforcement
+portion of PS15.65 therefore remain open pending integration of that existing
+lease check. This document does not authorize a Browser-local substitute.
+
+## Control-lease acceptance requirements
+
+| ID | Requirement | Evidence |
+|---|---|---|
+| PS15.66 | P&P exposes exactly one authoritative Master/Race Director/controlling-SMUG lease; Browser/client identity identifies the lease holder but is not human authentication. | Multi-client authority integration test. |
+| PS15.67 | A deliberate Take Control request while the connected controller owns the lease creates one P&P-owned pending request and presents ALLOW/KEEP CONTROL to that controller. | Two-client takeover test. |
+| PS15.68 | ALLOW transfers the lease atomically and both clients converge; KEEP CONTROL leaves ownership unchanged and informs the requester. | Two-client allow/refusal test. |
+| PS15.69 | Only one takeover request may be pending; concurrent requests are rejected as busy/already pending; no unanswered connected request transfers after an arbitrary timeout. | Arbitration and timeout test. |
+| PS15.70 | Authoritatively detected client disconnection permits deliberate acquisition; reload/reconnect with the same identity reconstructs a pending prompt, while a former owner after transfer has no automatic right to regain control. | Disconnect/reconnect/reconstruction test. |
+| PS15.71 | Control transfer does not interrupt or alter race lifecycle, timing, classification, results or Race Engine state. | Active-race transfer regression. |
+| PS15.72 | The physical Taster's ownership/takeover behavior is outside this browser lease clarification and remains a separate Phase 8B product decision. | Phase 8B review record. |
+
 ## Foundation contract checks
 
 | ID | Requirement | Evidence |
