@@ -67,7 +67,18 @@ Modes may have substantially different concepts of starts, finishes, competitors
 ### 7. Offline operation
 
 - Normal racing must not require Internet access.
-- Local networking may be used.
+- Out of the box, P&P provides its own local Wi-Fi access point automatically.
+- The factory P&P access point is deliberately open (no Wi-Fi password). A
+  SMUG or MUG connects its phone, tablet or computer to that local network and
+  opens the P&P Browser address shown by P&P.
+- Joining the P&P Wi-Fi provides connectivity only. It does not grant SMUG,
+  Master or Race Director authority; the existing P&P control-lease rules
+  remain authoritative.
+- An optional future external house/club Wi-Fi facility is not required for
+  racing. Loss of such an external network must not affect the P&P access
+  point or racing. Any future external-network password is controller-private
+  and must not be exposed to MUGs, logs, diagnostics, retained race data or
+  support downloads.
 - Internet access may provide optional services such as software updates, but loss of Internet access must not prevent normal race operation.
 
 ### 8. Modular expansion

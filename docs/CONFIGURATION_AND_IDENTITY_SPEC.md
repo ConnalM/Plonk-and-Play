@@ -274,8 +274,28 @@ The intended flow is approximately:
 
 1. **PLONK** — position the two sensors exactly as illustrated in the recommended/default arrangement.
 2. **PLUG** — connect Sensor 1/Lane 1 and Sensor 2/Lane 2 and power P&P.
-3. **CONNECT** — connect a phone/tablet/computer to P&P and open its browser interface.
+3. **CONNECT** — connect a phone/tablet/computer to P&P's factory local
+   Wi-Fi access point and open the Browser address shown by P&P.
 4. **PLAY** — choose the basic race setting such as laps and press START.
+
+### 15.1 Factory local network
+
+P&P provides its own local Wi-Fi access point automatically from first boot.
+Normal racing is local and does not require a house/club Wi-Fi network or
+Internet access. The factory access point is deliberately open, with no
+Wi-Fi password; the Taster or other local P&P presentation shows the network
+name and Browser address needed for connection. A QR connection aid may be
+added later.
+
+Wi-Fi association is only transport connectivity. It does not assign SMUG,
+Master or Race Director authority. The existing P&P control-lease rules decide
+which Browser/client may issue control requests.
+
+Optional external house/club Wi-Fi is a future facility and is never required
+for racing. If it is added, its password is controller-private and must never
+be shown to MUGs or written to logs, diagnostics, History, Results or support
+downloads. Loss of that external network must not affect the P&P access point
+or racing. External-network access to P&P remains deferred.
 
 A small **Want more?** section may point towards optional MUG names, track length/scale, alternative sensor arrangements, enhanced start/false-start functions, Rally, Drag and other capabilities.
 

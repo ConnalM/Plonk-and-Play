@@ -623,6 +623,23 @@ Multiple clients may simultaneously present different views of the same race, fo
 
 Loss, sleep or disconnection of a browser must not stop the race.
 
+### 12.0 Local Browser access
+
+P&P provides its own local Wi-Fi access point automatically out of the box.
+The factory access point is deliberately open, without a Wi-Fi password.
+SMUGs and MUGs connect their phone, tablet or computer to that local network
+and use the P&P Browser address presented by P&P. Normal racing does not
+require house/club Wi-Fi or Internet access.
+
+Wi-Fi association grants connectivity only; it never grants Master,
+controlling-SMUG or Race Director authority. Those remain governed by the
+single P&P control lease. Optional external house/club Wi-Fi is a future
+facility and is never needed for racing. Loss of an external network must not
+affect the P&P access point or race operation. Any future external-network
+password is controller-private and must not be exposed to MUGs, logs,
+diagnostics, History, Results or support downloads. External-network access to
+P&P remains deferred.
+
 ### 12.1 Context-sensitive controls
 
 Race Control determines which session-operation Requests are valid in its current state. Other authoritative responsibilities validate Requests that belong to them. Presentation exposes only controls appropriate to the currently valid Requests.
@@ -847,7 +864,10 @@ The bus may carry Requests, Request Results, standard Input Events, Actions, Eve
 
 ### 13.5.1 Authority and message policing
 
-Connection to the bus grants **connectivity, not authority**.
+Connection to the bus grants **connectivity, not authority**. The same rule
+applies to association with the factory P&P Wi-Fi access point: reaching the
+Browser or another transport does not create or upgrade the Master,
+controlling-SMUG or Race Director lease.
 
 Each standard P&P message contract defines:
 

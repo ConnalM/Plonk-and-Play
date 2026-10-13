@@ -133,7 +133,18 @@ The local display does not need to become a general-purpose interface for arbitr
 
 The local display also helps the MUG reach full P&P.
 
-When appropriate it should clearly show how to connect a phone, tablet or computer to the P&P browser interface, using the P&P network details and a QR code where practical.
+P&P provides its own factory local Wi-Fi access point automatically. The
+local display should clearly show the P&P network name and Browser address so
+that a phone, tablet or computer can connect without house/club Wi-Fi or
+Internet. The factory network is deliberately open; joining it provides
+connectivity but does not grant SMUG/Race Director control. A QR connection aid
+may be added later.
+
+Optional external house/club Wi-Fi is not required for racing and remains a
+future facility. Any future external-network password is controller-private
+and must not appear in the Taster, logs, diagnostics, History, Results or
+support downloads. Loss of that external network must not affect the P&P
+access point or racing.
 
 Thus the local screen has two complementary purposes:
 
