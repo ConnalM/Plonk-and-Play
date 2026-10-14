@@ -57,6 +57,15 @@ pass/fail results
 
 Reduced-capacity or generously-resourced fixtures may be used for fast behavioural acceptance. Before accepting or freezing a stage that materially affects capacity, Browser/HTTP, result or persistence structures, or runtime task workload, at least one product-profile resource campaign must exercise the relevant product-like configuration. For P&P this includes, where applicable, `PP_MAX_ENTRIES=8`, product-like loopTask and httpd stacks, real HTTP handlers, START, FINISH/result, and persistence/reconstruction. Retain ELF/frame guards as additional implementation protection.
 
+## Phase 8B P1 development build boundaries
+
+The `stage8bp1s3sd` target is a real-hardware integration fixture. It selects
+`PP_MAX_ENTRIES=2`, enables two prepared simulated detector identities through
+the protected Input Module fixture boundary, and enables the provisional
+`PP_MAX_SSE_CLIENTS=4` per-controller Browser notification capacity. These are
+test/development build values; they are not product limits and do not change
+Race Engine, Race Control, control-lease, persistence or Browser authority.
+
 ## What is not yet proven
 
 The plumbing test did not prove:
@@ -78,6 +87,30 @@ Rendered multi-browser behaviour should be proved when the P&P browser implement
 5. Accepted changes should be committed to GitHub promptly so implementation does not depend on chat history.
 6. Stage work should begin from a clean repository and should not silently alter accepted architecture to make implementation easier.
 7. Startup diagnostics must identify the actual build environment accurately. A normal, acceptance, verification, quiet or demonstration image must never present itself as a different stage. These labels are diagnostic only and do not form product State.
+
+### Documentation-first contract check
+
+Before any preparation or discussion, product or UX design, architecture,
+diagnosis, test or acceptance planning, implementation, or modification, the
+relevant frozen P&P documentation must be checked first. The required working
+sequence is:
+
+```text
+FROZEN DOCS
+    ↓
+CURRENT IMPLEMENTATION / EVIDENCE
+    ↓
+DISCREPANCY
+    ↓
+SMALLEST CORRECTION
+```
+
+If governing documents conflict, are ambiguous or leave a genuine product or
+architectural gap, work stops and the issue is returned for a decision before
+continuing. Accepted decisions are written back into the governing
+documentation and contradictions are corrected. This rule applies equally to
+Archie, Gina and Al, and does not make implementation evidence authoritative
+over a frozen specification.
 
 ### Hardware revalidation rule
 

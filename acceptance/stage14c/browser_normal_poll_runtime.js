@@ -108,6 +108,7 @@ const settle = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(
 (async () => {
   // The page invokes its real poll() on load. Let that initial production poll settle.
   await settle();
+
   mode = 'delayed';
   stateCalls = 0;
   pendingStateResolve = null;

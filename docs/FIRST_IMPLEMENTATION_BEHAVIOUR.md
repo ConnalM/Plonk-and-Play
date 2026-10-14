@@ -213,6 +213,15 @@ Whether implementation distributes all relevant authoritative information to con
 
 The primary Race Director intervention during a running race is PAUSE.
 
+The operation sequence below describes authoritative Race Control semantics;
+it is not a promise that every operation is exposed as a live-screen Browser
+button. The frozen normal Browser exposes **PAUSE** only while a competitive
+race is active. After authoritative PAUSED it exposes **RESUME**, **RESTART
+RACE** and confirmed **ABANDON**. The same presentation rule applies to Lap
+Race and Endurance. Practice has its separate **PAUSE** then **RESUME** /
+**RESTART** / **END PRACTICE** presentation defined in the Browser flow
+specification.
+
 The basic control flow is:
 
 ```text
@@ -228,6 +237,11 @@ RESUME continues the existing race.
 RESTART RACE abandons the current attempt and begins the same fixed Session Definition again through its normal start procedure.
 
 END RACE abandons the current race and returns the user to the pre-race state.
+
+In the normal Browser, the paused competitive **ABANDON** control invokes this
+authoritative abandonment operation. The distinction is presentation only;
+Race Control remains the owner of lifecycle, cleanup and the no-result/no-
+History outcome.
 
 ### 13.1 Basic PAUSE behaviour
 

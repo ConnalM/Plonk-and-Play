@@ -100,12 +100,18 @@ Open Practice must be selectable and operable through the real Browser/product p
 - START;
 - PAUSE;
 - RESUME;
-- END SESSION;
+- END PRACTICE while Practice is authoritatively PAUSED;
 - per-lane Practice state showing lap count, last lap, best lap and session-fastest information where available.
 
 Polished UI is outside this slice.
 
 The existing Taster surface remains unchanged: it continues to provide its documented two-lane Lap Race controls. This slice does not add Practice selection to Taster.
+
+The frozen normal Browser exposes **PAUSE** while Open Practice is active. Once
+P&P reports authoritative PAUSED it exposes **RESUME**, **RESTART** and **END
+PRACTICE**. **END PRACTICE** follows the authoritative Practice completion
+path to Practice Summary; Practice does not expose competitive **ABANDON**.
+These are Browser controls, not Browser-owned lifecycle transitions.
 
 ## State, Facts and presentation
 

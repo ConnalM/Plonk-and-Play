@@ -12,6 +12,8 @@ race_engine = (ROOT / "firmware/include/pp/race_engine.h").read_text(encoding="u
 control = (ROOT / "firmware/include/pp/race_control.h").read_text(encoding="utf-8")
 facilities = (ROOT / "firmware/tests/stage14c_facilities_probe.inc").read_text(encoding="utf-8")
 proposal_runtime = (ROOT / "acceptance/stage14c/browser_proposal_runtime.js").read_text(encoding="utf-8")
+setup_runtime = (ROOT / "acceptance/stage14c/browser_setup_sync_runtime.js").read_text(encoding="utf-8")
+run_script = (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8")
 
 parser = argparse.ArgumentParser(description="Review the production Stage 14C Browser path and final image payload.")
 parser.add_argument("--demo-bin", type=Path, help="exact stage14cdemo merged image to inspect")
@@ -30,10 +32,13 @@ checks = {
     "live_state_poll": "const state=await get('/state')" in browser and "$('#connection').textContent='synchronised'" in browser,
     "poll_state_not_revision_gated": bool(re.search(r"const n=await get\('/noticeboard'\).*?const state=await get\('/state'\)", browser, re.S)) and "if(changed){try{$('#fact')" in browser,
     "endurance_countdown": "displayRemaining" in browser and "clock(displayRemaining)" in browser and 'Overtime: '+"'+overtimeClock(v.overtime)+'" in browser,
+    "resume_countdown_uses_remaining": "phase==='RESUME_COUNTDOWN'" in normal and "S.remainingDuration" in normal and "durationMinutes" in normal,
     "overtime_clock_bounded": "const totalTenths=Math.max(0,Math.floor(Number(us||0)/100000))" in browser and "const totalSeconds=Math.floor(totalTenths/10)" in browser and "const seconds=totalSeconds-minutes*60" in browser and "const fraction=totalTenths-totalSeconds*10" in browser and "String(seconds).padStart(2,'0')" in browser,
     "authoritative_overtime": "s.finishBehaviour==LapFinishBehaviour::CompleteCurrentLap" in notice and "s.durationExpired" in notice,
     "browser_authority_gate": "window.browserHasMaster" in browser and "Race Director authority required to change the session proposal." in browser and "window.dispatchStart" in browser,
     "active_setup_reconstruction": "await get('/proposal')" in browser and "proposalRevision" in browser and "p.startable" in browser,
+    "proposal_controller_epoch": "controllerEpoch" in browser and "controllerEpoch_" in browser and "newControllerEpoch" in browser,
+    "proposal_epoch_runtime_regression": "epoch-a" in setup_runtime and "old-epoch response" in setup_runtime and "same-epoch older" in setup_runtime,
     "endurance_fixture_boundary": "mode!=pp::SessionMode::Endurance" in main and "input.setSimulatedSource" in main,
     "endurance_fixture_route_enabled": "defined(PP_STAGE14C_DEMO)" in browser and "defined(PP_STAGE14C_ACCEPTANCE)" in browser and '"/fixture", HTTP_POST, fixtureRoute' in browser,
     "fixture_route_calls_input_boundary": 'strstr(body,"lane1")&&instance()->fixturePass_' in browser and 'strstr(body,"lane2")&&instance()->fixturePass_' in browser and "input.setSimulatedSource" in main,
@@ -58,10 +63,18 @@ checks = {
     "browser_request_timeout": "AbortController" in browser and "requestTimeoutMs=4000" in browser and "polling=false" in browser,
     "browser_poll_overlap_guard": "if(polling)return" in browser and "setInterval(()=>poll(),250)" in browser,
     "normal_browser_request_timeout": "AbortController" in normal and "requestTimeoutMs=4000" in normal and "signal:controller.signal" in normal,
-    "normal_browser_poll_overlap_guard": "async function poll(){if(polling)return;polling=true;" in normal and "finally{polling=false}" in normal and "setInterval(poll,1000)" in normal,
+    "normal_browser_poll_overlap_guard": "async function poll(" in normal and "if(polling){pollDirty=true;return}" in normal and "finally{polling=false" in normal and "setInterval(poll,1000)" not in normal,
+    "normal_browser_sse_notification": "new EventSource('/events')" in normal and "openEventStream" in normal and "window.poll" in normal,
+    "embedded_browser_sse_notification": "new EventSource('/events')" in (ROOT / "firmware/include/pp/normal_browser_page.inc").read_text(encoding="utf-8"),
+    "http_sse_notification_boundary": '"/events", HTTP_GET, events, nullptr' in browser and "struct SseSession" in browser and "struct SseWork" in browser and "httpd_queue_work(server_, &BrowserInterface::eventWork, work)" in browser and "freeSseSession" in browser and "httpd_sess_get_ctx" in browser and "session->workQueued" in browser and "session->sentRevision" in browser,
+    "notification_runtime_regression": "browser_notification_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
     "normal_browser_runtime_regression": "browser_normal_poll_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
+    "normal_browser_setup_sync": "setupDesired" in normal and "setupRunning" in normal and "waitSetupResult" in normal and "browser_setup_sync_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8") and "rapid coalescing" in setup_runtime and "stale proposal response" in setup_runtime,
     "normal_browser_results_regression": "browser_results_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8") and "resultDataKey" in normal and "if(!r?.sealed)" in normal,
-    "end_race_exposure_matches_authority": "${canEndRace?` <button class=\"btn primary\" id=\"endRace\">" in normal and "${pr?` <button class=\"btn primary\" id=\"end\">" not in normal,
+    "authoritative_finish_duration_boundary": "finishDurationUs" in browser and "finishDurationUs" in normal,
+    "normal_browser_resume_regression": "browser_resume_runtime.js" in run_script,
+    "final_binary_provenance_regression": "browser_binary_provenance.py" in run_script,
+    "termination_controls_follow_lifecycle": "id=\"endRace\"" not in normal and "id=\"abandon\"" in normal and "id=\"endPractice\"" in normal and "/request/end-session" in normal,
     "endurance_default_duration_authority": "proposedRaceSetup.durationMinutes=10" in main,
     "browser_http_health_snapshot": "HTTP HEALTH" in main and "httpHealth(HttpHealth&" in browser and "else if(c=='h')browserHealth()" in main,
     "browser_route_trace": "RequestTrace trace(instance(), \"/state\")" in browser and "httpActiveHandlers_" in browser and "httpLastRoute_" in browser,
@@ -71,6 +84,9 @@ checks = {
     "authoritative_live_gap": "liveLapsBehind" in race_engine and "lapsBehind" in notice and '\\"lapsBehind\\"' in browser,
     "position_preserves_physical_lane": "const uint8_t lane=control_.definition()?control_.definition()->entry(i).lane" in notice,
     "authoritative_start_light_step": "redLightsLit(Time now)" in control and "redLightsLit" in notice and '\\"redLightsLit\\"' in browser,
+    "authoritative_start_schedule_time_basis": "S.startPresentation.redLightsLit" in normal and "S.startPresentation.phase" in normal and "schedulePresentation" not in normal and "pTimeOffsetUs" not in normal,
+    "p_and_p_timer_invalidations": "presentationAt(Time now)" in notice and "updatePresentation(Time now)" in browser and "updateTimerInvalidation(Time now)" not in browser and "timerDisplaySecond_" not in browser,
+    "no_connected_browser_timer_poll": "setInterval(poll,1000)" not in normal,
     "presentation_boundary_fixtures": all(token in facilities for token in ("14C.P7", "14C.P8", "14C.P9", "14C.P10", "redLightsLit")),
 }
 failed = [name for name, ok in checks.items() if not ok]

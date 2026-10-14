@@ -17,6 +17,9 @@
 #endif
 #include "pp/verification.h"
 #include "pp/persistent_storage.h"
+#if defined(PP_PHASE8B_REAL_SD)
+#include "pp/sd_store_arduino.h"
+#endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
 #include "pp/diagnostic_memory.h"
 #include "pp/diagnostic_trace.h"
@@ -73,6 +76,9 @@ public:
   bool write(unsigned s,const uint8_t* data,size_t n)override{char generated[16]{};const char* key=s==0?"config-a":s==1?"config-b":(snprintf(generated,sizeof(generated),"slot-%u",s),generated);return ready&&preferences.putBytes(key,data,n)==n;}
 private: Preferences preferences;bool ready=false;
 } storage;
+#if defined(PP_PHASE8B_REAL_SD)
+pp::Esp32SpiSdStore sdPersistence;
+#endif
 class BrowserAuthorityStore final: public pp::AuthorityStore {
 public:
   void begin(){ready=preferences.begin("pp-browser-auth",false);}
@@ -83,9 +89,15 @@ private: Preferences preferences;bool ready=false;
 } browserAuthority;
 pp::Bus bus;
 pp::Memory memory(storage);
+#if defined(PP_PHASE8B_REAL_SD)
+pp::SlotHistoryStore rawHistory(sdPersistence);
+pp::VersionedHistoryStore history(rawHistory);
+pp::VersionedTrackRecordStore records(sdPersistence);
+#else
 pp::SlotHistoryStore rawHistory(storage);
 pp::VersionedHistoryStore history(rawHistory);
 pp::VersionedTrackRecordStore records(storage);
+#endif
 const auto lifecycle=bus.attach(pp::Role::Lifecycle);
 const auto memoryEndpoint=bus.attach(pp::Role::Memory);
 pp::InputModule input(bus,bus.attach(pp::Role::Input));
@@ -133,7 +145,7 @@ bool networkDiagnosticKnown=false;
 bool lastNetworkWifi=false,lastNetworkHttp=false;
 uint32_t lastNetworkReconnects=0,lastNetworkErrors=0,lastNetworkSlow=0,lastNetworkStartError=0;
 #endif
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
 // Human/demo fixture: a trigger is a momentary passage; production input semantics are unchanged.
 pp::Time simulatedARelease=0,simulatedBRelease=0;
 #endif
@@ -142,7 +154,7 @@ bool stage10ServerReported=false;
 #endif
 bool browserWifiStateKnown=false,browserWifiState=false;
 bool browserHttpStateKnown=false,browserHttpState=false;
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
 bool browserFixturePass(uint8_t lane){
   // The demo trigger is only a momentary source at the normal Input Module
   // boundary.  Every active timing mode uses the same eligibility rule.
@@ -190,6 +202,8 @@ const char* buildIdentity(){
   return "P&P STAGE 14B DEMO";
 #elif defined(PP_STAGE14C_DEMO)
   return "P&P STAGE 14C DEMO";
+#elif defined(PP_PHASE8B_REAL_SD)
+  return "P&P STAGE 8B-P1 REAL SD";
 #elif defined(PP_STAGE13_DEMO)
   return "P&P STAGE 13 DEMO";
 #elif defined(PP_STAGE11_ACCEPTANCE)
@@ -301,8 +315,8 @@ void observeBrowserNetworkEvents(){
   lastNetworkReconnects=health.reconnectAttempts;lastNetworkErrors=health.requestErrors;lastNetworkSlow=health.slowRequests;lastNetworkStartError=health.lastError;networkDiagnosticKnown=true;
 #endif
 }
-void status(){diagnostics.log("[DEV] %s %s system_us=%llu dropped=%lu; no session, no race",buildIdentity(),
-  ready?"IDLE":bootFailed?"FAULT":"STARTING",static_cast<unsigned long long>(systemTime()),static_cast<unsigned long>(diagnostics.dropped));}
+void status(){diagnostics.log("[DEV] %s BOOT_SELF_TEST=%s system_us=%llu dropped=%lu; authoritative race state is reported separately",buildIdentity(),
+  ready?"PASS":bootFailed?"FAULT":"STARTING",static_cast<unsigned long long>(systemTime()),static_cast<unsigned long>(diagnostics.dropped));}
 const char* lifecycleName(pp::SessionLifecycle value){switch(value){case pp::SessionLifecycle::Ready:return "READY";case pp::SessionLifecycle::Starting:return "STARTING";case pp::SessionLifecycle::Racing:return "RACING";case pp::SessionLifecycle::Paused:return "PAUSED";case pp::SessionLifecycle::Restarting:return "RESTARTING";case pp::SessionLifecycle::Finished:return "FINISHED";default:return "FAULTED";}}
 const char* modeName(pp::SessionMode value){switch(value){case pp::SessionMode::None:return "NONE";case pp::SessionMode::OpenPractice:return "OPEN_PRACTICE";case pp::SessionMode::Endurance:return "ENDURANCE";default:return "LAP_RACE";}}
 const char* finishName(pp::LapFinishBehaviour value){switch(value){case pp::LapFinishBehaviour::CompleteCurrentLap:return "COMPLETE_CURRENT_LAP";case pp::LapFinishBehaviour::CompleteFullRaceDistance:return "COMPLETE_FULL_RACE_DISTANCE";default:return "IMMEDIATE";}}
@@ -336,9 +350,20 @@ void logResourceHealth(){
 void browserHealth(){
   pp::BrowserInterface::HttpHealth health;
   browser.httpHealth(health);
-  const String ip=WiFi.localIP().toString();
-  diagnostics.log("[DEV] HTTP HEALTH wifi_status=%d wifi_connected=%u ip=%s server=%u requests=%lu errors=%lu slow=%lu active=%lu peak=%lu starts=%lu stops=%lu reconnects=%lu last_ms=%lu last_error=%d last_route=%s free_heap=%lu min_heap=%lu max_alloc=%lu loop_worst_us=%llu stack_hwm_words=%lu bus_input=%lu bus_race=%lu bus_presentation=%lu bus_diag=%lu input_backlog=%lu input_peak=%lu diag_dropped=%lu",
-    int(WiFi.status()),health.wifiConnected?1U:0U,ip.c_str(),health.serverReady?1U:0U,
+  const String ip=browser.networkAddress();
+#if defined(PP_PHASE8B_REAL_SD)
+  const char* networkMode="AP";
+  const char* networkState=browser.accessPointStarted()?"STARTED":"STOPPED";
+  const int networkStatusCode=-1; // station status is not meaningful in AP mode
+  const unsigned apClients=browser.connectedClientCount();
+#else
+  const char* networkMode="STA";
+  const char* networkState=health.wifiConnected?"CONNECTED":"DISCONNECTED";
+  const int networkStatusCode=int(WiFi.status());
+  const unsigned apClients=0;
+#endif
+  diagnostics.log("[DEV] HTTP HEALTH wifi_mode=%s wifi_state=%s wifi_status=%d wifi_connected=%u ip=%s ap_clients=%u server=%u requests=%lu errors=%lu slow=%lu active=%lu peak=%lu starts=%lu stops=%lu reconnects=%lu last_ms=%lu last_error=%d last_route=%s free_heap=%lu min_heap=%lu max_alloc=%lu loop_worst_us=%llu stack_hwm_words=%lu bus_input=%lu bus_race=%lu bus_presentation=%lu bus_diag=%lu input_backlog=%lu input_peak=%lu diag_dropped=%lu",
+    networkMode,networkState,networkStatusCode,health.wifiConnected?1U:0U,ip.c_str(),apClients,health.serverReady?1U:0U,
     (unsigned long)health.requestCount,(unsigned long)health.requestErrors,(unsigned long)health.slowRequests,
     (unsigned long)health.activeHandlers,(unsigned long)health.peakHandlers,(unsigned long)health.serverStarts,
     (unsigned long)health.serverStops,(unsigned long)health.reconnectAttempts,(unsigned long)health.lastDurationMs,
@@ -530,6 +555,11 @@ void setup(){
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
   storage.begin();browserAuthority.begin();
+#if defined(PP_PHASE8B_REAL_SD)
+  const bool sdReady = sdPersistence.begin();
+  diagnostics.log("[INIT] Phase 8B-P1 SD History/Records %s; NVS configuration READY=%s",
+                  sdReady ? "READY" : "DEGRADED", storage.available() ? "YES" : "NO");
+#endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   diagnostics.log("[INIT] Development persistence backend READY (versioned NVS/Wokwi boundary)");
   pp::diagnostic::SessionStartRequest traceStart{};
@@ -582,7 +612,7 @@ void setup(){
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::HistoryStored);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::StorageFault);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::EnduranceExpired);
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset);
 #endif
   browser.begin();
@@ -624,7 +654,7 @@ void loop(){
   const pp::Time loopStarted=systemTime();
 #endif
   memoryModule.tick();
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   const pp::Time fixtureNow=systemTime();
   if(simulatedARelease&&fixtureNow>=simulatedARelease){input.setSimulatedSource(false);simulatedARelease=0;}
   if(simulatedBRelease&&fixtureNow>=simulatedBRelease){input.setSimulatedSourceB(false);simulatedBRelease=0;}
@@ -645,14 +675,17 @@ void loop(){
   if(!browserWifiStateKnown||browserWifiState!=browser.wifiConnected()){
     browserWifiStateKnown=true;browserWifiState=browser.wifiConnected();
     if(browserWifiState){
-      diagnostics.log("[DEV] Browser WiFi CONNECTED ip=%s reconnect_attempts=%lu",WiFi.localIP().toString().c_str(),static_cast<unsigned long>(browser.wifiReconnectAttempts()));
+      const String address = browser.networkAddress();
+      diagnostics.log("[DEV] Browser WiFi CONNECTED ip=%s reconnect_attempts=%lu",address.c_str(),static_cast<unsigned long>(browser.wifiReconnectAttempts()));
     }else{
       diagnostics.log("[DEV] Browser WiFi DISCONNECTED reconnect_attempts=%lu",static_cast<unsigned long>(browser.wifiReconnectAttempts()));
     }
   }
   if(!browserHttpStateKnown||browserHttpState!=browser.serverReady()){
     browserHttpStateKnown=true;browserHttpState=browser.serverReady();
-    diagnostics.log("[DEV] Browser HTTP server %s",browserHttpState?"STARTED":"STOPPED");
+    diagnostics.log("[DEV] Browser HTTP server %s error=%d",
+      browserHttpState?"STARTED":"STOPPED",
+      browserHttpState?0:browser.serverStartError());
   }
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   observeBrowserNetworkEvents();
@@ -687,7 +720,7 @@ void loop(){
       bootFailed=true;diagnostics.log("STAGE1_FAIL configuration response");
     }else{
       workingConfiguration=message.configuration;
-#if defined(PP_STAGE8A_TASTER_WOKWI) || defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14C_DEMO)
+#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE8A_TASTER_WOKWI) || defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14C_DEMO)
       proposedRaceSetup.startFinish={pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish};
       proposedRaceSetup.secondStartFinish={pp::InputModule::simulatedDetectorBIdentity(),2,pp::InputRole::StartFinish};
       proposedRaceSetup.selectedMugId=91;proposedRaceSetup.secondMugId=92;proposedRaceSetup.activeLanes=2;

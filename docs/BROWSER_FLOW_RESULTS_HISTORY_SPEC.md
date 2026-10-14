@@ -57,7 +57,9 @@ Settings auto-save where intention is unambiguous.
 
 Practice offers **Open** or **Timed** as visible either/or choices.
 
-Open Practice continues until SMUG/Race Control selects **END SESSION**.
+Open Practice continues until SMUG/Race Control selects **END PRACTICE** in
+the normal Browser. This presentation action invokes the authoritative
+Practice **END SESSION** operation.
 
 Timed Practice ends automatically at its configured duration; SMUG may also end it early.
 
@@ -72,6 +74,36 @@ Endurance setup includes:
 - More Race Options.
 
 Time remaining is dominant during the race.
+
+## Active-session controls (frozen)
+
+The normal Browser exposes only the controls appropriate to the authoritative
+session lifecycle and mode. P&P remains responsible for validating and
+executing every operation; these rules define the normal Browser presentation
+only.
+
+| Authoritative session | Normal Browser controls |
+| --- | --- |
+| Active Lap Race or Endurance | **PAUSE** only |
+| Paused Lap Race or Endurance | **RESUME**, **RESTART**, **ABANDON** |
+| Active Open Practice | **PAUSE** only |
+| Paused Open Practice | **RESUME**, **RESTART**, **END PRACTICE** |
+
+Competitive **ABANDON** is shown only while a Lap Race or Endurance session is
+authoritatively paused. It requires confirmation and uses the existing
+authoritative P&P abandonment path. It creates no official Result, History
+entry or Finish Display, and returns through authoritative state to READY/Home.
+At the P&P operation boundary this existing competitive abandonment may retain
+the operation name **END RACE**; **ABANDON** is the normal Browser control
+label.
+
+**END PRACTICE** is shown only while Open Practice is authoritatively paused.
+It uses the existing authoritative Practice completion semantics and proceeds
+to Practice Summary. Practice does not show **ABANDON**.
+
+The Browser must not implement these transitions as local state. A reload,
+reconnect or second client renders the controls from the current authoritative
+P&P lifecycle and mode.
 
 ## Timed Stage setup
 

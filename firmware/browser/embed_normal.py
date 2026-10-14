@@ -107,7 +107,6 @@ route = '''  static esp_err_t normalPage(httpd_req_t* request) {\n    RequestTra
 if needle not in text:
     raise RuntimeError("BrowserInterface health route anchor not found")
 text = text.replace(needle, route + needle, 1)
-text = text.replace('config.max_uri_handlers = 48;', 'config.max_uri_handlers = 49;', 1)
 anchor = '{"/", HTTP_GET, page, nullptr},'
 if anchor not in text:
     raise RuntimeError("BrowserInterface root route anchor not found")

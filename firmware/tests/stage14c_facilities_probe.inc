@@ -6,7 +6,7 @@ static void stage14cFacilitiesAcceptanceRun(){
   char* proposalJson=static_cast<char*>(malloc(4096)); size_t proposalLength=0; if(proposalJson)memset(proposalJson,0,4096);
   const auto readyState=readiness->noticeboard.current();
   const bool readyNone=readyState.lifecycle==pp::SessionLifecycle::Ready&&readyState.sessionMode==pp::SessionMode::None;
-  const bool proposal=proposalJson&&readiness->browser.serializeProposalForAcceptance(proposalJson,4096,proposalLength)&&proposalLength>0&&strstr(proposalJson,"\"formatVersion\":1")&&strstr(proposalJson,"\"readinessContext\"")&&strstr(proposalJson,"\"severity\":\"NONE\"")&&strstr(proposalJson,"\"mode\":\"ENDURANCE\"")&&strstr(proposalJson,"\"mode\":\"OPEN_PRACTICE\",\"available\":true")&&strstr(proposalJson,"\"mode\":\"TIMED_STAGE\",\"available\":false");
+  const bool proposal=proposalJson&&readiness->browser.serializeProposalForAcceptance(proposalJson,4096,proposalLength)&&proposalLength>0&&strstr(proposalJson,"\"formatVersion\":1")&&strstr(proposalJson,"\"controllerEpoch\":")&&strstr(proposalJson,"\"readinessContext\"")&&strstr(proposalJson,"\"severity\":\"NONE\"")&&strstr(proposalJson,"\"mode\":\"ENDURANCE\"")&&strstr(proposalJson,"\"mode\":\"OPEN_PRACTICE\",\"available\":true")&&strstr(proposalJson,"\"mode\":\"TIMED_STAGE\",\"available\":false");
   s14c("14C.P1",readyNone&&proposal,"readiness_and_capabilities=%u proposal_bytes=%lu",proposal?1:0,(unsigned long)proposalLength);
   free(proposalJson); readiness->~Stage14CFixture();
 

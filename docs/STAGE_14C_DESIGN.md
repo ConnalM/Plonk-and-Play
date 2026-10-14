@@ -97,7 +97,14 @@ Endurance reuses the frozen LAP PAUSE settlement/fence and Relevant-Time timing 
 
 Authoritative State must expose enough information to reconstruct Endurance, including session mode, duration, finish policy, remaining duration, expiry state, overtime where applicable, lifecycle, per-entry identities, laps, last/best lap, integrity and validity.
 
-The Browser provides the smallest real product path for selecting Endurance, editing duration, selecting the two finish policies, START, PAUSE, RESUME and END RACE, and observing remaining time, positions, laps and relevant lap information. Presentation is derived from authoritative State and must not calculate results.
+The Browser provides the smallest real product path for selecting Endurance,
+editing duration, selecting the two finish policies, START, PAUSE, RESUME,
+RESTART and confirmed ABANDON, and observing remaining time, positions, laps
+and relevant lap information. The normal Browser exposes PAUSE only while an
+Endurance race is active; RESUME/RESTART/ABANDON are exposed after
+authoritative PAUSED. Confirmed ABANDON invokes the existing END RACE
+abandonment path. Presentation is derived from authoritative State and must
+not calculate results.
 
 The existing Taster already supports LAPS/TIMED values from 1–999. Stage 14C maps the existing TIMED Taster selection to Endurance while preserving the simple Taster interaction model. It does not redesign Taster or add unrelated controls.
 

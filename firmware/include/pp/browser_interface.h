@@ -9,6 +9,9 @@
 #include "diagnostic_trace.h"
 #include "diagnostic_retrieval.h"
 #include "control_lease.h"
+#ifndef PP_MAX_SSE_CLIENTS
+#define PP_MAX_SSE_CLIENTS 4
+#endif
 namespace pp {
 // Browser identity and the retained Master binding are Browser Interface State.
 // Race Control receives only the logical ClientContext attached to a Bus message.
@@ -55,12 +58,24 @@ public:
   void setDiagnosticTrace(diagnostic::ControllerOperationTrace* trace) { diagnosticTrace_ = trace; }
   void begin() {
     WiFi.persistent(false);
+#if defined(PP_PHASE8B_REAL_SD)
+    WiFi.mode(WIFI_AP);
+    apStarted_ = WiFi.softAP(Phase8bApSsid);
+    wifiConnected_ = apStarted_;
+    lastWifiAttemptMs_ = millis();
+    started_ = true;
+    const String address = WiFi.softAPIP().toString();
+    Serial.printf("[WIFI] P&P AP %s ssid=%s ip=%s clients=%u\n",
+      apStarted_ ? "STARTED" : "FAILED", Phase8bApSsid, address.c_str(),
+      static_cast<unsigned>(WiFi.softAPgetStationNum()));
+#else
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
     WiFi.begin("Wokwi-GUEST", "", 6);
     lastWifiAttemptMs_ = millis();
     wifiConnected_ = false;
     started_ = true;
+#endif
   }
   void tick() {
     Message message;
@@ -101,30 +116,61 @@ public:
       }
     }
     if (!started_) return;
+#if defined(PP_PHASE8B_REAL_SD)
+    const bool connected = apStarted_;
+#else
     const bool connected = WiFi.status() == WL_CONNECTED;
+#endif
     const uint32_t now = millis();
     if (!connected) {
       wifiConnected_ = false;
       if (server_) stopServer();
-      // The simulator/gateway can bring the development network up after
-      // boot, or after a later link loss. Keep this bounded and non-blocking.
+      // Keep recovery bounded and non-blocking. Wokwi retries its station
+      // network; the real S3 retries creation of its local P&P AP.
       if (static_cast<uint32_t>(now - lastWifiAttemptMs_) >= 5000U) {
         ++wifiReconnectAttempts_;
+#if defined(PP_PHASE8B_REAL_SD)
+        apStarted_ = WiFi.softAP(Phase8bApSsid);
+        if (apStarted_) {
+          wifiConnected_ = true;
+          const String address = WiFi.softAPIP().toString();
+          Serial.printf("[WIFI] P&P AP STARTED ssid=%s ip=%s clients=%u\n",
+            Phase8bApSsid, address.c_str(),
+            static_cast<unsigned>(WiFi.softAPgetStationNum()));
+        } else {
+          Serial.printf("[WIFI] P&P AP FAILED ssid=%s\n", Phase8bApSsid);
+        }
+#else
         WiFi.reconnect();
+#endif
         lastWifiAttemptMs_ = now;
       }
       return;
     }
     wifiConnected_ = true;
+#if defined(PP_PHASE8B_REAL_SD)
+    const uint8_t clients = WiFi.softAPgetStationNum();
+    if (clients != apClientCount_) {
+      apClientCount_ = clients;
+      Serial.printf("[WIFI] P&P AP clients=%u\n", static_cast<unsigned>(clients));
+    }
+#endif
     if (!server_) startServer();
     updatePresentation(systemTime());
-    // Noticeboard changes are coalesced into one bounded SSE notification.
-    // The Browser still reads authoritative state through the existing routes.
-    if (server_ && eventConnected_ && eventGeneration_ != 0) {
-      const bool changed = noticeRevision_ != eventSentRevision_;
-      const bool presentationChanged = presentationSequence_ != presentationSentSequence_;
-      const bool keepalive = static_cast<uint32_t>(now - eventLastSendMs_) >= 10000U;
-      if ((changed || presentationChanged || controlNotificationPending_ || keepalive) && !eventWorkQueued_) queueEventWork();
+    // Noticeboard and presentation changes are coalesced independently for
+    // each bounded Browser SSE session.  A slow client cannot block another
+    // client or any authoritative P&P work.
+    if (server_) {
+      for (size_t i = 0; i < MaxSseClients; ++i) {
+        SseSession* session = sseSessions_[i];
+        if (!session || !session->valid) continue;
+        const bool changed = noticeRevision_ != session->sentRevision;
+        const bool presentationChanged = presentationSequence_ != session->sentPresentationSequence;
+        const bool keepalive = static_cast<uint32_t>(now - session->lastSendMs) >= 10000U;
+        if ((changed || presentationChanged || session->controlPending || session->controlRefreshPending || keepalive) && !session->workQueued) {
+          queueEventWork(session);
+        }
+      }
     }
   }
   // The public overload is retained for non-Browser test fixtures. HTTP calls
@@ -223,9 +269,15 @@ public:
       return ControlLeaseResult::NotOwner;
     }
     if (result == ControlLeaseResult::Pending) {
-      controlNotificationRequestId_ = requestId;
-      controlNotificationPending_ = true;
-      if (server_ && eventConnected_) queueEventWork();
+      SseSession* ownerSession = findSseSessionByFingerprint(controlLease_.owner());
+      if (ownerSession) {
+        ownerSession->controlRequestId = requestId;
+        ownerSession->controlPending = true;
+        queueEventWork(ownerSession);
+      }
+    }
+    if (result == ControlLeaseResult::Accepted || result == ControlLeaseResult::Refused) {
+      queueControlRefresh();
     }
     return result;
   }
@@ -237,6 +289,9 @@ public:
         (!authority_->saveMaster(controlLease_.owner()))) {
       controlLease_.restoreSnapshot(before);
       return ControlLeaseResult::NotOwner;
+    }
+    if (result == ControlLeaseResult::Accepted || result == ControlLeaseResult::Refused) {
+      queueControlRefresh();
     }
     return result;
   }
@@ -267,6 +322,34 @@ public:
   int serverStartError() const { return serverStartError_; }
   bool wifiConnected() const { return wifiConnected_; }
   uint32_t wifiReconnectAttempts() const { return wifiReconnectAttempts_; }
+  bool accessPointStarted() const {
+#if defined(PP_PHASE8B_REAL_SD)
+    return apStarted_;
+#else
+    return false;
+#endif
+  }
+  const char* networkSsid() const {
+#if defined(PP_PHASE8B_REAL_SD)
+    return Phase8bApSsid;
+#else
+    return "Wokwi-GUEST";
+#endif
+  }
+  String networkAddress() const {
+#if defined(PP_PHASE8B_REAL_SD)
+    return WiFi.softAPIP().toString();
+#else
+    return WiFi.localIP().toString();
+#endif
+  }
+  uint8_t connectedClientCount() const {
+#if defined(PP_PHASE8B_REAL_SD)
+    return WiFi.softAPgetStationNum();
+#else
+    return 0;
+#endif
+  }
   struct HttpHealth {
     bool wifiConnected = false;
     bool serverReady = false;
@@ -315,6 +398,7 @@ public:
   static bool serializeDetailsForAcceptance(const RaceEngineModule::CompletedRaceResult& value,char*out,size_t cap,size_t&length){return serializeDetails(value,out,cap,length);}
   static bool serializeRecordsForAcceptance(TrackRecordStore* records,uint8_t count,char*out,size_t cap,size_t&length){return serializeRecords(records,count,out,cap,length);}
 private:
+  static constexpr const char* Phase8bApSsid = "Plonk-and-Play";
   static uint64_t newControllerEpoch() {
     const uint64_t value = (static_cast<uint64_t>(esp_random()) << 32) |
                            static_cast<uint64_t>(esp_random());
@@ -355,7 +439,6 @@ private:
   // Clock/start-light presentation is a separate P&P-driven stream. It does
   // not advance the Noticeboard revision or generate NOTICEBOARD_CHANGED.
   volatile uint32_t presentationSequence_ = 0;
-  volatile uint32_t presentationSentSequence_ = 0;
   bool presentationKnown_ = false;
   NoticeboardPresentationState presentation_{};
   uint32_t factRevision_ = 0;
@@ -364,6 +447,10 @@ private:
   bool hasFact_ = false;
   bool started_ = false;
   bool wifiConnected_ = false;
+#if defined(PP_PHASE8B_REAL_SD)
+  bool apStarted_ = false;
+  uint8_t apClientCount_ = 0;
+#endif
   uint32_t wifiReconnectAttempts_ = 0;
   uint32_t lastWifiAttemptMs_ = 0;
   uint32_t httpRequestCount_ = 0;
@@ -387,6 +474,9 @@ private:
   uint8_t bootEventsCompletions_ = 0;
   uint32_t serverStarts_ = 0;
   uint32_t serverStops_ = 0;
+  // Provisional hardware/development capacity. This is intentionally a
+  // build-time limit, not a frozen product maximum.
+  static constexpr size_t MaxSseClients = PP_MAX_SSE_CLIENTS;
   struct SseSession {
     BrowserInterface* owner = nullptr;
     httpd_handle_t server = nullptr;
@@ -394,20 +484,22 @@ private:
     uint64_t clientToken = 0;
     uint32_t generation = 0;
     volatile bool valid = false;
+    volatile bool workQueued = false;
+    volatile uint32_t sentRevision = 0;
+    volatile uint32_t sentPresentationSequence = 0;
+    uint32_t lastSendMs = 0;
+    volatile bool controlPending = false;
+    volatile bool controlRefreshPending = false;
+    volatile uint32_t controlRequestId = 0;
+    bool deferDelete = false;
   };
   struct SseWork {
     BrowserInterface* owner = nullptr;
+    uint64_t clientToken = 0;
     uint32_t generation = 0;
   };
-  SseSession* sseSession_ = nullptr;
-  volatile bool eventConnected_ = false;
-  volatile uint32_t eventGeneration_ = 0;
+  SseSession* sseSessions_[MaxSseClients]{};
   uint32_t nextEventGeneration_ = 0;
-  volatile bool eventWorkQueued_ = false;
-  volatile uint32_t eventSentRevision_ = 0;
-  uint32_t eventLastSendMs_ = 0;
-  volatile bool controlNotificationPending_ = false;
-  volatile uint32_t controlNotificationRequestId_ = 0;
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   bool lapNoticePending_ = false;
   uint32_t lapNoticeRevision_ = 0;
@@ -679,10 +771,26 @@ private:
     for(uint8_t i=0;i<setup->activeLanes&&i<PP_MAX_ENTRIES;++i){const auto&e=setup->entries[i];ok=appendJson(out,cap,n,"%s{\"index\":%u,\"lane\":%u,\"inputDevice\":%lu,\"inputCapability\":%u,\"mugId\":%lu}",i?",":"",unsigned(i),unsigned(e.startFinish.lane),(unsigned long)e.startFinish.input.device,unsigned(e.startFinish.input.capability),(unsigned long)e.mugId)&&ok;}
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
   }
+  // Presentation-only elapsed finish duration.  completionTime remains the
+  // raw monotonic Relevant-Time value used for authoritative ordering and
+  // persistence.  The API supplies the elapsed value so Browser code never
+  // subtracts controller timestamps.
+  static Time finishDurationUs(const RaceEngineModule::ResultEntry& entry){
+    if(!entry.completed||!entry.completionTime||!entry.recordCount)return 0;
+    Time origin=0,finalRacing=0; bool haveOrigin=false;
+    for(uint8_t i=0;i<entry.recordCount&&i<RaceEngineModule::MaxLaps;++i){
+      const auto& lap=entry.records[i]; if(!lap.valid)continue;
+      if(!haveOrigin){origin=lap.startTime;haveOrigin=true;}
+      if(lap.finishTime==entry.completionTime)finalRacing=lap.racingFinishTime;
+    }
+    if(!haveOrigin)return 0;
+    if(!finalRacing)finalRacing=entry.completionTime;
+    return finalRacing>=origin?finalRacing-origin:0;
+  }
   static bool serializeResults(const RaceEngineModule::CompletedRaceResult&r,char*out,size_t cap,size_t&length){
     const uint64_t overtimeUs=r.overtime&&r.finishTime>r.expiryTime?r.finishTime-r.expiryTime:0;size_t n=0;const char* mode=r.mode==SessionMode::Endurance?"ENDURANCE":r.mode==SessionMode::OpenPractice?"OPEN_PRACTICE":"LAP_RACE";bool ok=true;ok=appendJson(out,cap,n,"{\"sealed\":%s,\"valid\":%s,\"mode\":\"%s\"",r.sealed?"true":"false",r.valid?"true":"false",mode)&&ok;ok=appendJson(out,cap,n,",\"lapTarget\":%lu,\"durationMinutes\":%u,\"durationUs\":%llu",(unsigned long)r.lapTarget,unsigned(r.durationMinutes),(unsigned long long)r.durationUs)&&ok;ok=appendJson(out,cap,n,",\"expiryTime\":%llu,\"overtime\":%s,\"overtimeUs\":%llu",(unsigned long long)r.expiryTime,r.overtime?"true":"false",(unsigned long long)overtimeUs)&&ok;ok=appendJson(out,cap,n,",\"winningTime\":%llu,\"finishTime\":%llu,\"finishBehaviour\":\"%s\"",(unsigned long long)r.winningTime,(unsigned long long)r.finishTime,finishBehaviour(r.behaviour))&&ok;ok=appendJson(out,cap,n,",\"deadHeat\":%s,\"fastestLap\":%llu,\"fastestEntryId\":%lu,\"fastestLapTied\":%s,\"entries\":[",r.deadHeat?"true":"false",(unsigned long long)r.fastestLap,(unsigned long)r.fastestEntryId,r.fastestLapTied?"true":"false")&&ok;
     if(r.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=r.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:r.entryCount;
-    for(uint8_t i=0;i<count;++i){const auto&e=r.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"tied\":%s,\"lapsBehind\":%lu,\"completed\":%s,\"completionTime\":%llu,\"bestLap\":%llu}",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,e.tied?"true":"false",(unsigned long)e.lapsBehind,e.completed?"true":"false",(unsigned long long)e.completionTime,(unsigned long long)e.bestLap)&&ok;}
+    for(uint8_t i=0;i<count;++i){const auto&e=r.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"tied\":%s,\"lapsBehind\":%lu,\"completed\":%s,\"completionTime\":%llu,\"finishDurationUs\":%llu,\"bestLap\":%llu}",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,e.tied?"true":"false",(unsigned long)e.lapsBehind,e.completed?"true":"false",(unsigned long long)e.completionTime,(unsigned long long)finishDurationUs(e),(unsigned long long)e.bestLap)&&ok;}
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
   }
   static bool serializeDetails(const RaceEngineModule::CompletedRaceResult&r,char*out,size_t cap,size_t&length){
@@ -814,18 +922,16 @@ private:
       static_cast<unsigned long>(session->generation), session->fd,
       static_cast<unsigned long long>(systemTime()));
 #endif
-    if (browser && browser->sseSession_ == session) {
-      browser->sseSession_ = nullptr;
-      browser->eventConnected_ = false;
-      browser->eventGeneration_ = 0;
+    if (browser && browser->findSseSessionExact(session) == session) {
+      browser->removeSseSession(session);
       browser->controlDisconnected(session->clientToken);
     }
-    delete session;
+    if (!session->deferDelete) delete session;
   }
   static void eventWork(void* argument) {
     auto* work = static_cast<SseWork*>(argument);
     if (!work) return;
-    if (work->owner) work->owner->sendEventNotification(work->generation);
+    if (work->owner) work->owner->sendEventNotification(work->clientToken, work->generation);
     delete work;
   }
   void updatePresentation(Time now) {
@@ -852,16 +958,71 @@ private:
     }
   }
 
-  void queueEventWork() {
-    if (!server_ || !eventConnected_ || eventGeneration_ == 0 || eventWorkQueued_) return;
+  SseSession* findSseSession(uint64_t token) const {
+    for (size_t i = 0; i < MaxSseClients; ++i) {
+      SseSession* session = sseSessions_[i];
+      if (session && session->valid && session->clientToken == token) return session;
+    }
+    return nullptr;
+  }
+  SseSession* findSseSessionExact(SseSession* target) const {
+    if (!target) return nullptr;
+    for (size_t i = 0; i < MaxSseClients; ++i) {
+      if (sseSessions_[i] == target) return target;
+    }
+    return nullptr;
+  }
+  SseSession* findSseSessionByFingerprint(uint64_t fingerprintValue) const {
+    for (size_t i = 0; i < MaxSseClients; ++i) {
+      SseSession* session = sseSessions_[i];
+      if (session && session->valid && fingerprint(session->clientToken) == fingerprintValue) return session;
+    }
+    return nullptr;
+  }
+  void removeSseSession(SseSession* session) {
+    for (size_t i = 0; i < MaxSseClients; ++i) {
+      if (sseSessions_[i] == session) { sseSessions_[i] = nullptr; return; }
+    }
+  }
+  SseSession* allocateSseSession(uint64_t token) {
+    for (size_t i = 0; i < MaxSseClients; ++i) {
+      if (!sseSessions_[i]) {
+        auto* session = new SseSession{};
+        if (!session) return nullptr;
+        session->owner = this;
+        session->server = server_;
+        session->clientToken = token;
+        session->generation = ++nextEventGeneration_;
+        if (!session->generation) session->generation = ++nextEventGeneration_;
+        session->valid = true;
+        sseSessions_[i] = session;
+        return session;
+      }
+    }
+    return nullptr;
+  }
+  void invalidateSseSession(SseSession* session, bool closeSocket, bool disconnectOwner = true) {
+    if (!session) return;
+    if (findSseSession(session->clientToken) == session) {
+      removeSseSession(session);
+      if (disconnectOwner) controlDisconnected(session->clientToken);
+    }
+    session->valid = false;
+    if (closeSocket && session->server && session->fd >= 0) {
+      httpd_sess_trigger_close(session->server, session->fd);
+    }
+  }
+  void queueEventWork(SseSession* session) {
+    if (!server_ || !session || !session->valid || session->server != server_ || session->workQueued) return;
     auto* work = new SseWork{};
     if (!work) return;
     work->owner = this;
-    work->generation = eventGeneration_;
-    eventWorkQueued_ = true;
+    work->clientToken = session->clientToken;
+    work->generation = session->generation;
+    session->workQueued = true;
     const esp_err_t queued = httpd_queue_work(server_, &BrowserInterface::eventWork, work);
     if (queued != ESP_OK) {
-      eventWorkQueued_ = false;
+      session->workQueued = false;
       delete work;
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
       Serial.printf("[SSE] queue_failed revision=%lu at_us=%llu result=%d\n",
@@ -873,7 +1034,7 @@ private:
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
     const bool lap = lapNoticeRevision_ == noticeRevision_;
     Serial.printf("[SSE] queued generation=%lu revision=%lu lap_entry=%lu lap=%lu event_id=%lu notify_us=%llu\n",
-      static_cast<unsigned long>(eventGeneration_),
+      static_cast<unsigned long>(session->generation),
       static_cast<unsigned long>(noticeRevision_),
       static_cast<unsigned long>(lap ? lapNoticeEntry_ : 0),
       static_cast<unsigned long>(lap ? lapNoticeNumber_ : 0),
@@ -881,18 +1042,25 @@ private:
       static_cast<unsigned long long>(systemTime()));
 #endif
   }
-  void sendEventNotification(uint32_t generation) {
+  void queueControlRefresh() {
+    for (size_t i = 0; i < MaxSseClients; ++i) {
+      SseSession* session = sseSessions_[i];
+      if (!session || !session->valid) continue;
+      session->controlRefreshPending = true;
+      queueEventWork(session);
+    }
+  }
+  void sendEventNotification(uint64_t clientToken, uint32_t generation) {
     const httpd_handle_t handle = server_;
-    SseSession* session = sseSession_;
+    SseSession* session = findSseSession(clientToken);
     if (!handle || !session || !session->valid || session->server != handle ||
-        session->generation != generation || eventGeneration_ != generation) {
+        session->generation != generation) {
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
-      Serial.printf("[SSE] stale_work generation=%lu current=%lu at_us=%llu\n",
+      Serial.printf("[SSE] stale_work generation=%lu client=%llu at_us=%llu\n",
         static_cast<unsigned long>(generation),
-        static_cast<unsigned long>(eventGeneration_),
+        static_cast<unsigned long long>(clientToken),
         static_cast<unsigned long long>(systemTime()));
 #endif
-      eventWorkQueued_ = false;
       return;
     }
     const int fd = session->fd;
@@ -902,23 +1070,19 @@ private:
         static_cast<unsigned long>(generation), fd,
         static_cast<unsigned long long>(systemTime()));
 #endif
-      session->valid = false;
-      if (sseSession_ == session) {
-        sseSession_ = nullptr;
-        eventConnected_ = false;
-        eventGeneration_ = 0;
-      }
-      eventWorkQueued_ = false;
+      session->workQueued = false;
+      invalidateSseSession(session, true);
       return;
     }
     char payload[192];
     const uint32_t revision = noticeRevision_;
-    const bool noticePending = revision != eventSentRevision_;
+    const bool noticePending = revision != session->sentRevision;
     const uint32_t presentationSequence = presentationSequence_;
-    const bool presentationPending = presentationSequence != presentationSentSequence_;
-    const bool controlPending = controlNotificationPending_;
-    const uint32_t controlRequestId = controlNotificationRequestId_;
-    const bool keepalive = !noticePending && !presentationPending && !controlPending;
+    const bool presentationPending = presentationSequence != session->sentPresentationSequence;
+    const bool controlPending = session->controlPending;
+    const bool controlRefreshPending = session->controlRefreshPending;
+    const uint32_t controlRequestId = session->controlRequestId;
+    const bool keepalive = !noticePending && !presentationPending && !controlPending && !controlRefreshPending;
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
     const uint32_t payloadEntry = lapNoticeRevision_ == revision ? lapNoticeEntry_ : 0;
     const uint32_t payloadLap = lapNoticeRevision_ == revision ? lapNoticeNumber_ : 0;
@@ -939,6 +1103,8 @@ private:
     } else if (controlPending) {
       length = snprintf(payload, sizeof(payload), "event: control\ndata: {\"kind\":\"TAKEOVER\",\"requestId\":%lu}\n\n",
                         static_cast<unsigned long>(controlRequestId));
+    } else if (controlRefreshPending) {
+      length = snprintf(payload, sizeof(payload), "event: control\ndata: {\"kind\":\"CONTROL_CHANGED\"}\n\n");
     } else {
       const auto& p = presentation_;
       length = snprintf(payload, sizeof(payload),
@@ -970,13 +1136,8 @@ private:
         static_cast<unsigned long>(lapNoticeRevision_ == revision ? lapNoticeEventId_ : 0),
         static_cast<unsigned long long>(systemTime()), sent);
 #endif
-      session->valid = false;
-      if (sseSession_ == session) {
-        sseSession_ = nullptr;
-        eventConnected_ = false;
-        eventGeneration_ = 0;
-      }
-      httpd_sess_trigger_close(handle, fd);
+      session->workQueued = false;
+      invalidateSseSession(session, true);
     } else {
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
       Serial.printf("[SSE] sent generation=%lu revision=%lu lap_entry=%lu lap=%lu event_id=%lu at_us=%llu\n",
@@ -987,26 +1148,22 @@ private:
         static_cast<unsigned long>(lapNoticeRevision_ == revision ? lapNoticeEventId_ : 0),
         static_cast<unsigned long long>(systemTime()));
 #endif
-      if (noticePending) eventSentRevision_ = revision;
-      if (!noticePending && !controlPending && !keepalive && presentationSequence == presentationSequence_) {
-        presentationSentSequence_ = presentationSequence;
+      if (noticePending) session->sentRevision = revision;
+      if (!noticePending && !controlPending && !controlRefreshPending && !keepalive && presentationSequence == presentationSequence_) {
+        session->sentPresentationSequence = presentationSequence;
       }
-      if (controlPending && controlRequestId == controlNotificationRequestId_) {
-        controlNotificationPending_ = false;
+      if (controlPending && controlRequestId == session->controlRequestId) {
+        session->controlPending = false;
       }
-      eventLastSendMs_ = millis();
-      if (sseSession_ != session || !session->valid || eventGeneration_ != generation) {
+      if (controlRefreshPending) session->controlRefreshPending = false;
+      session->lastSendMs = millis();
+      if (findSseSession(clientToken) != session || !session->valid || session->generation != generation) {
         session->valid = false;
-        if (sseSession_ == session) {
-          sseSession_ = nullptr;
-          eventConnected_ = false;
-          eventGeneration_ = 0;
-        }
       } else {
         (void)httpd_sess_update_lru_counter(handle, fd);
       }
     }
-    eventWorkQueued_ = false;
+    if (findSseSession(clientToken) == session) session->workQueued = false;
   }
   static esp_err_t events(httpd_req_t* request) {
     RequestTrace trace(instance(), "/events");
@@ -1019,18 +1176,15 @@ private:
       static_cast<unsigned long long>(systemTime()));
 #endif
     if (!browser || fd < 0) { trace.complete(ESP_ERR_INVALID_ARG); return ESP_FAIL; }
-    if (browser->sseSession_ && browser->sseSession_->valid && browser->sseSession_->clientToken != browserToken) {
-      httpd_resp_set_status(request, "409 Conflict");
-      trace.complete(ESP_ERR_INVALID_STATE);
-      return ESP_FAIL;
+    if (SseSession* previous = browser->findSseSession(browserToken)) {
+      browser->invalidateSseSession(previous, true, false);
     }
-    if (browser->sseSession_) {
-      browser->controlDisconnected(browser->sseSession_->clientToken);
-      browser->sseSession_->valid = false;
-      httpd_sess_trigger_close(browser->sseSession_->server, browser->sseSession_->fd);
-      browser->sseSession_ = nullptr;
-      browser->eventConnected_ = false;
-      browser->eventGeneration_ = 0;
+    size_t slotCount = 0;
+    for (size_t i = 0; i < MaxSseClients; ++i) if (browser->sseSessions_[i]) ++slotCount;
+    if (slotCount >= MaxSseClients) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      trace.complete(ESP_ERR_NO_MEM);
+      return ESP_FAIL;
     }
     httpd_resp_set_type(request, "text/event-stream");
     httpd_resp_set_hdr(request, "Cache-Control", "no-cache");
@@ -1054,21 +1208,13 @@ private:
     // notifications are sent from the HTTPD work queue, never by blocking
     // this request handler.  The context also marks this socket as the
     // browser's asynchronous notification session for diagnostics.
-    auto* session = new SseSession{};
+    auto* session = browser->allocateSseSession(browserToken);
     if (!session) { trace.complete(ESP_ERR_NO_MEM); return ESP_FAIL; }
-    session->owner = browser;
-    session->server = browser->server_;
     session->fd = fd;
-    session->clientToken = browserToken;
-    session->generation = ++browser->nextEventGeneration_;
-    if (session->generation == 0) session->generation = ++browser->nextEventGeneration_;
-    session->valid = true;
     httpd_sess_set_ctx(browser->server_, fd, session, &BrowserInterface::freeSseSession);
-    browser->sseSession_ = session;
-    browser->eventConnected_ = true;
-    browser->eventGeneration_ = session->generation;
-    browser->eventSentRevision_ = browser->noticeRevision_;
-    browser->eventLastSendMs_ = millis();
+    session->sentRevision = browser->noticeRevision_;
+    session->sentPresentationSequence = browser->presentationSequence_;
+    session->lastSendMs = millis();
     browser->controlConnected(browserToken);
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
     Serial.printf("[SSE] async_session fd=%d generation=%lu revision=%lu at_us=%llu\n", fd,
@@ -1516,7 +1662,7 @@ private:
   static esp_err_t clearAllRecordsRoute(httpd_req_t* r){return openConfirmationRoute(r,SessionOperation::ClearAllRecords);}
   static esp_err_t clearAllRecordsConfirmRoute(httpd_req_t* r){return confirmOperationRoute(r,SessionOperation::ClearAllRecords);}
   static esp_err_t fixtureRoute(httpd_req_t* request){
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
     char body[64]{}; int n=httpd_req_recv(request,body,sizeof(body)-1); if(n<=0){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"fixture action required");return ESP_FAIL;} body[n]=0;
     if(instance()->context(client(request))!=ClientContext::RaceDirectorSmug){httpd_resp_send_err(request,HTTPD_403_FORBIDDEN,"Race Director required");return ESP_FAIL;}
     if(strstr(body,"lane1")&&instance()->fixturePass_){if(!instance()->fixturePass_(1)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"An active session is required before triggering a simulated car.");return ESP_FAIL;}}
@@ -1807,25 +1953,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   }
   void startServer() {
     instance() = this;
-    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.server_port = 80;
-    config.stack_size = 8192;
-    config.recv_wait_timeout = 5;
-    config.send_wait_timeout = 5;
-    // ESP32 Arduino's configured LWIP limit permits at most 13 sockets.
-    // LRU eviction keeps sleeping presentation clients from exhausting them.
-    config.max_open_sockets = 13;
-    config.lru_purge_enable = true;
-    // Stage 14B adds generic Resume/End Session and Practice-facing routes;
-    // keep enough handler slots for the complete diagnostic Browser surface.
-    config.max_uri_handlers = 48;
-    const esp_err_t started = httpd_start(&server_, &config);
-    if (started != ESP_OK) {
-      serverStartError_ = int(started);
-      server_ = nullptr;
-      return;
-    }
-    httpd_uri_t routes[] = {
+    static const httpd_uri_t routes[] = {
       {"/", HTTP_GET, page, nullptr},
       {"/state", HTTP_GET, state, nullptr},
       {"/noticeboard", HTTP_GET, notice, nullptr},
@@ -1880,7 +2008,23 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/fixture", HTTP_POST, fixtureRoute, nullptr},
       {"/request-result", HTTP_GET, resultRoute, nullptr},
     };
-    for (httpd_uri_t& route : routes) {
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.server_port = 80;
+    config.stack_size = 8192;
+    config.recv_wait_timeout = 5;
+    config.send_wait_timeout = 5;
+    // ESP32 Arduino's configured LWIP limit permits at most 13 sockets.
+    // LRU eviction keeps sleeping presentation clients from exhausting them.
+    config.max_open_sockets = 13;
+    config.lru_purge_enable = true;
+    config.max_uri_handlers = static_cast<uint16_t>(sizeof(routes) / sizeof(routes[0]));
+    const esp_err_t started = httpd_start(&server_, &config);
+    if (started != ESP_OK) {
+      serverStartError_ = int(started);
+      server_ = nullptr;
+      return;
+    }
+    for (const httpd_uri_t& route : routes) {
       const esp_err_t registered = httpd_register_uri_handler(server_, &route);
       if (registered != ESP_OK) {
         serverStartError_ = int(registered);
@@ -1894,20 +2038,24 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   }
   void stopServer() {
     if (!server_) return;
-    if (sseSession_) controlDisconnected(sseSession_->clientToken);
-    if (sseSession_) sseSession_->valid = false;
-    eventConnected_ = false;
-    eventGeneration_ = 0;
-    eventWorkQueued_ = false;
+    SseSession* closing[MaxSseClients]{};
+    size_t closingCount = 0;
+    for (size_t i = 0; i < MaxSseClients; ++i) {
+      SseSession* session = sseSessions_[i];
+      if (!session) continue;
+      session->deferDelete = true;
+      closing[closingCount++] = session;
+      session->valid = false;
+      removeSseSession(session);
+      controlDisconnected(session->clientToken);
+      httpd_sess_trigger_close(session->server, session->fd);
+    }
     ++serverStops_;
     const httpd_handle_t old = server_;
     server_ = nullptr;
     const esp_err_t stopped = httpd_stop(old);
     if (stopped != ESP_OK) serverStartError_ = int(stopped);
-    if (sseSession_ && !sseSession_->valid) {
-      delete sseSession_;
-      sseSession_ = nullptr;
-    }
+    for (size_t i = 0; i < closingCount; ++i) delete closing[i];
   }
 };
 }  // namespace pp

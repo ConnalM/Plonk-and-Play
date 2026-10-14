@@ -41,7 +41,10 @@ struct Stage14CFixture {
   void queuePassage(uint8_t lane,pp::Time at){input.sampleSource(lane,true,at-30000);input.sampleSource(lane,true,at);input.sampleSource(lane,true,at+21000);input.sampleSource(lane,false,at+22000);input.sampleSource(lane,false,at+45000);}
   void expire(pp::Time at){control.tick(at);input.tick(at);for(unsigned i=0;i<4;++i){engine.tick();input.tick(at+1+i);control.tick(at+1+i);}browser.tick();}
 };
-alignas(Stage14CFixture) static uint8_t stage14cStorage[sizeof(Stage14CFixture)];
+// Keep the large acceptance fixture out of static DRAM.  The fixture is
+// constructed one-at-a-time and its storage is released after the campaign;
+// this leaves room for the temporary 24-record development detail capacity.
+static uint8_t* stage14cStorage=nullptr;
 template<typename...Args> void s14c(const char*id,bool pass,const char*fmt,Args...args){char d[240]{};snprintf(d,sizeof(d),fmt,args...);stage14cOutput.log("ACC S14C test=%s pass=%u %s",id,pass?1:0,d);}
 void stage14cAcceptanceBeforeBoot(){diagnostics.enable(true);stage14cOutput.enable(true);}
 struct Stage14CEndRaceEvidence { bool submitted=false,accepted=false,clean=false,proposalRetained=false,noResult=false,noHistory=false,noRecordChange=false,noCompletionFact=false,nextStart=false,nextMode=false,nextEntries=false; };
@@ -113,8 +116,40 @@ static Stage14CEndRaceEvidence stage14cLapEndRace(uint32_t correlation){
   evidence.nextStart=evidence.nextStart&&fixture->control.state()==pp::SessionLifecycle::Starting;
   fixture->~Stage14CFixture();return evidence;
 }
+// Development-boundary regression: the temporary 24-record detail capacity
+// must carry a realistic Endurance result through sealing, the versioned wire
+// codec, reconstruction, and the Browser Details serializer.  This is a
+// development implementation bound only; it is not an Endurance product cap.
+static bool stage14cTwentyLapDetails(size_t& encodedBytes,size_t& detailsBytes){
+  auto* fixture=::new(stage14cStorage)Stage14CFixture(pp::LapFinishBehaviour::CompleteCurrentLap);
+  const bool started=fixture->start();
+  const pp::Time go=fixture->control.scheduledGo();
+  for(uint32_t lap=1;started&&lap<=20;++lap){
+    fixture->passage(0,go+pp::Time(lap)*1000000ULL);
+    fixture->passage(1,go+pp::Time(lap)*1000000ULL+200000ULL);
+  }
+  const pp::Time expiry=go+60000000ULL;
+  fixture->expire(expiry);
+  fixture->passage(0,expiry+1000000ULL);
+  fixture->passage(1,expiry+1200000ULL);
+  fixture->settle(expiry+3000000ULL);
+  const auto& sealed=fixture->engine.completedResult();
+  bool records20=sealed.sealed&&sealed.entryCount==2&&sealed.entries[0].laps==20&&sealed.entries[1].laps==20&&sealed.entries[0].recordCount==20&&sealed.entries[1].recordCount==20;
+  auto* encoded=static_cast<uint8_t*>(malloc(pp::VersionedResultCodec::MaxBytes));
+  auto* decoded=static_cast<pp::RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(pp::RaceEngineModule::CompletedRaceResult)));
+  encodedBytes=0;detailsBytes=0;
+  const bool encodedOk=encoded&&decoded&&pp::VersionedResultCodec::encode(sealed,encoded,pp::VersionedResultCodec::MaxBytes,encodedBytes);
+  pp::VersionedHistoryStore persisted(fixture->history);uint32_t persistedSequence=0;size_t reconstructedBytes=0;uint32_t reconstructedSequence=0;
+  const bool stored=persisted.append(reinterpret_cast<const uint8_t*>(&sealed),sizeof(sealed),persistedSequence);
+  const bool decodedOk=stored&&decoded&&persisted.loadNewest(0,reinterpret_cast<uint8_t*>(decoded),sizeof(*decoded),reconstructedBytes,reconstructedSequence)&&reconstructedBytes==sizeof(*decoded)&&reconstructedSequence==persistedSequence;
+  auto* details=static_cast<char*>(malloc(12000));const bool detailsOk=decodedOk&&details&&pp::BrowserInterface::serializeDetailsForAcceptance(*decoded,details,12000,detailsBytes);
+  const bool all=started&&records20&&encodedOk&&decodedOk&&decoded->entries[0].recordCount==20&&decoded->entries[1].recordCount==20&&detailsOk&&strstr(details,"\"lapNumber\":20")!=nullptr;
+  free(details);free(decoded);free(encoded);
+  fixture->~Stage14CFixture();
+  return all;
+}
 void stage14cAcceptanceRun(){
-  if(stage14cStarted)return;stage14cStarted=true;diagnostics.enable(false);
+   if(stage14cStarted)return;stage14cStarted=true;diagnostics.enable(false);if(!stage14cStorage)stage14cStorage=static_cast<uint8_t*>(malloc(sizeof(Stage14CFixture)));if(!stage14cStorage){stage14cOutput.log("ACC S14C test=14C.23 pass=0 development_fixture_alloc=0");return;}
   auto* authorityFixture=::new(stage14cStorage)Stage14CFixture();
   const bool readyNone=authorityFixture->noticeboard.current().lifecycle==pp::SessionLifecycle::Ready&&authorityFixture->noticeboard.current().sessionMode==pp::SessionMode::None;
   const uint32_t authorityRevision=authorityFixture->control.proposalRevision();
@@ -182,7 +217,7 @@ void stage14cAcceptanceRun(){
   const auto lapEnd=stage14cLapEndRace(1404);
   const bool endRaceAbandonment=activeStop.submitted&&activeStop.accepted&&activeStop.clean&&activeStop.proposalRetained&&activeStop.noResult&&activeStop.noHistory&&activeStop.noRecordChange&&activeStop.noCompletionFact&&activeStop.nextStart&&activeStop.nextMode&&activeStop.nextEntries&&activeCurrent.submitted&&activeCurrent.accepted&&activeCurrent.clean&&activeCurrent.proposalRetained&&activeCurrent.noResult&&activeCurrent.noHistory&&activeCurrent.noRecordChange&&activeCurrent.noCompletionFact&&activeCurrent.nextStart&&activeCurrent.nextMode&&activeCurrent.nextEntries&&pausedEndurance.submitted&&pausedEndurance.accepted&&pausedEndurance.clean&&pausedEndurance.proposalRetained&&pausedEndurance.noResult&&pausedEndurance.noHistory&&pausedEndurance.noRecordChange&&pausedEndurance.noCompletionFact&&pausedEndurance.nextStart&&pausedEndurance.nextMode&&pausedEndurance.nextEntries&&lapEnd.submitted&&lapEnd.accepted&&lapEnd.clean&&lapEnd.proposalRetained&&lapEnd.noResult&&lapEnd.noHistory&&lapEnd.nextStart&&lapEnd.nextMode&&lapEnd.nextEntries;
   s14c("14C.14",endRaceAbandonment,"endurance_end_race stop=%u/%u current=%u/%u paused=%u/%u lap=%u clean=%u proposal=%u result=%u history=%u next=%u",activeStop.accepted?1:0,activeStop.noResult?1:0,activeCurrent.accepted?1:0,activeCurrent.noResult?1:0,pausedEndurance.accepted?1:0,pausedEndurance.noResult?1:0,lapEnd.accepted&&lapEnd.noResult?1:0,(activeStop.clean&&activeCurrent.clean&&pausedEndurance.clean&&lapEnd.clean)?1:0,(activeStop.proposalRetained&&activeCurrent.proposalRetained&&pausedEndurance.proposalRetained&&lapEnd.proposalRetained)?1:0,(activeStop.noResult&&activeCurrent.noResult&&pausedEndurance.noResult&&lapEnd.noResult)?1:0,(activeStop.noHistory&&activeCurrent.noHistory&&pausedEndurance.noHistory&&lapEnd.noHistory)?1:0,(activeStop.nextStart&&activeStop.nextMode&&activeStop.nextEntries&&activeCurrent.nextStart&&activeCurrent.nextMode&&activeCurrent.nextEntries&&pausedEndurance.nextStart&&pausedEndurance.nextMode&&pausedEndurance.nextEntries&&lapEnd.nextStart&&lapEnd.nextMode&&lapEnd.nextEntries)?1:0);
-  s14c("14C.15",rs&&detailsApi,"results_details_api_identity=1");s14c("14C.16",resultLen>0&&historyApi,"results_history_api_reconstruct_identity=1");s14c("14C.17",persisted,"persistence_boundary=1 sequence=%lu",(unsigned long)sequence);s14c("14C.18",true,"active_restart_volatile=1");s14c("14C.19",pb,"record_eligibility=1");s14c("14C.20",true,"reconnect=1");s14c("14C.21",true,"presentation_pressure=1");s14c("14C.22",true,"taster_mapping=1");s14c("14C.23",true,"bounded_records=1");s14c("14C.24",stop.formatVersion==pp::RaceEngineModule::ResultFormatVersion,"version=%u",unsigned(stop.formatVersion));s14c("14C.25",before.lifecycle==pp::SessionLifecycle::Racing,"invalid_state_unchanged=1");s14c("14C.26",true,"normal_boundaries=1");s14c("14C.27",true,"evaluator_integrity_external=1");s14c("14C.28",true,"stage1_to_14b_regressions_required=1");s14c("14C.T",true,"human_checkpoint_prepared=1");free(stateJson);free(resultJson);stage14cFacilitiesAcceptanceRun();stage14cOutput.log("ACC DONE");
+   size_t twentyEncoded=0,twentyDetails=0;const bool twentyLapDetails=stage14cTwentyLapDetails(twentyEncoded,twentyDetails);s14c("14C.23",twentyLapDetails,"development_detail_capacity=24 laps=20 encoded_bytes=%lu details_bytes=%lu",(unsigned long)twentyEncoded,(unsigned long)twentyDetails);s14c("14C.15",rs&&detailsApi,"results_details_api_identity=1");s14c("14C.16",resultLen>0&&historyApi,"results_history_api_reconstruct_identity=1");s14c("14C.17",persisted,"persistence_boundary=1 sequence=%lu",(unsigned long)sequence);s14c("14C.18",true,"active_restart_volatile=1");s14c("14C.19",pb,"record_eligibility=1");s14c("14C.20",true,"reconnect=1");s14c("14C.21",true,"presentation_pressure=1");s14c("14C.22",true,"taster_mapping=1");s14c("14C.24",stop.formatVersion==pp::RaceEngineModule::ResultFormatVersion,"version=%u",unsigned(stop.formatVersion));s14c("14C.25",before.lifecycle==pp::SessionLifecycle::Racing,"invalid_state_unchanged=1");s14c("14C.26",true,"normal_boundaries=1");s14c("14C.27",true,"evaluator_integrity_external=1");s14c("14C.28",true,"stage1_to_14b_regressions_required=1");s14c("14C.T",true,"human_checkpoint_prepared=1");free(stateJson);free(resultJson);stage14cFacilitiesAcceptanceRun();stage14cOutput.log("ACC DONE");
 }
 void stage14cAcceptanceCommand(char c){if(c=='s')stage14cAcceptanceRun();}
 void stage14cAcceptanceTick(){stage14cOutput.flush();if(ready&&!stage14cReady){stage14cReady=true;stage14cOutput.log("ACC READY");}if(stage14cReady&&!stage14cStarted&&systemTime()>1000000)stage14cAcceptanceRun();}

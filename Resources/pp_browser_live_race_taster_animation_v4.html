@@ -1,0 +1,331 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>P&P — Live Lap Race</title>
+<style>
+:root{--bg:#07131d;--panel:#0a1823;--line:#29404f;--text:#f4f7fa;--muted:#aebed0;--yellow:#ffd400;--green:#24e26b;--red:#ff3038;--blue:#1598ee}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(#07121b,#081722);color:var(--text);font-family:Segoe UI,Arial,sans-serif;min-width:1050px}
+.shell{max-width:1536px;margin:auto;padding:12px}
+header{height:110px;border:1px solid #102b3b;border-radius:9px;background:#071722;display:flex;align-items:stretch;overflow:hidden}
+.logo{width:215px;display:flex;align-items:center;padding:0 34px;font-size:54px;font-weight:900;font-style:italic;letter-spacing:-5px;color:var(--yellow)}.logo span{color:#fff}
+nav{display:flex;align-items:stretch;flex:1}.tab{min-width:145px;display:flex;gap:12px;justify-content:center;align-items:center;color:#eef3fa;font-size:20px;border-bottom:5px solid transparent}.tab .ico{font-size:29px;color:#dbe7f8}.tab.active{color:var(--yellow);border-bottom-color:var(--yellow);font-weight:700}.tab.active .ico{color:var(--yellow)}
+.raceStatus{width:225px;border-left:1px solid #30424e;display:flex;align-items:center;justify-content:center;gap:12px}.dot{width:22px;height:22px;border-radius:50%;background:var(--green);box-shadow:0 0 15px #24e26b55}.raceStatus strong{font-size:23px;color:var(--green)}.raceStatus small{display:block;color:var(--muted);font-size:15px;margin-top:5px}
+.pause{margin:20px 17px 20px 0;width:170px;border:1px solid #8193a0;border-radius:8px;background:#0d1e2a;color:white;font-size:22px;font-weight:800}
+.live{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:linear-gradient(#091923,#07151f);padding:0 24px 18px;overflow:hidden}
+.topline{display:grid;grid-template-columns:285px 1fr 330px;align-items:start;min-height:112px}
+.mode{padding-top:20px}.mode small,.raceinfo small{display:block;color:#91a5b8;font-size:13px;letter-spacing:1.4px;font-weight:700}.mode strong{display:block;font-size:28px;margin-top:4px}.mode .laps{font-size:18px;color:#c4d0dd;margin-top:3px}
+.pod{justify-self:center;width:610px;height:108px;margin-top:-2px;background:linear-gradient(#151c21,#05090c);border:3px solid #303b42;box-shadow:inset 0 0 20px #000,0 8px 22px #0008;display:flex;flex-direction:column;align-items:center;justify-content:center;clip-path:polygon(0 0,100% 0,92% 100%,8% 100%)}
+.lights{display:flex;gap:22px}.lamp{width:58px;height:58px;border-radius:50%;background:#172027;border:4px solid #06090b;box-shadow:inset 0 0 12px #000}.podlabel{font-size:15px;color:#81919e;letter-spacing:2px;margin-top:12px}
+.raceinfo{text-align:right;padding-top:17px}.recordline{display:grid;grid-template-columns:auto auto;justify-content:end;column-gap:14px;align-items:baseline;margin-bottom:8px}.recordline small{font-size:12px}.recordline strong{font-size:19px}.recordline em{grid-column:2;font-style:normal;color:#8fa3b6;font-size:12px;margin-top:1px}
+.statebar{height:48px;border-top:1px solid #314654;border-bottom:1px solid #314654;display:flex;align-items:center;justify-content:center;gap:14px;margin:0 -24px 22px}.statebar b{color:var(--green);letter-spacing:2px}.statebar span{color:#8398aa}
+.board{width:100%;border-collapse:separate;border-spacing:0 5px}.board thead th{text-align:right;color:#8fa3b6;font-size:13px;letter-spacing:1.4px;padding:0 14px 5px}.board thead th:nth-child(2){text-align:left}.board tbody tr{background:#091c28}.board tbody tr.leader{background:#102632;box-shadow:inset 5px 0 0 var(--yellow)}.board td{height:76px;padding:10px 14px;border-top:1px solid #244150;border-bottom:1px solid #244150;text-align:right;font-size:24px}.board td:first-child{border-left:1px solid #244150;border-radius:8px 0 0 8px;padding:0;width:105px}.board td:last-child{border-right:1px solid #244150;border-radius:0 8px 8px 0}
+.laneBox{height:103px;margin:-10px -14px;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--red);font-size:16px}.laneBox.blue{background:var(--blue)}.laneBox b{font-size:46px}.who{text-align:left!important;min-width:300px;padding-left:30px!important}.who strong{font-size:29px}.who small{display:block;color:#9eb0c2;font-size:17px;margin-top:5px}.pos{font-size:33px!important;font-weight:900}.progress{font-size:29px!important;font-weight:800}.best{color:var(--yellow);font-weight:800}.gap{font-weight:800}
+.fastest{margin-top:17px;border:1px solid #334b5a;border-radius:7px;padding:15px 18px;display:flex;justify-content:space-between;color:#b8c8d7}.fastest b{color:var(--yellow)}
+.note{max-width:1536px;margin:10px auto;color:#718596;font-size:12px;padding:0 14px}
+
+.carcell{width:150px!important;text-align:center!important;padding:4px 20px 4px 34px!important}
+.carimg{width:90px;height:54px;object-fit:contain;display:block;margin:auto;filter:drop-shadow(0 5px 5px #0008)}
+
+/* v6 eight-lane density test */
+.live{padding:0 18px 14px}
+.topline{min-height:104px;grid-template-columns:250px minmax(420px,1fr) 285px}
+.pod{width:min(610px,100%);height:102px}
+.board{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0 4px}
+.board col.lane{width:78px}.board col.car{width:112px}.board col.identity{width:250px}
+.board col.pos{width:105px}.board col.progress{width:112px}.board col.time{width:112px}.board col.gap{width:118px}
+.board thead th{height:25px;padding:0 10px 3px;text-align:right;color:#8fa3b6;font-size:11px;letter-spacing:1.2px;white-space:nowrap}
+.board thead th:nth-child(1),.board thead th:nth-child(2),.board thead th:nth-child(3){text-align:left}
+.board tbody tr{background:#091c28}
+.board tbody tr.leader{background:#102632;box-shadow:inset 4px 0 0 var(--yellow)}
+.board td{height:58px!important;padding:4px 10px!important;border-top:1px solid #244150;border-bottom:1px solid #244150;text-align:right;font-size:18px;white-space:nowrap;overflow:hidden}
+.board td:first-child{padding:0!important;border-left:1px solid #244150;border-radius:7px 0 0 7px}
+.board td:last-child{border-right:1px solid #244150;border-radius:0 7px 7px 0}
+.laneBox{height:58px!important;width:78px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;color:#fff}
+.laneBox b{font-size:28px}.laneBox.red{background:#ff303b}.laneBox.blue{background:#2196df}.laneBox.yellow{background:#b89400}
+.laneBox.green{background:#198153}.laneBox.purple{background:#6848a8}.laneBox.orange{background:#bd5e18}
+.laneBox.white{background:#75828d}.laneBox.cyan{background:#078194}
+.carcell{text-align:center!important;padding:0 12px!important;overflow:visible!important}
+.carGraphic{display:block;width:88px;height:38px;margin:auto;color:#d7e0e6;filter:drop-shadow(0 4px 3px #0008)}
+.r1 .carGraphic{color:#e43c46}.r2 .carGraphic{color:#329bd8}.r3 .carGraphic{color:#c6a900}.r4 .carGraphic{color:#2a9a68}
+.r5 .carGraphic{color:#795ab4}.r6 .carGraphic{color:#d07835}.r7 .carGraphic{color:#b9c1c7}.r8 .carGraphic{color:#25a0af}
+.who{text-align:left!important;padding-left:8px!important;min-width:0!important}
+.identityLabel{display:block;color:#8fa3b6;font-size:9px;letter-spacing:1.2px;font-weight:700;line-height:1;margin-bottom:3px}
+.who strong{display:block;font-size:18px;line-height:1.05;overflow:hidden;text-overflow:ellipsis}
+.who small{display:block;margin-top:2px;font-size:11px;color:#9fb0be;overflow:hidden;text-overflow:ellipsis}
+.pos b{font-size:19px}
+@media(max-height:900px){
+ .board{border-spacing:0 2px}.board td{height:52px!important}.laneBox{height:52px!important}.topline{min-height:96px}.pod{height:94px}
+}
+
+
+/* Taster-style row animation — whole-row overlay */
+.board tbody tr { position: relative; }
+.carGraphic { transition: opacity .05s linear; }
+.finishFlagSmall { display:none; width:24px; height:24px; margin-left:8px; vertical-align:middle; }
+.finished .finishFlagSmall { display:inline-block; }
+.finished .who strong::after {
+  content:"  FINISHED"; color:var(--yellow); font-size:10px; letter-spacing:1px; margin-left:8px;
+}
+.raceAnimOverlay {
+  display:none; position:absolute; z-index:50; overflow:hidden; pointer-events:none;
+  background:var(--panel); border-left:7px solid #d9484f;
+}
+.raceAnimOverlay.active { display:block; }
+.animCar {
+  position:absolute; z-index:3; top:50%; transform:translateY(-50%);
+  width:96px; height:auto;
+}
+.chequerCanvas {
+  display:none; position:absolute; z-index:2; left:0; top:14%; height:72%; width:0;
+  overflow:hidden;
+}
+.raceAnimOverlay.finishing .chequerCanvas { display:block; }
+.chequerInner {
+  width:100%; height:100%;
+  background:conic-gradient(#f5f5f2 25%,#111 0 50%,#f5f5f2 0 75%,#111 0) 0 0/18px 18px;
+}
+.demoControls {
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:9px 0 0;
+  color:#8fa3b6;font-size:11px
+}
+.demoControls button {
+  background:#102532;border:1px solid #355365;color:#e9f0f4;border-radius:5px;
+  padding:7px 11px;font:inherit;font-weight:700;letter-spacing:.5px;cursor:pointer
+}
+.demoControls button.primary { background:#e8bf2a;color:#08141b;border-color:#e8bf2a }
+
+
+.raceFinishedFlag{display:none;width:32px;height:25px;vertical-align:middle;margin-left:9px}
+body.race-finished .raceFinishedFlag{display:inline-block}
+</style></head><body><div class="shell">
+<header><div class="logo">P<span>&amp;</span>P</div><nav><div class="tab active"><span class="ico">⚑</span>Race</div><div class="tab"><span class="ico">▥</span>Results</div><div class="tab"><span class="ico">∞</span>Track Setup</div><div class="tab"><span class="ico">♟</span>Racers</div><div class="tab"><span class="ico">⚙</span>Settings</div></nav><div class="raceStatus"><span class="dot"></span><div><strong><span id="raceState">RACING<svg class="raceFinishedFlag" viewBox="0 0 34 28" aria-label="Race finished"><path d="M3 1v26" stroke="#d8e2e8" stroke-width="2"/><path d="M5 2h26v20H5z" fill="#f5f5f2"/><path d="M5 2h6.5v5H5zm13 0h6.5v5H18zM11.5 7H18v5h-6.5zm13 0H31v5h-6.5zM5 12h6.5v5H5zm13 0h6.5v5H18zM11.5 17H18v5h-6.5zm13 0H31v5h-6.5z" fill="#111"/></svg></span></strong><small>Lap Race · 10 Laps</small></div></div><button class="pause">PAUSE</button></header>
+<section class="live">
+<div class="topline"><div class="mode"><small>LIVE RACE</small><strong>LAP RACE</strong><div class="laps">10 Laps</div></div>
+<div class="pod"><div class="lights"><i class="lamp"></i><i class="lamp"></i><i class="lamp"></i><i class="lamp"></i><i class="lamp"></i></div></div>
+<div class="raceinfo">
+  <div class="recordline"><small>FASTEST LAP</small><strong>12.482</strong><em>Dad</em></div>
+  <div class="recordline"><small>TRACK RECORD</small><strong>11.904</strong><em>Hazel</em></div>
+</div></div>
+<table class="board">
+<colgroup><col class="lane"><col class="car"><col class="identity"><col class="pos"><col class="progress"><col class="time"><col class="time"><col class="gap"></colgroup>
+<thead><tr><th>LANE</th><th></th><th></th><th>POSITION</th><th>PROGRESS</th><th>LAST</th><th>BEST</th><th>GAP</th></tr></thead>
+<tbody><tr class="leader r1">
+<td><div class="laneBox red"><span>Lane</span><b>1</b></div></td>
+<td class="carcell"><svg class="carGraphic" viewBox="0 0 150 54" aria-hidden="true">
+<path d="M18 35h8l8-14c2-4 6-7 11-8l45-4c7 0 13 3 17 8l8 10 17 4c5 1 8 5 8 10v3H18z" fill="currentColor"/>
+<path d="M48 16l10-2 27-2c5 0 9 2 12 6l5 7H43z" fill="#0b1821"/>
+<circle cx="45" cy="42" r="9" fill="#05090c"/><circle cx="45" cy="42" r="4" fill="#7f909c"/>
+<circle cx="116" cy="42" r="9" fill="#05090c"/><circle cx="116" cy="42" r="4" fill="#7f909c"/>
+</svg></td>
+<td class="who"><span class="identityLabel">RACER / CAR</span><strong>Dad</strong><small>MG B</small></td>
+<td class="pos"><b>1ST</b></td><td>6 / 10</td><td>12.604</td><td>12.482</td><td>—</td>
+</tr>
+<tr class="r2">
+<td><div class="laneBox blue"><span>Lane</span><b>2</b></div></td>
+<td class="carcell"><svg class="carGraphic" viewBox="0 0 150 54" aria-hidden="true">
+<path d="M18 35h8l8-14c2-4 6-7 11-8l45-4c7 0 13 3 17 8l8 10 17 4c5 1 8 5 8 10v3H18z" fill="currentColor"/>
+<path d="M48 16l10-2 27-2c5 0 9 2 12 6l5 7H43z" fill="#0b1821"/>
+<circle cx="45" cy="42" r="9" fill="#05090c"/><circle cx="45" cy="42" r="4" fill="#7f909c"/>
+<circle cx="116" cy="42" r="9" fill="#05090c"/><circle cx="116" cy="42" r="4" fill="#7f909c"/>
+</svg></td>
+<td class="who"><span class="identityLabel">RACER / CAR</span><strong>Baird</strong><small>Ford GT40</small></td>
+<td class="pos"><b>2ND</b></td><td>6 / 10</td><td>12.931</td><td>12.716</td><td>+1.327</td>
+</tr>
+<tr class="r3">
+<td><div class="laneBox yellow"><span>Lane</span><b>3</b></div></td>
+<td class="carcell"><svg class="carGraphic" viewBox="0 0 150 54" aria-hidden="true">
+<path d="M18 35h8l8-14c2-4 6-7 11-8l45-4c7 0 13 3 17 8l8 10 17 4c5 1 8 5 8 10v3H18z" fill="currentColor"/>
+<path d="M48 16l10-2 27-2c5 0 9 2 12 6l5 7H43z" fill="#0b1821"/>
+<circle cx="45" cy="42" r="9" fill="#05090c"/><circle cx="45" cy="42" r="4" fill="#7f909c"/>
+<circle cx="116" cy="42" r="9" fill="#05090c"/><circle cx="116" cy="42" r="4" fill="#7f909c"/>
+</svg></td>
+<td class="who"><span class="identityLabel">RACER / CAR</span><strong>Freya</strong><small>Lotus Elan</small></td>
+<td class="pos"><b>3RD</b></td><td>5 / 10</td><td>13.106</td><td>12.894</td><td>+1 LAP</td>
+</tr>
+<tr class="r4">
+<td><div class="laneBox green"><span>Lane</span><b>4</b></div></td>
+<td class="carcell"><svg class="carGraphic" viewBox="0 0 150 54" aria-hidden="true">
+<path d="M18 35h8l8-14c2-4 6-7 11-8l45-4c7 0 13 3 17 8l8 10 17 4c5 1 8 5 8 10v3H18z" fill="currentColor"/>
+<path d="M48 16l10-2 27-2c5 0 9 2 12 6l5 7H43z" fill="#0b1821"/>
+<circle cx="45" cy="42" r="9" fill="#05090c"/><circle cx="45" cy="42" r="4" fill="#7f909c"/>
+<circle cx="116" cy="42" r="9" fill="#05090c"/><circle cx="116" cy="42" r="4" fill="#7f909c"/>
+</svg></td>
+<td class="who"><span class="identityLabel">RACER / CAR</span><strong>Sam</strong><small>Jaguar E-Type</small></td>
+<td class="pos"><b>4TH</b></td><td>5 / 10</td><td>13.241</td><td>13.018</td><td>+1 LAP</td>
+</tr>
+<tr class="r5">
+<td><div class="laneBox purple"><span>Lane</span><b>5</b></div></td>
+<td class="carcell"><svg class="carGraphic" viewBox="0 0 150 54" aria-hidden="true">
+<path d="M18 35h8l8-14c2-4 6-7 11-8l45-4c7 0 13 3 17 8l8 10 17 4c5 1 8 5 8 10v3H18z" fill="currentColor"/>
+<path d="M48 16l10-2 27-2c5 0 9 2 12 6l5 7H43z" fill="#0b1821"/>
+<circle cx="45" cy="42" r="9" fill="#05090c"/><circle cx="45" cy="42" r="4" fill="#7f909c"/>
+<circle cx="116" cy="42" r="9" fill="#05090c"/><circle cx="116" cy="42" r="4" fill="#7f909c"/>
+</svg></td>
+<td class="who"><span class="identityLabel">RACER / CAR</span><strong>Hazel</strong><small>Mini Cooper</small></td>
+<td class="pos"><b>5TH</b></td><td>5 / 10</td><td>13.488</td><td>13.204</td><td>+1 LAP</td>
+</tr>
+<tr class="r6">
+<td><div class="laneBox orange"><span>Lane</span><b>6</b></div></td>
+<td class="carcell"><svg class="carGraphic" viewBox="0 0 150 54" aria-hidden="true">
+<path d="M18 35h8l8-14c2-4 6-7 11-8l45-4c7 0 13 3 17 8l8 10 17 4c5 1 8 5 8 10v3H18z" fill="currentColor"/>
+<path d="M48 16l10-2 27-2c5 0 9 2 12 6l5 7H43z" fill="#0b1821"/>
+<circle cx="45" cy="42" r="9" fill="#05090c"/><circle cx="45" cy="42" r="4" fill="#7f909c"/>
+<circle cx="116" cy="42" r="9" fill="#05090c"/><circle cx="116" cy="42" r="4" fill="#7f909c"/>
+</svg></td>
+<td class="who"><span class="identityLabel">RACER / CAR</span><strong>Charlotte</strong><small>Porsche 911</small></td>
+<td class="pos"><b>6TH</b></td><td>5 / 10</td><td>13.721</td><td>13.402</td><td>+1 LAP</td>
+</tr>
+<tr class="r7">
+<td><div class="laneBox white"><span>Lane</span><b>7</b></div></td>
+<td class="carcell"><svg class="carGraphic" viewBox="0 0 150 54" aria-hidden="true">
+<path d="M18 35h8l8-14c2-4 6-7 11-8l45-4c7 0 13 3 17 8l8 10 17 4c5 1 8 5 8 10v3H18z" fill="currentColor"/>
+<path d="M48 16l10-2 27-2c5 0 9 2 12 6l5 7H43z" fill="#0b1821"/>
+<circle cx="45" cy="42" r="9" fill="#05090c"/><circle cx="45" cy="42" r="4" fill="#7f909c"/>
+<circle cx="116" cy="42" r="9" fill="#05090c"/><circle cx="116" cy="42" r="4" fill="#7f909c"/>
+</svg></td>
+<td class="who"><span class="identityLabel">RACER / CAR</span><strong>Euan</strong><small>Alfa GTA</small></td>
+<td class="pos"><b>7TH</b></td><td>4 / 10</td><td>14.033</td><td>13.755</td><td>+2 LAPS</td>
+</tr>
+<tr class="r8">
+<td><div class="laneBox cyan"><span>Lane</span><b>8</b></div></td>
+<td class="carcell"><svg class="carGraphic" viewBox="0 0 150 54" aria-hidden="true">
+<path d="M18 35h8l8-14c2-4 6-7 11-8l45-4c7 0 13 3 17 8l8 10 17 4c5 1 8 5 8 10v3H18z" fill="currentColor"/>
+<path d="M48 16l10-2 27-2c5 0 9 2 12 6l5 7H43z" fill="#0b1821"/>
+<circle cx="45" cy="42" r="9" fill="#05090c"/><circle cx="45" cy="42" r="4" fill="#7f909c"/>
+<circle cx="116" cy="42" r="9" fill="#05090c"/><circle cx="116" cy="42" r="4" fill="#7f909c"/>
+</svg></td>
+<td class="who"><span class="identityLabel">RACER / CAR</span><strong>Orla</strong><small>Escort RS</small></td>
+<td class="pos"><b>8TH</b></td><td>4 / 10</td><td>14.418</td><td>14.002</td><td>+2 LAPS</td>
+</tr></tbody></table>
+<div class="raceAnimOverlay" id="raceAnimOverlay" aria-hidden="true">
+  <div class="chequerCanvas" id="chequerCanvas"><div class="chequerInner" id="chequerInner"></div></div>
+  <svg class="animCar" id="animCar" viewBox="0 0 180 70">
+    <path d="M16 47h11l13-19c4-6 9-9 17-10l55-4c9 0 16 4 21 10l10 14 21 5c6 1 10 6 10 12v3H16z" fill="#d9484f"/>
+    <path d="M57 22l13-3 34-2c7 0 12 3 16 8l7 10H50z" fill="#a9d1e2"/>
+    <circle cx="52" cy="55" r="11" fill="#05090c"/><circle cx="52" cy="55" r="5" fill="#85949e"/>
+    <circle cx="137" cy="55" r="11" fill="#05090c"/><circle cx="137" cy="55" r="5" fill="#85949e"/>
+  </svg>
+</div>
+<div class="demoControls">
+ <span>TASTER ANIMATION TEST · LANE 1</span>
+ <button type="button" id="lapDemo">PASS LAP</button>
+ <button type="button" id="finishDemo" class="primary">FINISH</button>
+ <button type="button" id="resetDemo">RESET</button>
+</div>
+
+
+</section></div><div class="note">UX mock-up only — eight-lane density test. Car graphics are optional presentation.</div>
+<script>
+(() => {
+ const table=document.querySelector('.board');
+ const row=table.querySelector('tbody tr');
+ const overlay=document.getElementById('raceAnimOverlay');
+ const car=document.getElementById('animCar');
+ const canvas=document.getElementById('chequerCanvas');
+ const inner=document.getElementById('chequerInner');
+ const still=row.querySelector('.carGraphic');
+ let raf=0, timer=0;
+
+ function positionOverlay(){
+   const rr=row.getBoundingClientRect();
+   const tr=table.parentElement.getBoundingClientRect();
+   overlay.style.left=(rr.left-tr.left)+'px';
+   overlay.style.top=(rr.top-tr.top)+'px';
+   overlay.style.width=rr.width+'px';
+   overlay.style.height=rr.height+'px';
+ }
+ // Ensure containing panel establishes coordinates.
+ table.parentElement.style.position='relative';
+
+ function resetVisual(keepFinished=false){
+   cancelAnimationFrame(raf); clearTimeout(timer);
+   overlay.classList.remove('active','finishing');
+   car.style.left='8px';
+   canvas.style.width='0px';
+   inner.style.transform='translateY(0)';
+   canvas.querySelectorAll('.waveStrip').forEach(x=>x.remove());
+   delete canvas.dataset.waveBuilt;
+   inner.style.display='block';
+   if(still) still.style.opacity='1';
+   if(!keepFinished){row.classList.remove('finished');document.body.classList.remove('race-finished');const rs=document.getElementById('raceState');if(rs&&rs.childNodes.length)rs.childNodes[0].nodeValue='RACING';}
+ }
+
+ function run(finishing){
+   resetVisual(false);
+   positionOverlay();
+   overlay.classList.add('active');
+   if(finishing) overlay.classList.add('finishing');
+   if(still) still.style.opacity='0';
+
+   const W=overlay.clientWidth;
+   const carW=car.getBoundingClientRect().width || 96;
+   const startX=10, endX=W+12;
+   const duration=finishing ? 1650 : 1350;
+   const t0=performance.now();
+
+   function frame(t){
+     const p=Math.min(1,(t-t0)/duration);
+     const q=p*p; // Taster-style acceleration
+     const x=startX+(endX-startX)*q;
+     car.style.left=x+'px';
+
+     if(finishing){
+       // Chequers are literally pulled out from the left behind the car's tail.
+       const tail=Math.max(0, Math.min(W, x+8));
+       canvas.style.width=tail+'px';
+     }
+     if(p<1) raf=requestAnimationFrame(frame);
+     else if(finishing) flutter(0);
+     else resetVisual(false);
+   }
+   raf=requestAnimationFrame(frame);
+ }
+
+ function flutter(n){
+   canvas.style.width='100%';
+
+   // Build narrow vertical strips from the same chequer pattern.
+   // Each strip moves by a slightly different amount so the trailing band
+   // visibly ripples rather than simply shifting up/down as one rectangle.
+   if(!canvas.dataset.waveBuilt){
+     inner.style.display='none';
+     const strips=18;
+     for(let i=0;i<strips;i++){
+       const strip=document.createElement('div');
+       strip.className='waveStrip';
+       strip.style.position='absolute';
+       strip.style.top='0';
+       strip.style.bottom='0';
+       strip.style.left=(i*100/strips)+'%';
+       strip.style.width=(100/strips + .25)+'%';
+       strip.style.background='conic-gradient(#f5f5f2 25%,#111 0 50%,#f5f5f2 0 75%,#111 0) 0 0/18px 18px';
+       strip.style.backgroundPosition=(-i*7)+'px 0';
+       canvas.appendChild(strip);
+     }
+     canvas.dataset.waveBuilt='1';
+   }
+
+   const strips=[...canvas.querySelectorAll('.waveStrip')];
+   if(n>=12){
+     strips.forEach(x=>x.style.transform='translateY(0)');
+     timer=setTimeout(()=>{
+       resetVisual(true);
+       row.classList.add('finished');document.body.classList.add('race-finished');const rs=document.getElementById('raceState');if(rs&&rs.childNodes.length)rs.childNodes[0].nodeValue='FINISHED';
+     },160);
+     return;
+   }
+
+   // A travelling, damped wave: strongest at first, then settles.
+   const amp = n < 5 ? 6 : (n < 9 ? 4 : 2);
+   strips.forEach((strip,i)=>{
+     const y=Math.sin(i*.9 - n*.95)*amp;
+     strip.style.transform='translateY('+y.toFixed(1)+'px)';
+   });
+   timer=setTimeout(()=>flutter(n+1),85);
+ }
+
+ document.getElementById('lapDemo').addEventListener('click',()=>run(false));
+ document.getElementById('finishDemo').addEventListener('click',()=>run(true));
+ document.getElementById('resetDemo').addEventListener('click',()=>resetVisual(false));
+ window.addEventListener('resize',()=>{ if(overlay.classList.contains('active')) positionOverlay(); });
+})();
+</script>
+
+</body></html>

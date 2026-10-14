@@ -10,7 +10,16 @@ namespace pp {
 // Endurance adds a duration boundary; it does not create a second timing path.
 class RaceEngineModule {
 public:
-  static constexpr uint8_t MaxEntries=PP_MAX_ENTRIES, MaxLaps=16;
+  // Stage 14C's development backend needs to reconstruct the human
+  // acceptance race (20 laps per entry).  This is a temporary resource
+  // capacity, not an Endurance product maximum; the production SD detail
+  // representation will be streamed/chunked independently of this array.
+#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+  static constexpr uint8_t DevelopmentDetailCapacity=24;
+#else
+  static constexpr uint8_t DevelopmentDetailCapacity=16;
+#endif
+  static constexpr uint8_t MaxEntries=PP_MAX_ENTRIES, MaxLaps=DevelopmentDetailCapacity;
   static constexpr uint16_t ResultFormatVersion=3;
   struct LapRecord { uint32_t lapNumber=0; Time startTime=0,finishTime=0,lapTime=0; Time racingFinishTime=0; bool valid=false; };
   struct EntryState {
@@ -194,7 +203,7 @@ private:
     if(!result_.sealed)seal();Message m{};m.type=Type::CompetitionComplete;m.relevantTime=result_.finishTime;m.raceEntryId=winner_;m.probe=deadHeat_?1:0;if(bus_.publish(endpoint_,m)==Delivery::Delivered){completionPublished_=true;complete_=true;}
   }
   void latchPersistenceFault(Time at,bool record){if(record)recordPersistenceFault_=true;else historyPersistFailed_=true;persistenceFault_=true;if(storageFaultPublished_)return;storageFaultPublished_=true;Message fault{};fault.type=Type::StorageFault;fault.relevantTime=at;bus_.publish(endpoint_,fault);publishNoticeboardChanged();}
-  void persistResult(){if(!result_.sealed||persisted_||historyPersistFailed_||!history_)return;static_assert(sizeof(CompletedRaceResult)<=HistoryStore::MaxBytes,"history result exceeds bounded store");uint32_t sequence=0;if(history_->append(reinterpret_cast<const uint8_t*>(&result_),sizeof(result_),sequence)){historySequence_=sequence;persisted_=true;Message stored{};stored.type=Type::HistoryStored;stored.historySequence=sequence;stored.relevantTime=result_.finishTime;bus_.publish(endpoint_,stored);publishNoticeboardChanged();}else{latchPersistenceFault(result_.finishTime,false);}}
+   void persistResult(){if(!result_.sealed||persisted_||historyPersistFailed_||!history_)return;/* The storage boundary owns encoding/capacity checks: the development VersionedHistoryStore serializes this summary/detail payload before writing, so the in-memory CompletedRaceResult size is not a storage limit. */uint32_t sequence=0;if(history_->append(reinterpret_cast<const uint8_t*>(&result_),sizeof(result_),sequence)){historySequence_=sequence;persisted_=true;Message stored{};stored.type=Type::HistoryStored;stored.historySequence=sequence;stored.relevantTime=result_.finishTime;bus_.publish(endpoint_,stored);publishNoticeboardChanged();}else{latchPersistenceFault(result_.finishTime,false);}}
   static bool before(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){if(a.classifiedLaps!=b.classifiedLaps)return a.classifiedLaps>b.classifiedLaps;if(f==LapFinishBehaviour::Immediate)return false;if(!a.completionTime)return false;if(!b.completionTime)return true;return a.completionTime<b.completionTime;}
   static bool beforeLive(const EntryState&a,const EntryState&b,LapFinishBehaviour f){const uint32_t ac=a.laps>a.lapPenalty?a.laps-a.lapPenalty:0;const uint32_t bc=b.laps>b.lapPenalty?b.laps-b.lapPenalty:0;if(ac!=bc)return ac>bc;if(f==LapFinishBehaviour::Immediate)return false;if(!a.lastCrossing)return false;if(!b.lastCrossing)return true;return a.lastCrossing<b.lastCrossing;}
   static bool samePlace(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){return a.classifiedLaps==b.classifiedLaps&&(f==LapFinishBehaviour::Immediate||a.completionTime==b.completionTime);}

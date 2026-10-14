@@ -34,7 +34,7 @@ Persistent data uses explicit serialized formats; raw C++ structure dumps are pr
 
 The format preserves the immutable result information required by the frozen Results, Details and History contracts: Session Definition and mode, entry identities and lane mappings, factual and classified laps, penalties, ranks, ties and laps behind, finish/winning/expiry/overtime data, best/last/fastest lap information, retained valid lap details, and persistent sequence identity.
 
-Detailed retention remains bounded where the applicable frozen mode permits it. Authoritative counts and statistics never depend on retained-detail count.
+Detailed retention remains bounded by the available production storage, not by an Endurance product lap ceiling. Authoritative counts and statistics never depend on retained-detail count. The current Stage 14C development representation uses a temporary 24-record-per-entry buffer solely to exercise the 20-lap human acceptance race; that bound is not a product rule and is replaced by the production SD representation.
 
 Existing LAP, Endurance and Practice semantics remain unchanged. Completed official LAP and Endurance results may enter History; abandoned races and Practice do not create official History; existing PB/Track Record eligibility and Record Era semantics remain unchanged.
 
@@ -60,20 +60,18 @@ Unsupported old development formats may be reset under the pre-production migrat
 
 ## History retention
 
-History remains a bounded rolling collection of completed official sessions. Factory retention capacity is selected after realistic SD-size, scan-time and reliability measurements. It is not tied to `PP_MAX_ENTRIES` and is not limited to four races. When capacity is reached, the oldest committed entry is removed only after its replacement has been durably committed.
+History is a bounded rolling collection of the **most recent 100 completed official sessions**. It is not tied to `PP_MAX_ENTRIES` or to the number of records displayed by a Browser. When race 101 is durably committed, the oldest retained completed race is evicted only after the replacement commit is valid. Each retained race is intended to preserve its complete available lap-by-lap detail. The current four-race / 8,192-byte development `HistoryStore` and the temporary 24-record detail buffer are implementation bounds only; they are not the production retention policy.
 
 ## Development and acceptance backends
 
 Before final SD hardware is available, the same boundary is exercised with a file-backed development backend, failure-injection controls, an acceptance fake, and the existing bounded NVS backend where necessary to reproduce development limitations. The Wokwi `slot-10 NOT_ENOUGH_SPACE` result is retained as a deliberate development failure-boundary case, not a production capacity requirement.
 
-The production backend remains an ESP32-S3 SD/FATFS implementation and requires a later real-hardware checkpoint.
+The production backend remains an ESP32-S3 SD/FATFS implementation and requires a later real-hardware checkpoint. It must store per-race detail without requiring all retained History, or arbitrarily large lap arrays, to remain in RAM; detail loading/streaming and the rolling-100 index are part of that later implementation.
 
-## Phase 8 hardware record
-
-The established Phase 8 hardware is the ESP32-8048S070 7-inch
+The established Phase 8 hardware record is the ESP32-8048S070 7-inch
 800x480 ESP32-S3 board with 16 MB flash, on-board PSRAM and microSD. Its
 provisional SPI microSD mapping for the diagnostic checkpoint is CS GPIO10,
-MOSI GPIO11, SCK GPIO12, and MISO GPIO13. This identifies the test hardware
+MOSI GPIO11, SCK GPIO12 and MISO GPIO13. This identifies the test hardware
 only; it does not define the eventual production SD filesystem or wiring
 contract beyond these verified board signals.
 
