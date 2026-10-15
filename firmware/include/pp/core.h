@@ -18,11 +18,11 @@ enum class SessionMode : uint8_t { None=0, LapRace=1, OpenPractice=2, Endurance=
 enum class Type : uint8_t { LoadConfiguration=0, ConfigurationLoaded=1, InputEvent=2, GoScheduled=3, LapCompleted=4, CompetitionComplete=5, NoticeboardChanged=6, DiagnosticProbe=7, StartRequest=8, RequestResult=9, RaceIntegrityFault=10, SessionOperationRequest=11, SessionOperation=12, InputSettlement=13, PauseSettled=14, Paused=15, RestartScheduled=16, Resumed=17, FinishSettlement=18, FinishSettled=19, FalseStart=20, HistoryStored=21, StorageFault=22, EnduranceExpired=23, SetupRequest=24, Count=25 };
 enum class ClientContext : uint8_t { Spectator, RaceDirectorSmug };
 enum class RequestResult : uint8_t { Accepted, Rejected };
-enum class RequestRejection : uint8_t { None, PermissionDenied, LifecycleNotStartable, InvalidRaceSetup, RequiredCapabilityUnavailable, SessionDefinitionUnavailable, LifecycleNotPausable, LifecycleNotRestartable, PauseSettlementPending, LifecycleNotRaceAgain, ConfirmationRequired, LifecycleNotAbandonable, StorageUnavailable, LifecycleNotResumable, LifecycleNotEndable, ProposalRevisionConflict };
+enum class RequestRejection : uint8_t { None, PermissionDenied, LifecycleNotStartable, InvalidRaceSetup, RequiredCapabilityUnavailable, SessionDefinitionUnavailable, LifecycleNotPausable, LifecycleNotRestartable, PauseSettlementPending, LifecycleNotRaceAgain, ConfirmationRequired, LifecycleNotAbandonable, StorageUnavailable, LifecycleNotResumable, LifecycleNotEndable, ProposalRevisionConflict, LifecycleNotPracticeAgain };
 enum class RaceIntegrityReason : uint8_t { None, InputEventDeliveryOverrun };
 // These are request values, not Message Type values.  They are deliberately
 // appended so the established Stage 11/12 operation values retain meaning.
-enum class SessionOperation : uint8_t { Pause, HonourRestart, GridRestart, RaceAgain, RestartRace, EndRace, ClearHistory, ClearLane1Records, ClearLane2Records, ClearTrackRecord, ClearAllRecords, Resume, EndSession, SkipFinishDisplay };
+enum class SessionOperation : uint8_t { Pause, HonourRestart, GridRestart, RaceAgain, RestartRace, EndRace, ClearHistory, ClearLane1Records, ClearLane2Records, ClearTrackRecord, ClearAllRecords, Resume, EndSession, SkipFinishDisplay, PracticeAgain };
 enum class SetupChange : uint8_t { Replace = 1 };
 enum class RestartMethod : uint8_t { None, Honour, Grid };
 struct InputIdentity {

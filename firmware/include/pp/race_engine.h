@@ -142,6 +142,7 @@ private:
   void scheduled(const Message&m){if(!definition_||!m.relevantTime)return;go_=m.relevantTime;for(uint8_t i=0;i<entryCount();++i){entries_[i].lastCrossing=go_;if(definition_->mode()==SessionMode::Endurance)entries_[i].timingOriginEstablished=true;}}
   void enduranceExpired(const Message&m){if(!definition_||definition_->mode()!=SessionMode::Endurance)return;enduranceExpired_=true;expiryTime_=m.relevantTime;for(uint8_t i=0;i<entryCount();++i){if(!entries_[i].timingOriginEstablished||entries_[i].postExpiryCompleted)observed_[i]=true;}if(finishBehaviour_==LapFinishBehaviour::Immediate||finishBehaviour_==LapFinishBehaviour::CompleteFullRaceDistance){candidateF_=expiryTime_;finishReady_=true;}else finishCurrentPending_=true;publishNoticeboardChanged();}
   void operation(const Message&m){
+    if(m.operation==SessionOperation::PracticeAgain){practiceSummary_={};return;}
     if(m.operation==SessionOperation::Pause){pauseAt_=m.relevantTime;pauseOpen_=true;paused_=true;settlementSeen_=settlementPublished_=false;settlementAt_=m.relevantTime;return;}
     if(definition_&&definition_->mode()==SessionMode::OpenPractice&&m.operation==SessionOperation::Resume){closePause(m.relevantTime);paused_=false;practiceResumeAt_=m.relevantTime;for(uint8_t i=0;i<entryCount();++i)entries_[i].waitingForTimingOrigin=true;return;}
     if(definition_&&definition_->mode()==SessionMode::OpenPractice&&m.operation==SessionOperation::EndSession){capturePracticeSummary(m.relevantTime);paused_=true;return;}

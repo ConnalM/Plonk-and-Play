@@ -101,6 +101,13 @@ label.
 It uses the existing authoritative Practice completion semantics and proceeds
 to Practice Summary. Practice does not show **ABANDON**.
 
+Practice Summary is the completed summary of that Practice session. It offers
+**PRACTICE AGAIN** as the primary action and **HOME** as the secondary action.
+PRACTICE AGAIN asks P&P to prepare a new Open Practice using the retained
+relevant setup, racers and lanes; it does not resume or resurrect the ended
+Practice and does not start automatically. HOME leaves the summary and returns
+to the normal READY/Home experience without creating another Practice.
+
 The Browser must not implement these transitions as local state. A reload,
 reconnect or second client renders the controls from the current authoritative
 P&P lifecycle and mode.
@@ -136,6 +143,14 @@ Drag remains usable with no length or scale configured. Missing optional values 
 ## Immediate Lap Race result
 
 The primary Results screen should answer who won without becoming an analysis dashboard.
+
+Lap Race Results use the columns **POSITION | LANE/RACER | PROGRESS | TIME |
+BEST | GAP**. PROGRESS is authoritative classified race progress against the
+configured target where applicable. TIME is the authoritative per-entry
+race-relative finish duration and is shown only for an entry that completed its
+permitted finish. GAP uses only authoritative gap information supplied by P&P;
+the Browser does not calculate classification or substitute a finish time for
+progress or gap.
 
 Show:
 - finishing position;

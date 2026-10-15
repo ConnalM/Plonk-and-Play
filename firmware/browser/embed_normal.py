@@ -58,9 +58,12 @@ if "if(e.gapKind==='TIME')" not in html:
         raise RuntimeError("normal Browser integration GAP formatter boundary not found")
     gap_function = "function gap(e){if(e.gapKind==='TIME')return`+${(+e.gapTimeUs/1e6).toFixed(2)} s`;if(e.gapKind==='LAPS')return`+${+e.gapLaps} L`;return'—'}"
     html = html[:gap_start] + gap_function + html[gap_end:]
-replace_in_function("function race(){", "function paused(){", "Racer ${e.raceEntryId}", "Racer ${e.mugId??'—'}", 2, "active race racer identities")
-replace_in_function("function renderResults(r){", "async function results(){", "<b>Racer ${e.raceEntryId}</b>", "<b>Racer ${e.mugId??'—'}</b>", 1, "results racer identity")
-replace_in_function("async function practice(){", "async function details(){", "<b>Racer ${e.raceEntryId}</b>", "<b>Racer ${e.mugId??'—'}</b>", 1, "practice summary racer identity")
+if "Racer ${e.raceEntryId}" in html:
+    replace_in_function("function race(){", "function paused(){", "Racer ${e.raceEntryId}", "Racer ${e.mugId??'—'}", 2, "active race racer identities")
+if "<b>Racer ${e.raceEntryId}</b>" in html[html.find("function renderResults(r){"):html.find("async function results(){")]:
+    replace_in_function("function renderResults(r){", "async function results(){", "<b>Racer ${e.raceEntryId}</b>", "<b>Racer ${e.mugId??'—'}</b>", 1, "results racer identity")
+if "<b>Racer ${e.raceEntryId}</b>" in html[html.find("async function practice(){"):html.find("async function details(){")]:
+    replace_in_function("async function practice(){", "async function details(){", "<b>Racer ${e.raceEntryId}</b>", "<b>Racer ${e.mugId??'—'}</b>", 1, "practice summary racer identity")
 if "async function req(path,extra={},setup=false){if(busy)return;busy=true;render();let id=corr++" in html:
     replace_once("async function req(path,extra={},setup=false){if(busy)return;busy=true;render();let id=corr++", "async function req(path,extra={},setup=false){if(busy)return;busy=true;if(setup){document.querySelectorAll('#fields input,#fields select,.modes button').forEach(x=>x.disabled=true);note('Updating race setup…')}else render();let id=corr++", "setup pending presentation")
 # The source page now owns the complete view dispatch, including Results,

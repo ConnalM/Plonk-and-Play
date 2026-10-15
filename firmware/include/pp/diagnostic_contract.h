@@ -71,6 +71,7 @@ enum class OperationName : uint8_t {
   RaceAgain = 7,
   EndSession = 8,
   SkipFinishDisplay = 9,
+  PracticeAgain = 10,
 };
 
 enum class Severity : uint8_t {

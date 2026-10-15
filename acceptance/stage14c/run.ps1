@@ -15,6 +15,7 @@ node (Join-Path $PSScriptRoot 'browser_notification_runtime.js') | Tee-Object -F
 node (Join-Path $PSScriptRoot 'browser_start_schedule_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-start-schedule-runtime.txt')
 node (Join-Path $PSScriptRoot 'browser_setup_sync_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-setup-sync-runtime.txt')
 node (Join-Path $PSScriptRoot 'browser_results_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-results-runtime.txt')
+powershell -ExecutionPolicy Bypass -File (Join-Path $root 'acceptance/stage14b/run_practice_summary_lifecycle_test.ps1') | Tee-Object -FilePath (Join-Path $evidence 'practice-summary-lifecycle.txt')
 python (Join-Path $PSScriptRoot 'browser_binary_provenance.py') --binary (Join-Path $firmware '.pio/build/stage14cacceptance/firmware.merged.bin')
 python (Join-Path $PSScriptRoot 'browser_binary_provenance.py') --binary (Join-Path $firmware '.pio/build/stage14cdemo/firmware.merged.bin')
 python (Join-Path $PSScriptRoot 'browser_integration_review.py') --acceptance-bin (Join-Path $firmware '.pio/build/stage14cacceptance/firmware.merged.bin') --demo-bin (Join-Path $firmware '.pio/build/stage14cdemo/firmware.merged.bin') | Tee-Object -FilePath (Join-Path $evidence 'browser-integration-review.txt')

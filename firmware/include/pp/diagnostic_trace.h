@@ -180,6 +180,7 @@ private:
       case SessionOperation::RaceAgain: return OperationName::RaceAgain;
       case SessionOperation::EndSession: return OperationName::EndSession;
       case SessionOperation::SkipFinishDisplay: return OperationName::SkipFinishDisplay;
+      case SessionOperation::PracticeAgain: return OperationName::PracticeAgain;
       default: return OperationName::Unknown;
     }
   }

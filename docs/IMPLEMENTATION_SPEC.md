@@ -266,11 +266,10 @@ them.
 Do not show position, gap, winner, finishing order, leader highlighting
 or competitive chequered treatment.
 
-**Open authority check before implementation:** the latest visual
-mock-up labels the post-summary action RESUME. Confirm with Archie/P&P
-lifecycle whether an ended Practice can actually resume. If END PRACTICE
-is final, correct the button wording/action rather than inventing
-Browser-side continuation.
+The lifecycle decision is explicit: an ended Practice cannot be resumed.
+Practice Summary presents PRACTICE AGAIN (primary) and HOME (secondary).
+PRACTICE AGAIN is an authoritative request to prepare a new Open Practice with
+the retained relevant setup; START remains a separate action.
 
 ## Individual racer finish
 

@@ -30,9 +30,9 @@ let nextTimer=1;const timers=new Map();global.setTimeout=(fn,ms)=>{const id=next
 let state={lifecycle:'READY',sessionMode:'NONE',resultSealed:false,practiceSummaryAvailable:false,historySequence:0,entries:[]};
 const proposal={mode:'LAP_RACE',lapTarget:2,durationMinutes:10,finishBehaviour:'IMMEDIATE',startable:true,proposalRevision:1,entries:[]};
 const context={hasMaster:true,role:'Race Director'};
-let resultRequests=0,historyRequests=0,detailsRequests=0,failCurrent=false;
+let resultRequests=0,historyRequests=0,detailsRequests=0,practiceAgainRequests=0,practiceSummaryFixture={available:true,sessionFastestLap:1200000,entries:[{raceEntryId:1,lane:1,laps:3,bestLap:1200000}]},failCurrent=false;
 function response(value,status=200){return {ok:status>=200&&status<300,status,async json(){return JSON.parse(JSON.stringify(value));}};}
-const currentResult={sequence:1,sealed:true,mode:'LAP_RACE',lapTarget:2,fastestLap:1200000,entries:[{rank:1,mugId:91,lane:1,completed:true,completionTime:5000000000,finishDurationUs:2500000,bestLap:1200000}]};
+const currentResult={sequence:1,sealed:true,mode:'LAP_RACE',lapTarget:10,fastestLap:1200000,entries:[{rank:1,mugId:91,lane:1,classifiedLaps:10,completed:true,completionTime:5000000000,finishDurationUs:2500000,bestLap:1200000,lapsBehind:0},{rank:2,mugId:92,lane:2,classifiedLaps:1,completed:false,completionTime:0,finishDurationUs:0,bestLap:1400000,lapsBehind:9}]};
 const historical={sequence:1,sealed:true,mode:'LAP_RACE',lapTarget:2,fastestLap:1200000,entries:[{rank:1,mugId:91,lane:1,completed:true,completionTime:5000000000,finishDurationUs:2500000,bestLap:1200000}]};
 const enduranceResult={sequence:2,sealed:true,valid:true,mode:'ENDURANCE',durationMinutes:1,durationUs:60000000,finishBehaviour:'COMPLETE_CURRENT_LAP',overtime:true,overtimeUs:12490000,fastestLap:950000,entries:[{rank:1,mugId:91,lane:1,laps:20,classifiedLaps:20,lapPenalty:0,tied:false,completed:true,completionTime:204070000,finishDurationUs:0,bestLap:950000},{rank:2,mugId:92,lane:2,laps:20,classifiedLaps:20,lapPenalty:0,tied:false,completed:true,completionTime:208190000,finishDurationUs:0,bestLap:970000}]};
 global.fetch=async(url,options={})=>{
@@ -43,7 +43,9 @@ global.fetch=async(url,options={})=>{
   if(url==='/results?sequence=1'){resultRequests++;return response(historical);}
   if(url==='/history'){historyRequests++;return response({entries:[{sequence:1,mode:'LAP_RACE',lapTarget:2,entries:[{mugId:91,lane:1}]}]});}
   if(url==='/details'||url==='/details?sequence=1'){detailsRequests++;return response({entries:[]});}
-  if(url==='/practice-summary')return response({available:false});
+  if(url==='/practice-summary')return response(practiceSummaryFixture);
+  if(url==='/request/practice-again'){practiceAgainRequests++;state={...state,lifecycle:'READY',sessionMode:'NONE',practiceSummaryAvailable:false,resultSealed:false};return response({},202);}
+  if(url.startsWith('/request-result?'))return response({result:'ACCEPTED'});
   return response({},202);
 };
 vm.runInThisContext(scriptMatch[1],{filename:'embedded-normal-browser.js'});
@@ -57,10 +59,17 @@ const expect=(v,m)=>{if(!v)throw new Error(m)};
  expect(resultRequests===1,'unavailable current Results was repeatedly requested while READY');
  state={...state,lifecycle:'FINISHED',resultSealed:true,historySequence:1}; await poll(); await sleep();
  document.elements.resultsNav.onclick(); await sleep(); expect(resultRequests===3,'current Results was not fetched when legitimately available');
- expect(document.elements.app.innerHTML.includes('2.50 s'),'Results did not render the authoritative race-relative finish duration');
+ expect(document.elements.app.innerHTML.includes('PROGRESS')&&document.elements.app.innerHTML.includes('TIME')&&document.elements.app.innerHTML.includes('BEST')&&document.elements.app.innerHTML.includes('GAP'),'Lap Results did not render the frozen column headings');
+expect(document.elements.app.innerHTML.includes('10 / 10')&&document.elements.app.innerHTML.includes('1 / 10'),'Lap Results did not render authoritative classified progress');
+expect(document.elements.app.innerHTML.includes('2.50 s')&&document.elements.app.innerHTML.includes('—'),'Lap Results did not show winner time and stopped competitor em dash');
+expect(document.elements.app.innerHTML.includes('+9 laps'),'Lap Results did not render authoritative lap gap');
+expect(!document.elements.app.innerHTML.includes('>RESULT<'),'Lap Results retained the ambiguous RESULT column');
+expect(document.elements.app.innerHTML.includes('2.50 s'),'Results did not render the authoritative race-relative finish duration');
  expect(!document.elements.app.innerHTML.includes('5000.00 s'),'Results rendered the raw boot-relative completion timestamp as elapsed duration');
- for(let i=0;i<4;i++){await poll();await sleep();}
- expect(resultRequests===3,'current Results was refetched on every poll');
+currentResult.entries[1].completed=true; currentResult.entries[1].finishDurationUs=3600000; currentResult.entries[1].classifiedLaps=10; currentResult.entries[1].lapsBehind=0; resultData=null; resultDataKey=null; document.elements.resultsNav.onclick(); await sleep(); expect(document.elements.app.innerHTML.includes('3.60 s'),'Finish Current Lap/full-distance finisher did not show its own authoritative time');
+currentResult.entries[1].completed=false; currentResult.entries[1].finishDurationUs=0; currentResult.entries[1].classifiedLaps=7; currentResult.entries[1].lapsBehind=3; resultData=null; resultDataKey=null; document.elements.resultsNav.onclick(); await sleep(); expect(document.elements.app.innerHTML.includes('7 / 10')&&document.elements.app.innerHTML.includes('+3 laps')&&document.elements.app.innerHTML.includes('—'),'Stopped competitor did not retain progress/gap while omitting time');
+ const currentResultsRequestBaseline=resultRequests; for(let i=0;i<4;i++){await poll();await sleep();}
+ expect(resultRequests===currentResultsRequestBaseline,'current Results was refetched on every poll');
  state={...state,sessionMode:'ENDURANCE'}; resultData=null; resultDataKey=null; await poll(); await sleep(); document.elements.resultsNav.onclick(); await sleep();
  expect(document.elements.app.innerHTML.includes('20 laps')&&document.elements.app.innerHTML.includes('20 classified'),'Endurance Results did not present authoritative factual/classified laps');
  expect(document.elements.app.innerHTML.includes('1 min')&&document.elements.app.innerHTML.includes('Finish current lap'),'Endurance Results did not present authoritative duration/finish policy');
@@ -89,7 +98,10 @@ const expect=(v,m)=>{if(!v)throw new Error(m)};
  state={lifecycle:'PAUSED',sessionMode:'ENDURANCE',resultSealed:false,practiceSummaryAvailable:false,entries:[]}; await poll(); await sleep(); expect(document.elements.overlay.innerHTML.includes('id="resume"')&&document.elements.overlay.innerHTML.includes('id="restart"')&&document.elements.overlay.innerHTML.includes('id="abandon"')&&!document.elements.overlay.innerHTML.includes('id="endPractice"'),'paused Endurance did not expose RESUME/RESTART/ABANDON');
  state={lifecycle:'RACING',sessionMode:'OPEN_PRACTICE',resultSealed:false,practiceSummaryAvailable:false,entries:[]}; await poll(); await sleep(); expect(document.elements.app.innerHTML.includes('id="pause"')&&!document.elements.app.innerHTML.includes('id="endRace"')&&!document.elements.app.innerHTML.includes('id="endPractice"'),'active Practice did not expose PAUSE only');
  state={lifecycle:'PAUSED',sessionMode:'OPEN_PRACTICE',resultSealed:false,practiceSummaryAvailable:false,entries:[]}; await poll(); await sleep(); expect(document.elements.overlay.innerHTML.includes('id="resume"')&&document.elements.overlay.innerHTML.includes('id="restart"')&&document.elements.overlay.innerHTML.includes('id="endPractice"')&&!document.elements.overlay.innerHTML.includes('id="abandon"'),'paused Practice did not expose RESUME/RESTART/END PRACTICE');
- failCurrent=false; state={lifecycle:'RACING',sessionMode:'LAP_RACE',resultSealed:false,practiceSummaryAvailable:false,entries:[]}; await poll(); await sleep();
+ state={lifecycle:'READY',sessionMode:'NONE',resultSealed:false,practiceSummaryAvailable:true,entries:[]}; await poll(); await sleep(); expect(document.elements.app.innerHTML.includes('PRACTICE SUMMARY')&&document.elements.app.innerHTML.includes('PRACTICE AGAIN')&&document.elements.app.innerHTML.includes('HOME')&&!document.elements.app.innerHTML.includes('RESUME'),'Practice Summary did not expose only PRACTICE AGAIN and HOME');
+document.elements.again.onclick(); await sleep(); await sleep(); expect(practiceAgainRequests===1,'PRACTICE AGAIN did not use the authoritative practice-again request'); expect(state.lifecycle==='READY'&&!state.practiceSummaryAvailable,'PRACTICE AGAIN did not reconstruct authoritative READY'); document.elements.setupNav.onclick(); await sleep(); expect(document.elements.app.innerHTML.includes('RACE SETUP'),'PRACTICE AGAIN did not leave Summary at setup/READY');
+state={lifecycle:'READY',sessionMode:'NONE',resultSealed:false,practiceSummaryAvailable:true,entries:[]}; practiceSummaryFixture={available:true,sessionFastestLap:1200000,entries:[]}; await poll(); await sleep(); document.elements.homePractice.onclick(); await sleep(); expect(!document.elements.app.innerHTML.includes('PRACTICE SUMMARY'),'HOME did not leave Practice Summary');
+failCurrent=false; state={lifecycle:'RACING',sessionMode:'LAP_RACE',resultSealed:false,practiceSummaryAvailable:false,entries:[]}; await poll(); await sleep();
  state={lifecycle:'FINISHED',sessionMode:'LAP_RACE',resultSealed:true,practiceSummaryAvailable:false,historySequence:1,entries:[]}; await poll(); await sleep();
  expect(document.elements.app.innerHTML.includes('>RESULTS</div>'),'FINISHED authoritative result did not render Results automatically');
  document.elements.setupNav.onclick(); await sleep(); await poll(); await sleep(); expect(document.elements.app.innerHTML.includes('RACE SETUP'),'Race Setup navigation was overridden by FINISHED polling');

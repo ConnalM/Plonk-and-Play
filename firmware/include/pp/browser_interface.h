@@ -668,6 +668,7 @@ private:
       case SessionOperation::RaceAgain: return diagnostic::OperationName::RaceAgain;
       case SessionOperation::EndSession: return diagnostic::OperationName::EndSession;
       case SessionOperation::SkipFinishDisplay: return diagnostic::OperationName::SkipFinishDisplay;
+      case SessionOperation::PracticeAgain: return diagnostic::OperationName::PracticeAgain;
       default: return diagnostic::OperationName::Unknown;
     }
   }
@@ -703,6 +704,7 @@ private:
       case RequestRejection::StorageUnavailable: return "persistent storage is unavailable";
       case RequestRejection::LifecycleNotResumable: return "RESUME is not valid in the current lifecycle state";
       case RequestRejection::LifecycleNotEndable: return "END SESSION is not valid in the current lifecycle state";
+      case RequestRejection::LifecycleNotPracticeAgain: return "PRACTICE AGAIN is not valid in the current lifecycle state";
       default: return "";
     }
   }
@@ -1377,6 +1379,7 @@ private:
     if (strstr(value, "RACE_AGAIN")) return diagnostic::OperationName::RaceAgain;
     if (strstr(value, "END_RACE")) return diagnostic::OperationName::EndRace;
     if (strstr(value, "END_SESSION")) return diagnostic::OperationName::EndSession;
+    if (strstr(value, "PRACTICE_AGAIN")) return diagnostic::OperationName::PracticeAgain;
     if (strstr(value, "SKIP")) return diagnostic::OperationName::SkipFinishDisplay;
     return diagnostic::OperationName::Unknown;
   }
@@ -1635,6 +1638,7 @@ private:
   static esp_err_t raceAgainRoute(httpd_req_t* r){return operationRoute(r,SessionOperation::RaceAgain);}
   static esp_err_t resumeRoute(httpd_req_t* r){return operationRoute(r,SessionOperation::Resume);}
   static esp_err_t endSessionRoute(httpd_req_t* r){return operationRoute(r,SessionOperation::EndSession);}
+  static esp_err_t practiceAgainRoute(httpd_req_t* r){return operationRoute(r,SessionOperation::PracticeAgain);}
   static esp_err_t openConfirmationRoute(httpd_req_t* request,SessionOperation operation){
     uint32_t ignored=0;if(!correlationFromBody(request,ignored)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"correlationId required");return ESP_FAIL;}
     BrowserInterface* browser=instance();const uint64_t owner=client(request);
@@ -1987,6 +1991,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/request/pause", HTTP_POST, pauseRoute, nullptr},
       {"/request/resume", HTTP_POST, resumeRoute, nullptr},
       {"/request/end-session", HTTP_POST, endSessionRoute, nullptr},
+      {"/request/practice-again", HTTP_POST, practiceAgainRoute, nullptr},
       {"/request/skip-finish-display", HTTP_POST, finishDisplaySkipRoute, nullptr},
       {"/request/honour-restart", HTTP_POST, honourRoute, nullptr},
       {"/request/grid-restart", HTTP_POST, gridRoute, nullptr},

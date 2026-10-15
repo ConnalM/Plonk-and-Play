@@ -134,7 +134,16 @@ The default Results screen should answer **who won and what happened?** immediat
 
 Typical information:
 
-**Position | MUG | Lane | Result/time | Best Lap**
+**Position | Lane/MUG | Progress | Time | Best Lap | Gap**
+
+For Lap Race Results, progress and finishing information are separate fields.
+Progress shows authoritative classified race distance against the configured
+target where applicable. Time shows an entry's authoritative race-relative
+finish duration only when that entry completed its permitted finish; an entry
+stopped when the winner finished shows an em dash. Gap shows only information
+supplied by P&P, such as authoritative laps behind. The Browser does not
+replace one field with another or calculate classification, finish times or
+time gaps.
 
 Secondary information can include fastest lap, penalties and speed information where track data is available.
 
