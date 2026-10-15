@@ -248,6 +248,7 @@ def main():
     sse_b = EventStream(b, "B-reconnect").start()
     sse_b.discard_initial()
     old_b.close()
+    assert old_b.closed.wait(2), "old controller SSE generation remained open"
     assert_roles(b, a)
 
     # Scenario E: closing the genuine controlling connection makes deliberate
@@ -262,6 +263,12 @@ def main():
     assert status == 200 and reacquired.get("result") == "ACCEPTED", reacquired
     assert context(a).get("isMaster") is True
     assert context(b).get("isMaster") is False
+    returned_state = state(a)
+    assert returned_state.get("sessionId") == session_id and returned_state.get("lifecycle") == "RACING", returned_state
+    returned_b = EventStream(b, "B-return").start()
+    returned_b.discard_initial()
+    assert_roles(a, b)
+    returned_b.close()
     sse_a.close()
     print("Stage 15 production HTTP/SSE multi-client acceptance PASS")
     print("scenarios=A controller/spectator, B KEEP, C ALLOW, D reconnect, E disconnect/reacquire")
