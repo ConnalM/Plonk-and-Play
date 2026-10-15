@@ -1,7 +1,8 @@
 #pragma once
 
-// Phase 8B-P1 only: a thin SD-backed implementation of the existing product
-// Store seam. Transactional payload/commit/index recovery remains Phase 8B-P2.
+// WP2A: a thin SD-backed implementation of the existing product Store seam.
+// SlotHistoryStore owns the metadata commit/index boundary; each individual
+// Store write is staged and verified before it is atomically published.
 
 #include <Arduino.h>
 #include <FS.h>
@@ -58,15 +59,52 @@ public:
   bool write(unsigned slot, const uint8_t* data, size_t size) override {
     if (!mounted_ || !data) return false;
     const String target = path(slot);
-    // P1 deliberately uses the existing Store seam only. It does not claim
-    // the P2 transactional commit/index protocol.
-    SD.remove(target);
-    File file = SD.open(target, FILE_WRITE);
+    String temporary = target;
+    temporary += ".tmp";
+    SD.remove(temporary);
+    File file = SD.open(temporary, FILE_WRITE);
     if (!file) return false;
     const size_t written = file.write(data, size);
     file.flush();
     file.close();
-    return written == size;
+    if (written != size) {
+      SD.remove(temporary);
+      return false;
+    }
+
+    // Read back in bounded chunks before publication. This keeps the Store
+    // seam independent of the final SD streaming/recovery implementation and
+    // prevents a short/corrupt payload from becoming visible at target.
+    File verify = SD.open(temporary, FILE_READ);
+    if (!verify || verify.size() != size) {
+      if (verify) verify.close();
+      SD.remove(temporary);
+      return false;
+    }
+    uint8_t buffer[128];
+    size_t offset = 0;
+    bool matches = true;
+    while (offset < size) {
+      const size_t want = (size - offset) < sizeof(buffer) ? (size - offset) : sizeof(buffer);
+      if (verify.read(buffer, want) != want || memcmp(buffer, data + offset, want) != 0) {
+        matches = false;
+        break;
+      }
+      offset += want;
+    }
+    verify.close();
+    if (!matches) {
+      SD.remove(temporary);
+      return false;
+    }
+
+    // ESP-IDF VFS rename is the publication boundary and leaves the prior
+    // target intact if the rename cannot be completed.
+    if (!SD.rename(temporary, target)) {
+      SD.remove(temporary);
+      return false;
+    }
+    return true;
   }
 
 private:
