@@ -1,3 +1,4 @@
+param([string]$BaseUrl = $env:PP_MULTI_CLIENT_BASE_URL)
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -56,3 +57,14 @@ if (($slots.Count -ne 3) -or (-not ($slots.ContainsKey([UInt64]101))) -or (-not 
 }
 
 Write-Host 'STAGE15 bounded multi-client SSE/P1 fixture contract: PASS'
+
+# The production HTTP/SSE choreography uses the same acceptance boundary as
+# the Stage 11–13 HTTP probes.  It is opt-in because starting the controller
+# and gateway is environment-specific; absence of a URL is reported as an
+# unexecuted runtime portion rather than silently claimed as a pass.
+python -m py_compile (Join-Path $PSScriptRoot 'multiclient_http_acceptance.py')
+if ($BaseUrl) {
+  python (Join-Path $PSScriptRoot 'multiclient_http_acceptance.py') $BaseUrl
+} else {
+  Write-Host 'STAGE15 production HTTP/SSE choreography: NOT EXECUTED (set PP_MULTI_CLIENT_BASE_URL)'
+}
