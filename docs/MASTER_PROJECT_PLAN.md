@@ -30,12 +30,12 @@ Real hardware complements simulation and must cumulatively revalidate applicable
 
 ### Software Batch 1 — Finish the base
 
-- [ ] **WP1 — Complete current P&P racing base**  
+- [ ] **WP1 — Complete current P&P racing base** *(implementation complete; formal acceptance pending external execution)*  
   Owners: Archie + Al + Gina.  
   Workplace: specification + PC/Wokwi.  
   Complete/cohere currently supported Lap, Open Practice and Endurance behaviour, Normal Browser lifecycle/presentation, all Lap finish variants, Results semantics, Race Director/multiple-client behaviour and mode-specific automated acceptance.
 
-- [ ] **WP2 — Complete storage and records**  
+- [ ] **WP2 — Complete storage and records** *(opened for docs-first audit; implementation not started)*  
   Owners: Archie + Al.  
   Workplace: software/Wokwi first.  
   Complete Results/History/detail/PB/Track Record/Record Era/reconstruction/retention and transactional/failure behaviour that can be developed without real hardware.
@@ -133,7 +133,30 @@ Known evidence already obtained must be credited rather than rerun merely to pop
 
 **NOW: WP0 is COMPLETE.** The agreed baseline and v1 boundary are recorded below.
 
-**NEXT: WP1 remains unopened.** It must be explicitly opened by Archie + Connal before implementation begins. The preservation branch is not merged into `main` as part of WP0.
+**WP1:** implementation/product work is complete. Formal acceptance remains pending the specific external runtime evidence recorded below. This does not claim those pending runs passed.
+
+**NOW OPEN:** WP2 — Storage & Records is open for this docs-first audit only. No WP2 implementation is authorised by this record. The preservation branch is not merged into `main` as part of WP0.
+
+### WP1 closure record
+
+**Status:** IMPLEMENTATION COMPLETE / FORMAL ACCEPTANCE PENDING.
+
+No WP1 implementation or product work remains. The following acceptance evidence is still unexecuted:
+
+1. Production-path P16/P17/P18 execution for the three Lap finish behaviours: Immediate/All Stop, Finish Current Lap, and Complete Full Race Distance.
+2. Integrated production HTTP/SSE multi-client execution covering controller and spectator live fan-out, KEEP, ALLOW, same-identity reconnect, genuine disconnect/reacquisition, and race continuity.
+
+The current blocker is environmental: the Wokwi CI Hobby Plus quota is exhausted, and no suitable live production endpoint was available for the multi-client run. These scenarios remain pending, not passed. WP2 may proceed as a separate package while WP1 retains this explicit pending-acceptance status.
+
+The Stage 10 `masterFingerprint_` structural check and Stage 13 exact-text committed-GO check are recorded as test-maintenance debt. They were audited as stale checks against current, compliant mechanisms and are not fixed or treated as product defects here.
+
+### WP2 opening record
+
+**Status:** OPEN for docs-first audit only; implementation not started.
+
+WP2 completes the frozen storage and records boundary: NVS for small controller/configuration state, SD for committed History/Results/Details, PB, Track Record and Record Era data, versioned/checksummed serialization, bounded rolling retention, reconstruction, and transactional/failure/recovery behaviour. The production policy is the latest 100 completed races with complete available lap detail; current four-race/8,192-byte development History and 24-record detail capacities are not product limits.
+
+The real ESP32-S3 + SD P1 integration and SD probe are evidence for WP4 hardware validation, not a substitute for WP2 software completion. Transactional commit/index recovery, interrupted-write handling, corrupt/incomplete-data recovery, rolling eviction, reboot reconstruction and persistence-failure semantics remain to be completed and accepted at the software boundary. Browser work belongs in WP2 only where it consumes the existing authoritative History/Results contract; diagnostics remain WP3, physical validation WP4, recovery/reset/update WP5, and Personal MUG work later.
 
 Do not start new implementation simply because an item is visible later in this plan. Each work package is opened deliberately after its dependencies and exit criteria are agreed.
 
