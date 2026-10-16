@@ -78,6 +78,7 @@ private: Preferences preferences;bool ready=false;
 } storage;
 #if defined(PP_PHASE8B_REAL_SD)
 pp::Esp32SpiSdStore sdPersistence;
+pp::SdActiveDetailStore activeDetail(sdPersistence);
 #endif
 class BrowserAuthorityStore final: public pp::AuthorityStore {
 public:
@@ -105,7 +106,13 @@ pp::ActiveSessionDefinition activeSession;
 const auto raceControlEndpoint=bus.attach(pp::Role::RaceControl);
 pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession,&history,&records);
 const auto raceEngineEndpoint=bus.attach(pp::Role::RaceEngine);
-pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint,activeSession,&history,&records);
+pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint,activeSession,&history,&records,
+#if defined(PP_PHASE8B_REAL_SD)
+  &activeDetail
+#else
+  nullptr
+#endif
+);
 pp::OutputModule output{bus.attach(pp::Role::Output)};
 const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
 pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
@@ -665,6 +672,9 @@ void loop(){
   raceControl.tick(systemTime());
   input.tick(systemTime());
   raceEngine.tick();
+#if defined(PP_PHASE8B_REAL_SD)
+  activeDetail.drain();
+#endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   logLifecycleTransition();
 #endif

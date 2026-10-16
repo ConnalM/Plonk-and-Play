@@ -65,6 +65,22 @@ No storage change may weaken or rewrite frozen Stage 1–14C requirements. All a
 
 Practice remains non-official. Abandoned races remain excluded from official History. PB/Track Record eligibility and Record Era semantics remain unchanged.
 
+## Production active-detail streaming and software failure boundary (WP2D)
+
+The production SD path accepts lap records through a bounded non-blocking
+queue and drains them to a temporary per-race detail stream. A healthy normal
+Race Engine path must keep complete active detail out of the sealed result
+object while the race is running and must support runs beyond the former
+128 KiB development workspace. Completion drains, finalizes and verifies the
+temporary stream before linked summary/detail History publication.
+
+Software acceptance injects active-stream open, append/write and
+finalize/verification failures. In each case sporting state remains valid,
+factual totals and timing remain correct, incomplete detail is explicit, no
+History record is appended, the sealed RAM Result remains available, and the
+failure is latched without a retry storm. Real card removal, power loss and
+physical remount remain hardware acceptance work.
+
 ## Active lap-detail acceptance (WP2C)
 
 The active detail path is tested through the normal Race Engine/Input Module

@@ -21,7 +21,8 @@ public:
   static constexpr size_t MaxBytes = 64u * 1024u;
 
   static bool encode(const RaceEngineModule::CompletedRaceResult& value,
-                     uint8_t* out, size_t capacity, size_t& length) {
+                     uint8_t* out, size_t capacity, size_t& length,
+                     const DetailSource* source=nullptr) {
     Writer w(out, capacity);
     w.u32(Magic); w.u16(Version); w.u16(0); size_t lengthOffset=w.position(); w.u32(0);
     w.u16(value.formatVersion);
@@ -37,10 +38,15 @@ public:
       const auto&e=value.entries[i];
       w.u32(e.raceEntryId); w.u32(e.mugId); w.u32(e.laps); w.u32(e.classifiedLaps); w.u32(e.rank);
       w.u32(e.lapsBehind); w.u32(e.lapPenalty); w.u8(e.lane);
-      uint8_t entryFlags=(e.tied?1u:0u)|(e.completed?2u:0u)|(e.detailComplete?4u:0u); w.u8(entryFlags); w.u32(e.recordCount);
+      const bool detailOk=source?source->detailComplete():e.detailComplete;
+      const uint32_t recordCount=source?source->detailRecordCount(i):e.recordCount;
+      uint8_t entryFlags=(e.tied?1u:0u)|(e.completed?2u:0u)|(detailOk?4u:0u); w.u8(entryFlags); w.u32(recordCount);
       w.u64(e.completionTime); w.u64(e.bestLap);
-      for(uint32_t j=0;j<e.recordCount;++j) {
-        const auto&lap=e.records[j];
+      for(uint32_t j=0;j<recordCount;++j) {
+        RaceEngineModule::LapRecord streamed{};
+        const bool readable=source?source->readDetail(i,j,streamed):(j<e.recordCount);
+        if(!readable)return false;
+        const auto&lap=source?streamed:e.records[j];
         w.u32(lap.lapNumber); w.u64(lap.startTime); w.u64(lap.finishTime); w.u64(lap.lapTime); w.u64(lap.racingFinishTime); w.u8(lap.valid?1u:0u); w.u8(0); w.u16(0);
       }
     }
@@ -91,6 +97,13 @@ public:
     if(!bytes||length!=sizeof(RaceEngineModule::CompletedRaceResult))return false;
     auto* encoded=static_cast<uint8_t*>(malloc(VersionedResultCodec::MaxBytes));if(!encoded)return false;size_t encodedLength=0;
     const bool encodedOk=VersionedResultCodec::encode(*reinterpret_cast<const RaceEngineModule::CompletedRaceResult*>(bytes),encoded,VersionedResultCodec::MaxBytes,encodedLength);
+    const bool ok=encodedOk&&backend_.append(encoded,encodedLength,sequence);free(encoded);return ok;
+  }
+  bool appendDetailed(const void* value,size_t length,const DetailSource& source,uint32_t&sequence) override {
+    sequence=0;
+    if(!value||length!=sizeof(RaceEngineModule::CompletedRaceResult))return false;
+    size_t required=1024;for(uint8_t i=0;i<source.detailEntryCount();++i){const size_t count=source.detailRecordCount(i);if(count> (SIZE_MAX-required)/40u)return false;required+=count*40u;}auto* encoded=static_cast<uint8_t*>(malloc(required));if(!encoded)return false;size_t encodedLength=0;
+    const bool encodedOk=VersionedResultCodec::encode(*reinterpret_cast<const RaceEngineModule::CompletedRaceResult*>(value),encoded,required,encodedLength,&source);
     const bool ok=encodedOk&&backend_.append(encoded,encodedLength,sequence);free(encoded);return ok;
   }
   bool loadNewest(uint8_t index,uint8_t*bytes,size_t capacity,size_t&length,uint32_t&sequence) override {

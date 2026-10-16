@@ -38,12 +38,18 @@ Detailed retention remains bounded by the available production storage, not by a
 
 The active-race implementation separates sporting truth from detail retention.
 Race Engine records factual crossings and authoritative totals immediately;
-an Active Lap-Detail Store retains individual records in bounded RAM/PSRAM and
-hands them to the transactional storage boundary. `CompletedRaceResult` is a
-summary plus detail association/status, not a fixed lap-array product limit.
-If the detail buffer or storage transaction cannot complete, the sealed Result
-remains authoritative in RAM but the race is not published as committed
+an Active Lap-Detail Store accepts records into a bounded queue and drains them
+in order to a temporary per-race SD stream on the production backend.
+`CompletedRaceResult` is a summary plus detail association/status, not a fixed
+lap-array product limit.
+If the detail queue/stream or storage transaction cannot complete, the sealed
+Result remains authoritative in RAM but the race is not published as committed
 History. A summary-only or falsely-complete History entry is forbidden.
+
+The Race Engine never waits for SD while accepting a lap. At completion the
+temporary stream is drained, finalized and verified, then the summary and
+detail are encoded and published through one linked transactional History
+commit. Temporary streams are never enumerated as History.
 
 Existing LAP, Endurance and Practice semantics remain unchanged. Completed official LAP and Endurance results may enter History; abandoned races and Practice do not create official History; existing PB/Track Record eligibility and Record Era semantics remain unchanged.
 

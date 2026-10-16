@@ -5,6 +5,8 @@ $foundation=Join-Path $env:TEMP 'pp-foundation-test.exe'
 $transactional=Join-Path $env:TEMP 'pp-transactional-test.exe'
 $production=Join-Path $env:TEMP 'pp-production-history-test.exe'
 $detailFailure=Join-Path $env:TEMP 'pp-active-detail-failure-test.exe'
+$detailStream=Join-Path $env:TEMP 'pp-active-detail-stream-test.exe'
+$detailStreamFailure=Join-Path $env:TEMP 'pp-active-detail-stream-failure-test.exe'
 g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'foundation_test.cpp') -o $foundation
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage Foundation foundation compile failed: $LASTEXITCODE" }
 & $foundation
@@ -25,6 +27,14 @@ g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'active_detail
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage active-detail failure compile failed: $LASTEXITCODE" }
 & $detailFailure
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage active-detail failure acceptance failed: $LASTEXITCODE" }
+g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'active_detail_stream_test.cpp') -o $detailStream
+if ($LASTEXITCODE -ne 0) { throw "Persistent Storage active-detail stream compile failed: $LASTEXITCODE" }
+& $detailStream
+if ($LASTEXITCODE -ne 0) { throw "Persistent Storage active-detail stream acceptance failed: $LASTEXITCODE" }
+g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'active_detail_stream_failure_test.cpp') -o $detailStreamFailure
+if ($LASTEXITCODE -ne 0) { throw "Persistent Storage active-detail stream failure compile failed: $LASTEXITCODE" }
+& $detailStreamFailure
+if ($LASTEXITCODE -ne 0) { throw "Persistent Storage active-detail stream failure acceptance failed: $LASTEXITCODE" }
 $engine=Get-Content (Join-Path $root 'firmware\include\pp\race_engine.h') -Raw
 $codec=Get-Content (Join-Path $root 'firmware\include\pp\persistent_storage.h') -Raw
 $history=Get-Content (Join-Path $root 'firmware\include\pp\history_store.h') -Raw

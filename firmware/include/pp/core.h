@@ -10,6 +10,15 @@ static_assert(PP_MAX_ENTRIES > 0 && PP_MAX_ENTRIES <= 255, "PP_MAX_ENTRIES must 
 
 namespace pp {
 using Time = uint64_t; // Monotonic microseconds in this controller boot's domain.
+struct LapRecord { uint32_t lapNumber=0; Time startTime=0,finishTime=0,lapTime=0,racingFinishTime=0; bool valid=false; };
+class DetailSource {
+public:
+  virtual ~DetailSource() = default;
+  virtual uint8_t detailEntryCount() const = 0;
+  virtual uint32_t detailRecordCount(uint8_t entry) const = 0;
+  virtual bool readDetail(uint8_t entry,uint32_t index,LapRecord& out) const = 0;
+  virtual bool detailComplete() const = 0;
+};
 enum class Role : uint8_t { Lifecycle, Memory, Input, RaceControl, RaceEngine, Output, Presentation, Diagnostics };
 constexpr uint16_t mask(Role r) { return uint16_t(1u << unsigned(r)); }
 enum class SessionMode : uint8_t { None=0, LapRace=1, OpenPractice=2, Endurance=3 };

@@ -13,6 +13,7 @@ public:
   struct Entry { uint32_t sequence=0; uint32_t bytes=0; uint8_t slot=0; };
   virtual ~HistoryStore() = default;
   virtual bool append(const uint8_t* bytes, size_t length, uint32_t& sequence) = 0;
+  virtual bool appendDetailed(const void*, size_t, const DetailSource&, uint32_t& sequence) { sequence=0; return false; }
   virtual bool loadNewest(uint8_t index, uint8_t* bytes, size_t capacity, size_t& length, uint32_t& sequence) = 0;
   virtual uint8_t count() = 0;
   virtual bool loadSequence(uint32_t wanted, uint8_t* bytes, size_t capacity, size_t& length, uint32_t& sequence) {
