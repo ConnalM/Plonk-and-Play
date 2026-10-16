@@ -72,7 +72,10 @@ Result sealing must rank all active entries using the existing comparison rules 
 
 The existing `laps()` and `lastLapTime()` convenience accessors may continue to summarize entry zero for compatibility. Indexed accessors are authoritative for multi-entry behaviour.
 
-`MaxLaps` remains the existing per-entry storage limit. This stage does not alter lap-count semantics.
+Any compile-time or development detail-buffer capacity is an engineering
+resource bound only. It is not an Endurance or Lap Race sporting maximum.
+Authoritative lap totals and classification continue beyond the available
+detail buffer; incomplete detail prevents permanent History publication.
 
 ### Noticeboard State
 
@@ -82,7 +85,11 @@ Existing top-level first-entry summary fields may remain as compatibility aliase
 
 ### CompletedRaceResult and History
 
-`CompletedRaceResult` contains an indexed result entry for every active entry, including immutable lap records, rank, laps-behind, completion information and best-lap information.
+`CompletedRaceResult` contains an indexed summary entry for every active entry,
+including rank, laps-behind, completion information and best-lap information.
+Detailed lap records are retained by the active/detail storage boundary and
+are retrieved on demand for Details; they are not represented by a fixed
+product-sized array in the result summary.
 
 The new result and persistence representations must be explicitly versioned. There is no requirement to migrate current development History, PB or Track Record data: this project is pre-production and those existing development formats may be invalidated or reset when the representation changes. Future production data must have a version identity and a migration path.
 
@@ -136,7 +143,12 @@ The default Stage 1–13 simulator remains two-entry. A deterministic four-entry
 
 Static bounded storage is appropriate for the ESP32 because it provides deterministic memory use, avoids race-time heap fragmentation, keeps persistence sizing explicit and supports compile-time assertions.
 
-With the current 16-lap per-entry records, an additional active entry is expected to add approximately 1–1.5 KB of live engine/result storage. Moving from two to eight entries is therefore expected to add approximately 8–10 KB of live RAM. A completed eight-entry result is expected to require approximately 5.5–6 KB before codec overhead. `HistoryStore::MaxBytes` should be increased to at least 8192 bytes, subject to measured sizes and storage verification.
+Active detail storage grows with the factual records produced by the current
+race and reports allocation failure explicitly; it is not sized as a fixed
+sporting maximum. A completed summary remains bounded by active-entry count,
+while detailed records are encoded/retrieved through the storage boundary.
+The development codec workspace is a provisional resource bound and must be
+measured/removed as the streamed SD implementation replaces it.
 
 The exact sizes must be measured during implementation. Capacity changes later must be confined to the capacity definition, storage sizing, serializers/codecs and tests. They must not require changes to Lap Race timing, authority, settlement or ranking concepts.
 

@@ -34,7 +34,16 @@ Persistent data uses explicit serialized formats; raw C++ structure dumps are pr
 
 The format preserves the immutable result information required by the frozen Results, Details and History contracts: Session Definition and mode, entry identities and lane mappings, factual and classified laps, penalties, ranks, ties and laps behind, finish/winning/expiry/overtime data, best/last/fastest lap information, retained valid lap details, and persistent sequence identity.
 
-Detailed retention remains bounded by the available production storage, not by an Endurance product lap ceiling. Authoritative counts and statistics never depend on retained-detail count. The current Stage 14C development representation uses a temporary 24-record-per-entry buffer solely to exercise the 20-lap human acceptance race; that bound is not a product rule and is replaced by the production SD representation.
+Detailed retention remains bounded by the available production storage, not by an Endurance product lap ceiling. Authoritative counts and statistics never depend on retained-detail count. The current WP2C development representation uses a provisional bounded dynamic active-detail workspace per entry; its byte budget is an engineering test value, not a product lap limit, and is replaced by streamed per-race SD detail in the production representation.
+
+The active-race implementation separates sporting truth from detail retention.
+Race Engine records factual crossings and authoritative totals immediately;
+an Active Lap-Detail Store retains individual records in bounded RAM/PSRAM and
+hands them to the transactional storage boundary. `CompletedRaceResult` is a
+summary plus detail association/status, not a fixed lap-array product limit.
+If the detail buffer or storage transaction cannot complete, the sealed Result
+remains authoritative in RAM but the race is not published as committed
+History. A summary-only or falsely-complete History entry is forbidden.
 
 Existing LAP, Endurance and Practice semantics remain unchanged. Completed official LAP and Endurance results may enter History; abandoned races and Practice do not create official History; existing PB/Track Record eligibility and Record Era semantics remain unchanged.
 
@@ -60,7 +69,7 @@ Unsupported old development formats may be reset under the pre-production migrat
 
 ## History retention
 
-History is a bounded rolling collection of the **most recent 100 completed official sessions**. It is not tied to `PP_MAX_ENTRIES` or to the number of records displayed by a Browser. When race 101 is durably committed, the oldest retained completed race is evicted only after the replacement commit is valid. Each retained race is intended to preserve its complete available lap-by-lap detail. The current four-race / 8,192-byte development `HistoryStore` and the temporary 24-record detail buffer are implementation bounds only; they are not the production retention policy.
+History is a bounded rolling collection of the **most recent 100 completed official sessions**. It is not tied to `PP_MAX_ENTRIES` or to the number of records displayed by a Browser. When race 101 is durably committed, the oldest retained completed race is evicted only after the replacement commit is valid. Each retained race is intended to preserve its complete available lap-by-lap detail. The current four-race / 8,192-byte development `HistoryStore` and the provisional bounded active-detail workspace are implementation bounds only; they are not the production retention policy.
 
 ## Development and acceptance backends
 
@@ -82,3 +91,4 @@ Before the SD backend is implemented, the current development History path must 
 ## Scope exclusions
 
 This foundation introduces no active-race persistence or recovery, new race modes, new PB/Track Record eligibility rules, new MUG user interface, new Practice or Endurance behaviour, or product maximum based on implementation capacity.
+

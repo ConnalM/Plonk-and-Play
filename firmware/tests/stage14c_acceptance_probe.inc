@@ -5,8 +5,8 @@ bool stage14cReady=false,stage14cStarted=false;
 static void stage14cFacilitiesAcceptanceRun();
 
 struct Stage14CStore final : pp::Store {
-  static constexpr size_t ResultBytes=sizeof(pp::RaceEngineModule::CompletedRaceResult);
-  uint8_t history[ResultBytes]{}; uint8_t metadata[128]{}; uint8_t record[128]{};
+  static constexpr size_t ResultBytes=sizeof(pp::RaceEngineModule::CompletedRaceResult),HistoryBytes=pp::VersionedResultCodec::MaxBytes;
+  uint8_t history[HistoryBytes]{}; uint8_t metadata[128]{}; uint8_t record[128]{};
   size_t historyLength=0,metadataLength=0,recordLength=0; bool online=true;
   bool available()const override{return online;}
   bool read(unsigned slot,uint8_t*out,size_t size)override{if(!online||!out)return false;if(slot==6){if(metadataLength!=size)return false;memcpy(out,metadata,size);return true;}if(slot==7){if(recordLength!=size)return false;memcpy(out,record,size);return true;}if(slot>=8&&slot<=11){if(historyLength!=size)return false;memcpy(out,history,size);return true;}return false;}
@@ -17,7 +17,8 @@ struct Stage14CFixture {
   pp::Bus bus;
   pp::ActiveSessionDefinition active;
   Stage14CStore store;
-  pp::SlotHistoryStore history{store};
+  pp::SlotHistoryStore rawHistory{store};
+  pp::VersionedHistoryStore history{rawHistory};
   pp::SlotTrackRecordStore records{store};
   pp::Bus::Endpoint inputEndpoint=bus.attach(pp::Role::Input),presentation=bus.attach(pp::Role::Presentation),controlEndpoint=bus.attach(pp::Role::RaceControl),engineEndpoint=bus.attach(pp::Role::RaceEngine),observer=bus.attach(pp::Role::Diagnostics);
   pp::InputModule input{bus,inputEndpoint};
@@ -43,7 +44,7 @@ struct Stage14CFixture {
 };
 // Keep the large acceptance fixture out of static DRAM.  The fixture is
 // constructed one-at-a-time and its storage is released after the campaign;
-// this leaves room for the temporary 24-record development detail capacity.
+// this leaves room for the provisional bounded development detail workspace.
 static uint8_t* stage14cStorage=nullptr;
 template<typename...Args> void s14c(const char*id,bool pass,const char*fmt,Args...args){char d[240]{};snprintf(d,sizeof(d),fmt,args...);stage14cOutput.log("ACC S14C test=%s pass=%u %s",id,pass?1:0,d);}
 void stage14cAcceptanceBeforeBoot(){diagnostics.enable(true);stage14cOutput.enable(true);}
@@ -116,7 +117,7 @@ static Stage14CEndRaceEvidence stage14cLapEndRace(uint32_t correlation){
   evidence.nextStart=evidence.nextStart&&fixture->control.state()==pp::SessionLifecycle::Starting;
   fixture->~Stage14CFixture();return evidence;
 }
-// Development-boundary regression: the temporary 24-record detail capacity
+// Development-boundary regression: the provisional bounded detail workspace
 // must carry a realistic Endurance result through sealing, the versioned wire
 // codec, reconstruction, and the Browser Details serializer.  This is a
 // development implementation bound only; it is not an Endurance product cap.
@@ -136,7 +137,7 @@ static bool stage14cTwentyLapDetails(size_t& encodedBytes,size_t& detailsBytes){
   const auto& sealed=fixture->engine.completedResult();
   bool records20=sealed.sealed&&sealed.entryCount==2&&sealed.entries[0].laps==20&&sealed.entries[1].laps==20&&sealed.entries[0].recordCount==20&&sealed.entries[1].recordCount==20;
   auto* encoded=static_cast<uint8_t*>(malloc(pp::VersionedResultCodec::MaxBytes));
-  auto* decoded=static_cast<pp::RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(pp::RaceEngineModule::CompletedRaceResult)));
+  auto* decoded=static_cast<pp::RaceEngineModule::CompletedRaceResult*>(calloc(1,sizeof(pp::RaceEngineModule::CompletedRaceResult)));
   encodedBytes=0;detailsBytes=0;
   const bool encodedOk=encoded&&decoded&&pp::VersionedResultCodec::encode(sealed,encoded,pp::VersionedResultCodec::MaxBytes,encodedBytes);
   pp::VersionedHistoryStore persisted(fixture->history);uint32_t persistedSequence=0;size_t reconstructedBytes=0;uint32_t reconstructedSequence=0;
@@ -144,7 +145,7 @@ static bool stage14cTwentyLapDetails(size_t& encodedBytes,size_t& detailsBytes){
   const bool decodedOk=stored&&decoded&&persisted.loadNewest(0,reinterpret_cast<uint8_t*>(decoded),sizeof(*decoded),reconstructedBytes,reconstructedSequence)&&reconstructedBytes==sizeof(*decoded)&&reconstructedSequence==persistedSequence;
   auto* details=static_cast<char*>(malloc(12000));const bool detailsOk=decodedOk&&details&&pp::BrowserInterface::serializeDetailsForAcceptance(*decoded,details,12000,detailsBytes);
   const bool all=started&&records20&&encodedOk&&decodedOk&&decoded->entries[0].recordCount==20&&decoded->entries[1].recordCount==20&&detailsOk&&strstr(details,"\"lapNumber\":20")!=nullptr;
-  free(details);free(decoded);free(encoded);
+  free(details);if(decoded){pp::RaceEngineModule::clearResult(*decoded);free(decoded);}free(encoded);
   fixture->~Stage14CFixture();
   return all;
 }

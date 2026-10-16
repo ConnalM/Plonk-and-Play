@@ -14,24 +14,29 @@ def region(start: str, end: str) -> str:
     return source[begin:finish]
 
 
+def heap_result(text: str) -> bool:
+    return ("malloc(sizeof(RaceEngineModule::CompletedRaceResult))" in text or
+            "calloc(1,sizeof(RaceEngineModule::CompletedRaceResult))" in text)
+
 checks = {}
 stack = re.search(r"config\.stack_size\s*=\s*(\d+)", source)
 checks["httpd_stack_configured"] = bool(stack and int(stack.group(1)) >= 8192)
 checks["state_buffer_heap"] = "malloc(StateJsonCapacity)" in region("static esp_err_t state", "static esp_err_t resultsRoute") and "free(json)" in region("static esp_err_t state", "static esp_err_t resultsRoute")
 results = region("static esp_err_t resultsRoute", "static esp_err_t detailsRoute")
-checks["results_result_and_json_heap"] = "malloc(sizeof(RaceEngineModule::CompletedRaceResult))" in results and "malloc(ResultsJsonCapacity)" in results and "free(loaded)" in results and "free(json)" in results
+checks["results_result_and_json_heap"] = heap_result(results) and "malloc(ResultsJsonCapacity)" in results and "free(loaded)" in results and "free(json)" in results
 details = region("static esp_err_t detailsRoute", "static esp_err_t historyRoute")
-checks["details_result_and_chunk_heap"] = "malloc(sizeof(RaceEngineModule::CompletedRaceResult))" in details and "malloc(320)" in details and "free(loaded)" in details and "free(chunk)" in details
+checks["details_result_and_chunk_heap"] = heap_result(details) and "malloc(320)" in details and "free(loaded)" in details and "free(chunk)" in details
 history = region("static esp_err_t historyRoute", "static esp_err_t recordsRoute")
-checks["history_result_and_chunked_bounded"] = "malloc(sizeof(RaceEngineModule::CompletedRaceResult))" in history and "char chunk[1536]" in history and "free(stored)" in history and "httpd_resp_send_chunk" in history
+checks["history_result_and_chunked_bounded"] = heap_result(history) and "char chunk[1536]" in history and "free(stored)" in history and "httpd_resp_send_chunk" in history
 records = region("static esp_err_t recordsRoute", "static esp_err_t notice")
 checks["records_buffer_heap"] = "malloc(RecordsJsonCapacity)" in records and "free(json)" in records
 checks["idle_state_route_has_no_large_result_local"] = "CompletedRaceResult loaded{}" not in region("static esp_err_t state", "static esp_err_t resultsRoute")
 load_newest = persistence[persistence.index("bool loadNewest"):persistence.index("uint8_t count()", persistence.index("bool loadNewest"))]
-checks["persistent_decode_destination_heap"] = "malloc(sizeof(RaceEngineModule::CompletedRaceResult))" in load_newest and "CompletedRaceResult decoded{}" not in load_newest
+checks["persistent_decode_destination_heap"] = "malloc(VersionedResultCodec::MaxBytes)" in load_newest and "VersionedResultCodec::decode(encoded,encodedLength,*reinterpret_cast<RaceEngineModule::CompletedRaceResult*>(bytes))" in load_newest and "CompletedRaceResult decoded{}" not in load_newest
 
 failed = [name for name, passed in checks.items() if not passed]
 if failed:
     print("Stage 14A HTTP stack review FAIL:", ", ".join(failed))
     sys.exit(1)
 print("Stage 14A HTTP stack review PASS:", ", ".join(checks))
+

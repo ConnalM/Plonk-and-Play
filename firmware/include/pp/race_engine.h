@@ -6,37 +6,51 @@
 
 namespace pp {
 
+#ifndef PP_ACTIVE_DETAIL_BUDGET_BYTES
+// Provisional development/resource budget per active entry.  This is not a
+// sporting or product lap maximum; exhaustion preserves the race and marks
+// detail incomplete so History publication is refused.
+#define PP_ACTIVE_DETAIL_BUDGET_BYTES (128u * 1024u)
+#endif
+
 // Race Engine owns factual crossings and lap timing for every active entry.
 // Endurance adds a duration boundary; it does not create a second timing path.
 class RaceEngineModule {
 public:
-  // Stage 14C's development backend needs to reconstruct the human
-  // acceptance race (20 laps per entry).  This is a temporary resource
-  // capacity, not an Endurance product maximum; the production SD detail
-  // representation will be streamed/chunked independently of this array.
-  // Detail is retained with the completed race.  This is an implementation
-  // staging bound for the current in-memory race object, not an Endurance
-  // sporting/product limit; durable History is independently capacity-driven.
-  // Host/storage acceptance exercises the full 255-record wire range.  The
-  // classic Arduino target keeps the active object bounded while the real
-  // product S3/SD path moves retained detail through the storage boundary.
-#if defined(ARDUINO)
-  static constexpr uint16_t MaxLaps=32;
-#else
-  static constexpr uint16_t MaxLaps=255;
-#endif
   static constexpr uint8_t MaxEntries=PP_MAX_ENTRIES;
   static constexpr uint16_t ResultFormatVersion=3;
   struct LapRecord { uint32_t lapNumber=0; Time startTime=0,finishTime=0,lapTime=0; Time racingFinishTime=0; bool valid=false; };
+  // A deliberately dynamic, explicitly fallible detail buffer.  Its size is
+  // bounded by the available RAM/PSRAM and allocation failures are recorded;
+  // it is never a sporting/product lap limit.
+  struct LapRecordBuffer {
+    LapRecord* records=nullptr; uint32_t recordCount=0,recordCapacity=0,droppedCount=0; bool complete=true;
+    bool append(const LapRecord& value){
+      if(recordCount==recordCapacity){
+        uint32_t next=recordCapacity?recordCapacity*2u:8u;
+        if(next<recordCapacity||next>UINT32_MAX/sizeof(LapRecord))next=UINT32_MAX/sizeof(LapRecord);
+        if(size_t(next)*sizeof(LapRecord)>PP_ACTIVE_DETAIL_BUDGET_BYTES)return complete=false,++droppedCount,false;
+        if(next<=recordCapacity)return complete=false,++droppedCount,false;
+        auto* grown=static_cast<LapRecord*>(realloc(records,size_t(next)*sizeof(LapRecord)));
+        if(!grown)return complete=false,++droppedCount,false;
+        records=grown;recordCapacity=next;
+      }
+      records[recordCount++]=value; return true;
+    }
+    LapRecord& operator[](uint32_t index){return records[index];}
+    const LapRecord& operator[](uint32_t index)const{return records[index];}
+    void reset(){free(records);records=nullptr;recordCount=recordCapacity=droppedCount=0;complete=true;}
+    bool prepare(uint32_t count){reset();if(!count)return true;if(count>UINT32_MAX/sizeof(LapRecord)||size_t(count)*sizeof(LapRecord)>PP_ACTIVE_DETAIL_BUDGET_BYTES)return false;records=static_cast<LapRecord*>(malloc(size_t(count)*sizeof(LapRecord)));if(!records)return false;recordCapacity=count;return true;}
+  };
   struct EntryState {
     uint32_t raceEntryId=0,mugId=0,laps=0; Time lastCrossing=0,lastLapTime=0,bestLapTime=0;
     bool hasLap=false,waitingForTimingOrigin=false,timingOriginEstablished=false,postExpiryCompleted=false;
-    uint32_t lapPenalty=0; LapRecord records[MaxLaps]{}; uint8_t recordCount=0;
+    uint32_t lapPenalty=0; LapRecordBuffer detail{}; LapRecord* records=nullptr; uint32_t recordCount=0;
   };
   struct ResultEntry {
     uint32_t raceEntryId=0,mugId=0,laps=0,classifiedLaps=0,rank=0,lapsBehind=0,lapPenalty=0;
-    uint8_t lane=0; bool tied=false,completed=false; Time completionTime=0,bestLap=0;
-    LapRecord records[MaxLaps]{}; uint8_t recordCount=0;
+    uint8_t lane=0; bool tied=false,completed=false,detailComplete=true; Time completionTime=0,bestLap=0;
+    LapRecordBuffer detail{}; LapRecord* records=nullptr; uint32_t recordCount=0;
   };
   struct PracticeSummaryEntry { uint32_t raceEntryId=0,mugId=0; uint8_t lane=0; uint32_t laps=0; Time lastLap=0,bestLap=0; };
   struct PracticeSummary { uint16_t formatVersion=1; bool available=false; uint32_t sessionId=0; Time endedAt=0; PracticeSummaryEntry entries[MaxEntries]{}; uint8_t entryCount=0; Time sessionFastestLap=0; uint32_t sessionFastestEntryId=0; };
@@ -89,7 +103,7 @@ public:
     result.durationMinutes=0;
     result.entryCount=0;
     result.fastestLap=result.fastestEntryId=result.lapTarget=0;
-    for(auto& entry:result.entries)entry=ResultEntry{};
+    for(auto& entry:result.entries){entry.detail.reset();entry=ResultEntry{};}
   }
   const PracticeSummary& practiceSummary()const{return practiceSummary_;}
   // Competitive live ordering is an authoritative Race Engine view.  It uses
@@ -136,7 +150,7 @@ private:
     go_=go; pauseAt_=restartAt_=settlementAt_=practiceResumeAt_=winningTime_=candidateF_=expiryTime_=resumeAt_=0;
     winner_=0;complete_=completionPublished_=deadHeat_=faulted_=paused_=restartScheduled_=gridRestart_=false;pausedDuration_=0;pauseOpen_=false;
     enduranceExpired_=finishCurrentPending_=settlementSeen_=settlementPublished_=finishReady_=finishSettlementSent_=finishSettled_=false;
-    persisted_=persistenceFault_=recordPersistenceFault_=storageFaultPublished_=false;historyPersistFailed_=false;pendingCount_=seenAt_=0;for(auto&x:seen_)x=0;for(auto&o:observed_)o=false;for(auto&e:entries_)e={};
+    persisted_=persistenceFault_=recordPersistenceFault_=storageFaultPublished_=false;historyPersistFailed_=false;pendingCount_=seenAt_=0;for(auto&x:seen_)x=0;for(auto&o:observed_)o=false;for(auto&e:entries_){e.detail.reset();e=EntryState{};}
     clearCompletedResult(); finishBehaviour_=definition_?definition_->finishBehaviour():LapFinishBehaviour::Immediate;
     recordEligible_=definition_&&(definition_->mode()==SessionMode::LapRace||definition_->mode()==SessionMode::Endurance);
 #if defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
@@ -193,7 +207,7 @@ private:
     uint8_t i=indexOf(s.raceEntryId);if(i<entryCount())observed_[i]=true;
     candidateF_=m.relevantTime;finishReady_=allObserved();
   }
-  void storeLap(EntryState&s,Time lap,Time at){if(s.recordCount<MaxLaps){LapRecord&r=s.records[s.recordCount++];r.lapNumber=s.laps;r.startTime=at-lap;r.finishTime=at;r.lapTime=lap;r.racingFinishTime=racingTime(at);r.valid=true;}if(!s.bestLapTime||lap<s.bestLapTime)s.bestLapTime=lap;}
+  void storeLap(EntryState&s,Time lap,Time at){if(true){LapRecord r{};r.lapNumber=s.laps;r.startTime=at-lap;r.finishTime=at;r.lapTime=lap;r.racingFinishTime=racingTime(at);r.valid=true;s.detail.append(r);s.records=s.detail.records;s.recordCount=s.detail.recordCount;}if(!s.bestLapTime||lap<s.bestLapTime)s.bestLapTime=lap;}
   void capturePracticeSummary(Time at){practiceSummary_={};practiceSummary_.formatVersion=1;practiceSummary_.available=true;practiceSummary_.sessionId=definition_?definition_->sessionId():0;practiceSummary_.endedAt=at;practiceSummary_.entryCount=entryCount();for(uint8_t i=0;i<entryCount();++i){const auto&s=entries_[i];auto&out=practiceSummary_.entries[i];out.raceEntryId=s.raceEntryId;out.mugId=definition_->entry(i).mugId;out.lane=definition_->entry(i).lane;out.laps=s.laps;out.lastLap=s.lastLapTime;out.bestLap=s.bestLapTime;if(s.bestLapTime&&(!practiceSummary_.sessionFastestLap||s.bestLapTime<practiceSummary_.sessionFastestLap)){practiceSummary_.sessionFastestLap=s.bestLapTime;practiceSummary_.sessionFastestEntryId=s.raceEntryId;}}}
   void publishLap(const RaceEntryDefinition&def,const EntryState&s,Time lap,const Message&m){Message f{};f.type=Type::LapCompleted;f.relevantTime=m.relevantTime;f.raceEntryId=def.raceEntryId;f.lapNumber=s.laps;f.lapTime=lap;f.eventId=m.eventId;bus_.publish(endpoint_,f);publishNoticeboardChanged();}
   bool allObserved()const{for(uint8_t i=0;i<entryCount();++i)if(!observed_[i])return false;return true;}
@@ -210,21 +224,24 @@ private:
     if(!result_.sealed)seal();Message m{};m.type=Type::CompetitionComplete;m.relevantTime=result_.finishTime;m.raceEntryId=winner_;m.probe=deadHeat_?1:0;if(bus_.publish(endpoint_,m)==Delivery::Delivered){completionPublished_=true;complete_=true;}
   }
   void latchPersistenceFault(Time at,bool record){if(record)recordPersistenceFault_=true;else historyPersistFailed_=true;persistenceFault_=true;if(storageFaultPublished_)return;storageFaultPublished_=true;Message fault{};fault.type=Type::StorageFault;fault.relevantTime=at;bus_.publish(endpoint_,fault);publishNoticeboardChanged();}
-   void persistResult(){if(!result_.sealed||persisted_||historyPersistFailed_||!history_)return;/* The storage boundary owns encoding/capacity checks: the development VersionedHistoryStore serializes this summary/detail payload before writing, so the in-memory CompletedRaceResult size is not a storage limit. */uint32_t sequence=0;if(history_->append(reinterpret_cast<const uint8_t*>(&result_),sizeof(result_),sequence)){historySequence_=sequence;persisted_=true;Message stored{};stored.type=Type::HistoryStored;stored.historySequence=sequence;stored.relevantTime=result_.finishTime;bus_.publish(endpoint_,stored);publishNoticeboardChanged();}else{latchPersistenceFault(result_.finishTime,false);}}
+   void persistResult(){if(!result_.sealed||persisted_||historyPersistFailed_||!history_)return;if(!completeDetail()){historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false);return;}uint32_t sequence=0;if(history_->append(reinterpret_cast<const uint8_t*>(&result_),sizeof(result_),sequence)){historySequence_=sequence;persisted_=true;Message stored{};stored.type=Type::HistoryStored;stored.historySequence=sequence;stored.relevantTime=result_.finishTime;bus_.publish(endpoint_,stored);publishNoticeboardChanged();}else{latchPersistenceFault(result_.finishTime,false);}}
   static bool before(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){if(a.classifiedLaps!=b.classifiedLaps)return a.classifiedLaps>b.classifiedLaps;if(f==LapFinishBehaviour::Immediate)return false;if(!a.completionTime)return false;if(!b.completionTime)return true;return a.completionTime<b.completionTime;}
   static bool beforeLive(const EntryState&a,const EntryState&b,LapFinishBehaviour f){const uint32_t ac=a.laps>a.lapPenalty?a.laps-a.lapPenalty:0;const uint32_t bc=b.laps>b.lapPenalty?b.laps-b.lapPenalty:0;if(ac!=bc)return ac>bc;if(f==LapFinishBehaviour::Immediate)return false;if(!a.lastCrossing)return false;if(!b.lastCrossing)return true;return a.lastCrossing<b.lastCrossing;}
   static bool samePlace(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){return a.classifiedLaps==b.classifiedLaps&&(f==LapFinishBehaviour::Immediate||a.completionTime==b.completionTime);}
   void publishNoticeboardChanged(){Message n{};n.type=Type::NoticeboardChanged;bus_.publish(endpoint_,n);}
   void seal(){clearCompletedResult();result_.sealed=true;result_.valid=!faulted_;result_.deadHeat=deadHeat_;result_.winningTime=winningTime_;result_.finishTime=candidateF_;result_.expiryTime=expiryTime_;result_.overtime=expiryTime_&&candidateF_>expiryTime_;result_.durationUs=definition_?definition_->durationUs():0;result_.durationMinutes=definition_?definition_->durationMinutes():0;result_.mode=definition_?definition_->mode():SessionMode::LapRace;result_.behaviour=finishBehaviour_;result_.entryCount=entryCount();result_.lapTarget=definition_?definition_->lapTarget():0;uint32_t leader=0;
-    for(uint8_t i=0;i<entryCount();++i){auto&t=result_.entries[i];const auto&s=entries_[i];t.raceEntryId=s.raceEntryId;t.mugId=definition_->entry(i).mugId;t.lane=definition_->entry(i).lane;t.laps=s.laps;t.lapPenalty=s.lapPenalty;t.classifiedLaps=s.laps>s.lapPenalty?s.laps-s.lapPenalty:0;t.completed=observed_[i];t.completionTime=t.completed?s.lastCrossing:0;t.recordCount=s.recordCount;if(t.classifiedLaps>leader)leader=t.classifiedLaps;for(uint16_t j=0;j<s.recordCount;++j){t.records[j]=s.records[j];if(s.records[j].valid&&(!t.bestLap||s.records[j].lapTime<t.bestLap))t.bestLap=s.records[j].lapTime;}}
-    for(uint8_t i=1;i<entryCount();++i){ResultEntry v=result_.entries[i];int j=int(i)-1;while(j>=0&&before(v,result_.entries[j],finishBehaviour_)){result_.entries[j+1]=result_.entries[j];--j;}result_.entries[j+1]=v;}
-    uint32_t rank=1;for(uint8_t i=0;i<entryCount();++i){if(i&&!samePlace(result_.entries[i-1],result_.entries[i],finishBehaviour_))rank=i+1;auto&t=result_.entries[i];t.rank=rank;t.tied=i&&result_.entries[i-1].rank==rank;if(t.tied)result_.entries[i-1].tied=true;t.lapsBehind=leader-t.classifiedLaps;for(uint16_t j=0;j<t.recordCount;++j){const auto&lap=t.records[j];if(!lap.valid)continue;if(!result_.fastestLap||lap.lapTime<result_.fastestLap){result_.fastestLap=lap.lapTime;result_.fastestEntryId=t.raceEntryId;result_.fastestLapTied=false;}else if(lap.lapTime==result_.fastestLap&&result_.fastestEntryId!=t.raceEntryId)result_.fastestLapTied=true;}}
+    for(uint8_t i=0;i<entryCount();++i){auto&t=result_.entries[i];const auto&s=entries_[i];t.raceEntryId=s.raceEntryId;t.mugId=definition_->entry(i).mugId;t.lane=definition_->entry(i).lane;t.laps=s.laps;t.lapPenalty=s.lapPenalty;t.classifiedLaps=s.laps>s.lapPenalty?s.laps-s.lapPenalty:0;t.completed=observed_[i];t.completionTime=t.completed?s.lastCrossing:0;t.detailComplete=s.detail.complete;t.detail.reset();for(uint32_t j=0;j<s.detail.recordCount;++j)if(!t.detail.append(s.detail.records[j]))t.detailComplete=false;t.detailComplete=t.detailComplete&&t.detail.recordCount==s.detail.recordCount;t.records=t.detail.records;t.recordCount=t.detail.recordCount;if(t.classifiedLaps>leader)leader=t.classifiedLaps;for(uint32_t j=0;j<s.detail.recordCount;++j){if(s.detail.records[j].valid&&(!t.bestLap||s.detail.records[j].lapTime<t.bestLap))t.bestLap=s.detail.records[j].lapTime;}}
+    for(uint8_t i=1;i<entryCount();++i){int j=int(i);while(j>0&&before(result_.entries[j],result_.entries[j-1],finishBehaviour_)){swapEntries(result_.entries[j],result_.entries[j-1]);--j;}}
+    uint32_t rank=1;for(uint8_t i=0;i<entryCount();++i){if(i&&!samePlace(result_.entries[i-1],result_.entries[i],finishBehaviour_))rank=i+1;auto&t=result_.entries[i];t.rank=rank;t.tied=i&&result_.entries[i-1].rank==rank;if(t.tied)result_.entries[i-1].tied=true;t.lapsBehind=leader-t.classifiedLaps;for(uint32_t j=0;j<t.detail.recordCount;++j){const auto&lap=t.detail.records[j];if(!lap.valid)continue;if(!result_.fastestLap||lap.lapTime<result_.fastestLap){result_.fastestLap=lap.lapTime;result_.fastestEntryId=t.raceEntryId;result_.fastestLapTied=false;}else if(lap.lapTime==result_.fastestLap&&result_.fastestEntryId!=t.raceEntryId)result_.fastestLapTied=true;}}
   }
   Time racingTime(Time raw)const{return raw>=pausedDuration_?raw-pausedDuration_:0;}
   void closePause(Time at){if(pauseOpen_&&at>=pauseAt_){pausedDuration_+=at-pauseAt_;pauseOpen_=false;}}
-  bool hasCrossingForClassified(uint8_t index,uint32_t classified)const{if(index>=entryCount()||!classified)return false;const auto&s=entries_[index];const uint32_t factual=classified+s.lapPenalty;for(uint16_t j=0;j<s.recordCount;++j)if(s.records[j].valid&&s.records[j].lapNumber==factual)return true;return false;}
-  Time crossingForClassified(uint8_t index,uint32_t classified)const{if(!hasCrossingForClassified(index,classified))return 0;const auto&s=entries_[index];const uint32_t factual=classified+s.lapPenalty;for(uint16_t j=0;j<s.recordCount;++j)if(s.records[j].valid&&s.records[j].lapNumber==factual)return s.records[j].racingFinishTime;return 0;}
+  bool hasCrossingForClassified(uint8_t index,uint32_t classified)const{if(index>=entryCount()||!classified)return false;const auto&s=entries_[index];const uint32_t factual=classified+s.lapPenalty;for(uint32_t j=0;j<s.detail.recordCount;++j)if(s.detail.records[j].valid&&s.detail.records[j].lapNumber==factual)return true;return false;}
+  Time crossingForClassified(uint8_t index,uint32_t classified)const{if(!hasCrossingForClassified(index,classified))return 0;const auto&s=entries_[index];const uint32_t factual=classified+s.lapPenalty;for(uint32_t j=0;j<s.detail.recordCount;++j)if(s.detail.records[j].valid&&s.detail.records[j].lapNumber==factual)return s.detail.records[j].racingFinishTime;return 0;}
   uint8_t leaderForGap()const{for(uint8_t i=0;i<entryCount();++i)if(livePosition(i)==1)return i;return MaxEntries;}
+  bool completeDetail()const{for(uint8_t i=0;i<result_.entryCount;++i)if(!result_.entries[i].detailComplete)return false;return true;}
+  static void swapBuffer(LapRecordBuffer&a,LapRecordBuffer&b){LapRecord*records=a.records;uint32_t count=a.recordCount,capacity=a.recordCapacity,dropped=a.droppedCount;bool complete=a.complete;a.records=b.records;a.recordCount=b.recordCount;a.recordCapacity=b.recordCapacity;a.droppedCount=b.droppedCount;a.complete=b.complete;b.records=records;b.recordCount=count;b.recordCapacity=capacity;b.droppedCount=dropped;b.complete=complete;}
+  static void swapEntries(ResultEntry&a,ResultEntry&b){uint32_t u32;uint8_t u8;bool bl;Time t;u32=a.raceEntryId;a.raceEntryId=b.raceEntryId;b.raceEntryId=u32;u32=a.mugId;a.mugId=b.mugId;b.mugId=u32;u32=a.laps;a.laps=b.laps;b.laps=u32;u32=a.classifiedLaps;a.classifiedLaps=b.classifiedLaps;b.classifiedLaps=u32;u32=a.rank;a.rank=b.rank;b.rank=u32;u32=a.lapsBehind;a.lapsBehind=b.lapsBehind;b.lapsBehind=u32;u32=a.lapPenalty;a.lapPenalty=b.lapPenalty;b.lapPenalty=u32;u8=a.lane;a.lane=b.lane;b.lane=u8;bl=a.tied;a.tied=b.tied;b.tied=bl;bl=a.completed;a.completed=b.completed;b.completed=bl;bl=a.detailComplete;a.detailComplete=b.detailComplete;b.detailComplete=bl;t=a.completionTime;a.completionTime=b.completionTime;b.completionTime=t;t=a.bestLap;a.bestLap=b.bestLap;b.bestLap=t;swapBuffer(a.detail,b.detail);a.records=a.detail.records;b.records=b.detail.records;a.recordCount=a.detail.recordCount;b.recordCount=b.detail.recordCount;}
   Bus&bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition&active_;HistoryStore*history_=nullptr;TrackRecordStore*records_=nullptr;const SessionDefinition*definition_=nullptr;
   uint8_t penalties_[MaxEntries]{},observed_[MaxEntries]{};uint32_t observedRevision_=0;Time go_=0,pauseAt_=0,restartAt_=0,settlementAt_=0,practiceResumeAt_=0,winningTime_=0,candidateF_=0,expiryTime_=0,resumeAt_=0,pausedDuration_=0;bool pauseOpen_=false;
   EntryState entries_[MaxEntries]{};LapFinishBehaviour finishBehaviour_=LapFinishBehaviour::Immediate;bool complete_=false,completionPublished_=false,deadHeat_=false,faulted_=false,paused_=false,restartScheduled_=false,gridRestart_=false,enduranceExpired_=false,finishCurrentPending_=false,settlementSeen_=false,settlementPublished_=false,finishReady_=false,finishSettlementSent_=false,finishSettled_=false,persisted_=false,persistenceFault_=false,recordPersistenceFault_=false,historyPersistFailed_=false,storageFaultPublished_=false,recordEligible_=true;

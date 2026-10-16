@@ -58,7 +58,7 @@ public:
     }
     sequence = ++candidate.nextSequence;
     Entry& entry = candidate.entries[candidate.count++];
-    entry.sequence = sequence; entry.bytes = static_cast<uint16_t>(length); entry.slot = slot;
+    entry.sequence = sequence; entry.bytes = static_cast<uint32_t>(length); entry.slot = slot;
     candidate.generation = meta_.generation + 1;
     if (!publishMetadata(candidate)) { sequence = 0; return false; }
     return true;

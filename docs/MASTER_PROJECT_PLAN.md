@@ -35,7 +35,7 @@ Real hardware complements simulation and must cumulatively revalidate applicable
   Workplace: specification + PC/Wokwi.  
   Complete/cohere currently supported Lap, Open Practice and Endurance behaviour, Normal Browser lifecycle/presentation, all Lap finish variants, Results semantics, Race Director/multiple-client behaviour and mode-specific automated acceptance.
 
-- [ ] **WP2 — Complete storage and records** *(opened for docs-first audit; implementation not started)*  
+- [ ] **WP2 — Complete storage and records** *(WP2A/B/C implementation in progress; WP2C active lap-detail boundary under review)*
   Owners: Archie + Al.  
   Workplace: software/Wokwi first.  
   Complete Results/History/detail/PB/Track Record/Record Era/reconstruction/retention and transactional/failure behaviour that can be developed without real hardware.
@@ -152,11 +152,11 @@ The Stage 10 `masterFingerprint_` structural check and Stage 13 exact-text commi
 
 ### WP2 opening record
 
-**Status:** OPEN for docs-first audit only; implementation not started.
+**Status:** WP2A/B complete; WP2C active lap-detail boundary implemented and under focused acceptance review.
 
-WP2 completes the frozen storage and records boundary: NVS for small controller/configuration state, SD for committed History/Results/Details, PB, Track Record and Record Era data, versioned/checksummed serialization, bounded rolling retention, reconstruction, and transactional/failure/recovery behaviour. The production policy is the latest 100 completed races with complete available lap detail; current four-race/8,192-byte development History and 24-record detail capacities are not product limits.
+WP2 completes the frozen storage and records boundary: NVS for small controller/configuration state, SD for committed History/Results/Details, PB, Track Record and Record Era data, versioned/checksummed serialization, bounded rolling retention, reconstruction, and transactional/failure/recovery behaviour. The production policy is the latest 100 completed races with complete available lap detail; current four-race/8,192-byte development History and provisional bounded active-detail workspace are not product limits.
 
-The real ESP32-S3 + SD P1 integration and SD probe are evidence for WP4 hardware validation, not a substitute for WP2 software completion. Transactional commit/index recovery, interrupted-write handling, corrupt/incomplete-data recovery, rolling eviction, reboot reconstruction and persistence-failure semantics remain to be completed and accepted at the software boundary. Browser work belongs in WP2 only where it consumes the existing authoritative History/Results contract; diagnostics remain WP3, physical validation WP4, recovery/reset/update WP5, and Personal MUG work later.
+The real ESP32-S3 + SD P1 integration and SD probe are evidence for WP4 hardware validation, not a substitute for WP2 software completion. Transactional commit/index recovery, rolling eviction, reboot reconstruction and persistence-failure semantics are covered by WP2A/B; active lap-detail production-boundary completion and long-detail reconstruction remain the WP2C work under review. Browser work belongs in WP2 only where it consumes the existing authoritative History/Results contract; diagnostics remain WP3, physical validation WP4, recovery/reset/update WP5, and Personal MUG work later.
 
 Do not start new implementation simply because an item is visible later in this plan. Each work package is opened deliberately after its dependencies and exit criteria are agreed.
 
@@ -240,3 +240,4 @@ The following remain on their existing specifications and roadmap as post-v1/v1.
 - Enclosure.
 
 Ownership is not a test or integration claim. Existing hardware evidence remains classified by the WP0B audit and later work-package acceptance gates.
+

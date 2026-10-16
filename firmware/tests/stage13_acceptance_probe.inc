@@ -11,7 +11,7 @@ struct Stage13Store final : pp::Store {
   // Keep the in-image store bounded for the ESP32 acceptance image while
   // retaining enough slots for metadata, four history records and records.
   static constexpr size_t Slots=12;
-  static constexpr size_t Bytes=sizeof(pp::RaceEngineModule::CompletedRaceResult)>sizeof(uint32_t)*32?sizeof(pp::RaceEngineModule::CompletedRaceResult):sizeof(uint32_t)*32;
+  static constexpr size_t Bytes=16384;
   uint8_t bytes[Slots][Bytes]{};size_t lengths[Slots]{};bool online=true;
   bool available()const override{return online;}
   bool read(unsigned slot,uint8_t* out,size_t count)override{if(!online||slot>=Slots||lengths[slot]!=count)return false;memcpy(out,bytes[slot],count);return true;}
@@ -94,7 +94,7 @@ void stage13Run(){
   auto finished=new Stage12Fixture(pp::LapFinishBehaviour::Immediate,1);finished->start(1000000);const pp::Time finishedGo=finished->control.scheduledGo();finished->raw(1,finishedGo+1000);finished->settle(finishedGo+1010);finished->browser.submitOperation(120,pp::SessionOperation::EndRace,pp::ClientContext::RaceDirectorSmug,Stage12Fixture::Owner,true);finished->control.tick(finishedGo+1020);finished->browser.tick();
   s13("13.14",finished->control.state()==pp::SessionLifecycle::Finished&&finished->engine.completedResult().sealed,"finished_result_cannot_be_abandoned=1");
   delay(1);
-  auto* storePtr=new Stage13Store;Stage13Store& store=*storePtr;pp::SlotHistoryStore history(store);const auto& sealed=finished->engine.completedResult();uint32_t sequence=0;const bool stored=history.append(reinterpret_cast<const uint8_t*>(&sealed),sizeof(sealed),sequence);auto* reloaded=new pp::RaceEngineModule::CompletedRaceResult;size_t persistedBytes=0;uint32_t reloadedSequence=0;const bool recovered=history.loadNewest(0,reinterpret_cast<uint8_t*>(reloaded),sizeof(*reloaded),persistedBytes,reloadedSequence);
+  auto* storePtr=new Stage13Store;Stage13Store& store=*storePtr;pp::SlotHistoryStore rawHistory(store);pp::VersionedHistoryStore history(rawHistory);const auto& sealed=finished->engine.completedResult();uint32_t sequence=0;const bool stored=history.append(reinterpret_cast<const uint8_t*>(&sealed),sizeof(sealed),sequence);auto* reloaded=new pp::RaceEngineModule::CompletedRaceResult;size_t persistedBytes=0;uint32_t reloadedSequence=0;const bool recovered=history.loadNewest(0,reinterpret_cast<uint8_t*>(reloaded),sizeof(*reloaded),persistedBytes,reloadedSequence);
   s13("13.15",stored&&sequence==1&&recovered&&persistedBytes==sizeof(*reloaded)&&reloaded->sealed&&reloaded->lapTarget==finished->control.definition()->lapTarget()&&reloadedSequence==sequence,"persistent_sequence_target_and_full_result=1");
   for(uint8_t i=0;i<4;++i){uint32_t next=0;history.append(reinterpret_cast<const uint8_t*>(&sealed),sizeof(sealed),next);}uint32_t newest=0;size_t newestBytes=0;auto* newestResult=new pp::RaceEngineModule::CompletedRaceResult;history.loadNewest(0,reinterpret_cast<uint8_t*>(newestResult),sizeof(*newestResult),newestBytes,newest);
   s13("13.16",history.count()==pp::HistoryStore::Capacity&&newest==5&&newestResult->sealed,"newest_first_rolling_eviction_unique_sequences=1");
@@ -116,7 +116,7 @@ void stage13Run(){
   delay(1);
   bool stress=true;for(uint8_t i=0;i<12;++i){const uint32_t seed=0x13u+i;stress&=((seed*1103515245u+12345u)!=0);}s13("13.25",stress&&recovered,"seeded_schedule_false_start_history_record_stress=1");
   s13("13.24",unsigned(pp::Type::FinishSettlement)==18&&unsigned(pp::Type::FinishSettled)==19&&unsigned(pp::Type::FalseStart)==20&&unsigned(pp::Type::HistoryStored)==21&&unsigned(pp::Type::StorageFault)==22,"appended_types=1");
-  delete administrativeBusPtr;delete finished;delete reloaded;delete newestResult;delete historyResult;delete storePtr;
+  delete administrativeBusPtr;finished->engine.resetForFixture();delete finished;if(reloaded){pp::RaceEngineModule::clearResult(*reloaded);delete reloaded;}if(newestResult){pp::RaceEngineModule::clearResult(*newestResult);delete newestResult;}if(historyResult){pp::RaceEngineModule::clearResult(*historyResult);delete historyResult;}delete storePtr;
   stage13Output.log("ACC S13 test=13.T wrong=FAIL restored=PASS");stage13Output.log("ACC DONE");
 }
 void stage13AcceptanceCommand(char c){if(c=='s')stage13Run();}

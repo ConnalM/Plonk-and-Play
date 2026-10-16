@@ -64,3 +64,16 @@ The hardware test does not require artificially precise interruption at every in
 No storage change may weaken or rewrite frozen Stage 1–14C requirements. All applicable earlier automated, structural, Wokwi, Browser and human hardware evidence must remain valid or be rerun where the shared persistence boundary is affected.
 
 Practice remains non-official. Abandoned races remain excluded from official History. PB/Track Record eligibility and Record Era semantics remain unchanged.
+
+## Active lap-detail acceptance (WP2C)
+
+The active detail path is tested through the normal Race Engine/Input Module
+boundary, not by constructing a synthetic completed result.  Healthy detail
+must survive 33, 100 and more than 255 live laps without truncating factual
+totals, classification or Best Lap.  A detail-buffer or storage failure may
+not alter racing; it marks detail incomplete and prevents publication of that
+race into committed History.  A sealed in-RAM Result remains authoritative.
+Details are reconstructed on demand from the linked committed summary/detail
+representation, while active temporary detail is never enumerated as History.
+Practice remains outside official History unless a later product decision says
+otherwise.
