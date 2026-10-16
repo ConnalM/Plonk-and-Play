@@ -63,6 +63,8 @@ Recovery reconstructs only committed, checksum-valid records. Incomplete tempora
 
 A persistence failure never invalidates an authoritative result held in RAM. For a failed History write, the result remains sealed and valid, `persistencePending` remains true, `persistenceFault` becomes true, one storage-fault event/report is emitted, no `HistoryStored` event is emitted, and the same impossible operation is not retried on every Race Engine tick. A retry may occur only through an explicit controlled storage-recovery boundary.
 
+An active-detail storage interruption is distinguished from actual detail loss. While required detail remains in the bounded queue, storage may be recovered through an explicit recovery boundary and the normal drain/finalize/verify/transaction sequence may still publish the race. Once a required detail record is dropped or the stream is proven incomplete, `detailIncomplete` is permanent for that race; later recovery cannot make it eligible for History. Active temporary streams are disposable uncommitted debris after restart: they are never History, are never attached to another session, and may be deterministically reclaimed without deleting committed records.
+
 PB/Track Record failures are explicit and latched; their write result is not silently ignored. A failed record write does not alter race validity or lap eligibility.
 
 ## SD failure cases

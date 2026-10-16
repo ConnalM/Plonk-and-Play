@@ -7,6 +7,7 @@ $production=Join-Path $env:TEMP 'pp-production-history-test.exe'
 $detailFailure=Join-Path $env:TEMP 'pp-active-detail-failure-test.exe'
 $detailStream=Join-Path $env:TEMP 'pp-active-detail-stream-test.exe'
 $detailStreamFailure=Join-Path $env:TEMP 'pp-active-detail-stream-failure-test.exe'
+$detailRecovery=Join-Path $env:TEMP 'pp-active-detail-recovery-test.exe'
 g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'foundation_test.cpp') -o $foundation
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage Foundation foundation compile failed: $LASTEXITCODE" }
 & $foundation
@@ -35,11 +36,18 @@ g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'active_detail
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage active-detail stream failure compile failed: $LASTEXITCODE" }
 & $detailStreamFailure
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage active-detail stream failure acceptance failed: $LASTEXITCODE" }
+g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'active_detail_recovery_test.cpp') -o $detailRecovery
+if ($LASTEXITCODE -ne 0) { throw "Persistent Storage active-detail recovery compile failed: $LASTEXITCODE" }
+& $detailRecovery
+if ($LASTEXITCODE -ne 0) { throw "Persistent Storage active-detail recovery acceptance failed: $LASTEXITCODE" }
 $engine=Get-Content (Join-Path $root 'firmware\include\pp\race_engine.h') -Raw
 $codec=Get-Content (Join-Path $root 'firmware\include\pp\persistent_storage.h') -Raw
 $history=Get-Content (Join-Path $root 'firmware\include\pp\history_store.h') -Raw
+$sd=Get-Content (Join-Path $root 'firmware\include\pp\sd_store_arduino.h') -Raw
 $boundaryOk=($engine -notmatch 'Preferences|SPIFFS|SD\.h|FFat') -and ($engine -match 'historyPersistFailed_') -and ($engine -match 'storageFaultPublished_') -and ($codec -match 'Magic') -and ($codec -match 'Version') -and ($history -match 'Capacity = 100') -and ($history -notmatch 'MaxBytes = 8192') -and ($history -notmatch 'PP_MAX_ENTRIES')
 if(-not $boundaryOk){throw 'PSF.1/PSF.20 structural boundary check failed'}
 Write-Host 'PSF PSF.1 PASS race_engine_uses_storage_boundary=1'
 Write-Host 'PSF PSF.20 PASS source_guard_latches_and_suppresses_retry=1'
+if(($sd -notmatch 'cleanupOrphans') -or ($sd -notmatch 'markerPath') -or ($sd -notmatch 'storagePending_') -or ($sd -notmatch 'detailLost')){throw 'WP2D active stream recovery boundary check failed'}
+Write-Host 'WP2D D2 PASS orphan_cleanup_integrity_marker_recovery_boundary=1'
 Write-Host 'PASS: development Persistent Storage Foundation acceptance'

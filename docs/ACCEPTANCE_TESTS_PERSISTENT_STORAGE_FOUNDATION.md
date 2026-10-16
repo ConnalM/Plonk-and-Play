@@ -81,6 +81,14 @@ History record is appended, the sealed RAM Result remains available, and the
 failure is latched without a retry storm. Real card removal, power loss and
 physical remount remain hardware acceptance work.
 
+Software recovery distinguishes temporary unavailability from actual detail
+loss. A controlled recovery before queue exhaustion drains the ordered backlog
+and permits the normal finalize/verify/transaction boundary to publish the
+race. Queue exhaustion, truncation, corruption or other proven required-detail
+loss latches `detailIncomplete` permanently; later recovery cannot publish that
+race. Active temporary streams left after restart are ignored or reclaimed
+deterministically, are never attached to a new session and are never History.
+
 ## Active lap-detail acceptance (WP2C)
 
 The active detail path is tested through the normal Race Engine/Input Module
