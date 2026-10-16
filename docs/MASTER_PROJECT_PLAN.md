@@ -171,6 +171,26 @@ consequences. Real SD media removal/remount, power interruption, filesystem
 allocation, wear, throughput and final capacity thresholds remain explicitly
 physical WP4 evidence.
 
+### WP3A diagnostics/support design record
+
+**Status:** DESIGN/DOCUMENTATION ACCEPTED/FROZEN; WP3B implementation not
+started.
+
+WP3A freezes the v1 support workflow and boundaries for diagnostics: Normal
+diagnostics are always-on, quiet, bounded and observation-only; Development
+diagnostics are deeper, explicit and controlled by the existing Master/
+Race-Director/controlling-SMUG lease; any connected Browser may request one
+P&P-generated observation-only support download. The support artifact is a
+versioned UTF-8 NDJSON snapshot with deterministic structured records,
+provenance and explicit incomplete/volatile/drop state. Export capability is
+authoritative (`AVAILABLE`, `LIMITED` or `UNAVAILABLE`), and diagnostic
+failure cannot affect racing or product authority.
+
+This is a design freeze only. Production recorder integration, final Browser
+Diagnostics UI, export route/encoder, final capacities, privacy/redaction
+review, SD housekeeping/wear tuning and real ESP32-S3/SD acceptance remain
+WP3B/Stage 15/WP4 work as identified by the governing Stage 15 documents.
+
 Do not start new implementation simply because an item is visible later in this plan. Each work package is opened deliberately after its dependencies and exit criteria are agreed.
 
 

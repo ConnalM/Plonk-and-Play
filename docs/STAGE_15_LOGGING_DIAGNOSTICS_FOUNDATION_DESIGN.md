@@ -30,8 +30,12 @@ Normal diagnostics may run automatically during ordinary P&P operation.
 Development diagnostics are an explicit troubleshooting facility under the
 advanced diagnostic facilities and require the same P&P
 Master/Race-Director/controlling-SMUG control lease used by other advanced
-controls. Starting, stopping, listing and downloading Development diagnostic
-sessions require that same lease. No separate SMUG capability, account,
+controls. Starting and stopping Development diagnostic sessions require that
+same lease. Downloading a diagnostic artifact is an observation-only action
+available to any connected Browser with normal P&P access; it does not grant
+control and must not offer TAKE CONTROL merely to download. Status and
+diagnostic viewing are likewise observation-only unless a narrower rule is
+explicitly required by the product UI. No separate SMUG capability, account,
 password, PIN or authentication system is introduced. Diagnostic access never
 grants Race Control or Race Engine authority, and diagnostic, access or export
 failure must not alter product/race operation.
@@ -39,10 +43,109 @@ failure must not alter product/race operation.
 No elaborate account/login system is introduced solely for Stage 15. The
 existing/frozen P&P configuration and access model must enforce the
 Development boundary at the request boundary. The current implementation
-audit has identified that the existing diagnostic HTTP routes do not yet
-perform a request-level check against the authoritative Master/Race
-Director/controlling-SMUG lease; this is an explicit implementation gap, not a
-permission that may be inferred from Browser presentation alone.
+already contains the controlling-lease check for the Development start/stop
+path; production integration must retain that check. The current development
+status/retrieval routes still need reconciliation with the observation-only
+viewing rule, and the final download route does not yet exist. These are
+WP3B implementation gaps, not permissions that may be inferred from Browser
+presentation alone.
+
+## 1B. WP3A product support contract
+
+WP3A freezes the customer-facing diagnostic contract and design direction. It
+does not claim that the production recorder, export route or final Browser UI
+is implemented. WP3B is the subsequent implementation package.
+
+### Customer workflow
+
+The supported workflow is:
+
+`Settings → Advanced → Diagnostics → DOWNLOAD DIAGNOSTICS → send one item to support`.
+
+The customer receives one P&P-generated artifact. They do not select raw logs,
+sessions, cursors, sinks, files or endpoints. A download may be requested while
+recording is active. P&P owns the snapshot boundary and recording continues
+after the snapshot. The Browser displays the authoritative export capability
+and result; it does not implement a snapshot or recovery state machine.
+
+### Artifact representation and contents
+
+The WP3A support artifact is a versioned UTF-8 newline-delimited JSON file
+(`.ndjson`), with one self-identifying header record, structured diagnostic
+records in deterministic sequence order, and a summary/footer record. The
+header identifies the product, firmware/build, controller epoch, export
+schema, snapshot boundary, storage-health and capability state. Records retain
+the structured envelope, timestamps, client/session identity where applicable,
+correlations, event kind and allow-listed payload. The summary reports record
+count, drops and whether evidence is incomplete, volatile or degraded.
+
+The artifact must contain enough retained Normal material and Development
+material up to the snapshot to reconstruct chronology, reboot/session
+boundaries, health/storage faults, controller/network context, race/session
+state, requests/results and input context. It must remain inspectable and
+deterministic for tests. The current `/diag/records` hexadecimal response is a
+development inspection view, not this support artifact. Compression, byte
+limits and final SD placement remain implementation/physical-validation
+details and are not frozen here.
+
+### Recording scope
+
+Normal diagnostics are always-on, quiet, bounded and rolling. They capture the
+allow-listed Stage 15 taxonomy needed to explain ordinary customer faults:
+boot/controller/build identity, session/reconstruction boundaries, material
+request acceptance/rejection, authoritative lifecycle/state changes,
+persistence and storage-health transitions, resource-health faults/recovery,
+and relevant notification/transport-health transitions. They do not record
+unchanged loops, raw traffic or arbitrary form data. Detailed detector/input,
+Browser request/result, notification, collection and render observations are
+Development-level evidence, with Normal retaining only material fault or
+transition observations needed for support.
+
+Development diagnostics include Normal scope plus the deeper structured
+request, input/detector, Message Bus/Race decision, Browser notification,
+authoritative collection, render, persistence, resource, fault, drop and
+reconstruction observations already defined by the Stage 15 taxonomy. Both
+scopes use an allow-list; neither copies raw headers, secrets, cookies,
+arbitrary form contents or unrelated personal data.
+
+### Retention, storage health and failure
+
+Normal retention is a bounded rolling window; the oldest diagnostic evidence
+is discarded when its bound is reached, without outranking authoritative
+History/Results data. Development retention is bounded and reports explicit
+drops/loss. Temporary export material is bounded, reclaimable and leaves no
+uncontrolled debris. Writes must not occur per loop or retry unchanged status
+indefinitely; exact capacities, write timing, SD throughput and wear tuning
+remain provisional until WP4 hardware evidence.
+
+Export capability is P&P-owned and reports one of `AVAILABLE`, `LIMITED` or
+`UNAVAILABLE`. `LIMITED` means a useful artifact can be produced from retained
+RAM/current status/build/health despite degraded or missing durable storage;
+`UNAVAILABLE` means no useful artifact can be produced. SD unavailability does
+not disable diagnostics or racing, and diagnostic failures never alter product
+authority. Existing storage-health state is observed; no second diagnostic
+recovery state machine is introduced.
+
+### Browser hierarchy
+
+The final Browser hierarchy is Settings → Advanced → Diagnostics. Availability
+and DOWNLOAD DIAGNOSTICS are primary. Firmware/build, System Health,
+Diagnostic Storage and Normal Diagnostics state are secondary. TECHNICAL
+DETAILS and DEVELOPMENT DIAGNOSTICS are tertiary. Raw logs, files, cursors,
+JSON, API endpoints, addresses, Message Bus/SD paths, raw HTTP, live console
+and CLEAR DIAGNOSTICS are not customer controls. Normal diagnostics has no
+customer Start/Stop. Development START/STOP is offered to the controlling
+SMUG. Any connected Browser may request the observation-only download.
+
+### WP3A status boundary
+
+This section is the **WP3A Foundation/Product Design Freeze**. It authorizes
+WP3B implementation planning but does not grant final Stage 15 acceptance.
+WP3B must implement and accept the production recorder integration, Browser
+workflow, export route/encoding, storage-health capability, and support
+artifact. Final Stage 15 acceptance additionally requires the resource,
+policy, real ESP32-S3/SD, recovery, housekeeping and render-evidence gates in
+Section 7.
 
 ## 2. Session and storage-health state
 
@@ -90,7 +193,13 @@ Browser reload/reconnect reconstructs diagnostic status from P&P authority. No a
 
 ## 7. Final acceptance boundary
 
-Foundation Design Freeze permits implementation. Final Stage 15 acceptance/freeze additionally requires resource measurement, production ESP32-S3 plus SD/FATFS evidence, permission/security, privacy/redaction, final Browser UX, export encoding, SD housekeeping/wear policy, exact render-evidence rules, and implementation-informed storage-health recovery details.
+Foundation Design Freeze and the WP3A product design freeze permit
+implementation. Final Stage 15 acceptance/freeze additionally requires
+resource measurement, production ESP32-S3 plus SD/FATFS evidence,
+permission/security, privacy/redaction, final Browser UX, export encoding, SD
+housekeeping/wear policy, exact render-evidence rules, and
+implementation-informed storage-health recovery details. WP3A itself is not
+complete merely because this design is frozen.
 
 ## 8. Phase 2 development implementation
 
@@ -199,7 +308,8 @@ counts, and volatility or incompleteness. `GET /diag/records?cursor=N` returns o
 time with its envelope provenance and a provisional hexadecimal payload view.
 This transport representation is development inspection only; it does not
 freeze the final export encoding, permission model, privacy policy, SD layout,
-or product retention capacity.
+or product retention capacity. It is not the WP3A support artifact; the
+customer download path uses the versioned NDJSON contract in Section 1B.
 
 Retrieval is a bounded moving view. Each request reads the current retained
 count at its cursor; records appended after a read are visible from a later

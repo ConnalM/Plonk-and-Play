@@ -11,15 +11,37 @@ No numeric capacity, queue, file-size, or performance threshold is frozen by thi
 | PS15.60 | Diagnostic records contain only defined technical/product fields required for diagnosis; product identities are included only when genuinely part of the state being diagnosed. | Policy and payload review. |
 | PS15.61 | Diagnostics never deliberately record passwords, secrets, authentication tokens, private/signing keys, cookies/session credentials, complete HTTP headers for convenience, arbitrary Browser form contents or unrelated user data. | Redaction/privacy review. |
 | PS15.62 | Normal diagnostics may run automatically; Development diagnostics are explicit advanced facilities and require the authoritative P&P Master/Race Director/controlling-SMUG lease. | Access-control integration test. |
-| PS15.63 | Starting, stopping, listing and downloading Development diagnostic sessions use that same single control-lease boundary; no separate diagnostic authentication is introduced. | Access-control integration test. |
+| PS15.63 | Starting and stopping Development diagnostic sessions use the controlling-SMUG lease; download and any status/viewing are observation-only for connected Browsers and do not require TAKE CONTROL or a separate diagnostic authentication system. | Access-control integration test; final route/UI enforcement outstanding. |
 | PS15.64 | Diagnostic access does not grant Race Control/Race Engine authority, and diagnostic, access or export failure cannot alter product/race operation. | Authority and failure-independence test. |
 | PS15.65 | No new elaborate account/login system is introduced solely for Stage 15; the existing/frozen P&P access model enforces the boundary or the gap is returned for decision before exposure. | Architecture/access review. |
 
-The current implementation does not yet provide request-level authorization
-against the authoritative Master/Race Director/controlling-SMUG lease on the
-Development diagnostic HTTP routes. PS15.62, PS15.63 and the enforcement
-portion of PS15.65 therefore remain open pending integration of that existing
-lease check. This document does not authorize a Browser-local substitute.
+The current implementation provides the controlling-lease check for the
+Development start/stop path. The final status/viewing routes must remain
+observation-only, and the customer download route is not yet implemented.
+The remaining route and Browser work is a WP3B implementation gap; this
+document does not authorize a Browser-local substitute or a second diagnostic
+authentication system.
+
+## WP3A product/support contract checks
+
+These checks freeze the WP3A design contract. They are not implementation
+passes and do not grant final Stage 15 acceptance.
+
+| ID | Requirement | Evidence/status |
+|---|---|---|
+| PS15.73 | The customer workflow is Settings → Advanced → Diagnostics → DOWNLOAD DIAGNOSTICS → one P&P-generated support artifact. | WP3A design freeze; production UI/route outstanding. |
+| PS15.74 | Normal diagnostics are always-on, quiet, bounded, rolling and observation-only; there is no customer Normal Start/Stop. | WP3A design freeze; production integration outstanding. |
+| PS15.75 | Development diagnostics are explicit, deeper and observation-only; START/STOP require the controlling SMUG/Race Director lease and cannot alter product authority. | Existing lease enforcement plus WP3A design; final production integration outstanding. |
+| PS15.76 | Download is available to any connected Browser as an observation-only action; status/viewing are observation-only and do not offer TAKE CONTROL merely to inspect or download. | WP3A design freeze; route/UI enforcement outstanding. |
+| PS15.77 | P&P owns a bounded snapshot boundary while recording continues; the Browser does not implement snapshot or recovery state. | WP3A design freeze; export implementation outstanding. |
+| PS15.78 | Export capability is authoritative and reports `AVAILABLE`, `LIMITED` or `UNAVAILABLE`; SD failure does not disable racing or diagnostics. | WP3A design freeze; production health/export integration outstanding. |
+| PS15.79 | The support artifact is versioned UTF-8 NDJSON with self-identifying header, deterministic structured records, summary/footer, provenance and explicit incomplete/volatile/drop state. | WP3A design freeze; final encoder and transport outstanding. |
+| PS15.80 | Normal scope is an allow-listed quiet support trace covering boot/build, reconstruction, material requests/results, authoritative state/lifecycle, persistence/storage health, resource faults/recovery and relevant notification health. | WP3A design freeze; production recorder scope integration outstanding. |
+| PS15.81 | Development scope includes the Normal scope plus deeper request/input/Bus/Race decision, Browser collection/render, persistence, resource, fault, drop and reconstruction observations. | WP3A design freeze; production recorder scope integration outstanding. |
+| PS15.82 | Normal and Development retention are bounded; oldest Normal evidence rolls out, Development drops are explicit, export material is bounded/reclaimable, and diagnostics never outrank History/Results. | WP3A design freeze; final capacities and housekeeping remain open. |
+| PS15.83 | The artifact uses only allow-listed technical/product fields and never includes passwords, secrets, tokens, keys, cookies, complete headers, arbitrary forms or unrelated personal data. | WP3A design freeze; final redaction/export review outstanding. |
+| PS15.84 | Storage failure produces authoritative capability state and useful degraded behavior where possible; it cannot block or mutate Race Engine/product authority. | WP3A design freeze; production failure/recovery integration outstanding. |
+| PS15.85 | Diagnostic writes are bounded and non-blocking, avoid per-loop/unchanged-status churn and leave no uncontrolled temporary debris; physical tuning remains WP4. | WP3A design freeze; implementation/resource/hardware evidence outstanding. |
 
 ## Control-lease acceptance requirements
 
@@ -170,6 +192,15 @@ Phase 8B must also complete the existing boot, flash, PSRAM, LCD/backlight,
 encoder/touch where fitted, SD, persistence/reconstruction, resource,
 timing/stability and failure-behaviour checks. No Wokwi or host result is
 claimed as real-hardware evidence.
+
+## WP3A design status
+
+**WP3A — contract reconciliation and product design: ACCEPTED/FROZEN.** The
+customer workflow, Normal/Development scope, control boundary, NDJSON support
+artifact contract, capability states, snapshot semantics, privacy exclusions
+and bounded-storage principles are now frozen for implementation. WP3B
+production recorder/Browser/export integration has not started and is not
+claimed by the Phase 1–7 foundation evidence.
 
 ## Final acceptance gates, intentionally outstanding
 
