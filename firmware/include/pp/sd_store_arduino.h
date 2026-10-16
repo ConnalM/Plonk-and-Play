@@ -200,7 +200,10 @@ public:
     if(storagePending_)return;
     while(queueSize_){Item item=queue_[0];
       if(!writeRecord(item.entry,item.record)){storagePending_=true;return;}
-      for(size_t i=1;i<queueSize_;++i)queue_[i-1]=queue_[i];--queueSize_;
+      for(size_t i=1;i<queueSize_;++i){
+        queue_[i-1]=queue_[i];
+      }
+      --queueSize_;
       storagePending_=false;
     }
   }
@@ -213,7 +216,12 @@ public:
   uint8_t detailEntryCount() const override { return entries_; }
   uint32_t detailRecordCount(uint8_t entry) const override { return entry<entries_?counts_[entry]:0; }
   bool readDetail(uint8_t entry,uint32_t index,LapRecord& out) const override {
-    if(!finalized_||entry>=entries_||index>=counts_[entry])return false; File f=SD.open(path(entry),FILE_READ);if(!f)return false;const bool ok=f.seek(HeaderBytes+size_t(index)*RecordBytes)&&readEncoded(f,out);f.close();return ok;
+    if(!finalized_||entry>=entries_||index>=counts_[entry])return false;
+    File f=SD.open(path(entry),FILE_READ);
+    if(!f)return false;
+    const bool ok=f.seek(HeaderBytes+size_t(index)*RecordBytes)&&readEncoded(f,out);
+    f.close();
+    return ok;
   }
   bool detailComplete() const override { return complete_&&finalized_; }
   uint32_t dropped() const override { return dropped_; }

@@ -27,8 +27,11 @@ public:
     w.u32(Magic); w.u16(Version); w.u16(0); size_t lengthOffset=w.position(); w.u32(0);
     w.u16(value.formatVersion);
     uint8_t flags=0;
-    if(value.sealed)flags|=1u; if(value.valid)flags|=2u; if(value.deadHeat)flags|=4u;
-    if(value.fastestLapTied)flags|=8u; if(value.overtime)flags|=16u;
+    if(value.sealed) flags|=1u;
+    if(value.valid) flags|=2u;
+    if(value.deadHeat) flags|=4u;
+    if(value.fastestLapTied) flags|=8u;
+    if(value.overtime) flags|=16u;
     w.u8(flags); w.u8(static_cast<uint8_t>(value.mode)); w.u8(static_cast<uint8_t>(value.behaviour)); w.u8(value.entryCount);
     w.u16(value.durationMinutes); w.u16(0); w.u32(value.lapTarget);
     w.u64(value.winningTime); w.u64(value.finishTime); w.u64(value.expiryTime); w.u64(value.durationUs);
