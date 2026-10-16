@@ -47,6 +47,7 @@ These tests verify the persistent-storage boundary without changing frozen Stage
 | WP2E.5 | Normal persistence writes are event-driven and bounded: no main-loop rewrite or retry storm; unchanged PB/Track Record/configuration is not rewritten. | Development |
 | WP2E.6 | Practical payload/metadata estimates are recorded as measured development evidence, while final SD capacity/wear thresholds remain hardware debt. | Development |
 | WP2E.7 | Active-detail append and final seal reject an insufficient transaction before creating more temporary data, while authoritative racing remains unaffected. | Development and Hardware |
+| WP2F.1 | A normal Race Engine/Input scenario with a recoverable temporary storage interruption completes, commits, reconstructs Result/Details and reconstructs PB/Track Record consequences without changing authoritative race facts. | Development |
 
 ## Required evidence
 
@@ -74,6 +75,15 @@ wear or throughput behaviour. Those remain hardware acceptance work.
 No storage change may weaken or rewrite frozen Stage 1–14C requirements. All applicable earlier automated, structural, Wokwi, Browser and human hardware evidence must remain valid or be rerun where the shared persistence boundary is affected.
 
 Practice remains non-official. Abandoned races remain excluded from official History. PB/Track Record eligibility and Record Era semantics remain unchanged.
+
+## WP2F final software campaign record
+
+WP2F software acceptance is complete when the focused PSF/WP2A–E suite and
+`wp2f_semantic_test.cpp` pass. The semantic test drives the normal
+Race Engine/Input path through a recoverable temporary detail interruption,
+explicit recovery, commit, Result/Details reconstruction and PB/Track Record
+reconstruction. This is a development acceptance result and does not replace
+the physical SD/power-loss requirements marked Hardware above.
 
 ## Production active-detail streaming and software failure boundary (WP2D)
 

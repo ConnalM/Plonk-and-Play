@@ -9,6 +9,7 @@ $detailStream=Join-Path $env:TEMP 'pp-active-detail-stream-test.exe'
 $detailStreamFailure=Join-Path $env:TEMP 'pp-active-detail-stream-failure-test.exe'
 $detailRecovery=Join-Path $env:TEMP 'pp-active-detail-recovery-test.exe'
 $housekeeping=Join-Path $env:TEMP 'pp-storage-housekeeping-test.exe'
+$semantic=Join-Path $env:TEMP 'pp-wp2f-semantic-test.exe'
 g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'foundation_test.cpp') -o $foundation
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage Foundation foundation compile failed: $LASTEXITCODE" }
 & $foundation
@@ -45,6 +46,10 @@ g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'storage_house
 if ($LASTEXITCODE -ne 0) { throw "WP2E storage-housekeeping compile failed: $LASTEXITCODE" }
 & $housekeeping
 if ($LASTEXITCODE -ne 0) { throw "WP2E storage-housekeeping acceptance failed: $LASTEXITCODE" }
+g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'wp2f_semantic_test.cpp') -o $semantic
+if ($LASTEXITCODE -ne 0) { throw "WP2F semantic compile failed: $LASTEXITCODE" }
+& $semantic
+if ($LASTEXITCODE -ne 0) { throw "WP2F semantic acceptance failed: $LASTEXITCODE" }
 $engine=Get-Content (Join-Path $root 'firmware\include\pp\race_engine.h') -Raw
 $codec=Get-Content (Join-Path $root 'firmware\include\pp\persistent_storage.h') -Raw
 $history=Get-Content (Join-Path $root 'firmware\include\pp\history_store.h') -Raw
