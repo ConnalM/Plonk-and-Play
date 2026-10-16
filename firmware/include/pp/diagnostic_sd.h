@@ -114,6 +114,13 @@ public:
     File input = SD.open(FilePath, FILE_READ);
     if (!input)
       return false;
+    // Do not rely on the SD/FATFS implementation's implicit cursor after
+    // opening a file.  On the real S3 card the handle can otherwise begin at
+    // the end of the file after prior append activity.
+    if (!input.seek(HeaderBytes)) {
+      input.close();
+      return false;
+    }
     uint8_t frame[RecordOverheadBytes + MaxPayloadBytes]{};
     for (size_t index = 0; index <= wanted; ++index) {
       uint32_t body = 0;
@@ -257,6 +264,10 @@ private:
     uint8_t header[HeaderBytes]{};
     if (input.read(header, sizeof(header)) != sizeof(header) ||
         read32(header) != HeaderMagic || read16(header + 4) != FormatVersion) {
+      input.close();
+      return false;
+    }
+    if (!input.seek(HeaderBytes)) {
       input.close();
       return false;
     }

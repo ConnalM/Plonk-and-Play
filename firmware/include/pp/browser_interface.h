@@ -2023,7 +2023,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     }
     httpd_resp_set_type(request, "application/x-ndjson; charset=utf-8");
     httpd_resp_set_hdr(request, "Content-Disposition",
-                       "attachment; filename=P-and-P-Diagnostics.ndjson");
+                       "attachment; filename=P-and-P-Diagnostics.txt");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
     diagnostic::DiagnosticExportMetadata metadata{};
     metadata.firmwareBuild = browser->diagnosticBuildIdentity_;
