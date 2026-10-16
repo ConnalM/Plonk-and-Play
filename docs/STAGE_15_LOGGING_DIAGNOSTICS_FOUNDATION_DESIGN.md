@@ -147,6 +147,23 @@ artifact. Final Stage 15 acceptance additionally requires the resource,
 policy, real ESP32-S3/SD, recovery, housekeeping and render-evidence gates in
 Section 7.
 
+### Development duration and reboot volatility
+
+An active Development-logging session automatically stops after four hours.
+The controlling SMUG may deliberately stop it earlier. Automatic expiry stops
+Development logging only; Normal diagnostics continue uninterrupted. The
+Development records already retained or durably written are not deleted merely
+because the mode expires and remain available under the normal bounded
+retention policy.
+
+The enabled/active Development-logging mode is volatile and is not persisted.
+A reboot, reset or power loss ends Development logging. P&P always starts or
+restarts in Normal diagnostics only. There is no automatic resume and no
+resume prompt. Previously recorded diagnostic material remains available
+subject to bounded retention. If further Development detail is required, the
+controlling SMUG deliberately starts a new Development session. This
+volatility applies to the mode/enabled state, not to already-recorded evidence.
+
 ## 2. Session and storage-health state
 
 The diagnostic session lifecycle is exactly:

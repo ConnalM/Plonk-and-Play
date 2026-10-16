@@ -42,6 +42,8 @@ passes and do not grant final Stage 15 acceptance.
 | PS15.83 | The artifact uses only allow-listed technical/product fields and never includes passwords, secrets, tokens, keys, cookies, complete headers, arbitrary forms or unrelated personal data. | WP3A design freeze; final redaction/export review outstanding. |
 | PS15.84 | Storage failure produces authoritative capability state and useful degraded behavior where possible; it cannot block or mutate Race Engine/product authority. | WP3A design freeze; production failure/recovery integration outstanding. |
 | PS15.85 | Diagnostic writes are bounded and non-blocking, avoid per-loop/unchanged-status churn and leave no uncontrolled temporary debris; physical tuning remains WP4. | WP3A design freeze; implementation/resource/hardware evidence outstanding. |
+| PS15.86 | Development logging automatically stops after four hours or earlier deliberate STOP by the controlling SMUG; Normal diagnostics continue, and retained Development evidence is not deleted on expiry. | WP3A design freeze; timed-session implementation and acceptance outstanding. |
+| PS15.87 | Development mode/enabled state is not persisted: reboot, reset or power loss ends it; P&P restarts in Normal diagnostics only, with no automatic resume or prompt, while previously recorded evidence remains subject to bounded retention. | WP3A design freeze; restart/volatility implementation and acceptance outstanding. |
 
 ## Control-lease acceptance requirements
 

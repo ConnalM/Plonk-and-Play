@@ -186,6 +186,13 @@ provenance and explicit incomplete/volatile/drop state. Export capability is
 authoritative (`AVAILABLE`, `LIMITED` or `UNAVAILABLE`), and diagnostic
 failure cannot affect racing or product authority.
 
+Development logging automatically stops after four hours, or earlier when
+deliberately stopped by the controlling SMUG. Normal diagnostics continue and
+retained Development evidence is not deleted on expiry. Development mode is
+volatile: reboot, reset or power loss ends it, P&P restarts in Normal
+diagnostics only, and there is no automatic resume or resume prompt. Existing
+diagnostic material remains subject to bounded retention.
+
 This is a design freeze only. Production recorder integration, final Browser
 Diagnostics UI, export route/encoder, final capacities, privacy/redaction
 review, SD housekeeping/wear tuning and real ESP32-S3/SD acceptance remain
