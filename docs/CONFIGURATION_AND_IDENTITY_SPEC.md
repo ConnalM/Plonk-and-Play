@@ -306,6 +306,13 @@ available as soon as the AP is ready, regardless of station failure or loss.
 The external password may be accepted for provisioning and persisted only as
 needed for reconnection, but must never subsequently be returned, displayed,
 logged, diagnosed, exported, or included in History/Results or support data.
+The ESP-IDF/Arduino Wi-Fi driver's flash-backed STA configuration is the sole
+persistent credential store for that remembered network; P&P does not maintain
+a duplicate SSID/password record. Disconnect retains the driver configuration
+but suppresses automatic reconnection for the remainder of the boot. Explicit
+Connect/Reconfigure clears that suppression, and reboot clears it. Forget
+Network erases the driver's persisted STA configuration and P&P's configured
+state, with authoritative failure if the operation cannot be completed.
 Network status is sanitized and may include AP/STA state, addresses, signal,
 failure information and mDNS status. `plonk-and-play.local` is preferred when
 available, with the assigned LAN IP as fallback. Connection, retry and scan

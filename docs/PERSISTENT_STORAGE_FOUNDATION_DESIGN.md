@@ -13,11 +13,13 @@ It does not change race timing, authority, session, Results, History, Practice, 
 ### NVS
 
 NVS stores only small essential controller state, including configuration,
-remembered setup, the single remembered external-network credential record
-required for optional AP+STA reconnection, retained Browser/Race Director
-authority, storage-format or migration markers, and small indexes or
-generations where useful. Network credentials remain outside History, Results,
-diagnostic storage and support exports.
+remembered setup, the ESP-IDF/Arduino Wi-Fi driver's persisted STA
+configuration for the one remembered external network, retained Browser/Race
+Director authority, storage-format or migration markers, and small indexes or
+generations where useful. The driver-managed flash-backed STA configuration is
+the sole persistent credential store for optional AP+STA reconnection; P&P does
+not maintain a duplicate SSID/password record. Network credentials remain
+outside History, Results, diagnostic storage and support exports.
 
 NVS is not the production backend for completed-race History or detailed Results/Details. The current Wokwi NVS `NOT_ENOUGH_SPACE` evidence remains valid and is a development failure-boundary case.
 

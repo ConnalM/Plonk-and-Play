@@ -30,6 +30,10 @@ The production implementation provides the controlling-lease check for Developme
 | NET15.7 | `plonk-and-play.local` is preferred when mDNS is available and the assigned LAN IP remains the fallback. | Discovery/runtime test. |
 | NET15.8 | The external password is accepted only for provisioning/reconnection and is never subsequently returned, displayed, logged, diagnosed, exported or included in History/Results/support data. | Privacy/redaction test. |
 | NET15.9 | Network status/scan/retry work is bounded and non-blocking; exact scan/retry/backoff constants remain implementation choices until real-S3/resource acceptance. | Structural/resource and real-S3 acceptance. |
+| NET15.10 | An explicit Disconnect from the controlling SMUG disconnects the external STA, retains the driver's remembered configuration, suppresses automatic reconnection for the remainder of that boot, and leaves the factory AP, HTTP and racing available. | Network control integration test. |
+| NET15.11 | An explicit Connect/Reconfigure from the controlling SMUG clears Disconnect suppression and may establish the selected external network; a reboot also clears suppression and permits automatic reconnection to the remembered network. | Network control and reboot test. |
+| NET15.12 | Forget Network from the controlling SMUG suppresses reconnection, disconnects/disables STA, erases the driver's persisted STA configuration and P&P configured-state metadata, and leaves the factory AP/HTTP available. Failure to complete the logical erase is reported authoritatively. After a successful Forget, reboot makes no attempt to use the forgotten network. | Network forget/failure/reboot test. |
+| NET15.13 | The ESP-IDF/Arduino Wi-Fi driver's flash-backed STA configuration is the sole persistent credential store; no duplicate P&P SSID/password record exists. Credential material is never returned, displayed, logged, diagnosed, exported or included in product/history data. | Storage/privacy inspection and reboot/forget acceptance. |
 
 ## WP3A product/support contract checks
 

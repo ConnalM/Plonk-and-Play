@@ -655,8 +655,15 @@ LAN discovery name when mDNS is available; the assigned LAN IP remains the
 fallback and is presented as current network status.
 
 The external-network password may be accepted for provisioning and persisted
-only as required for reconnection. It must never subsequently be returned,
-displayed, logged, diagnosed, exported, or included in History or Results.
+only as required for reconnection. The ESP-IDF/Arduino Wi-Fi driver's
+flash-backed STA configuration is the sole persistent credential store; P&P
+does not maintain a duplicate SSID/password record. It must never subsequently
+be returned, displayed, logged, diagnosed, exported, or included in History or
+Results. An explicit Disconnect retains that driver configuration while
+suppressing automatic reconnection for the remainder of the boot; an explicit
+Connect/Reconfigure clears the suppression, and reboot clears it. Forget
+Network erases the driver's persisted STA configuration and P&P's configured
+state, with authoritative failure if that operation cannot be completed.
 Network diagnostics expose only sanitized AP/STA state, addresses, signal and
 failure information. Scan/retry/backoff constants remain implementation
 choices subject to bounded, non-blocking behaviour and real-S3 acceptance.
