@@ -218,7 +218,15 @@ public:
   RecorderResult tryAppend(const RecordView& record, uint64_t& sequence) override {
     sequence = 0;
     if (!normal_.controllerEpoch.valid()) return RecorderResult::NotActive;
-    const uint64_t candidate = nextSequence_ + 1;
+    // Reserve the sequence before touching storage.  A durable append can
+    // return an error after bytes have reached the medium (for example a
+    // short/ambiguous write or commit failure).  Advancing the recorder
+    // watermark first prevents the next observation from reusing that
+    // candidate and makes any resulting gap explicit in the incomplete/drop
+    // accounting.
+    const uint64_t candidate = ++nextSequence_;
+    normal_.nextSequence = nextSequence_;
+    if (developmentActive()) development_.nextSequence = nextSequence_;
     RecordView value = record;
     value.envelope.controllerEpoch = normal_.controllerEpoch;
     if (!value.envelope.session.valid()) value.envelope.session = normal_.session;
@@ -247,8 +255,6 @@ public:
       }
       return RecorderResult::Fault;
     }
-    ++nextSequence_;
-    normal_.nextSequence = nextSequence_;
     normal_.bytesRecorded += value.payloadBytes;
     normal_.storage = storage_.status().health;
     if (rolled && developmentActive()) {

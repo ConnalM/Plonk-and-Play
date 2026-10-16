@@ -38,6 +38,7 @@ struct DiagnosticExportResult {
   bool complete = false;
   bool readFailed = false;
   bool changedDuringExport = false;
+  bool duplicateSequence = false;
   bool writeFailed = false;
 };
 
@@ -103,6 +104,13 @@ public:
         result.readFailed = true;
         break;
       }
+      bool priorReadFailed = false;
+      if (sequenceSeenBefore(recorder, index, envelope.sequence, priorReadFailed))
+        result.duplicateSequence = true;
+      if (priorReadFailed) {
+        result.readFailed = true;
+        break;
+      }
       int prefix = snprintf(
           line, sizeof(line),
           "{\"type\":\"record\",\"sequence\":%llu,\"timestamp\":%llu,"
@@ -147,18 +155,21 @@ public:
     }
 
     result.complete = !result.readFailed && !result.changedDuringExport &&
+                      !result.duplicateSequence &&
                       result.exportedRecords == result.snapshotRecords;
     const bool incomplete = metadata.evidenceIncomplete || !result.complete;
     const int summary = snprintf(
         line, sizeof(line),
         "{\"type\":\"summary\",\"snapshotRecords\":%u,\"records\":%u,"
         "\"complete\":%s,\"readFailed\":%s,\"changedDuringExport\":%s,"
+        "\"duplicateSequence\":%s,"
         "\"dropped\":%llu,\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,"
         "\"exportCapability\":\"%s\"}\n",
         static_cast<unsigned>(result.snapshotRecords),
         static_cast<unsigned>(result.exportedRecords), result.complete ? "true" : "false",
         result.readFailed ? "true" : "false",
         result.changedDuringExport ? "true" : "false",
+        result.duplicateSequence ? "true" : "false",
         static_cast<unsigned long long>(droppedRecords),
         metadata.evidenceVolatile ? "true" : "false",
         incomplete ? "true" : "false",
@@ -169,6 +180,23 @@ public:
       return false;
     }
     return true;
+  }
+
+private:
+  static bool sequenceSeenBefore(const DiagnosticRecorder& recorder,
+                                 size_t index, uint64_t sequence,
+                                 bool& readFailed) {
+    uint8_t payload[MaxPayloadBytes]{};
+    for (size_t prior = 0; prior < index; ++prior) {
+      RecordEnvelope envelope{};
+      size_t payloadBytes = 0;
+      if (!recorder.read(prior, envelope, payload, sizeof(payload), payloadBytes)) {
+        readFailed = true;
+        return false;
+      }
+      if (envelope.sequence == sequence) return true;
+    }
+    return false;
   }
 };
 

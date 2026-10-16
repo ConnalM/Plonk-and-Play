@@ -176,7 +176,7 @@ Other Browser clients may observe or contribute to the existing session. Each cl
 
 ## 4. Structured records
 
-Every record has a versioned envelope containing controller epoch, session identity, client identity where applicable, sequence, diagnostic timestamp, event kind, severity, correlation fields, payload type, and structured payload.
+Every record has a versioned envelope containing controller epoch, session identity, client identity where applicable, sequence, diagnostic timestamp, event kind, severity, correlation fields, payload type, and structured payload. For durable diagnostic storage, sequence is monotonically increasing and unique within the retained durable diagnostic stream/storage generation, including across controller restarts; `controllerEpoch` remains separate provenance identifying the boot that produced a record. A volatile RAM-only stream may begin a new sequence after reboot because its prior stream no longer exists. A failed or ambiguous append consumes its reserved sequence; a resulting gap is reported as incomplete evidence rather than reusing the candidate.
 
 The correlation chain is:
 

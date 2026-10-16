@@ -257,8 +257,10 @@ public:
   virtual StorageStatus status() const = 0;
   virtual StorageResult recover() = 0;
   virtual StorageResult close() = 0;
-  // Durable backends may restore the sequence watermark before a new boot
-  // appends records. Volatile/development backends may return zero.
+  // Durable backends restore the high-water sequence before a new boot
+  // appends records. The recorder reserves the next value before attempting
+  // storage so an ambiguous append cannot reuse it. Volatile/development
+  // backends may return zero when their prior stream no longer exists.
   virtual uint64_t lastSequence() const { return 0; }
   virtual uint64_t revision() const { return 0; }
   // Optional bounded-retention hook. Production Normal diagnostics may roll

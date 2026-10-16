@@ -83,6 +83,7 @@ passes and do not grant final Stage 15 acceptance.
 | PS15.20 | Multiple client identities are preserved in one session's records. | Phase 2 unit test. |
 | PS15.21 | In-memory operation reports `ACTIVE + RAM_ONLY` and explicit volatility. | Phase 2 unit test. |
 | PS15.22 | Records append in deterministic sequence order and can be retrieved in that order. | Phase 2 unit test. |
+| PS15.22a | Durable diagnostic sequences are monotonically increasing and unique within the retained durable stream across normal appends, append/write or ambiguous-commit failures, reboot/recovery, rolling retention and controller epochs; a failed reservation may leave an explicit gap. Existing duplicate historical records are preserved and reported as incomplete/anomalous rather than renumbered. | WP3 durable-sequence regression and export anomaly test. |
 | PS15.23 | Provisional test capacity is bounded; overflow drops new evidence, counts loss, marks incomplete/degraded, and does not overwrite earlier records. | Phase 2 unit test. |
 | PS15.24 | Backend append failure latches fault, reports the failure, and causes later submissions to return without retrying the backend. | Phase 2 failure-injection test. |
 | PS15.25 | Interruption reports `INTERRUPTED` and incomplete evidence without creating product state. | Phase 2 unit test. |
@@ -139,6 +140,7 @@ passes and do not grant final Stage 15 acceptance.
 | PS15.57 | Host/file, in-memory and deterministic failure-injection implementations remain interchangeable at the DiagnosticStorage boundary; no host filesystem is required by Wokwi firmware. | Phase 1–7 backend contract tests and structural review. |
 | PS15.58 | Resource measurements cover record/chunk sizes, bounded request allocation, retained/drop behavior and representative retrieval cost without freezing final capacities or thresholds. | Phase 7 measurement output and firmware build review. |
 | PS15.59 | Diagnostic status/retrieval endpoints remain observation-only and do not alter racing, authority, timing, persistence or Browser product behavior. | Phase 1–7 failure-independence checks and Stage 1–14C applicable regressions. |
+| PS15.59a | A complete diagnostic export contains the stable snapshot records in deterministic order with unique durable sequence values; duplicate historical values remain readable but make the export explicitly incomplete with `duplicateSequence=true`. | WP3 export regression and real-SD artifact inspection. |
 
 ### Phase 7 measurement record
 
