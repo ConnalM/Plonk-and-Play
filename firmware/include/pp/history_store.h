@@ -16,6 +16,8 @@ public:
   virtual bool appendDetailed(const void*, size_t, const DetailSource&, uint32_t& sequence) { sequence=0; return false; }
   virtual bool loadNewest(uint8_t index, uint8_t* bytes, size_t capacity, size_t& length, uint32_t& sequence) = 0;
   virtual uint8_t count() = 0;
+  virtual size_t payloadSize(uint8_t) { return 0; }
+  virtual size_t maximumPayloadBytes() { return 0; }
   virtual bool loadSequence(uint32_t wanted, uint8_t* bytes, size_t capacity, size_t& length, uint32_t& sequence) {
     if (!wanted) return false;
     const uint8_t total = count();
@@ -75,6 +77,8 @@ public:
   }
 
   uint8_t count() override { return ensure() ? meta_.count : 0; }
+  size_t payloadSize(uint8_t index) override { return ensure()&&index<meta_.count ? meta_.entries[meta_.count-1-index].bytes : 0; }
+  size_t maximumPayloadBytes() override { if(!ensure())return 0;size_t max=0;for(uint8_t i=0;i<meta_.count;++i)if(meta_.entries[i].bytes>max)max=meta_.entries[i].bytes;return max; }
 
   bool clear() override {
     if (!ensure()) return false;

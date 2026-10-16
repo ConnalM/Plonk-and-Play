@@ -12,6 +12,11 @@ namespace pp {
 // detail incomplete so History publication is refused.
 #define PP_ACTIVE_DETAIL_BUDGET_BYTES (128u * 1024u)
 #endif
+#ifndef PP_REHYDRATED_DETAIL_BUDGET_BYTES
+// On-demand decode workspace only; this is not active-race capacity or a
+// product lap ceiling. Production streamed detail will avoid bulk reloads.
+#define PP_REHYDRATED_DETAIL_BUDGET_BYTES (512u * 1024u)
+#endif
 
 class ActiveDetailStore : public DetailSource {
 public:
@@ -50,7 +55,7 @@ public:
     LapRecord& operator[](uint32_t index){return records[index];}
     const LapRecord& operator[](uint32_t index)const{return records[index];}
     void reset(){free(records);records=nullptr;recordCount=recordCapacity=droppedCount=0;complete=true;}
-    bool prepare(uint32_t count){reset();if(!count)return true;if(count>UINT32_MAX/sizeof(LapRecord)||size_t(count)*sizeof(LapRecord)>PP_ACTIVE_DETAIL_BUDGET_BYTES)return false;records=static_cast<LapRecord*>(malloc(size_t(count)*sizeof(LapRecord)));if(!records)return false;recordCapacity=count;return true;}
+    bool prepare(uint32_t count,size_t budget=PP_ACTIVE_DETAIL_BUDGET_BYTES){reset();if(!count)return true;if(count>UINT32_MAX/sizeof(LapRecord)||size_t(count)*sizeof(LapRecord)>budget)return false;records=static_cast<LapRecord*>(malloc(size_t(count)*sizeof(LapRecord)));if(!records)return false;recordCapacity=count;return true;}
   };
   struct EntryState {
     uint32_t raceEntryId=0,mugId=0,laps=0; Time lastCrossing=0,lastLapTime=0,bestLapTime=0;
