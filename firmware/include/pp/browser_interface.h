@@ -8,6 +8,7 @@
 #include "system_time.h"
 #include "diagnostic_trace.h"
 #include "diagnostic_retrieval.h"
+#include "diagnostic_export.h"
 #include "control_lease.h"
 #ifndef PP_MAX_SSE_CLIENTS
 #define PP_MAX_SSE_CLIENTS 4
@@ -56,6 +57,9 @@ public:
   }
   uint64_t controllerEpoch() const { return controllerEpoch_; }
   void setDiagnosticTrace(diagnostic::ControllerOperationTrace* trace) { diagnosticTrace_ = trace; }
+  void setDiagnosticBuildIdentity(const char* identity) {
+    diagnosticBuildIdentity_ = identity && *identity ? identity : "unknown";
+  }
   void begin() {
     WiFi.persistent(false);
 #if defined(PP_PHASE8B_REAL_SD)
@@ -435,6 +439,7 @@ private:
   ControlLease controlLease_{};
   uint64_t controllerEpoch_ = 0;
   diagnostic::ControllerOperationTrace* diagnosticTrace_ = nullptr;
+  const char* diagnosticBuildIdentity_ = "unknown";
   uint32_t noticeRevision_ = 0;
   // Clock/start-light presentation is a separate P&P-driven stream. It does
   // not advance the Noticeboard revision or generate NOTICEBOARD_CHANGED.
@@ -1969,11 +1974,26 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   }
   static const char* diagnosticExportCapability(const diagnostic::StorageStatus& storage,
                                                 size_t retained) {
-    if (retained != 0 || storage.health == diagnostic::StorageHealth::RamOnly ||
-        storage.health == diagnostic::StorageHealth::Degraded) return "LIMITED";
-    if (storage.health == diagnostic::StorageHealth::DurableSd) return "AVAILABLE";
-    return "UNAVAILABLE";
+    return diagnostic::DiagnosticExport::capability(storage, retained);
   }
+  static const char* diagnosticBackendName(diagnostic::BackendKind backend) {
+    switch (backend) {
+      case diagnostic::BackendKind::Memory: return "RAM";
+      case diagnostic::BackendKind::DevelopmentFile: return "DEVELOPMENT_FILE";
+      case diagnostic::BackendKind::FailureInjection: return "FAILURE_INJECTION";
+      case diagnostic::BackendKind::ProductionSd: return "ESP32_SPI_SD";
+      default: return "UNKNOWN";
+    }
+  }
+  class DiagnosticHttpSink final : public diagnostic::DiagnosticExportSink {
+  public:
+    explicit DiagnosticHttpSink(httpd_req_t* request) : request_(request) {}
+    bool write(const char* data, size_t length) override {
+      return httpd_resp_send_chunk(request_, data, length) == ESP_OK;
+    }
+  private:
+    httpd_req_t* request_;
+  };
   static esp_err_t diagnosticDownloadRoute(httpd_req_t* request) {
     RequestTrace trace(instance(), "/diag/download");
     BrowserInterface* browser = instance();
@@ -2002,74 +2022,30 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       return ESP_FAIL;
     }
     httpd_resp_set_type(request, "application/x-ndjson; charset=utf-8");
-    httpd_resp_set_hdr(request, "Content-Disposition", "attachment; filename=pp-diagnostics-v1.ndjson");
+    httpd_resp_set_hdr(request, "Content-Disposition",
+                       "attachment; filename=P-and-P-Diagnostics.ndjson");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
-    char line[1400]{};
-    const int headerLength = snprintf(line, sizeof(line),
-      "{\"type\":\"header\",\"schema\":\"pp-diagnostics-v1\",\"product\":\"Plonk-and-Play\",\"controllerEpoch\":%llu,\"normalSession\":%llu,\"developmentSession\":%llu,\"developmentLifecycle\":%u,\"exportCapability\":\"%s\",\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"snapshotRecords\":%u}\n",
-      static_cast<unsigned long long>(normal.controllerEpoch.value),
-      static_cast<unsigned long long>(normal.session.value),
-      static_cast<unsigned long long>(development.session.value),
-      static_cast<unsigned>(development.lifecycle), capability,
-      normal.evidenceVolatile ? "true" : "false",
-      normal.evidenceIncomplete || development.evidenceIncomplete ? "true" : "false",
-      static_cast<unsigned>(retained));
-    if (headerLength <= 0 || headerLength >= static_cast<int>(sizeof(line)) ||
-        httpd_resp_send_chunk(request, line, headerLength) != ESP_OK) {
-      trace.complete(ESP_FAIL);
-      return ESP_FAIL;
-    }
-    uint8_t* payload = static_cast<uint8_t*>(malloc(diagnostic::DiagnosticRetrieval::MaxPayloadBytes));
-    if (!payload) {
-      httpd_resp_send_chunk(request, nullptr, 0);
-      trace.complete(ESP_ERR_NO_MEM);
-      return ESP_FAIL;
-    }
-    static const char hex[] = "0123456789ABCDEF";
-    bool complete = true;
-    for (size_t index = 0; index < retained; ++index) {
-      diagnostic::RecordEnvelope envelope{};
-      size_t payloadBytes = 0;
-      if (!browser->diagnosticTrace_->recorder().read(index, envelope, payload,
-                                                       diagnostic::DiagnosticRetrieval::MaxPayloadBytes,
-                                                       payloadBytes)) {
-        complete = false;
-        break;
-      }
-      size_t used = 0;
-      const int prefix = snprintf(line, sizeof(line),
-        "{\"type\":\"record\",\"sequence\":%llu,\"timestamp\":%llu,\"kind\":%u,\"severity\":%u,\"client\":%llu,\"traceId\":%llu,\"request\":%u,\"event\":%u,\"parent\":%u,\"payloadType\":%u,\"operation\":%u,\"payloadHex\":\"",
-        static_cast<unsigned long long>(envelope.sequence),
-        static_cast<unsigned long long>(envelope.timestamp),
-        static_cast<unsigned>(envelope.kind), static_cast<unsigned>(envelope.severity),
-        static_cast<unsigned long long>(envelope.client.value),
-        static_cast<unsigned long long>(envelope.traceId),
-        static_cast<unsigned>(envelope.correlation.request),
-        static_cast<unsigned>(envelope.correlation.event),
-        static_cast<unsigned>(envelope.correlation.parent),
-        static_cast<unsigned>(envelope.payloadType), static_cast<unsigned>(envelope.operation));
-      if (prefix <= 0 || static_cast<size_t>(prefix) >= sizeof(line)) { complete = false; break; }
-      used = static_cast<size_t>(prefix);
-      if (payloadBytes > (sizeof(line) - used - 3U) / 2U) { complete = false; break; }
-      for (size_t p = 0; p < payloadBytes && used + 2 < sizeof(line); ++p) {
-        line[used++] = hex[payload[p] >> 4];
-        line[used++] = hex[payload[p] & 0x0F];
-      }
-      if (used + 3 >= sizeof(line)) { complete = false; break; }
-      line[used++] = '"'; line[used++] = '}'; line[used++] = '\n';
-      if (httpd_resp_send_chunk(request, line, used) != ESP_OK) { complete = false; break; }
-    }
-    free(payload);
-    const int footerLength = snprintf(line, sizeof(line),
-      "{\"type\":\"summary\",\"records\":%u,\"complete\":%s,\"dropped\":%llu,\"evidenceIncomplete\":%s}\n",
-      static_cast<unsigned>(retained), complete ? "true" : "false",
-      static_cast<unsigned long long>(normal.droppedRecords + development.droppedRecords),
-      normal.evidenceIncomplete || development.evidenceIncomplete || !complete ? "true" : "false");
-    if (footerLength > 0 && footerLength < static_cast<int>(sizeof(line)))
-      httpd_resp_send_chunk(request, line, footerLength);
+    diagnostic::DiagnosticExportMetadata metadata{};
+    metadata.firmwareBuild = browser->diagnosticBuildIdentity_;
+    metadata.backend = diagnosticBackendName(storage.backend);
+    metadata.capability = capability;
+    metadata.storageHealth = static_cast<uint8_t>(storage.health);
+    metadata.controllerEpoch = normal.controllerEpoch;
+    metadata.normalSession = normal.session;
+    metadata.developmentSession = development.session;
+    metadata.developmentLifecycle = development.lifecycle;
+    metadata.evidenceVolatile = normal.evidenceVolatile;
+    metadata.evidenceIncomplete = normal.evidenceIncomplete ||
+                                   development.evidenceIncomplete;
+    DiagnosticHttpSink sink(request);
+    diagnostic::DiagnosticExportResult result{};
+    const bool encoded = diagnostic::DiagnosticExport::write(
+        browser->diagnosticTrace_->recorder(), metadata,
+        normal.droppedRecords + development.droppedRecords, sink, result);
     const esp_err_t sent = httpd_resp_send_chunk(request, nullptr, 0);
-    trace.complete(sent);
-    return sent;
+    const esp_err_t outcome = encoded && sent == ESP_OK ? ESP_OK : ESP_FAIL;
+    trace.complete(outcome);
+    return outcome;
   }
   static esp_err_t health(httpd_req_t* request) {
     RequestTrace trace(instance(), "/health");

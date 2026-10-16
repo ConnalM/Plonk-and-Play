@@ -55,9 +55,6 @@ public:
     } else if (!createFile()) {
       return fail(StorageResult::WriteFailed, FailureReason::WriteFailure);
     }
-    file_ = SD.open(FilePath, FILE_APPEND);
-    if (!file_)
-      return fail(StorageResult::Unavailable, FailureReason::BackendUnavailable);
     open_ = true;
     if (health_ != StorageHealth::Degraded) {
       health_ = StorageHealth::DurableSd;
@@ -67,7 +64,7 @@ public:
   }
 
   StorageResult tryAppend(const RecordView& record, uint64_t sequence) override {
-    if (!open_ || !file_)
+    if (!open_)
       return fail(StorageResult::Unavailable, FailureReason::BackendUnavailable);
     if (record.payloadBytes > MaxPayloadBytes ||
         (record.payloadBytes != 0 && !record.payload))
@@ -86,15 +83,24 @@ public:
       pos += record.payloadBytes;
     }
     put32(bytes, pos, checksum(bytes, pos));
-    if (file_.write(bytes, pos) != pos) {
-      file_.flush();
+    // Do not retain an append handle while the export path opens a read
+    // handle.  Arduino SD/FATFS on the S3 does not reliably support those two
+    // handles concurrently: the count can advance while the first read
+    // fails.  A short-lived append handle keeps writes and reads independent.
+    File output = SD.open(FilePath, FILE_APPEND);
+    if (!output)
+      return fail(StorageResult::WriteFailed, FailureReason::WriteFailure);
+    const size_t written = output.write(bytes, pos);
+    output.flush();
+    output.close();
+    if (written != pos) {
       return fail(StorageResult::WriteFailed, FailureReason::WriteFailure);
     }
-    file_.flush();
     ++recordCount_;
     fileBytes_ += pos;
     if (sequence > lastSequence_)
       lastSequence_ = sequence;
+    ++revision_;
     return StorageResult::Accepted;
   }
 
@@ -196,12 +202,12 @@ public:
       return failCompaction();
     recordCount_--;
     fileBytes_ = SD.open(FilePath, FILE_READ).size();
-    file_ = SD.open(FilePath, FILE_APPEND);
-    open_ = static_cast<bool>(file_);
-    if (!open_) return failCompaction();
+    open_ = true;
+    ++revision_;
     return true;
   }
   uint64_t lastSequence() const override { return lastSequence_; }
+  uint64_t revision() const override { return revision_; }
 
 private:
   static constexpr const char* RootPath = "/pp-diagnostics";
@@ -373,6 +379,7 @@ private:
   mutable size_t recordCount_ = 0;
   mutable size_t fileBytes_ = 0;
   mutable uint64_t lastSequence_ = 0;
+  mutable uint64_t revision_ = 0;
   bool mounted_ = false;
   bool open_ = false;
 };

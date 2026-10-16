@@ -19,6 +19,7 @@ public:
     epoch_ = epoch;
     count_ = 0;
     bytes_ = 0;
+    revision_ = 0;
     open_ = true;
     health_ = StorageHealth::RamOnly;
     lastFailure_ = FailureReason::None;
@@ -37,10 +38,12 @@ public:
     if (record.payloadBytes) memcpy(value.payload, record.payload, record.payloadBytes);
     ++count_;
     bytes_ += record.payloadBytes;
+    ++revision_;
     return StorageResult::Accepted;
   }
 
   size_t count() const override { return count_; }
+  uint64_t revision() const override { return revision_; }
   size_t bytes() const { return bytes_; }
 
   bool evictOldest() override {
@@ -48,6 +51,7 @@ public:
     bytes_ -= records_[0].payloadBytes;
     if (count_ > 1) memmove(records_, records_ + 1, sizeof(Stored) * (count_ - 1));
     --count_;
+    ++revision_;
     health_ = StorageHealth::Degraded;
     lastFailure_ = FailureReason::StorageFull;
     return true;
@@ -106,6 +110,7 @@ private:
   FailureReason lastFailure_ = FailureReason::None;
   size_t count_ = 0;
   size_t bytes_ = 0;
+  uint64_t revision_ = 0;
   bool open_ = false;
 };
 
@@ -275,6 +280,7 @@ public:
   }
 
   size_t count() const override { return storage_.count(); }
+  uint64_t revision() const override { return storage_.revision(); }
   bool read(size_t index, RecordEnvelope& envelope, uint8_t* payload,
             size_t capacity, size_t& length) const override {
     return storage_.read(index, envelope, payload, capacity, length);

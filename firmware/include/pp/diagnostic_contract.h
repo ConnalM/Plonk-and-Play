@@ -236,6 +236,9 @@ public:
     return false;
   }
   virtual size_t count() const = 0;
+  // Monotonic content revision used to detect a moving store during an
+  // export snapshot. A backend that cannot expose one may return zero.
+  virtual uint64_t revision() const { return 0; }
   virtual bool read(size_t index, RecordEnvelope& envelope, uint8_t* payload,
                     size_t capacity, size_t& length) const = 0;
 };
@@ -257,6 +260,7 @@ public:
   // Durable backends may restore the sequence watermark before a new boot
   // appends records. Volatile/development backends may return zero.
   virtual uint64_t lastSequence() const { return 0; }
+  virtual uint64_t revision() const { return 0; }
   // Optional bounded-retention hook. Production Normal diagnostics may roll
   // out the oldest observation; backends that cannot do so return false.
   virtual bool evictOldest() { return false; }

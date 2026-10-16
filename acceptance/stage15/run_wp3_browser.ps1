@@ -13,9 +13,11 @@ foreach ($marker in @(
 foreach ($marker in @(
   'diagnosticStartRoute','diagnosticStopRoute','diagnosticStatusRoute',
   'diagnosticRecordsRoute','diagnosticDownloadRoute','/diag/download',
-  'application/x-ndjson','pp-diagnostics-v1','Content-Disposition')) {
+  'application/x-ndjson','Content-Disposition')) {
   if ($interface -notlike "*$marker*") { throw "HTTP diagnostics marker missing: $marker" }
 }
+$export = Get-Content -Raw (Join-Path $root 'firmware/include/pp/diagnostic_export.h')
+if ($export -notlike '*pp-diagnostics-v1*') { throw 'Diagnostic export schema marker missing' }
 if ($interface -notmatch 'diagnosticStartRoute[\s\S]{0,700}diagnosticControlAllowed' -or
     $interface -notmatch 'diagnosticStopRoute[\s\S]{0,700}diagnosticControlAllowed') {
   throw 'Development start/stop lease boundary missing'
