@@ -225,7 +225,7 @@ Logical areas include:
 - **MUGs** — management of saved identities;
 - **Cars** — only where optional car recording is enabled;
 - **Sound & Display**;
-- **System** — networking, update, backup/restore, diagnostics and similar system functions.
+- **System** — networking, update, backup/restore, diagnostics and similar system functions. External Wi-Fi configuration belongs in the **Network** section of **Settings → Advanced → Diagnostics**; it is not a separate authority or setup area.
 
 Normal MUG creation/selection remains available directly from the race screen; a MUG-management area must not become a prerequisite to racing.
 
@@ -291,11 +291,25 @@ Wi-Fi association is only transport connectivity. It does not assign SMUG,
 Master or Race Director authority. The existing P&P control-lease rules decide
 which Browser/client may issue control requests.
 
-Optional external house/club Wi-Fi is a future facility and is never required
-for racing. If it is added, its password is controller-private and must never
-be shown to MUGs or written to logs, diagnostics, History, Results or support
-downloads. Loss of that external network must not affect the P&P access point
-or racing. External-network access to P&P remains deferred.
+Optional external house/club Wi-Fi is available through the Network section of
+Settings → Advanced → Diagnostics and is never required for racing. One
+external network may be remembered for reconnection. Any connected Browser may
+view sanitized AP/STA status and request a scan; choosing an SSID remains local
+presentation state until submission. Submitting credentials, Connect/Reconfigure
+and Forget Network require the current controlling SMUG/Race Director lease and
+are rejected authoritatively for other clients. Association with either the
+factory AP or the external network grants connectivity only and never grants
+control.
+
+The factory AP remains automatic, open and independent. HTTP and racing remain
+available as soon as the AP is ready, regardless of station failure or loss.
+The external password may be accepted for provisioning and persisted only as
+needed for reconnection, but must never subsequently be returned, displayed,
+logged, diagnosed, exported, or included in History/Results or support data.
+Network status is sanitized and may include AP/STA state, addresses, signal,
+failure information and mDNS status. `plonk-and-play.local` is preferred when
+available, with the assigned LAN IP as fallback. Connection, retry and scan
+work must remain non-blocking; exact timing constants are not product-fixed.
 
 A small **Want more?** section may point towards optional MUG names, track length/scale, alternative sensor arrangements, enhanced start/false-start functions, Rally, Drag and other capabilities.
 

@@ -140,11 +140,15 @@ Internet. The factory network is deliberately open; joining it provides
 connectivity but does not grant SMUG/Race Director control. A QR connection aid
 may be added later.
 
-Optional external house/club Wi-Fi is not required for racing and remains a
-future facility. Any future external-network password is controller-private
-and must not appear in the Taster, logs, diagnostics, History, Results or
-support downloads. Loss of that external network must not affect the P&P
-access point or racing.
+Optional external house/club Wi-Fi is not required for racing. Its sanitized
+status may be presented alongside the factory AP status, including the assigned
+LAN address or `plonk-and-play.local` when available. The external-network
+password is controller-private and must not appear in the Taster, logs,
+diagnostics, History, Results or support downloads. Loss of that external
+network must not affect the P&P access point or racing. Network configuration
+authority remains the Browser Advanced/Diagnostics Network section and the
+existing controlling-SMUG lease; this specification does not create a second
+authority mechanism.
 
 Thus the local screen has two complementary purposes:
 

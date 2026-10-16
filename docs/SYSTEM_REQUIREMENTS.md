@@ -74,11 +74,12 @@ Modes may have substantially different concepts of starts, finishes, competitors
 - Joining the P&P Wi-Fi provides connectivity only. It does not grant SMUG,
   Master or Race Director authority; the existing P&P control-lease rules
   remain authoritative.
-- An optional future external house/club Wi-Fi facility is not required for
-  racing. Loss of such an external network must not affect the P&P access
-  point or racing. Any future external-network password is controller-private
-  and must not be exposed to MUGs, logs, diagnostics, retained race data or
-  support downloads.
+- An optional external house/club Wi-Fi connection may be configured from
+  Settings → Advanced → Diagnostics → Network. It is not required for racing.
+  P&P may operate AP+STA, but the AP and HTTP service are available as soon as
+  the AP is ready and remain independent of station failure or loss. Any
+  external-network password is controller-private and must not be exposed to
+  MUGs, logs, diagnostics, retained race data or support downloads.
 - Internet access may provide optional services such as software updates, but loss of Internet access must not prevent normal race operation.
 
 ### 8. Modular expansion

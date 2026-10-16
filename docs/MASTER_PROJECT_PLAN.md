@@ -245,7 +245,10 @@ The v1 product includes:
 - Real optical lap detection and Track Setup sufficient to configure the real product.
 - Results, Finish Display, History and History Details, PB, Track Record, and Record Era where applicable.
 - SD persistence and transactional/recovery behaviour.
-- The P&P factory Wi-Fi access point. Normal racing requires no router, internet or account.
+- The automatic open P&P factory Wi-Fi access point and optional AP+STA
+  external-network connection configured from Advanced → Diagnostics → Network.
+  Normal racing requires no router, internet or account; external-network
+  loss must not affect the AP or racing.
 - Production diagnostics, Browser diagnostic-log download, health/status/version information, restart/reset/factory recovery, and customer firmware update.
 - Basic useful audio.
 - Production power supply, production connectors/cabling, enclosure, and the support/release/productisation work required to sell and support v1.
@@ -269,7 +272,6 @@ The following remain on their existing specifications and roadmap as post-v1/v1.
 - Drag.
 - Wireless detectors.
 - Screen Designer.
-- External/house/club Wi-Fi.
 - Championships/events.
 - Other later expansion facilities.
 

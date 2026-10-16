@@ -633,12 +633,33 @@ require house/club Wi-Fi or Internet access.
 
 Wi-Fi association grants connectivity only; it never grants Master,
 controlling-SMUG or Race Director authority. Those remain governed by the
-single P&P control lease. Optional external house/club Wi-Fi is a future
-facility and is never needed for racing. Loss of an external network must not
-affect the P&P access point or race operation. Any future external-network
-password is controller-private and must not be exposed to MUGs, logs,
-diagnostics, History, Results or support downloads. External-network access to
-P&P remains deferred.
+single P&P control lease. P&P may additionally operate as an AP+STA device:
+one remembered external house/club Wi-Fi network may be configured from
+**Settings → Advanced → Diagnostics → Network**. The P&P HTTP service becomes
+available as soon as the factory AP is ready and is never gated by station
+connection. The same P&P Browser/API/SSE authority is available through the
+factory AP and, when connected, the assigned external-network address.
+
+Network status and an explicit Wi-Fi scan are observational and may be viewed
+or requested by any connected Browser. Selecting an SSID is local Browser UI
+state until submitted. Submitting credentials, Connect/Reconfigure and Forget
+Network are authoritative configuration mutations and require the current
+Master/Race Director/controlling-SMUG lease. A non-controlling mutation is
+rejected by P&P. Network association never grants or transfers that lease.
+
+The factory AP remains automatic, deliberately open and independent of the
+external network. External connection/reconnection must be non-blocking;
+failure or loss of the external network must not affect the AP, HTTP service,
+racing, timing, results or authority. `plonk-and-play.local` is the preferred
+LAN discovery name when mDNS is available; the assigned LAN IP remains the
+fallback and is presented as current network status.
+
+The external-network password may be accepted for provisioning and persisted
+only as required for reconnection. It must never subsequently be returned,
+displayed, logged, diagnosed, exported, or included in History or Results.
+Network diagnostics expose only sanitized AP/STA state, addresses, signal and
+failure information. Scan/retry/backoff constants remain implementation
+choices subject to bounded, non-blocking behaviour and real-S3 acceptance.
 
 ### 12.1 Context-sensitive controls
 
