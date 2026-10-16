@@ -173,7 +173,7 @@ physical WP4 evidence.
 
 ### WP3A diagnostics/support design record
 
-**Status:** DESIGN/DOCUMENTATION ACCEPTED/FROZEN; WP3B implementation not
+**Status:** DESIGN ACCEPTED/FROZEN; SOFTWARE IMPLEMENTATION COMPLETE FOR REVIEW.
 started.
 
 WP3A freezes the v1 support workflow and boundaries for diagnostics: Normal
@@ -198,11 +198,18 @@ recorder integration, bounded RAM/degraded storage status, controlling-SMUG
 Development start/stop, observation-only status/records/download routes, the
 Normal Browser Diagnostics workflow and a versioned NDJSON support artifact.
 Focused Phase 1–7 regressions, the WP3 production-recorder contract test and
-Browser/support structural checks pass. The current firmware backend is a
-bounded RAM-only implementation; durable SD diagnostic storage, final
-capacities, privacy/redaction review, SD housekeeping/wear tuning and real
-ESP32-S3/SD acceptance remain final Stage 15/WP4 evidence gates. This record
-does not grant final WP3 or Stage 15 acceptance.
+Browser/support structural checks pass. WP4A now adds a provisional
+durable ESP32-S3 SD diagnostic backend behind the existing
+`DiagnosticStorage` boundary; final capacities, privacy/redaction review, SD
+housekeeping/wear tuning and real ESP32-S3/SD acceptance remain open. This
+record does not grant final WP3 or Stage 15 acceptance.
+
+
+### WP4A diagnostics/storage integration record
+
+**Status:** SOFTWARE IMPLEMENTED FOR HARDWARE CANDIDATE / PHYSICAL VALIDATION PENDING.
+
+WP4A adds the production ESP32-S3 SD/FATFS diagnostic backend behind the existing `DiagnosticStorage` boundary. Normal and Development recording, controller-lease enforcement, observation-only status/retrieval/download, four-hour expiry and reboot-volatility semantics are unchanged. The WP4 candidate uses a checksummed versioned record stream at `/pp-diagnostics/records.bin`, with a provisional 256-record / 256-byte-payload bound. This is an engineering value, not a frozen product limit. Diagnostic failure remains isolated from racing and authoritative History/Results/PB/Track Record data. Real-card reboot reconstruction, removal/remount, interruption, resource and wear evidence remain WP4 hardware acceptance work.
 
 Do not start new implementation simply because an item is visible later in this plan. Each work package is opened deliberately after its dependencies and exit criteria are agreed.
 

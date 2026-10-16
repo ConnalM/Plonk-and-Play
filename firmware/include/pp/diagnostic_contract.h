@@ -254,6 +254,9 @@ public:
   virtual StorageStatus status() const = 0;
   virtual StorageResult recover() = 0;
   virtual StorageResult close() = 0;
+  // Durable backends may restore the sequence watermark before a new boot
+  // appends records. Volatile/development backends may return zero.
+  virtual uint64_t lastSequence() const { return 0; }
   // Optional bounded-retention hook. Production Normal diagnostics may roll
   // out the oldest observation; backends that cannot do so return false.
   virtual bool evictOldest() { return false; }

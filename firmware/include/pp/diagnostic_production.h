@@ -135,8 +135,15 @@ public:
       normal_.lastFailure = FailureReason::BackendUnavailable;
       return false;
     }
-    normal_.storage = storage_.status().health;
+    nextSequence_ = storage_.lastSequence();
+    normal_.nextSequence = nextSequence_;
+    const StorageStatus storageStatus = storage_.status();
+    normal_.storage = storageStatus.health;
     normal_.evidenceVolatile = normal_.storage != StorageHealth::DurableSd;
+    if (normal_.storage != StorageHealth::DurableSd) {
+      normal_.evidenceIncomplete = true;
+      normal_.lastFailure = storageStatus.lastFailure;
+    }
     return true;
   }
 

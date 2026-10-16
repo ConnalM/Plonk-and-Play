@@ -42,13 +42,7 @@ failure must not alter product/race operation.
 
 No elaborate account/login system is introduced solely for Stage 15. The
 existing/frozen P&P configuration and access model must enforce the
-Development boundary at the request boundary. The current implementation
-already contains the controlling-lease check for the Development start/stop
-path; production integration must retain that check. The current development
-status/retrieval routes still need reconciliation with the observation-only
-viewing rule, and the final download route does not yet exist. These are
-WP3B implementation gaps, not permissions that may be inferred from Browser
-presentation alone.
+Development boundary at the request boundary. The production implementation contains the controlling-lease check for Development start/stop, and status/retrieval/download remain observation-only. These checks are request-boundary rules, not permissions inferred from Browser presentation.
 
 ## 1B. WP3A product support contract
 
@@ -139,19 +133,15 @@ SMUG. Any connected Browser may request the observation-only download.
 
 ### WP3A status boundary
 
-This section is the **WP3A Foundation/Product Design Freeze**. It authorizes
-WP3B implementation planning but does not grant final Stage 15 acceptance.
-WP3B must implement and accept the production recorder integration, Browser
-workflow, export route/encoding, storage-health capability, and support
-artifact. Final Stage 15 acceptance additionally requires the resource,
-policy, real ESP32-S3/SD, recovery, housekeeping and render-evidence gates in
-Section 7.
+This section records the **WP3A Foundation/Product Design Freeze**. WP3B–WP3E
+software implementation is complete for review, including the production
+recorder integration, Browser workflow, export route/encoding and support
+artifact. This does not grant final Stage 15 acceptance. Final acceptance also
+requires the resource, policy, real ESP32-S3/SD, recovery, housekeeping and
+render-evidence gates in Section 7.
 
 ### Development duration and reboot volatility
 
-An active Development-logging session automatically stops after four hours.
-The controlling SMUG may deliberately stop it earlier. Automatic expiry stops
-Development logging only; Normal diagnostics continue uninterrupted. The
 Development records already retained or durably written are not deleted merely
 because the mode expires and remain available under the normal bounded
 retention policy.

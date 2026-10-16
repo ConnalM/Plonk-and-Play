@@ -19,6 +19,7 @@
 #include "pp/persistent_storage.h"
 #if defined(PP_PHASE8B_REAL_SD)
 #include "pp/sd_store_arduino.h"
+#include "pp/diagnostic_sd.h"
 #endif
 #include "pp/diagnostic_memory.h"
 #include "pp/diagnostic_trace.h"
@@ -123,7 +124,11 @@ const auto testPublisher=bus.attach(pp::Role::Diagnostics);
 const auto testObserver=bus.attach(pp::Role::Diagnostics);
 const auto inputObserver=bus.attach(pp::Role::Diagnostics);
 const auto controllerTraceObserver=bus.attach(pp::Role::Diagnostics);
+#if defined(PP_PHASE8B_REAL_SD)
+pp::diagnostic::Esp32SpiSdDiagnosticStorage controllerTraceStorage;
+#else
 pp::diagnostic::ProductionDiagnosticStorage controllerTraceStorage;
+#endif
 pp::diagnostic::ProductionDiagnosticRecorder controllerTraceRecorder(controllerTraceStorage);
 pp::diagnostic::ControllerOperationTrace controllerTrace(controllerTraceRecorder);
 pp::MemoryModule memoryModule(bus,memoryEndpoint,memory);
