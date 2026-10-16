@@ -8,6 +8,7 @@ $detailFailure=Join-Path $env:TEMP 'pp-active-detail-failure-test.exe'
 $detailStream=Join-Path $env:TEMP 'pp-active-detail-stream-test.exe'
 $detailStreamFailure=Join-Path $env:TEMP 'pp-active-detail-stream-failure-test.exe'
 $detailRecovery=Join-Path $env:TEMP 'pp-active-detail-recovery-test.exe'
+$housekeeping=Join-Path $env:TEMP 'pp-storage-housekeeping-test.exe'
 g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'foundation_test.cpp') -o $foundation
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage Foundation foundation compile failed: $LASTEXITCODE" }
 & $foundation
@@ -40,6 +41,10 @@ g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'active_detail
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage active-detail recovery compile failed: $LASTEXITCODE" }
 & $detailRecovery
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage active-detail recovery acceptance failed: $LASTEXITCODE" }
+g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'storage_housekeeping_test.cpp') -o $housekeeping
+if ($LASTEXITCODE -ne 0) { throw "WP2E storage-housekeeping compile failed: $LASTEXITCODE" }
+& $housekeeping
+if ($LASTEXITCODE -ne 0) { throw "WP2E storage-housekeeping acceptance failed: $LASTEXITCODE" }
 $engine=Get-Content (Join-Path $root 'firmware\include\pp\race_engine.h') -Raw
 $codec=Get-Content (Join-Path $root 'firmware\include\pp\persistent_storage.h') -Raw
 $history=Get-Content (Join-Path $root 'firmware\include\pp\history_store.h') -Raw
@@ -50,4 +55,6 @@ Write-Host 'PSF PSF.1 PASS race_engine_uses_storage_boundary=1'
 Write-Host 'PSF PSF.20 PASS source_guard_latches_and_suppresses_retry=1'
 if(($sd -notmatch 'cleanupOrphans') -or ($sd -notmatch 'markerPath') -or ($sd -notmatch 'storagePending_') -or ($sd -notmatch 'detailLost')){throw 'WP2D active stream recovery boundary check failed'}
 Write-Host 'WP2D D2 PASS orphan_cleanup_integrity_marker_recovery_boundary=1'
+if(($history -notmatch 'reclaim\(') -or ($sd -notmatch 'cleanupSlotTemps') -or ($sd -notmatch 'ProvisionalLowFreeBytes')){throw 'WP2E storage housekeeping boundary check failed'}
+Write-Host 'WP2E structural PASS bounded_reclamation_capacity_guard_temp_cleanup=1'
 Write-Host 'PASS: development Persistent Storage Foundation acceptance'

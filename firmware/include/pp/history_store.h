@@ -42,6 +42,9 @@ public:
   bool append(const uint8_t* bytes, size_t length, uint32_t& sequence) override {
     sequence = 0;
     if (!bytes || length == 0 || length > UINT32_MAX || !ensure()) return false;
+    // Leave room for the independently committed metadata candidate. This is
+    // advisory for legacy backends and becomes a real free-space guard on SD.
+    if (!store_.canWrite(length + EncodedMetadataBytes)) return false;
     // Never overwrite a slot referenced by committed metadata. The spare half
     // of the bounded slot set is the staging area for a new transaction.
     const uint8_t slot = freeSlot();
@@ -55,7 +58,9 @@ public:
     if (!payloadVerified) return false;
 
     MetadataState candidate = meta_;
+    uint8_t evictedSlot = InvalidSlot;
     if (candidate.count == Capacity) {
+      evictedSlot = candidate.entries[0].slot;
       for (uint8_t i = 1; i < candidate.count; ++i) candidate.entries[i - 1] = candidate.entries[i];
       --candidate.count;
     }
@@ -63,7 +68,11 @@ public:
     Entry& entry = candidate.entries[candidate.count++];
     entry.sequence = sequence; entry.bytes = static_cast<uint32_t>(length); entry.slot = slot;
     candidate.generation = meta_.generation + 1;
-    if (!publishMetadata(candidate)) { sequence = 0; return false; }
+    if (!publishMetadata(candidate)) { (void)store_.reclaim(DataSlot + slot); sequence = 0; return false; }
+    // The new metadata is authoritative before this cleanup runs. A failed
+    // cleanup is harmless to logical History and is reported by the backend;
+    // the fixed slot set still bounds physical growth.
+    if (evictedSlot != InvalidSlot) (void)store_.reclaim(DataSlot + evictedSlot);
     return true;
   }
 
@@ -143,6 +152,7 @@ private:
     uint8_t bytes[EncodedMetadataBytes]{};
     encode(candidate,bytes);
     const unsigned target=activeMetaSlot_==MetaSlotA?MetaSlotB:MetaSlotA;
+    if (!store_.canWrite(EncodedMetadataBytes)) return false;
     if (!store_.write(target,bytes,sizeof(bytes))) return false;
     uint8_t verify[EncodedMetadataBytes]{};MetadataState checked{};
     if(!store_.read(target,verify,sizeof(verify))||!decode(verify,checked)||checked.generation!=candidate.generation)return false;

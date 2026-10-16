@@ -35,7 +35,7 @@ Real hardware complements simulation and must cumulatively revalidate applicable
   Workplace: specification + PC/Wokwi.  
   Complete/cohere currently supported Lap, Open Practice and Endurance behaviour, Normal Browser lifecycle/presentation, all Lap finish variants, Results semantics, Race Director/multiple-client behaviour and mode-specific automated acceptance.
 
-- [ ] **WP2 — Complete storage and records** *(WP2A/B/C complete; WP2D software complete; physical SD failure/recovery remains WP4 debt)*
+- [ ] **WP2 — Complete storage and records** *(WP2A/B/C/D/E software complete; physical SD failure/recovery remains WP4 debt)*
   Owners: Archie + Al.  
   Workplace: software/Wokwi first.  
   Complete Results/History/detail/PB/Track Record/Record Era/reconstruction/retention and transactional/failure behaviour that can be developed without real hardware.
@@ -135,7 +135,7 @@ Known evidence already obtained must be credited rather than rerun merely to pop
 
 **WP1:** implementation/product work is complete. Formal acceptance remains pending the specific external runtime evidence recorded below. This does not claim those pending runs passed.
 
-**WP2:** WP2A/B/C are complete and WP2D software is complete. Physical SD removal, remount and power-loss validation remains WP4 acceptance debt; WP2E housekeeping/final migration remains unopened.
+**WP2:** WP2A/B/C/D/E are software-complete. WP2E establishes bounded storage housekeeping, capacity, version and wear discipline without changing sporting authority; physical SD removal, remount and power-loss validation remains WP4 acceptance debt. WP2F remains unopened.
 
 ### WP1 closure record
 
@@ -152,11 +152,11 @@ The Stage 10 `masterFingerprint_` structural check and Stage 13 exact-text commi
 
 ### WP2 opening record
 
-**Status:** WP2A/B/C complete; WP2D software complete; physical SD failure/recovery remains WP4 debt.
+**Status:** WP2A/B/C/D/E software complete; physical SD failure/recovery remains WP4 debt.
 
 WP2 completes the frozen storage and records boundary: NVS for small controller/configuration state, SD for committed History/Results/Details, PB, Track Record and Record Era data, versioned/checksummed serialization, bounded rolling retention, reconstruction, and transactional/failure/recovery behaviour. The production policy is the latest 100 completed races with complete available lap detail; current four-race/8,192-byte development History and provisional bounded active-detail workspace are not product limits.
 
-The real ESP32-S3 + SD P1 integration and SD probe are evidence for WP4 hardware validation, not a substitute for WP2 software completion. Transactional commit/index recovery, rolling eviction, reboot reconstruction and persistence-failure semantics are covered by WP2A/B; WP2C removed the former fixed detail ceiling and WP2D now provides the production active-detail stream, controlled recovery boundary and software failure boundary. Browser work belongs in WP2 only where it consumes the existing authoritative History/Results contract; diagnostics remain WP3, physical validation WP4, recovery/reset/update WP5, and Personal MUG work later.
+The real ESP32-S3 + SD P1 integration and SD probe are evidence for WP4 hardware validation, not a substitute for WP2 software completion. Transactional commit/index recovery, rolling eviction, reboot reconstruction and persistence-failure semantics are covered by WP2A/B; WP2C removed the former fixed detail ceiling and WP2D now provides the production active-detail stream, controlled recovery boundary and software failure boundary. WP2E adds bounded housekeeping and explicit capacity/version policy without changing sporting authority. Browser work belongs in WP2 only where it consumes the existing authoritative History/Results contract; diagnostics remain WP3, physical validation WP4, recovery/reset/update WP5, and Personal MUG work later.
 
 Do not start new implementation simply because an item is visible later in this plan. Each work package is opened deliberately after its dependencies and exit criteria are agreed.
 

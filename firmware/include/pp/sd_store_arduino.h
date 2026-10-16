@@ -21,6 +21,10 @@ public:
   static constexpr int SckPin = 12;
   static constexpr int MisoPin = 13;
   static constexpr uint32_t SpiFrequency = 20000000U;
+  // Engineering values for the current S3/P1 backend. They are deliberately
+  // not product capacity promises; final thresholds remain a hardware task.
+  static constexpr uint64_t ProvisionalLowFreeBytes = 128u * 1024u;
+  static constexpr uint64_t TransactionOverheadBytes = 4096u;
 
   bool begin(const char* root = "/pp-p1") {
     root_ = root ? root : "/pp-p1";
@@ -33,6 +37,7 @@ public:
       return false;
     }
     SD.mkdir(root_);
+    cleanupSlotTemps();
     Serial.printf("[P8-P1] SD mount OK card=%llu total=%llu used=%llu\n",
                   static_cast<unsigned long long>(SD.cardSize()),
                   static_cast<unsigned long long>(SD.totalBytes()),
@@ -41,11 +46,34 @@ public:
   }
 
   bool available() const override { return mounted_; }
+  StoreHealth health() const override {
+    if (!mounted_) return StoreHealth::Unavailable;
+    if (lastHealth_ == StoreHealth::Insufficient) return lastHealth_;
+    const uint64_t free = freeBytes();
+    if (!free) return StoreHealth::Insufficient;
+    return free <= ProvisionalLowFreeBytes ? StoreHealth::Low : StoreHealth::Healthy;
+  }
+  uint64_t totalBytes() const override { return mounted_ ? static_cast<uint64_t>(SD.totalBytes()) : 0; }
+  uint64_t freeBytes() const override {
+    if (!mounted_) return 0;
+    const uint64_t total = totalBytes();
+    const uint64_t used = static_cast<uint64_t>(SD.usedBytes());
+    return used < total ? total - used : 0;
+  }
+  bool canWrite(size_t bytes) const override {
+    if (!mounted_) return false;
+    const uint64_t needed = static_cast<uint64_t>(bytes) + TransactionOverheadBytes;
+    return freeBytes() >= needed;
+  }
+  bool reclaim(unsigned slot) override {
+    if (!mounted_) return false;
+    return SD.remove(path(slot));
+  }
 
   bool recover() {
     spi_.begin(SckPin, MisoPin, MosiPin, CsPin);
     mounted_ = SD.begin(CsPin, spi_, SpiFrequency);
-    if (mounted_) SD.mkdir(root_);
+    if (mounted_) { SD.mkdir(root_); lastHealth_ = StoreHealth::Healthy; cleanupSlotTemps(); }
     return mounted_;
   }
 
@@ -66,6 +94,7 @@ public:
 
   bool write(unsigned slot, const uint8_t* data, size_t size) override {
     if (!mounted_ || !data) return false;
+    if (!canWrite(size)) { lastHealth_ = StoreHealth::Insufficient; return false; }
     const String target = path(slot);
     String temporary = target;
     temporary += ".tmp";
@@ -112,6 +141,7 @@ public:
       SD.remove(temporary);
       return false;
     }
+    lastHealth_ = healthAfterWrite();
     return true;
   }
 
@@ -119,6 +149,12 @@ private:
   String root_ = "/pp-p1";
   SPIClass spi_{FSPI};
   bool mounted_ = false;
+  mutable StoreHealth lastHealth_ = StoreHealth::Unavailable;
+
+  StoreHealth healthAfterWrite() const {
+    const uint64_t free = freeBytes();
+    return free == 0 ? StoreHealth::Insufficient : (free <= ProvisionalLowFreeBytes ? StoreHealth::Low : StoreHealth::Healthy);
+  }
 
   String path(unsigned slot) const {
     String value(root_);
@@ -126,6 +162,20 @@ private:
     value += String(slot);
     value += ".bin";
     return value;
+  }
+  void cleanupSlotTemps() {
+    if (!mounted_) return;
+    File root = SD.open(root_);
+    if (!root || !root.isDirectory()) { if (root) root.close(); return; }
+    for (;;) {
+      File file = root.openNextFile();
+      if (!file) break;
+      String name = file.name();
+      const bool temporary = name.indexOf("slot-") >= 0 && name.endsWith(".bin.tmp");
+      file.close();
+      if (temporary) (void)SD.remove(name);
+    }
+    root.close();
   }
 };
 
@@ -181,9 +231,9 @@ private:
   static uint32_t get32(const uint8_t*p){return uint32_t(p[0])|(uint32_t(p[1])<<8)|(uint32_t(p[2])<<16)|(uint32_t(p[3])<<24);}
   static uint64_t get64(const uint8_t*p){uint64_t v=0;for(unsigned i=0;i<8;++i)v|=uint64_t(p[i])<<(8*i);return v;}
   static uint32_t hashRecord(uint32_t h,const uint8_t*b){for(size_t i=0;i<RecordBytes;++i){h^=b[i];h*=16777619u;}return h;}
-  bool writeRecord(uint8_t entry,const LapRecord&r){String p=path(entry);File f=SD.open(p,FILE_APPEND);if(!f){f=SD.open(p,FILE_WRITE);if(!f)return false;uint8_t h[HeaderBytes]{};put32(h,0x50504432u);put32(h+4,session_);h[8]=entry;if(f.write(h,sizeof(h))!=sizeof(h)){f.close();return false;}}uint8_t b[RecordBytes]{};put32(b,r.lapNumber);put64(b+4,r.startTime);put64(b+12,r.finishTime);put64(b+20,r.lapTime);put64(b+28,r.racingFinishTime);b[36]=r.valid?1:0;const bool ok=f.write(b,sizeof(b))==sizeof(b);f.flush();f.close();return ok;}
+  bool writeRecord(uint8_t entry,const LapRecord&r){if(!store_.canWrite(HeaderBytes+RecordBytes))return false;String p=path(entry);File f=SD.open(p,FILE_APPEND);if(!f){f=SD.open(p,FILE_WRITE);if(!f)return false;uint8_t h[HeaderBytes]{};put32(h,0x50504432u);put32(h+4,session_);h[8]=entry;if(f.write(h,sizeof(h))!=sizeof(h)){f.close();return false;}}uint8_t b[RecordBytes]{};put32(b,r.lapNumber);put64(b+4,r.startTime);put64(b+12,r.finishTime);put64(b+20,r.lapTime);put64(b+28,r.racingFinishTime);b[36]=r.valid?1:0;const bool ok=f.write(b,sizeof(b))==sizeof(b);f.flush();f.close();return ok;}
   String markerPath(uint8_t entry) const { String p=path(entry);p.remove(p.length()-4);p+=".ok";return p; }
-  bool sealFile(uint8_t entry){File f=SD.open(path(entry),FILE_READ);if(!f||f.size()!=HeaderBytes+size_t(counts_[entry])*RecordBytes){if(f)f.close();return false;}uint8_t h[HeaderBytes]{};if(f.read(h,sizeof(h))!=sizeof(h)||get32(h)!=0x50504432u||get32(h+4)!=session_||h[8]!=entry){f.close();return false;}uint32_t hash=2166136261u;uint8_t b[RecordBytes]{};for(uint32_t i=0;i<counts_[entry];++i){if(f.read(b,sizeof(b))!=sizeof(b)||b[36]>1){f.close();return false;}hash=hashRecord(hash,b);}f.close();File out=SD.open(markerPath(entry),FILE_WRITE);if(!out)return false;uint8_t marker[12]{};put32(marker,0x504f4b32u);put32(marker+4,counts_[entry]);put32(marker+8,hash);const bool ok=out.write(marker,sizeof(marker))==sizeof(marker);out.flush();out.close();return ok&&verifyFile(entry);}
+  bool sealFile(uint8_t entry){if(!store_.canWrite(12))return false;File f=SD.open(path(entry),FILE_READ);if(!f||f.size()!=HeaderBytes+size_t(counts_[entry])*RecordBytes){if(f)f.close();return false;}uint8_t h[HeaderBytes]{};if(f.read(h,sizeof(h))!=sizeof(h)||get32(h)!=0x50504432u||get32(h+4)!=session_||h[8]!=entry){f.close();return false;}uint32_t hash=2166136261u;uint8_t b[RecordBytes]{};for(uint32_t i=0;i<counts_[entry];++i){if(f.read(b,sizeof(b))!=sizeof(b)||b[36]>1){f.close();return false;}hash=hashRecord(hash,b);}f.close();File out=SD.open(markerPath(entry),FILE_WRITE);if(!out)return false;uint8_t marker[12]{};put32(marker,0x504f4b32u);put32(marker+4,counts_[entry]);put32(marker+8,hash);const bool ok=out.write(marker,sizeof(marker))==sizeof(marker);out.flush();out.close();return ok&&verifyFile(entry);}
   bool verifyFile(uint8_t entry) const {File f=SD.open(path(entry),FILE_READ);if(!f||f.size()!=HeaderBytes+size_t(counts_[entry])*RecordBytes){if(f)f.close();return false;}uint8_t h[HeaderBytes]{};if(f.read(h,sizeof(h))!=sizeof(h)||get32(h)!=0x50504432u||get32(h+4)!=session_||h[8]!=entry){f.close();return false;}uint32_t hash=2166136261u;uint8_t b[RecordBytes]{};for(uint32_t i=0;i<counts_[entry];++i){if(f.read(b,sizeof(b))!=sizeof(b)||b[36]>1){f.close();return false;}hash=hashRecord(hash,b);}f.close();File marker=SD.open(markerPath(entry),FILE_READ);uint8_t m[12]{};const bool ok=marker&&marker.read(m,sizeof(m))==sizeof(m)&&get32(m)==0x504f4b32u&&get32(m+4)==counts_[entry]&&get32(m+8)==hash;if(marker)marker.close();return ok;}
   void cleanupOrphans(){if(!mounted())return;File root=SD.open("/pp-p1");if(!root||!root.isDirectory()){if(root)root.close();return;}for(;;){File file=root.openNextFile();if(!file)break;String name=file.name();const bool orphan=name.indexOf("active-")>=0&&(name.endsWith(".tmp")||name.endsWith(".ok"));file.close();if(orphan)SD.remove(name);}root.close();}
   static bool readEncoded(File&f,LapRecord&r){uint8_t b[RecordBytes]{};if(f.read(b,sizeof(b))!=sizeof(b)||b[36]>1)return false;r.lapNumber=get32(b);r.startTime=get64(b+4);r.finishTime=get64(b+12);r.lapTime=get64(b+20);r.racingFinishTime=get64(b+28);r.valid=b[36]!=0;return true;}

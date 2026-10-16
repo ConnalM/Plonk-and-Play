@@ -206,11 +206,23 @@ private:
 
 // Storage technology remains behind Memory. False read means absent or invalid;
 // available() distinguishes a failed storage service from first commissioning.
+// The optional capacity/health seam is deliberately advisory: it never becomes
+// race authority and existing backends retain their old behaviour by default.
+enum class StoreHealth : uint8_t { Unknown, Healthy, Low, Insufficient, Unavailable, Corrupt, Unsupported };
 class Store {
 public:
   virtual bool available() const = 0;
   virtual bool read(unsigned slot, uint8_t* data, size_t size) = 0;
   virtual bool write(unsigned slot, const uint8_t* data, size_t size) = 0;
+  virtual StoreHealth health() const { return available() ? StoreHealth::Healthy : StoreHealth::Unavailable; }
+  virtual uint64_t totalBytes() const { return 0; }
+  virtual uint64_t freeBytes() const { return 0; }
+  // Backends may conservatively reject a transaction before creating its
+  // temporary object. The default keeps legacy/fake stores source-compatible.
+  virtual bool canWrite(size_t bytes) const { (void)bytes; return available(); }
+  // Reclamation is post-commit housekeeping. A backend that has no physical
+  // object to remove can accept it as a no-op.
+  virtual bool reclaim(unsigned slot) { (void)slot; return true; }
   virtual ~Store() = default;
 };
 class Memory {

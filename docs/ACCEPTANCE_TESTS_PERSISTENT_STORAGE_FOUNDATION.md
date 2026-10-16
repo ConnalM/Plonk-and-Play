@@ -40,6 +40,13 @@ These tests verify the persistent-storage boundary without changing frozen Stage
 | PSF.28 | Repeated real power interruption during active SD persistence operations, followed by reboot/remount/reconstruction, proves that no partial or uncommitted result appears as official History; previously committed records remain valid; newly committed records appear only when their commit completed; corrupt/incomplete temporary data is ignored or reclaimed; PB/Track Record/Record Era stores remain internally consistent; and persistence faults/recovery are surfaced correctly. | Hardware |
 | PSF.29 | Complete applicable Stage 1–14C automated, structural, Browser, Wokwi and shared-path regressions remain passing. | Development |
 | PSF.30 | The deliberate evaluator-failure/recovery proof remains genuine and passes against the final storage implementation. | Development |
+| WP2E.1 | Repeated rolling-100 replacement keeps the physical backing model bounded; the evicted slot is reclaimed only after replacement metadata commits. | Development |
+| WP2E.2 | Reclamation failure does not invalidate committed History, and narrowly identified temporary transaction objects are cleaned without deleting committed data. | Development |
+| WP2E.3 | Capacity checks distinguish healthy/low/insufficient/unavailable storage without changing authoritative race operation. | Development and Hardware |
+| WP2E.4 | Current and supported legacy format versions are accepted by the matrix; unsupported/corrupt versions are rejected safely and no migration is performed when direct legacy reading is sufficient. | Development |
+| WP2E.5 | Normal persistence writes are event-driven and bounded: no main-loop rewrite or retry storm; unchanged PB/Track Record/configuration is not rewritten. | Development |
+| WP2E.6 | Practical payload/metadata estimates are recorded as measured development evidence, while final SD capacity/wear thresholds remain hardware debt. | Development |
+| WP2E.7 | Active-detail append and final seal reject an insufficient transaction before creating more temporary data, while authoritative racing remains unaffected. | Development and Hardware |
 
 ## Required evidence
 
@@ -58,6 +65,9 @@ These results do not claim production SD capacity or real-hardware power-loss be
 The following require the real ESP32-S3 integrated board with SD/FATFS: SD mount/startup recovery; realistic History capacity and scan time; SD absent/full/removal/reconnection; real payload and commit failures; repeated real power interruption during active persistence operations followed by reboot/remount/reconstruction; production Browser reconstruction after controller restart; and resource, wear and timing measurements for the selected factory retention capacity.
 
 The hardware test does not require artificially precise interruption at every internal commit boundary. It requires repeated real interruptions during active persistence and evidence of safe committed-record recovery, ignored or reclaimed incomplete data, consistent PB/Track Record/Record Era stores, and correctly surfaced faults/recovery.
+
+WP2E development evidence does not claim real-card free-space, allocation,
+wear or throughput behaviour. Those remain hardware acceptance work.
 
 ## Cumulative regression rule
 

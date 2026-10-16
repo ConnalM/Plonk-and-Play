@@ -96,6 +96,57 @@ contract beyond these verified board signals.
 
 Before the SD backend is implemented, the current development History path must latch the first failed persistence operation, expose `persistencePending` and `persistenceFault`, publish/report the storage fault once, and stop retrying the same failed operation on every Race Engine tick. NVS preflight prediction is not a product requirement, and NVS is not the production History backend.
 
+## WP2E housekeeping policy
+
+The storage boundary exposes advisory backend capacity and health information
+(`healthy`, `low`, `insufficient`, `unavailable`, `corrupt` or `unsupported`).
+These values describe storage only; they never gate or replace Race Engine
+authority. A backend may reject creation of a temporary payload when the
+transaction cannot fit. The sealed in-RAM result remains authoritative and the
+existing pending/fault boundary applies.
+
+The production History policy remains a rolling 100 committed races. The
+current SD implementation uses a fixed bounded set of payload slots. When a
+replacement is committed, metadata is published first; only then may the
+evicted slot be reclaimed. A failed replacement or failed reclamation cannot
+invalidate previously committed metadata. This is a storage bound, not a
+sporting or lap limit.
+
+At mount/recovery, only narrowly identified uncommitted transaction temporary
+objects are removed: slot payload `.tmp` files and active-detail `.tmp`/`.ok`
+objects. Committed payloads and metadata are never removed by age. The fixed
+slot set prevents superseded payload growth without requiring an unbounded
+index.
+
+Active-detail append and seal operations use the same advisory free-space
+check before creating/appending temporary data. A failed check leaves the
+authoritative race running and enters the existing pending/fault boundary; it
+does not invent a lap or race limit.
+
+The current format matrix is deliberately small:
+
+| Data | Current | Readable legacy | Unsupported behaviour |
+|---|---:|---:|---|
+| Versioned History/result/detail payload | PSF container v3, result schema v3 | PSF v2/result v2 | reject checksum/schema/version; retain prior committed data |
+| History metadata/index | slot metadata v1; legacy metadata reader retained | legacy metadata form | ignore invalid generation and use older valid copy |
+| PB/Track Record/Record Era | record format v2 | no migration required | ignore invalid/unsupported record and keep defaults; do not reinterpret |
+| NVS configuration | existing dual-copy configuration format | existing readable copy | report invalid/missing and use existing defaults path |
+
+No migration is required for the currently supported legacy data: it is read
+directly. No rewrite-on-boot migration is introduced. A future migration must
+write and verify a new copy before retiring the old one.
+
+Normal writes are event-driven: active detail is appended as accepted detail
+records are drained; one History payload and one metadata generation are
+published per completed race; PB/Track Record writes occur only when a record
+actually improves or a clear changes it; unchanged values and the main loop do
+not cause persistence writes. A failed operation is latched and is not retried
+from every tick.
+
+The provisional low-free-space threshold used by the current S3 development
+backend is an engineering/test value only. Final capacities, FAT allocation,
+wear policy and near-full-card behaviour remain Phase 8B hardware evidence.
+
 ## Scope exclusions
 
 This foundation introduces no active-race persistence or recovery, new race modes, new PB/Track Record eligibility rules, new MUG user interface, new Practice or Endurance behaviour, or product maximum based on implementation capacity.
