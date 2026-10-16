@@ -40,7 +40,7 @@ Real hardware complements simulation and must cumulatively revalidate applicable
   Workplace: software/Wokwi first.  
   Complete Results/History/detail/PB/Track Record/Record Era/reconstruction/retention and transactional/failure behaviour that can be developed without real hardware.
 
-- [ ] **WP3 — Complete diagnostics and support path**  
+- [ ] **WP3 — Complete diagnostics and support path** *(software implementation complete for review; final/physical acceptance pending)*
   Owners: Archie + Al + Gina where UI is required.  
   Workplace: software/Wokwi.  
   Finish production diagnostic recording, health/status/version information and P&P → SD diagnostic artifact → Browser DOWNLOAD support flow.
@@ -193,10 +193,16 @@ volatile: reboot, reset or power loss ends it, P&P restarts in Normal
 diagnostics only, and there is no automatic resume or resume prompt. Existing
 diagnostic material remains subject to bounded retention.
 
-This is a design freeze only. Production recorder integration, final Browser
-Diagnostics UI, export route/encoder, final capacities, privacy/redaction
-review, SD housekeeping/wear tuning and real ESP32-S3/SD acceptance remain
-WP3B/Stage 15/WP4 work as identified by the governing Stage 15 documents.
+The WP3 software implementation now provides the observation-only production
+recorder integration, bounded RAM/degraded storage status, controlling-SMUG
+Development start/stop, observation-only status/records/download routes, the
+Normal Browser Diagnostics workflow and a versioned NDJSON support artifact.
+Focused Phase 1–7 regressions, the WP3 production-recorder contract test and
+Browser/support structural checks pass. The current firmware backend is a
+bounded RAM-only implementation; durable SD diagnostic storage, final
+capacities, privacy/redaction review, SD housekeeping/wear tuning and real
+ESP32-S3/SD acceptance remain final Stage 15/WP4 evidence gates. This record
+does not grant final WP3 or Stage 15 acceptance.
 
 Do not start new implementation simply because an item is visible later in this plan. Each work package is opened deliberately after its dependencies and exit criteria are agreed.
 

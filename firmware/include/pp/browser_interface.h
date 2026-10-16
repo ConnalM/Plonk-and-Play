@@ -1808,7 +1808,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     start.controllerEpoch.value = browser->controllerEpoch_;
     start.client.value = owner;
     diagnostic::SessionStatus status{};
-    const diagnostic::RecorderResult result = browser->diagnosticTrace_->recorder().start(start, status);
+    const diagnostic::RecorderResult result = browser->diagnosticTrace_->startDevelopment(start, status);
     char json[192];
     snprintf(json, sizeof(json), "{\"result\":\"%s\",\"session\":%llu,\"controllerEpoch\":%llu,\"lifecycle\":%u}",
              diagnosticResultText(result), static_cast<unsigned long long>(status.session.value),
@@ -1829,7 +1829,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       return ESP_FAIL;
     }
     diagnostic::SessionStatus status{};
-    const diagnostic::RecorderResult result = browser->diagnosticTrace_->recorder().stop(status);
+    const diagnostic::RecorderResult result = browser->diagnosticTrace_->stopDevelopment(status);
     char json[192];
     snprintf(json, sizeof(json), "{\"result\":\"%s\",\"session\":%llu,\"lifecycle\":%u}",
              diagnosticResultText(result), static_cast<unsigned long long>(status.session.value), static_cast<unsigned>(status.lifecycle));
@@ -1841,8 +1841,6 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   static esp_err_t diagnosticStatusRoute(httpd_req_t* request) {
     RequestTrace trace(instance(), "/diag/status");
     BrowserInterface* browser = instance();
-    uint64_t owner = 0;
-    if (!diagnosticControlAllowed(request, browser, owner)) { trace.complete(ESP_ERR_INVALID_STATE); return ESP_FAIL; }
     if (!browser->diagnosticTrace_) {
       httpd_resp_set_status(request, "503 Service Unavailable");
       httpd_resp_sendstr(request, "diagnostics unavailable");
@@ -1850,9 +1848,14 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       return ESP_FAIL;
     }
     diagnostic::SessionStatus session{};
+    diagnostic::SessionStatus normal{};
     diagnostic::StorageStatus storage{};
     size_t retained = 0;
-    if (!browser->diagnosticTrace_->status(session, storage, retained)) {
+    if (!browser->diagnosticTrace_->developmentStatus(session)) {
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return ESP_FAIL;
+    }
+    if (!browser->diagnosticTrace_->status(normal, storage, retained)) {
       httpd_resp_set_status(request, "503 Service Unavailable");
       httpd_resp_sendstr(request, "diagnostic status unavailable");
       trace.complete(ESP_ERR_INVALID_STATE);
@@ -1865,14 +1868,16 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       return ESP_FAIL;
     }
     const int length = snprintf(json, 1024,
-      "{\"formatVersion\":1,\"controllerEpoch\":%llu,\"session\":%llu,\"lifecycle\":%u,\"storageHealth\":%u,\"backend\":%u,\"lastFailure\":%u,\"nextSequence\":%llu,\"bytesRecorded\":%llu,\"retainedRecords\":%u,\"droppedRecords\":%llu,\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"retrievalAvailable\":%s}",
-      static_cast<unsigned long long>(session.controllerEpoch.value),
-      static_cast<unsigned long long>(session.session.value),
-      static_cast<unsigned>(session.lifecycle), static_cast<unsigned>(storage.health),
+      "{\"formatVersion\":1,\"controllerEpoch\":%llu,\"session\":%llu,\"lifecycle\":%u,\"developmentSession\":%llu,\"developmentLifecycle\":%u,\"storageHealth\":%u,\"backend\":%u,\"lastFailure\":%u,\"nextSequence\":%llu,\"bytesRecorded\":%llu,\"retainedRecords\":%u,\"droppedRecords\":%llu,\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"exportCapability\":\"%s\",\"retrievalAvailable\":%s}",
+      static_cast<unsigned long long>(normal.controllerEpoch.value),
+      static_cast<unsigned long long>(normal.session.value),
+      static_cast<unsigned>(normal.lifecycle),
+      static_cast<unsigned long long>(session.session.value), static_cast<unsigned>(session.lifecycle), static_cast<unsigned>(storage.health),
       static_cast<unsigned>(storage.backend), static_cast<unsigned>(storage.lastFailure),
-      static_cast<unsigned long long>(session.nextSequence), static_cast<unsigned long long>(session.bytesRecorded), static_cast<unsigned>(retained),
-      static_cast<unsigned long long>(session.droppedRecords), session.evidenceVolatile ? "true" : "false",
-      session.evidenceIncomplete ? "true" : "false", retained ? "true" : "false");
+      static_cast<unsigned long long>(normal.nextSequence), static_cast<unsigned long long>(normal.bytesRecorded), static_cast<unsigned>(retained),
+      static_cast<unsigned long long>(normal.droppedRecords + session.droppedRecords), normal.evidenceVolatile ? "true" : "false",
+      normal.evidenceIncomplete || session.evidenceIncomplete ? "true" : "false",
+      diagnosticExportCapability(storage, retained), retained ? "true" : "false");
     if (length < 0 || length >= 1024) {
       free(json);
       httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "diagnostic status serialization failed");
@@ -1889,8 +1894,6 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   static esp_err_t diagnosticRecordsRoute(httpd_req_t* request) {
     RequestTrace trace(instance(), "/diag/records");
     BrowserInterface* browser = instance();
-    uint64_t owner = 0;
-    if (!diagnosticControlAllowed(request, browser, owner)) { trace.complete(ESP_ERR_INVALID_STATE); return ESP_FAIL; }
     if (!browser->diagnosticTrace_) {
       httpd_resp_set_status(request, "503 Service Unavailable");
       httpd_resp_sendstr(request, "diagnostics unavailable");
@@ -1964,6 +1967,110 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     (void)readOk;
     return sent;
   }
+  static const char* diagnosticExportCapability(const diagnostic::StorageStatus& storage,
+                                                size_t retained) {
+    if (retained != 0 || storage.health == diagnostic::StorageHealth::RamOnly ||
+        storage.health == diagnostic::StorageHealth::Degraded) return "LIMITED";
+    if (storage.health == diagnostic::StorageHealth::DurableSd) return "AVAILABLE";
+    return "UNAVAILABLE";
+  }
+  static esp_err_t diagnosticDownloadRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/diag/download");
+    BrowserInterface* browser = instance();
+    if (!browser->diagnosticTrace_) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      httpd_resp_sendstr(request, "diagnostics unavailable");
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return ESP_FAIL;
+    }
+    diagnostic::SessionStatus development{};
+    diagnostic::SessionStatus normal{};
+    diagnostic::StorageStatus storage{};
+    size_t retained = 0;
+    if (!browser->diagnosticTrace_->developmentStatus(development) ||
+        !browser->diagnosticTrace_->status(normal, storage, retained)) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      httpd_resp_sendstr(request, "diagnostic export unavailable");
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return ESP_FAIL;
+    }
+    const char* capability = diagnosticExportCapability(storage, retained);
+    if (strcmp(capability, "UNAVAILABLE") == 0) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      httpd_resp_sendstr(request, "diagnostic export unavailable");
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return ESP_FAIL;
+    }
+    httpd_resp_set_type(request, "application/x-ndjson; charset=utf-8");
+    httpd_resp_set_hdr(request, "Content-Disposition", "attachment; filename=pp-diagnostics-v1.ndjson");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    char line[1400]{};
+    const int headerLength = snprintf(line, sizeof(line),
+      "{\"type\":\"header\",\"schema\":\"pp-diagnostics-v1\",\"product\":\"Plonk-and-Play\",\"controllerEpoch\":%llu,\"normalSession\":%llu,\"developmentSession\":%llu,\"developmentLifecycle\":%u,\"exportCapability\":\"%s\",\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"snapshotRecords\":%u}\n",
+      static_cast<unsigned long long>(normal.controllerEpoch.value),
+      static_cast<unsigned long long>(normal.session.value),
+      static_cast<unsigned long long>(development.session.value),
+      static_cast<unsigned>(development.lifecycle), capability,
+      normal.evidenceVolatile ? "true" : "false",
+      normal.evidenceIncomplete || development.evidenceIncomplete ? "true" : "false",
+      static_cast<unsigned>(retained));
+    if (headerLength <= 0 || headerLength >= static_cast<int>(sizeof(line)) ||
+        httpd_resp_send_chunk(request, line, headerLength) != ESP_OK) {
+      trace.complete(ESP_FAIL);
+      return ESP_FAIL;
+    }
+    uint8_t* payload = static_cast<uint8_t*>(malloc(diagnostic::DiagnosticRetrieval::MaxPayloadBytes));
+    if (!payload) {
+      httpd_resp_send_chunk(request, nullptr, 0);
+      trace.complete(ESP_ERR_NO_MEM);
+      return ESP_FAIL;
+    }
+    static const char hex[] = "0123456789ABCDEF";
+    bool complete = true;
+    for (size_t index = 0; index < retained; ++index) {
+      diagnostic::RecordEnvelope envelope{};
+      size_t payloadBytes = 0;
+      if (!browser->diagnosticTrace_->recorder().read(index, envelope, payload,
+                                                       diagnostic::DiagnosticRetrieval::MaxPayloadBytes,
+                                                       payloadBytes)) {
+        complete = false;
+        break;
+      }
+      size_t used = 0;
+      const int prefix = snprintf(line, sizeof(line),
+        "{\"type\":\"record\",\"sequence\":%llu,\"timestamp\":%llu,\"kind\":%u,\"severity\":%u,\"client\":%llu,\"traceId\":%llu,\"request\":%u,\"event\":%u,\"parent\":%u,\"payloadType\":%u,\"operation\":%u,\"payloadHex\":\"",
+        static_cast<unsigned long long>(envelope.sequence),
+        static_cast<unsigned long long>(envelope.timestamp),
+        static_cast<unsigned>(envelope.kind), static_cast<unsigned>(envelope.severity),
+        static_cast<unsigned long long>(envelope.client.value),
+        static_cast<unsigned long long>(envelope.traceId),
+        static_cast<unsigned>(envelope.correlation.request),
+        static_cast<unsigned>(envelope.correlation.event),
+        static_cast<unsigned>(envelope.correlation.parent),
+        static_cast<unsigned>(envelope.payloadType), static_cast<unsigned>(envelope.operation));
+      if (prefix <= 0 || static_cast<size_t>(prefix) >= sizeof(line)) { complete = false; break; }
+      used = static_cast<size_t>(prefix);
+      if (payloadBytes > (sizeof(line) - used - 3U) / 2U) { complete = false; break; }
+      for (size_t p = 0; p < payloadBytes && used + 2 < sizeof(line); ++p) {
+        line[used++] = hex[payload[p] >> 4];
+        line[used++] = hex[payload[p] & 0x0F];
+      }
+      if (used + 3 >= sizeof(line)) { complete = false; break; }
+      line[used++] = '"'; line[used++] = '}'; line[used++] = '\n';
+      if (httpd_resp_send_chunk(request, line, used) != ESP_OK) { complete = false; break; }
+    }
+    free(payload);
+    const int footerLength = snprintf(line, sizeof(line),
+      "{\"type\":\"summary\",\"records\":%u,\"complete\":%s,\"dropped\":%llu,\"evidenceIncomplete\":%s}\n",
+      static_cast<unsigned>(retained), complete ? "true" : "false",
+      static_cast<unsigned long long>(normal.droppedRecords + development.droppedRecords),
+      normal.evidenceIncomplete || development.evidenceIncomplete || !complete ? "true" : "false");
+    if (footerLength > 0 && footerLength < static_cast<int>(sizeof(line)))
+      httpd_resp_send_chunk(request, line, footerLength);
+    const esp_err_t sent = httpd_resp_send_chunk(request, nullptr, 0);
+    trace.complete(sent);
+    return sent;
+  }
   static esp_err_t health(httpd_req_t* request) {
     RequestTrace trace(instance(), "/health");
     httpd_resp_set_type(request, "application/json");
@@ -1983,6 +2090,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/diag/session/stop", HTTP_POST, diagnosticStopRoute, nullptr},
       {"/diag/status", HTTP_GET, diagnosticStatusRoute, nullptr},
       {"/diag/records", HTTP_GET, diagnosticRecordsRoute, nullptr},
+      {"/diag/download", HTTP_GET, diagnosticDownloadRoute, nullptr},
       {"/proposal", HTTP_GET, proposalRoute, nullptr},
       {"/practice-summary", HTTP_GET, practiceSummaryRoute, nullptr},
       {"/finish-display", HTTP_GET, finishDisplayRoute, nullptr},

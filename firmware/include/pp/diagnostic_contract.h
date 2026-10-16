@@ -208,10 +208,27 @@ public:
   // with the existing session identity. This never joins or replaces it.
   virtual RecorderResult start(const SessionStartRequest& request,
                                SessionStatus& status) = 0;
+  // Production may keep Normal diagnostics active while Development mode is
+  // started/stopped as a separate volatile overlay. Legacy implementations
+  // use the single-session behavior by default.
+  virtual RecorderResult startDevelopment(const SessionStartRequest& request,
+                                           SessionStatus& status) {
+    return start(request, status);
+  }
   virtual RecorderResult stop(SessionStatus& status) = 0;
+  virtual RecorderResult stopDevelopment(SessionStatus& status) {
+    return stop(status);
+  }
   virtual RecorderResult interrupt(SessionStatus& status) = 0;
+  virtual RecorderResult interruptDevelopment(SessionStatus& status) {
+    return interrupt(status);
+  }
   virtual RecorderResult tryAppend(const RecordView& record, uint64_t& sequence) = 0;
   virtual bool status(SessionStatus& status) const = 0;
+  virtual bool developmentStatus(SessionStatus& status) const {
+    return this->status(status);
+  }
+  virtual void tick(Time now) { (void)now; }
   // Backend health is exposed separately from session lifecycle so an active
   // RAM-only/degraded session remains a valid active session.
   virtual bool storageStatus(StorageStatus& status) const {
@@ -237,6 +254,9 @@ public:
   virtual StorageStatus status() const = 0;
   virtual StorageResult recover() = 0;
   virtual StorageResult close() = 0;
+  // Optional bounded-retention hook. Production Normal diagnostics may roll
+  // out the oldest observation; backends that cannot do so return false.
+  virtual bool evictOldest() { return false; }
 };
 
 } // namespace diagnostic

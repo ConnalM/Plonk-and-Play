@@ -20,10 +20,9 @@
 #if defined(PP_PHASE8B_REAL_SD)
 #include "pp/sd_store_arduino.h"
 #endif
-#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
 #include "pp/diagnostic_memory.h"
 #include "pp/diagnostic_trace.h"
-#endif
+#include "pp/diagnostic_production.h"
 #ifndef PP_DIAGNOSTICS
 #define PP_DIAGNOSTICS 1
 #endif
@@ -123,12 +122,10 @@ pp::TasterRuntime taster(browser);
 const auto testPublisher=bus.attach(pp::Role::Diagnostics);
 const auto testObserver=bus.attach(pp::Role::Diagnostics);
 const auto inputObserver=bus.attach(pp::Role::Diagnostics);
-#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
 const auto controllerTraceObserver=bus.attach(pp::Role::Diagnostics);
-pp::diagnostic::MemoryDiagnosticStorage controllerTraceStorage;
-pp::diagnostic::InMemoryDiagnosticRecorder controllerTraceRecorder(controllerTraceStorage);
+pp::diagnostic::ProductionDiagnosticStorage controllerTraceStorage;
+pp::diagnostic::ProductionDiagnosticRecorder controllerTraceRecorder(controllerTraceStorage);
 pp::diagnostic::ControllerOperationTrace controllerTrace(controllerTraceRecorder);
-#endif
 pp::MemoryModule memoryModule(bus,memoryEndpoint,memory);
 pp::Configuration workingConfiguration;
 pp::ProposedRaceSetup proposedRaceSetup{ {pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish}, 1, 10, pp::LapFinishBehaviour::Immediate, 1, true, false };
@@ -439,13 +436,11 @@ void observeDiagnosticEvents(){
     }
   }
 }
-#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
 void observeControllerTrace(){
   pp::Message event;
   while(bus.receive(controllerTraceObserver,event))
     controllerTrace.observe(event,static_cast<uint8_t>(raceControl.state()),systemTime());
 }
-#endif
 #ifdef PP_ACCEPTANCE
 #include "../tests/acceptance_probe.inc"
 #endif
@@ -567,15 +562,15 @@ void setup(){
   diagnostics.log("[INIT] Phase 8B-P1 SD History/Records %s; NVS configuration READY=%s",
                   sdReady ? "READY" : "DEGRADED", storage.available() ? "YES" : "NO");
 #endif
-#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
-  diagnostics.log("[INIT] Development persistence backend READY (versioned NVS/Wokwi boundary)");
-  pp::diagnostic::SessionStartRequest traceStart{};
-  traceStart.controllerEpoch.value=systemTime()|uint64_t(1);
-  traceStart.client.value=1;
-  pp::diagnostic::SessionStatus traceStatus{};
-  controllerTraceRecorder.start(traceStart,traceStatus);
+  diagnostics.log("[INIT] Normal diagnostics recorder READY (bounded observation-only backend)");
+  pp::diagnostic::ControllerEpoch diagnosticEpoch{};
+  diagnosticEpoch.value = browser.controllerEpoch();
+  pp::diagnostic::ClientId diagnosticClient{};
+  diagnosticClient.value = 1;
+  const bool normalDiagnosticsReady = controllerTraceRecorder.beginNormal(diagnosticEpoch, diagnosticClient);
+  diagnostics.log("[INIT] Normal diagnostics %s storage=%u", normalDiagnosticsReady ? "READY" : "DEGRADED",
+                  static_cast<unsigned>(controllerTraceStorage.status().health));
   browser.setDiagnosticTrace(&controllerTrace);
-#endif
 #if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   browserAuthority.clearForFixture();
 #endif
@@ -590,8 +585,21 @@ void setup(){
   // in control flow. High-frequency NoticeboardChanged and ordinary bus
   // traffic remain intentionally unobserved here.
   for(pp::Type type : {pp::Type::StartRequest,pp::Type::RequestResult,pp::Type::SessionOperationRequest,pp::Type::SessionOperation,pp::Type::GoScheduled,pp::Type::LapCompleted,pp::Type::Paused,pp::Type::RestartScheduled,pp::Type::Resumed,pp::Type::FalseStart,pp::Type::EnduranceExpired,pp::Type::CompetitionComplete,pp::Type::HistoryStored,pp::Type::StorageFault,pp::Type::RaceIntegrityFault,pp::Type::PauseSettled,pp::Type::FinishSettled}) testsPassed&=bus.subscribe(testObserver,type);
-  for(pp::Type type : {pp::Type::StartRequest,pp::Type::RequestResult,pp::Type::NoticeboardChanged}) testsPassed&=bus.subscribe(controllerTraceObserver,type);
 #endif
+  // Normal diagnostics uses the same observation-only spine on production
+  // builds. It never publishes or consumes product authority.
+  for(pp::Type type : {pp::Type::InputEvent,pp::Type::StartRequest,pp::Type::SetupRequest,
+                       pp::Type::SessionOperationRequest,pp::Type::RequestResult,
+                       pp::Type::SessionOperation,pp::Type::GoScheduled,
+                       pp::Type::LapCompleted,pp::Type::CompetitionComplete,
+                       pp::Type::InputSettlement,pp::Type::FinishSettlement,
+                       pp::Type::FinishSettled,pp::Type::PauseSettled,
+                       pp::Type::NoticeboardChanged,pp::Type::Paused,
+                       pp::Type::RestartScheduled,pp::Type::Resumed,
+                       pp::Type::HistoryStored,pp::Type::StorageFault,
+                       pp::Type::RaceIntegrityFault,pp::Type::FalseStart,
+                       pp::Type::EnduranceExpired})
+    testsPassed&=bus.subscribe(controllerTraceObserver,type);
   testsPassed&=bus.subscribe(input.endpoint,pp::Type::SessionOperation);
   testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::InputEvent);
   testsPassed&=bus.subscribe(raceEngineEndpoint,pp::Type::GoScheduled);
@@ -721,8 +729,9 @@ void loop(){
 #endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   observeDiagnosticEvents();
-  observeControllerTrace();
 #endif
+  observeControllerTrace();
+  controllerTrace.tick(systemTime());
   observeInputEvents();
   pp::Message message;
   if(!ready&&!bootFailed&&bus.receive(lifecycle,message)){

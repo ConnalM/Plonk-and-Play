@@ -26,9 +26,18 @@ foreach ($marker in @(
 )) {
   if ($browser -notlike "*$marker*") { throw "missing control-lease marker: $marker" }
 }
-if ($browser -notmatch 'diagnosticStatusRoute[\s\S]{0,1200}diagnosticControlAllowed' -or
-    $browser -notmatch 'diagnosticRecordsRoute[\s\S]{0,1200}diagnosticControlAllowed') {
-  throw 'diagnostic status/retrieval routes do not enforce the controlling lease'
+if ($browser -notmatch 'diagnosticStartRoute[\s\S]{0,700}diagnosticControlAllowed' -or
+    $browser -notmatch 'diagnosticStopRoute[\s\S]{0,700}diagnosticControlAllowed') {
+  throw 'diagnostic start/stop routes do not enforce the controlling lease'
+}
+foreach ($route in @('diagnosticStatusRoute','diagnosticRecordsRoute','diagnosticDownloadRoute')) {
+  $start = $browser.IndexOf("$route(")
+  $next = $browser.IndexOf('static esp_err_t', $start + 1)
+  if ($next -lt 0) { $next = $browser.Length }
+  $body = if ($start -ge 0) { $browser.Substring($start, $next - $start) } else { '' }
+  if (-not $body -or $body -match 'diagnosticControlAllowed') {
+    throw "$route must remain observation-only for connected Browsers"
+  }
 }
 $page = Get-Content -Raw (Join-Path $root 'firmware/browser/normal_browser.html')
 foreach ($marker in @('takeControl()', 'allowControl', 'keepControl', '/request/take-control')) {

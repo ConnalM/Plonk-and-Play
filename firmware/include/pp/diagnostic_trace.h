@@ -50,6 +50,69 @@ public:
   void observe(const Message& message, uint8_t authoritativeLifecycle,
                Time timestamp = 0) {
     switch (message.type) {
+      case Type::InputEvent: {
+        Correlation correlation{};
+        correlation.event = message.eventId;
+        append(EventKind::UserAction, OperationName::Unknown, correlation,
+               authoritativeLifecycle, message.input.capability, timestamp,
+               observerClient_, 0);
+        break;
+      }
+      case Type::LapCompleted: {
+        Correlation correlation{};
+        correlation.event = message.eventId;
+        correlation.parent = message.raceEntryId;
+        append(EventKind::RaceDecision, OperationName::Unknown, correlation,
+               authoritativeLifecycle, message.lapNumber, timestamp,
+               observerClient_, 0);
+        break;
+      }
+      case Type::GoScheduled:
+      case Type::InputSettlement:
+      case Type::FinishSettlement:
+      case Type::FinishSettled:
+      case Type::PauseSettled:
+      case Type::Paused:
+      case Type::RestartScheduled:
+      case Type::Resumed:
+      case Type::CompetitionComplete:
+      case Type::EnduranceExpired:
+      case Type::SessionOperation: {
+        Correlation correlation{};
+        correlation.event = message.eventId;
+        append(EventKind::StateChange,
+               message.type == Type::SessionOperation ? operationFor(message)
+                                                       : OperationName::Unknown,
+               correlation,
+               authoritativeLifecycle, static_cast<uint32_t>(message.operation),
+               timestamp, observerClient_, 0);
+        break;
+      }
+      case Type::HistoryStored: {
+        Correlation correlation{};
+        correlation.event = message.eventId;
+        append(EventKind::PersistenceOperation, OperationName::Unknown,
+               correlation, authoritativeLifecycle, message.historySequence,
+               timestamp, observerClient_, 0);
+        break;
+      }
+      case Type::StorageFault: {
+        Correlation correlation{};
+        correlation.event = message.eventId;
+        append(EventKind::StorageHealthChange, OperationName::Unknown,
+               correlation, authoritativeLifecycle, message.probe,
+               timestamp, observerClient_, 0);
+        break;
+      }
+      case Type::RaceIntegrityFault:
+      case Type::FalseStart: {
+        Correlation correlation{};
+        correlation.event = message.eventId;
+        append(EventKind::ResourceHealth, OperationName::Unknown, correlation,
+               authoritativeLifecycle, message.probe, timestamp,
+               observerClient_, 0);
+        break;
+      }
       case Type::StartRequest:
       case Type::SetupRequest:
       case Type::SessionOperationRequest: {
@@ -71,7 +134,14 @@ public:
       }
       case Type::NoticeboardChanged: {
         Pending* pending = latestNoticePending();
-        if (!pending) return;
+        if (!pending) {
+          Correlation correlation{};
+          correlation.event = message.eventId;
+          append(EventKind::NoticeboardChanged, OperationName::Unknown,
+                 correlation, authoritativeLifecycle, 0, timestamp,
+                 observerClient_, 0);
+          return;
+        }
         pending->noticeSeen = true;
         pending->lifecycle = authoritativeLifecycle;
         pending->eventId = message.eventId;
@@ -152,6 +222,23 @@ public:
   DiagnosticRecorder& recorder() { return recorder_; }
   const DiagnosticRecorder& recorder() const { return recorder_; }
 
+  RecorderResult startDevelopment(const SessionStartRequest& request,
+                                  SessionStatus& status) {
+    return recorder_.startDevelopment(request, status);
+  }
+  RecorderResult stopDevelopment(SessionStatus& status) {
+    return recorder_.stopDevelopment(status);
+  }
+  RecorderResult interruptDevelopment(SessionStatus& status) {
+    return recorder_.interruptDevelopment(status);
+  }
+  bool developmentStatus(SessionStatus& status) const {
+    return recorder_.developmentStatus(status);
+  }
+  void tick(Time now) {
+    recorder_.tick(now);
+  }
+
 private:
   static constexpr size_t PendingCapacity = 8;
   struct Pending {
@@ -228,6 +315,16 @@ private:
               ClientId client, uint64_t traceId, uint8_t sessionMode = 0xFF) {
     SessionStatus status{};
     if (!recorder_.status(status)) { ++droppedObservations_; return; }
+    SessionStatus development{};
+    // While Development logging is active, keep the same observation in the
+    // Development session as well as the always-on Normal stream.  The
+    // recorder remains the authority for lifecycle and storage state.
+    if (recorder_.developmentStatus(development) &&
+        (development.lifecycle == SessionLifecycle::Starting ||
+         development.lifecycle == SessionLifecycle::Active ||
+         development.lifecycle == SessionLifecycle::Stopping)) {
+      status = development;
+    }
     const uint8_t payload[2] = {
       lifecycle, sessionMode == 0xFF ? static_cast<uint8_t>(payloadType) : sessionMode};
     RecordView record{};
