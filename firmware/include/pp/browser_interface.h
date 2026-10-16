@@ -10,6 +10,7 @@
 #include "diagnostic_retrieval.h"
 #include "diagnostic_export.h"
 #include "control_lease.h"
+#include "external_wifi.h"
 #ifndef PP_MAX_SSE_CLIENTS
 #define PP_MAX_SSE_CLIENTS 4
 #endif
@@ -61,18 +62,14 @@ public:
     diagnosticBuildIdentity_ = identity && *identity ? identity : "unknown";
   }
   void begin() {
-    WiFi.persistent(false);
 #if defined(PP_PHASE8B_REAL_SD)
-    WiFi.mode(WIFI_AP);
-    apStarted_ = WiFi.softAP(Phase8bApSsid);
+    network_.begin();
+    apStarted_ = networkApStarted();
     wifiConnected_ = apStarted_;
     lastWifiAttemptMs_ = millis();
     started_ = true;
-    const String address = WiFi.softAPIP().toString();
-    Serial.printf("[WIFI] P&P AP %s ssid=%s ip=%s clients=%u\n",
-      apStarted_ ? "STARTED" : "FAILED", Phase8bApSsid, address.c_str(),
-      static_cast<unsigned>(WiFi.softAPgetStationNum()));
 #else
+    WiFi.persistent(false);
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
     WiFi.begin("Wokwi-GUEST", "", 6);
@@ -121,6 +118,8 @@ public:
     }
     if (!started_) return;
 #if defined(PP_PHASE8B_REAL_SD)
+    network_.tick();
+    apStarted_ = networkApStarted();
     const bool connected = apStarted_;
 #else
     const bool connected = WiFi.status() == WL_CONNECTED;
@@ -134,15 +133,12 @@ public:
       if (static_cast<uint32_t>(now - lastWifiAttemptMs_) >= 5000U) {
         ++wifiReconnectAttempts_;
 #if defined(PP_PHASE8B_REAL_SD)
-        apStarted_ = WiFi.softAP(Phase8bApSsid);
+        network_.tick();
+        apStarted_ = networkApStarted();
         if (apStarted_) {
           wifiConnected_ = true;
-          const String address = WiFi.softAPIP().toString();
-          Serial.printf("[WIFI] P&P AP STARTED ssid=%s ip=%s clients=%u\n",
-            Phase8bApSsid, address.c_str(),
-            static_cast<unsigned>(WiFi.softAPgetStationNum()));
         } else {
-          Serial.printf("[WIFI] P&P AP FAILED ssid=%s\n", Phase8bApSsid);
+          Serial.printf("[WIFI] P&P AP FAILED ssid=%s\n", ExternalWifiManager::FactoryApSsid);
         }
 #else
         WiFi.reconnect();
@@ -153,7 +149,7 @@ public:
     }
     wifiConnected_ = true;
 #if defined(PP_PHASE8B_REAL_SD)
-    const uint8_t clients = WiFi.softAPgetStationNum();
+    const uint8_t clients = networkClientCount();
     if (clients != apClientCount_) {
       apClientCount_ = clients;
       Serial.printf("[WIFI] P&P AP clients=%u\n", static_cast<unsigned>(clients));
@@ -349,9 +345,45 @@ public:
   }
   uint8_t connectedClientCount() const {
 #if defined(PP_PHASE8B_REAL_SD)
-    return WiFi.softAPgetStationNum();
+    return networkClientCount();
 #else
     return 0;
+#endif
+  }
+  struct NetworkStatus { ExternalWifiManager::Status value; };
+  void networkStatus(NetworkStatus& value) const {
+#if defined(PP_PHASE8B_REAL_SD)
+    network_.status(value.value);
+#else
+    value.value = ExternalWifiManager::Status{};
+#endif
+  }
+  bool networkConnect(const char* ssid, const char* password) {
+#if defined(PP_PHASE8B_REAL_SD)
+    return network_.connect(ssid, password);
+#else
+    (void)ssid; (void)password; return false;
+#endif
+  }
+  bool networkDisconnect() {
+#if defined(PP_PHASE8B_REAL_SD)
+    return network_.disconnect();
+#else
+    return false;
+#endif
+  }
+  bool networkForget() {
+#if defined(PP_PHASE8B_REAL_SD)
+    return network_.forget();
+#else
+    return false;
+#endif
+  }
+  bool networkStartScan() {
+#if defined(PP_PHASE8B_REAL_SD)
+    return network_.startScan();
+#else
+    return false;
 #endif
   }
   struct HttpHealth {
@@ -403,6 +435,24 @@ public:
   static bool serializeRecordsForAcceptance(TrackRecordStore* records,uint8_t count,char*out,size_t cap,size_t&length){return serializeRecords(records,count,out,cap,length);}
 private:
   static constexpr const char* Phase8bApSsid = "Plonk-and-Play";
+  bool networkApStarted() const {
+#if defined(PP_PHASE8B_REAL_SD)
+    ExternalWifiManager::Status status{};
+    network_.status(status);
+    return status.apStarted;
+#else
+    return false;
+#endif
+  }
+  uint8_t networkClientCount() const {
+#if defined(PP_PHASE8B_REAL_SD)
+    ExternalWifiManager::Status status{};
+    network_.status(status);
+    return status.apClients;
+#else
+    return 0;
+#endif
+  }
   static uint64_t newControllerEpoch() {
     const uint64_t value = (static_cast<uint64_t>(esp_random()) << 32) |
                            static_cast<uint64_t>(esp_random());
@@ -435,6 +485,7 @@ private:
   HistoryStore* history_ = nullptr;
   TrackRecordStore* records_ = nullptr;
   VolatileAuthorityStore fallback_;
+  ExternalWifiManager network_{};
   httpd_handle_t server_ = nullptr;
   ControlLease controlLease_{};
   uint64_t controllerEpoch_ = 0;
@@ -2047,6 +2098,136 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     trace.complete(outcome);
     return outcome;
   }
+  static bool networkCredentialsFromBody(httpd_req_t* request, char* ssid, size_t ssidCapacity,
+                                         char* password, size_t passwordCapacity) {
+    if (!ssid || !password || request->content_len <= 0 || request->content_len >= 256) return false;
+    char body[256]{};
+    int received = 0;
+    while (received < request->content_len) {
+      const int part = httpd_req_recv(request, body + received, request->content_len - received);
+      if (part <= 0) return false;
+      received += part;
+    }
+    const auto value = [&](const char* key, char* out, size_t capacity) {
+      out[0] = 0;
+      const char* start = strstr(body, key);
+      start = start ? strchr(start + strlen(key), ':') : nullptr;
+      start = start ? strchr(start, '"') : nullptr;
+      if (!start) return false;
+      ++start;
+      size_t used = 0;
+      bool escaped = false;
+      for (const char* p = start; *p; ++p) {
+        if (escaped) { if (used + 1 < capacity) out[used++] = *p; escaped = false; continue; }
+        if (*p == '\\') { escaped = true; continue; }
+        if (*p == '"') { out[used] = 0; return true; }
+        if (used + 1 >= capacity) return false;
+        out[used++] = *p;
+      }
+      out[0] = 0;
+      return false;
+    };
+    return value("\"ssid\"", ssid, ssidCapacity) && ssid[0] != 0 &&
+           value("\"password\"", password, passwordCapacity);
+  }
+  static esp_err_t networkStatusRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/network/status");
+    BrowserInterface* browser = instance();
+    NetworkStatus network{};
+    browser->networkStatus(network);
+    const auto& v = network.value;
+    char staSsid[40]{};
+    for (size_t i = 0; i + 1 < sizeof(staSsid) && i < v.staSsid.length(); ++i) {
+      const char c = v.staSsid[i];
+      staSsid[i] = (c == '\"' || c == '\\' || static_cast<unsigned char>(c) < 0x20) ? '_' : c;
+    }
+    char json[4096]{};
+    size_t used = static_cast<size_t>(snprintf(json, sizeof(json),
+      "{\"available\":%s,\"ap\":{\"started\":%s,\"ssid\":\"%s\",\"ip\":\"%s\",\"clients\":%u},\"sta\":{\"configured\":%s,\"connected\":%s,\"ssid\":\"%s\",\"ip\":\"%s\",\"rssi\":%ld,\"reconnectSuppressed\":%s,\"reconnectAttempts\":%lu},\"mdns\":{\"started\":%s,\"host\":\"%s\"},\"scan\":{\"running\":%s,\"count\":%d,\"networks\":[",
+      v.apStarted || v.staConfigured ? "true" : "false", v.apStarted ? "true" : "false",
+      ExternalWifiManager::FactoryApSsid, v.apIp.c_str(), static_cast<unsigned>(v.apClients),
+      v.staConfigured ? "true" : "false", v.staConnected ? "true" : "false", staSsid,
+      v.staIp.c_str(), static_cast<long>(v.staRssi), v.reconnectSuppressed ? "true" : "false",
+      static_cast<unsigned long>(v.reconnectAttempts), v.mdnsStarted ? "true" : "false",
+      ExternalWifiManager::MdnsHost, v.scanRunning ? "true" : "false", static_cast<int>(v.scanCount)));
+    if (used >= sizeof(json)) { httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "network status unavailable"); trace.complete(ESP_ERR_INVALID_SIZE); return ESP_FAIL; }
+#if defined(PP_PHASE8B_REAL_SD)
+    if (v.scanCount > 0) {
+      for (int16_t i = 0; i < v.scanCount; ++i) {
+        String ssid = WiFi.SSID(static_cast<uint8_t>(i));
+        char safeSsid[40]{};
+        for (size_t n = 0; n + 1 < sizeof(safeSsid) && n < ssid.length(); ++n) {
+          const char c = ssid[n];
+          safeSsid[n] = (c == '\"' || c == '\\' || static_cast<unsigned char>(c) < 0x20) ? '_' : c;
+        }
+        const int written = snprintf(json + used, sizeof(json) - used,
+          "%s{\"ssid\":\"%s\",\"rssi\":%ld,\"secure\":%s}", i ? "," : "", safeSsid,
+          static_cast<long>(WiFi.RSSI(static_cast<uint8_t>(i))),
+          WiFi.encryptionType(static_cast<uint8_t>(i)) == WIFI_AUTH_OPEN ? "false" : "true");
+        if (written < 0 || static_cast<size_t>(written) >= sizeof(json) - used) { httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "network status unavailable"); trace.complete(ESP_ERR_INVALID_SIZE); return ESP_FAIL; }
+        used += static_cast<size_t>(written);
+      }
+    }
+#endif
+    const int written = snprintf(json + used, sizeof(json) - used, "]}}");
+    if (written < 0 || static_cast<size_t>(written) >= sizeof(json) - used) { httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "network status unavailable"); trace.complete(ESP_ERR_INVALID_SIZE); return ESP_FAIL; }
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    const esp_err_t sent = httpd_resp_send(request, json, HTTPD_RESP_USE_STRLEN);
+    trace.complete(sent);
+    return sent;
+  }
+  static esp_err_t networkScanRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/network/scan");
+    const bool accepted = instance()->networkStartScan();
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    httpd_resp_set_status(request, accepted ? "202 Accepted" : "409 Conflict");
+    const esp_err_t sent = httpd_resp_sendstr(request, accepted ? "{\"accepted\":true}" : "{\"accepted\":false,\"reason\":\"SCAN_UNAVAILABLE\"}");
+    trace.complete(sent);
+    return sent;
+  }
+  static esp_err_t networkConnectRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/network/connect");
+    if (instance()->context(client(request)) != ClientContext::RaceDirectorSmug) {
+      httpd_resp_send_err(request, HTTPD_403_FORBIDDEN, "Race Director required");
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return ESP_FAIL;
+    }
+    char ssid[33]{}, password[65]{};
+    if (!networkCredentialsFromBody(request, ssid, sizeof(ssid), password, sizeof(password))) {
+      httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "SSID and password required");
+      trace.complete(ESP_ERR_INVALID_ARG);
+      return ESP_FAIL;
+    }
+    const bool accepted = instance()->networkConnect(ssid, password);
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    httpd_resp_set_status(request, accepted ? "202 Accepted" : "409 Conflict");
+    const esp_err_t sent = httpd_resp_sendstr(request, accepted ? "{\"accepted\":true}" : "{\"accepted\":false,\"reason\":\"CONNECT_FAILED\"}");
+    trace.complete(sent);
+    return sent;
+  }
+  static esp_err_t networkDisconnectRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/network/disconnect");
+    if (instance()->context(client(request)) != ClientContext::RaceDirectorSmug) { httpd_resp_send_err(request, HTTPD_403_FORBIDDEN, "Race Director required"); trace.complete(ESP_ERR_INVALID_STATE); return ESP_FAIL; }
+    const bool accepted = instance()->networkDisconnect();
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_status(request, accepted ? "200 OK" : "409 Conflict");
+    const esp_err_t sent = httpd_resp_sendstr(request, accepted ? "{\"accepted\":true}" : "{\"accepted\":false,\"reason\":\"DISCONNECT_FAILED\"}");
+    trace.complete(sent);
+    return sent;
+  }
+  static esp_err_t networkForgetRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/network/forget");
+    if (instance()->context(client(request)) != ClientContext::RaceDirectorSmug) { httpd_resp_send_err(request, HTTPD_403_FORBIDDEN, "Race Director required"); trace.complete(ESP_ERR_INVALID_STATE); return ESP_FAIL; }
+    const bool accepted = instance()->networkForget();
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_status(request, accepted ? "200 OK" : "409 Conflict");
+    const esp_err_t sent = httpd_resp_sendstr(request, accepted ? "{\"accepted\":true}" : "{\"accepted\":false,\"reason\":\"FORGET_FAILED\"}");
+    trace.complete(sent);
+    return sent;
+  }
   static esp_err_t health(httpd_req_t* request) {
     RequestTrace trace(instance(), "/health");
     httpd_resp_set_type(request, "application/json");
@@ -2067,6 +2248,11 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/diag/status", HTTP_GET, diagnosticStatusRoute, nullptr},
       {"/diag/records", HTTP_GET, diagnosticRecordsRoute, nullptr},
       {"/diag/download", HTTP_GET, diagnosticDownloadRoute, nullptr},
+      {"/network/status", HTTP_GET, networkStatusRoute, nullptr},
+      {"/network/scan", HTTP_POST, networkScanRoute, nullptr},
+      {"/network/connect", HTTP_POST, networkConnectRoute, nullptr},
+      {"/network/disconnect", HTTP_POST, networkDisconnectRoute, nullptr},
+      {"/network/forget", HTTP_POST, networkForgetRoute, nullptr},
       {"/proposal", HTTP_GET, proposalRoute, nullptr},
       {"/practice-summary", HTTP_GET, practiceSummaryRoute, nullptr},
       {"/finish-display", HTTP_GET, finishDisplayRoute, nullptr},
