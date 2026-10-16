@@ -7,7 +7,7 @@ struct Stage14AStore final : pp::Store {
   // the fixture store bounded to the slots the normal stores can address;
   // allocating a 32-slot x 8 KiB matrix here would exhaust the ESP32 task
   // stack before the acceptance scenario starts.
-  // The production history contract remains bounded by HistoryStore::MaxBytes;
+  // The production history contract uses a per-result encoding workspace;
   // this fixture only needs sparse buffers for metadata slot 6, record slot 7
   // and history data slots 8-11; unused NVS slots are not allocated.
   static constexpr size_t ResultBytes=sizeof(pp::RaceEngineModule::CompletedRaceResult),MetaBytes=128,RecordBytes=128;
@@ -69,7 +69,7 @@ void stage14aAcceptanceBeforeBoot(){diagnostics.enable(true);stage14aOutput.enab
 void stage14aRun(){
   if(stage14aStarted)return;stage14aStarted=true;diagnostics.enable(false);stage14aFixtureStorage=static_cast<uint8_t*>(malloc(sizeof(Stage14AFixture)));if(!stage14aFixtureStorage){s14a("14A.M",false,"fixture_allocation=0");return;}
   alignas(pp::RaceEngineModule::CompletedRaceResult) static uint8_t raw[sizeof(pp::RaceEngineModule::CompletedRaceResult)]{};
-  s14a("14A.SIZE",sizeof(pp::RaceEngineModule::CompletedRaceResult)<=pp::HistoryStore::MaxBytes,"result_size=%u history_max=%u engine=%u notice=%u",unsigned(sizeof(pp::RaceEngineModule::CompletedRaceResult)),unsigned(pp::HistoryStore::MaxBytes),unsigned(sizeof(pp::RaceEngineModule)),unsigned(sizeof(pp::NoticeboardState)));
+  s14a("14A.SIZE",sizeof(pp::RaceEngineModule::CompletedRaceResult)<=pp::VersionedResultCodec::MaxBytes,"result_size=%u encoding_workspace=%u engine=%u notice=%u",unsigned(sizeof(pp::RaceEngineModule::CompletedRaceResult)),unsigned(pp::VersionedResultCodec::MaxBytes),unsigned(sizeof(pp::RaceEngineModule)),unsigned(sizeof(pp::NoticeboardState)));
   auto* one=::new(stage14aFixtureStorage) Stage14AFixture(1,pp::LapFinishBehaviour::Immediate,1); one->start(); const pp::Time oneGo=one->control.scheduledGo(); one->passage(0,oneGo+100000); one->settle(oneGo+100100); s14a("14A.1",one->engine.completedResult().sealed&&one->engine.entryCount()==1&&one->engine.completedResult().entries[0].laps==1,"one_entry_sealed=1"); one->~Stage14AFixture();
   auto* two=::new(stage14aFixtureStorage) Stage14AFixture(2,pp::LapFinishBehaviour::CompleteCurrentLap,1); two->start(); const pp::Time twoGo=two->control.scheduledGo(); two->passage(0,twoGo+100000); two->passage(1,twoGo+110000); two->settle(twoGo+120000); const auto&rTwo=two->engine.completedResult(); s14a("14A.2",rTwo.sealed&&rTwo.entryCount==2&&rTwo.entries[0].lane==1&&rTwo.entries[1].lane==2&&two->engine.entryCount()==2,"two_entry_lap_race_unchanged=1"); two->~Stage14AFixture();
   auto* f=::new(stage14aFixtureStorage) Stage14AFixture(4,pp::LapFinishBehaviour::CompleteCurrentLap,2); f->start(); const pp::Time go=f->control.scheduledGo();

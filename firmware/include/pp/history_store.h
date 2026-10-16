@@ -6,9 +6,11 @@ namespace pp {
 
 class HistoryStore {
 public:
-  static constexpr uint8_t Capacity = 4;
-  static constexpr size_t MaxBytes = 8192;
-  struct Entry { uint32_t sequence=0; uint16_t bytes=0; uint8_t slot=0; };
+  // V1 product retention.  Payload size is deliberately not a sporting or
+  // product limit; the backend accepts the complete encoded race that the
+  // available storage can commit.
+  static constexpr uint8_t Capacity = 100;
+  struct Entry { uint32_t sequence=0; uint32_t bytes=0; uint8_t slot=0; };
   virtual ~HistoryStore() = default;
   virtual bool append(const uint8_t* bytes, size_t length, uint32_t& sequence) = 0;
   virtual bool loadNewest(uint8_t index, uint8_t* bytes, size_t capacity, size_t& length, uint32_t& sequence) = 0;
@@ -27,16 +29,16 @@ public:
   virtual bool clear() = 0;
 };
 
-// Development-sized HistoryStore with a transactional append boundary.
-// Capacity and MaxBytes are temporary development values; WP2B replaces the
-// physical representation without changing this interface.
+// Transactional per-race HistoryStore.  Metadata is bounded while each race
+// remains an independently committed payload, so History enumeration does not
+// require loading all retained detail into RAM.
 class SlotHistoryStore final : public HistoryStore {
 public:
   explicit SlotHistoryStore(Store& store):store_(store){}
 
   bool append(const uint8_t* bytes, size_t length, uint32_t& sequence) override {
     sequence = 0;
-    if (!bytes || length == 0 || length > MaxBytes || !ensure()) return false;
+    if (!bytes || length == 0 || length > UINT32_MAX || !ensure()) return false;
     // Never overwrite a slot referenced by committed metadata. The spare half
     // of the bounded slot set is the staging area for a new transaction.
     const uint8_t slot = freeSlot();
@@ -81,13 +83,16 @@ public:
 
 private:
   static constexpr unsigned MetaSlotA = 6;
-  static constexpr unsigned MetaSlotB = 16;
+  // Keep the legacy metadata slot and development payload slots readable while
+  // moving the second metadata copy beyond the 200 production data slots.
+  static constexpr unsigned MetaSlotB = 208;
   static constexpr unsigned DataSlot = 8;
   static constexpr uint8_t PhysicalSlots = static_cast<uint8_t>(Capacity * 2);
   static constexpr uint8_t InvalidSlot = 0xff;
   static constexpr uint32_t Magic = 0x54524831u; // TRH1
   static constexpr uint16_t Version = 1;
-  static constexpr size_t EncodedMetadataBytes = 52;
+  // header (20) + 100 entries (sequence u32, bytes u32, slot u8) + checksum.
+  static constexpr size_t EncodedMetadataBytes = 924;
   static constexpr size_t LegacyMetadataBytes = 48;
 
   struct MetadataState { uint32_t generation=0, nextSequence=0; uint8_t count=0; Entry entries[Capacity]{}; };
@@ -105,12 +110,12 @@ private:
   }
   static void encode(const MetadataState& value,uint8_t* out) {
     memset(out,0,EncodedMetadataBytes);put32(out,Magic);put16(out+4,Version);put32(out+8,value.generation);put32(out+12,value.nextSequence);out[16]=value.count;
-    size_t p=20;for(uint8_t i=0;i<Capacity;++i){put32(out+p,value.entries[i].sequence);p+=4;put16(out+p,value.entries[i].bytes);p+=2;out[p++]=value.entries[i].slot;}put32(out+p,checksum(out,p));
+    size_t p=20;for(uint8_t i=0;i<Capacity;++i){put32(out+p,value.entries[i].sequence);p+=4;put32(out+p,value.entries[i].bytes);p+=4;out[p++]=value.entries[i].slot;}put32(out+p,checksum(out,p));
   }
   static bool decode(const uint8_t* bytes,MetadataState& value) {
-    if(!bytes||get32(bytes)!=Magic||get16(bytes+4)!=Version||get32(bytes+48)!=checksum(bytes,48))return false;
+    if(!bytes||get32(bytes)!=Magic||get16(bytes+4)!=Version||get32(bytes+EncodedMetadataBytes-4)!=checksum(bytes,EncodedMetadataBytes-4))return false;
     value=MetadataState{};value.generation=get32(bytes+8);value.nextSequence=get32(bytes+12);value.count=bytes[16];size_t p=20;
-    for(uint8_t i=0;i<Capacity;++i){value.entries[i].sequence=get32(bytes+p);p+=4;value.entries[i].bytes=get16(bytes+p);p+=2;value.entries[i].slot=bytes[p++];}
+    for(uint8_t i=0;i<Capacity;++i){value.entries[i].sequence=get32(bytes+p);p+=4;value.entries[i].bytes=get32(bytes+p);p+=4;value.entries[i].slot=bytes[p++];}
     return value.generation!=0&&valid(value);
   }
   static bool decodeLegacy(const uint8_t* bytes,MetadataState& value) {

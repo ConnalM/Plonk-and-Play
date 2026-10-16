@@ -13,7 +13,7 @@ public:
   int failWriteSlot = -1;
   int failReadSlot = -1;
   int corruptWriteSlot = -1;
-  std::vector<std::vector<uint8_t>> slots = std::vector<std::vector<uint8_t>>(32);
+  std::vector<std::vector<uint8_t>> slots = std::vector<std::vector<uint8_t>>(256);
 
   bool available() const override { return online; }
 
@@ -83,7 +83,7 @@ int main() {
                   sequence == 2 && history.count() == 2 && loadPayload(history, 0, second) && loadPayload(history, 1, first);
   check("PSF.18", secondOk, "committed_order_and_reconstruction=1");
 
-  store.failWriteSlot = 16; // next metadata generation; prior slot 6 remains committed
+  store.failWriteSlot = 208; // next metadata generation; prior slot 6 remains committed
   bool commitFailure = !history.append(reinterpret_cast<const uint8_t*>(orphan), strlen(orphan), failed) &&
                        failed == 0 && history.count() == 2 && loadPayload(history, 0, second) && loadPayload(history, 1, first);
   check("PSF.16", commitFailure, "metadata_commit_failure_preserves_previous_generation=1");
@@ -121,7 +121,7 @@ int main() {
   bool f1 = fallbackHistory.append(reinterpret_cast<const uint8_t*>(first), strlen(first), ignored);
   bool f2 = fallbackHistory.append(reinterpret_cast<const uint8_t*>(second), strlen(second), ignored);
   // Generation 2 is in metadata slot 6; corrupting it must fall back to the
-  // prior committed generation in slot 16 rather than exposing partial data.
+  // prior committed generation in slot 208 rather than exposing partial data.
   if (fallback.slots[6].size() > 1) fallback.slots[6][1] ^= 0x7f;
   SlotHistoryStore fallbackReload(fallback);
   bool fallbackOk = f1 && f2 && fallbackReload.count() == 1 && loadPayload(fallbackReload, 0, first);

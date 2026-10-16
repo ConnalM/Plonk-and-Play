@@ -14,12 +14,18 @@ public:
   // acceptance race (20 laps per entry).  This is a temporary resource
   // capacity, not an Endurance product maximum; the production SD detail
   // representation will be streamed/chunked independently of this array.
-#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
-  static constexpr uint8_t DevelopmentDetailCapacity=24;
+  // Detail is retained with the completed race.  This is an implementation
+  // staging bound for the current in-memory race object, not an Endurance
+  // sporting/product limit; durable History is independently capacity-driven.
+  // Host/storage acceptance exercises the full 255-record wire range.  The
+  // classic Arduino target keeps the active object bounded while the real
+  // product S3/SD path moves retained detail through the storage boundary.
+#if defined(ARDUINO)
+  static constexpr uint16_t MaxLaps=32;
 #else
-  static constexpr uint8_t DevelopmentDetailCapacity=16;
+  static constexpr uint16_t MaxLaps=255;
 #endif
-  static constexpr uint8_t MaxEntries=PP_MAX_ENTRIES, MaxLaps=DevelopmentDetailCapacity;
+  static constexpr uint8_t MaxEntries=PP_MAX_ENTRIES;
   static constexpr uint16_t ResultFormatVersion=3;
   struct LapRecord { uint32_t lapNumber=0; Time startTime=0,finishTime=0,lapTime=0; Time racingFinishTime=0; bool valid=false; };
   struct EntryState {
@@ -210,14 +216,14 @@ private:
   static bool samePlace(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){return a.classifiedLaps==b.classifiedLaps&&(f==LapFinishBehaviour::Immediate||a.completionTime==b.completionTime);}
   void publishNoticeboardChanged(){Message n{};n.type=Type::NoticeboardChanged;bus_.publish(endpoint_,n);}
   void seal(){clearCompletedResult();result_.sealed=true;result_.valid=!faulted_;result_.deadHeat=deadHeat_;result_.winningTime=winningTime_;result_.finishTime=candidateF_;result_.expiryTime=expiryTime_;result_.overtime=expiryTime_&&candidateF_>expiryTime_;result_.durationUs=definition_?definition_->durationUs():0;result_.durationMinutes=definition_?definition_->durationMinutes():0;result_.mode=definition_?definition_->mode():SessionMode::LapRace;result_.behaviour=finishBehaviour_;result_.entryCount=entryCount();result_.lapTarget=definition_?definition_->lapTarget():0;uint32_t leader=0;
-    for(uint8_t i=0;i<entryCount();++i){auto&t=result_.entries[i];const auto&s=entries_[i];t.raceEntryId=s.raceEntryId;t.mugId=definition_->entry(i).mugId;t.lane=definition_->entry(i).lane;t.laps=s.laps;t.lapPenalty=s.lapPenalty;t.classifiedLaps=s.laps>s.lapPenalty?s.laps-s.lapPenalty:0;t.completed=observed_[i];t.completionTime=t.completed?s.lastCrossing:0;t.recordCount=s.recordCount;if(t.classifiedLaps>leader)leader=t.classifiedLaps;for(uint8_t j=0;j<s.recordCount;++j){t.records[j]=s.records[j];if(s.records[j].valid&&(!t.bestLap||s.records[j].lapTime<t.bestLap))t.bestLap=s.records[j].lapTime;}}
+    for(uint8_t i=0;i<entryCount();++i){auto&t=result_.entries[i];const auto&s=entries_[i];t.raceEntryId=s.raceEntryId;t.mugId=definition_->entry(i).mugId;t.lane=definition_->entry(i).lane;t.laps=s.laps;t.lapPenalty=s.lapPenalty;t.classifiedLaps=s.laps>s.lapPenalty?s.laps-s.lapPenalty:0;t.completed=observed_[i];t.completionTime=t.completed?s.lastCrossing:0;t.recordCount=s.recordCount;if(t.classifiedLaps>leader)leader=t.classifiedLaps;for(uint16_t j=0;j<s.recordCount;++j){t.records[j]=s.records[j];if(s.records[j].valid&&(!t.bestLap||s.records[j].lapTime<t.bestLap))t.bestLap=s.records[j].lapTime;}}
     for(uint8_t i=1;i<entryCount();++i){ResultEntry v=result_.entries[i];int j=int(i)-1;while(j>=0&&before(v,result_.entries[j],finishBehaviour_)){result_.entries[j+1]=result_.entries[j];--j;}result_.entries[j+1]=v;}
-    uint32_t rank=1;for(uint8_t i=0;i<entryCount();++i){if(i&&!samePlace(result_.entries[i-1],result_.entries[i],finishBehaviour_))rank=i+1;auto&t=result_.entries[i];t.rank=rank;t.tied=i&&result_.entries[i-1].rank==rank;if(t.tied)result_.entries[i-1].tied=true;t.lapsBehind=leader-t.classifiedLaps;for(uint8_t j=0;j<t.recordCount;++j){const auto&lap=t.records[j];if(!lap.valid)continue;if(!result_.fastestLap||lap.lapTime<result_.fastestLap){result_.fastestLap=lap.lapTime;result_.fastestEntryId=t.raceEntryId;result_.fastestLapTied=false;}else if(lap.lapTime==result_.fastestLap&&result_.fastestEntryId!=t.raceEntryId)result_.fastestLapTied=true;}}
+    uint32_t rank=1;for(uint8_t i=0;i<entryCount();++i){if(i&&!samePlace(result_.entries[i-1],result_.entries[i],finishBehaviour_))rank=i+1;auto&t=result_.entries[i];t.rank=rank;t.tied=i&&result_.entries[i-1].rank==rank;if(t.tied)result_.entries[i-1].tied=true;t.lapsBehind=leader-t.classifiedLaps;for(uint16_t j=0;j<t.recordCount;++j){const auto&lap=t.records[j];if(!lap.valid)continue;if(!result_.fastestLap||lap.lapTime<result_.fastestLap){result_.fastestLap=lap.lapTime;result_.fastestEntryId=t.raceEntryId;result_.fastestLapTied=false;}else if(lap.lapTime==result_.fastestLap&&result_.fastestEntryId!=t.raceEntryId)result_.fastestLapTied=true;}}
   }
   Time racingTime(Time raw)const{return raw>=pausedDuration_?raw-pausedDuration_:0;}
   void closePause(Time at){if(pauseOpen_&&at>=pauseAt_){pausedDuration_+=at-pauseAt_;pauseOpen_=false;}}
-  bool hasCrossingForClassified(uint8_t index,uint32_t classified)const{if(index>=entryCount()||!classified)return false;const auto&s=entries_[index];const uint32_t factual=classified+s.lapPenalty;for(uint8_t j=0;j<s.recordCount;++j)if(s.records[j].valid&&s.records[j].lapNumber==factual)return true;return false;}
-  Time crossingForClassified(uint8_t index,uint32_t classified)const{if(!hasCrossingForClassified(index,classified))return 0;const auto&s=entries_[index];const uint32_t factual=classified+s.lapPenalty;for(uint8_t j=0;j<s.recordCount;++j)if(s.records[j].valid&&s.records[j].lapNumber==factual)return s.records[j].racingFinishTime;return 0;}
+  bool hasCrossingForClassified(uint8_t index,uint32_t classified)const{if(index>=entryCount()||!classified)return false;const auto&s=entries_[index];const uint32_t factual=classified+s.lapPenalty;for(uint16_t j=0;j<s.recordCount;++j)if(s.records[j].valid&&s.records[j].lapNumber==factual)return true;return false;}
+  Time crossingForClassified(uint8_t index,uint32_t classified)const{if(!hasCrossingForClassified(index,classified))return 0;const auto&s=entries_[index];const uint32_t factual=classified+s.lapPenalty;for(uint16_t j=0;j<s.recordCount;++j)if(s.records[j].valid&&s.records[j].lapNumber==factual)return s.records[j].racingFinishTime;return 0;}
   uint8_t leaderForGap()const{for(uint8_t i=0;i<entryCount();++i)if(livePosition(i)==1)return i;return MaxEntries;}
   Bus&bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition&active_;HistoryStore*history_=nullptr;TrackRecordStore*records_=nullptr;const SessionDefinition*definition_=nullptr;
   uint8_t penalties_[MaxEntries]{},observed_[MaxEntries]{};uint32_t observedRevision_=0;Time go_=0,pauseAt_=0,restartAt_=0,settlementAt_=0,practiceResumeAt_=0,winningTime_=0,candidateF_=0,expiryTime_=0,resumeAt_=0,pausedDuration_=0;bool pauseOpen_=false;

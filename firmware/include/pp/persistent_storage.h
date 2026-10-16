@@ -13,7 +13,9 @@ class VersionedResultCodec {
 public:
   static constexpr uint32_t Magic = 0x50534631u; // PSF1
   static constexpr uint16_t Version = 2;
-  static constexpr size_t MaxBytes = HistoryStore::MaxBytes;
+  // Workspace for one encoded race.  It scales with the current authoritative
+  // result object; it is not a History-retention or sporting limit.
+  static constexpr size_t MaxBytes = sizeof(RaceEngineModule::CompletedRaceResult) + 4096;
 
   static bool encode(const RaceEngineModule::CompletedRaceResult& value,
                      uint8_t* out, size_t capacity, size_t& length) {
@@ -76,26 +78,28 @@ private:
   static uint32_t sum(const uint8_t*p,size_t n){uint32_t h=2166136261u;while(n--)h=(h^*p++)*16777619u;return h;}
 };
 
-// Decorates any bounded HistoryStore with the stable serialized result format.
+// Decorates any transactional HistoryStore with the stable serialized result
+// format.  The backend owns durable capacity; this wrapper only bounds one
+// encoded race workspace.
 class VersionedHistoryStore final : public HistoryStore {
 public:
   explicit VersionedHistoryStore(HistoryStore& backend):backend_(backend){}
   bool append(const uint8_t*bytes,size_t length,uint32_t&sequence) override {
     if(!bytes||length!=sizeof(RaceEngineModule::CompletedRaceResult))return false;
-    auto* encoded=static_cast<uint8_t*>(malloc(MaxBytes));if(!encoded)return false;size_t encodedLength=0;
-    const bool encodedOk=VersionedResultCodec::encode(*reinterpret_cast<const RaceEngineModule::CompletedRaceResult*>(bytes),encoded,MaxBytes,encodedLength);
+    auto* encoded=static_cast<uint8_t*>(malloc(VersionedResultCodec::MaxBytes));if(!encoded)return false;size_t encodedLength=0;
+    const bool encodedOk=VersionedResultCodec::encode(*reinterpret_cast<const RaceEngineModule::CompletedRaceResult*>(bytes),encoded,VersionedResultCodec::MaxBytes,encodedLength);
     const bool ok=encodedOk&&backend_.append(encoded,encodedLength,sequence);free(encoded);return ok;
   }
   bool loadNewest(uint8_t index,uint8_t*bytes,size_t capacity,size_t&length,uint32_t&sequence) override {
     length=0;
     sequence=0;
     if(!bytes||capacity<sizeof(RaceEngineModule::CompletedRaceResult))return false;
-    auto* encoded=static_cast<uint8_t*>(malloc(MaxBytes));
+    auto* encoded=static_cast<uint8_t*>(malloc(VersionedResultCodec::MaxBytes));
     auto* decoded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));
     if(!encoded||!decoded){free(decoded);free(encoded);return false;}
     size_t encodedLength=0;
     uint32_t storedSequence=0;
-    const bool loaded=backend_.loadNewest(index,encoded,MaxBytes,encodedLength,storedSequence);
+    const bool loaded=backend_.loadNewest(index,encoded,VersionedResultCodec::MaxBytes,encodedLength,storedSequence);
     const bool decodedOk=loaded&&VersionedResultCodec::decode(encoded,encodedLength,*decoded);
     if(decodedOk){
       memcpy(bytes,decoded,sizeof(*decoded));
@@ -109,10 +113,10 @@ public:
   uint8_t count() override{return backend_.count();}
   bool loadSequence(uint32_t wanted,uint8_t* bytes,size_t capacity,size_t& length,uint32_t& sequence) override {
     length=0; sequence=0; if(!bytes||capacity<sizeof(RaceEngineModule::CompletedRaceResult))return false;
-    auto* encoded=static_cast<uint8_t*>(malloc(MaxBytes)); auto* decoded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));
+    auto* encoded=static_cast<uint8_t*>(malloc(VersionedResultCodec::MaxBytes)); auto* decoded=static_cast<RaceEngineModule::CompletedRaceResult*>(malloc(sizeof(RaceEngineModule::CompletedRaceResult)));
     if(!encoded||!decoded){free(decoded);free(encoded);return false;}
     size_t encodedLength=0; uint32_t storedSequence=0;
-    const bool loaded=backend_.loadSequence(wanted,encoded,MaxBytes,encodedLength,storedSequence);
+    const bool loaded=backend_.loadSequence(wanted,encoded,VersionedResultCodec::MaxBytes,encodedLength,storedSequence);
     const bool decodedOk=loaded&&storedSequence==wanted&&VersionedResultCodec::decode(encoded,encodedLength,*decoded);
     if(decodedOk){memcpy(bytes,decoded,sizeof(*decoded));length=sizeof(*decoded);sequence=storedSequence;}
     free(decoded); free(encoded); return decodedOk;
