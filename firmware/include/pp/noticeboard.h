@@ -78,7 +78,7 @@ public:
   uint32_t proposalRevision() const{return control_.proposalRevision();}
   const RaceEngineModule::PracticeSummary& practiceSummary() const{return engine_.practiceSummary();}
 private:
-  static void selectLatestLap(NoticeboardState&s,const RaceEngineModule&e) __attribute__((noinline)){Time latest=0;for(uint8_t i=0;i<s.entryCount;i++){const auto&entry=e.entryState(i);if(entry.hasLap&&entry.recordCount&&entry.records[entry.recordCount-1].finishTime>=latest){latest=entry.records[entry.recordCount-1].finishTime;s.raceEntryId=entry.raceEntryId;s.laps=entry.laps;s.lastLapTime=entry.lastLapTime;s.hasLap=true;}}}
+  static void selectLatestLap(NoticeboardState&s,const RaceEngineModule&e) __attribute__((noinline)){Time latest=0;for(uint8_t i=0;i<s.entryCount;i++){const auto&entry=e.entryState(i);if(entry.hasLap&&entry.recordCount&&entry.lastCrossing>=latest){latest=entry.lastCrossing;s.raceEntryId=entry.raceEntryId;s.laps=entry.laps;s.lastLapTime=entry.lastLapTime;s.hasLap=true;}}}
   const RaceControlModule&control_;const RaceEngineModule&engine_;const ActiveSessionDefinition&active_;const SessionDefinition*definition_=nullptr;
 };
 }
