@@ -88,6 +88,24 @@ Rendered multi-browser behaviour should be proved when the P&P browser implement
 6. Stage work should begin from a clean repository and should not silently alter accepted architecture to make implementation easier.
 7. Startup diagnostics must identify the actual build environment accurately. A normal, acceptance, verification, quiet or demonstration image must never present itself as a different stage. These labels are diagnostic only and do not form product State.
 
+### Automatic evidence-first investigation
+
+Before asking a human to collect or paste diagnostic evidence, inspect both
+development evidence paths directly:
+
+1. inspect the newest `firmware/logs/device-monitor-*.log` host-side Serial
+   capture; and
+2. when the controller is reachable, run
+   `powershell -NoProfile -ExecutionPolicy Bypass -File firmware/tools/get-diagnostics.ps1`
+   to retrieve the current P&P `/diag/download` artifact into `firmware/logs/`.
+
+The retrieval tool preserves each response as a timestamped immutable copy and
+reports whether the controller is unreachable, the HTTP request failed, or P&P
+reported diagnostics unavailable. If the controller cannot be reached or the
+artifact cannot be retrieved, record the reason from the available Serial and
+HTTP evidence before asking the human for material that cannot be obtained by
+these paths.
+
 ### Documentation-first contract check
 
 Before any preparation or discussion, product or UX design, architecture,
