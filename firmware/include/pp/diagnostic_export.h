@@ -93,6 +93,8 @@ public:
 
     uint8_t payload[MaxPayloadBytes]{};
     static const char hex[] = "0123456789ABCDEF";
+    uint64_t previousSequence = 0;
+    bool havePreviousSequence = false;
     for (size_t index = 0; index < result.snapshotRecords; ++index) {
       if (recorder.revision() != result.snapshotRevision) {
         result.changedDuringExport = true;
@@ -104,13 +106,14 @@ public:
         result.readFailed = true;
         break;
       }
-      bool priorReadFailed = false;
-      if (sequenceSeenBefore(recorder, index, envelope.sequence, priorReadFailed))
+      // Records are returned in chronological storage order. A duplicate (or
+      // regression) therefore violates the durable monotonic sequence
+      // contract and can be detected from the previous record alone. This
+      // keeps export O(n) instead of rereading the SD file for every record.
+      if (havePreviousSequence && envelope.sequence <= previousSequence)
         result.duplicateSequence = true;
-      if (priorReadFailed) {
-        result.readFailed = true;
-        break;
-      }
+      previousSequence = envelope.sequence;
+      havePreviousSequence = true;
       int prefix = snprintf(
           line, sizeof(line),
           "{\"type\":\"record\",\"sequence\":%llu,\"timestamp\":%llu,"
@@ -182,22 +185,6 @@ public:
     return true;
   }
 
-private:
-  static bool sequenceSeenBefore(const DiagnosticRecorder& recorder,
-                                 size_t index, uint64_t sequence,
-                                 bool& readFailed) {
-    uint8_t payload[MaxPayloadBytes]{};
-    for (size_t prior = 0; prior < index; ++prior) {
-      RecordEnvelope envelope{};
-      size_t payloadBytes = 0;
-      if (!recorder.read(prior, envelope, payload, sizeof(payload), payloadBytes)) {
-        readFailed = true;
-        return false;
-      }
-      if (envelope.sequence == sequence) return true;
-    }
-    return false;
-  }
 };
 
 } // namespace diagnostic

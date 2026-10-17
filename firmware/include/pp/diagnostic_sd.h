@@ -35,6 +35,7 @@ public:
     if (!epoch.valid())
       return fail(StorageResult::Invalid, FailureReason::InvalidRequest);
     epoch_ = epoch;
+    closeReadCursor();
     spi_.begin(SckPin, MisoPin, MosiPin, CsPin);
     mounted_ = SD.begin(CsPin, spi_, SpiFrequency);
     if (!mounted_)
@@ -111,28 +112,29 @@ public:
     length = 0;
     if (!mounted_ || wanted >= recordCount_)
       return false;
-    File input = SD.open(FilePath, FILE_READ);
-    if (!input)
-      return false;
-    // Do not rely on the SD/FATFS implementation's implicit cursor after
-    // opening a file.  On the real S3 card the handle can otherwise begin at
-    // the end of the file after prior append activity.
-    if (!input.seek(HeaderBytes)) {
-      input.close();
-      return false;
+    if (!readOpen_ || readRevision_ != revision_ || wanted != readIndex_) {
+      closeReadCursor();
+      readFile_ = SD.open(FilePath, FILE_READ);
+      if (!readFile_ || !readFile_.seek(HeaderBytes)) {
+        closeReadCursor();
+        return false;
+      }
+      readOpen_ = true;
+      readIndex_ = 0;
+      readRevision_ = revision_;
     }
     uint8_t frame[RecordOverheadBytes + MaxPayloadBytes]{};
-    for (size_t index = 0; index <= wanted; ++index) {
+    for (size_t index = readIndex_; index <= wanted; ++index) {
       uint32_t body = 0;
-      if (!readFrame(input, frame, body)) {
-        input.close();
+      if (!readFrame(readFile_, frame, body)) {
+        closeReadCursor();
         return false;
       }
       if (index != wanted)
         continue;
       const size_t actual = body - EnvelopeBytes;
       if (actual > capacity || (actual && !payload)) {
-        input.close();
+        closeReadCursor();
         return false;
       }
       size_t pos = 4;
@@ -140,10 +142,10 @@ public:
       if (actual)
         memcpy(payload, frame + pos, actual);
       length = actual;
-      input.close();
+      readIndex_ = wanted + 1;
       return true;
     }
-    input.close();
+    closeReadCursor();
     return false;
   }
 
@@ -159,6 +161,7 @@ public:
   StorageResult recover() override {
     if (!mounted_)
       return fail(StorageResult::Unavailable, FailureReason::BackendUnavailable);
+    closeReadCursor();
     if (!scanExisting()) {
       health_ = StorageHealth::Degraded;
       lastFailure_ = FailureReason::CorruptRecord;
@@ -170,6 +173,7 @@ public:
   }
 
   StorageResult close() override {
+    closeReadCursor();
     if (file_)
       file_.close();
     open_ = false;
@@ -181,6 +185,7 @@ public:
   // it cannot affect product state or cause a retry loop.
   bool evictOldest() override {
     if (!open_ || recordCount_ == 0) return false;
+    closeReadCursor();
     file_.close();
     open_ = false;
     const char* temporaryPath = "/pp-diagnostics/records.roll.tmp";
@@ -238,6 +243,7 @@ private:
   }
 
   bool createFile() {
+    closeReadCursor();
     SD.remove(FilePath);
     File output = SD.open(FilePath, FILE_WRITE);
     if (!output)
@@ -258,6 +264,7 @@ private:
   }
 
   bool scanExisting() const {
+    closeReadCursor();
     File input = SD.open(FilePath, FILE_READ);
     if (!input)
       return false;
@@ -383,6 +390,10 @@ private:
   }
 
   mutable File file_;
+  mutable File readFile_;
+  mutable size_t readIndex_ = 0;
+  mutable bool readOpen_ = false;
+  mutable uint64_t readRevision_ = 0;
   SPIClass spi_{FSPI};
   ControllerEpoch epoch_{};
   StorageHealth health_ = StorageHealth::Fault;
@@ -393,6 +404,14 @@ private:
   mutable uint64_t revision_ = 0;
   bool mounted_ = false;
   bool open_ = false;
+
+  void closeReadCursor() const {
+    if (readFile_)
+      readFile_.close();
+    readIndex_ = 0;
+    readOpen_ = false;
+    readRevision_ = 0;
+  }
 };
 
 } // namespace diagnostic

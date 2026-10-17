@@ -34,6 +34,59 @@ private:
   bool open_ = false;
 };
 
+class SequentialReadStorage final : public DiagnosticStorage {
+public:
+  static constexpr size_t Capacity = 8;
+
+  StorageResult begin(ControllerEpoch) override {
+    open_ = true;
+    return StorageResult::Accepted;
+  }
+  StorageResult tryAppend(const RecordView& record, uint64_t sequence) override {
+    if (!open_ || count_ == Capacity) return StorageResult::Full;
+    items_[count_].envelope = record.envelope;
+    items_[count_].envelope.sequence = sequence;
+    items_[count_].length = record.payloadBytes;
+    if (record.payloadBytes) std::memcpy(items_[count_].payload, record.payload,
+                                         record.payloadBytes);
+    ++count_;
+    ++revision_;
+    return StorageResult::Accepted;
+  }
+  size_t count() const override { return count_; }
+  uint64_t revision() const override { return revision_; }
+  bool read(size_t index, RecordEnvelope& envelope, uint8_t* payload,
+            size_t capacity, size_t& length) const override {
+    ++readCalls;
+    length = 0;
+    if (index >= count_ || items_[index].length > capacity) return false;
+    envelope = items_[index].envelope;
+    if (items_[index].length) std::memcpy(payload, items_[index].payload,
+                                           items_[index].length);
+    length = items_[index].length;
+    return true;
+  }
+  StorageStatus status() const override {
+    return {StorageHealth::DurableSd, BackendKind::ProductionSd,
+            FailureReason::None, true};
+  }
+  StorageResult recover() override { return StorageResult::Accepted; }
+  StorageResult close() override { open_ = false; return StorageResult::Accepted; }
+
+  mutable size_t readCalls = 0;
+
+private:
+  struct Item {
+    RecordEnvelope envelope{};
+    uint8_t payload[DiagnosticExport::MaxPayloadBytes]{};
+    size_t length = 0;
+  };
+  Item items_[Capacity]{};
+  size_t count_ = 0;
+  uint64_t revision_ = 0;
+  bool open_ = false;
+};
+
 static RecordView makeRecord(const SessionStatus& session, uint32_t value,
                              uint8_t* payload) {
   payload[0] = static_cast<uint8_t>(value);
@@ -116,6 +169,28 @@ int main() {
     if (sink.value.find(forbidden) != std::string::npos) return 8;
   if (sink.value.find("\"sequence\":2") < sink.value.find("\"sequence\":1") ||
       sink.value.find("\"sequence\":3") < sink.value.find("\"sequence\":2")) return 9;
+
+  // Export must read each chronological record once. The old implementation
+  // reread every earlier record while checking for duplicates, making an
+  // SD-backed export quadratic in record count.
+  SequentialReadStorage sequentialStorage;
+  ProductionDiagnosticRecorder sequentialRecorder(sequentialStorage);
+  if (!sequentialRecorder.beginNormal(epoch, client)) return 16;
+  SessionStatus sequentialStatus{};
+  sequentialRecorder.status(sequentialStatus);
+  uint64_t sequentialSequence = 0;
+  for (uint32_t value = 1; value <= SequentialReadStorage::Capacity; ++value) {
+    if (sequentialRecorder.tryAppend(makeRecord(sequentialStatus, value, payload), sequentialSequence) !=
+        RecorderResult::Accepted) return 17;
+  }
+  StringSink sequentialSink;
+  DiagnosticExportResult sequentialResult{};
+  if (!DiagnosticExport::write(sequentialRecorder,
+                               metadata(sequentialStatus, sequentialStorage.status(),
+                                        "AVAILABLE"),
+                               0, sequentialSink, sequentialResult) ||
+      !sequentialResult.complete ||
+      sequentialStorage.readCalls != sequentialResult.snapshotRecords) return 18;
 
   // A nonzero snapshot whose first read fails must produce no false complete
   // export and must still return a deterministic diagnostic summary.

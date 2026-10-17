@@ -7,6 +7,7 @@
 #include "noticeboard.h"
 #include "system_time.h"
 #include "diagnostic_trace.h"
+#include "diagnostic_browser.h"
 #include "diagnostic_retrieval.h"
 #include "diagnostic_export.h"
 #include "control_lease.h"
@@ -1518,29 +1519,16 @@ private:
       const char* colon = p ? strchr(p, ':') : nullptr;
       return colon ? static_cast<uint64_t>(strtoull(colon + 1, nullptr, 10)) : fallback;
     };
-    const auto text = [&](const char* key, char* out, size_t capacity) {
-      if (!out || capacity == 0) return;
-      out[0] = 0;
-      const char* p = strstr(body, key);
-      const char* start = p ? strchr(p, '"') : nullptr;
-      if (!start) return;
-      ++start;
-      const char* end = strchr(start, '"');
-      if (!end) return;
-      const size_t length = size_t(end - start) < capacity - 1 ? size_t(end - start) : capacity - 1;
-      memcpy(out, start, length);
-      out[length] = 0;
-    };
     char kind[32]{};
     char lifecycle[20]{};
     char mode[20]{};
     char operation[32]{};
     char phase[24]{};
-    text("\"kind\"", kind, sizeof(kind));
-    text("\"lifecycle\"", lifecycle, sizeof(lifecycle));
-    text("\"sessionMode\"", mode, sizeof(mode));
-    text("\"operation\"", operation, sizeof(operation));
-    text("\"phase\"", phase, sizeof(phase));
+    diagnostic::jsonTextField(body, "\"kind\"", kind, sizeof(kind));
+    diagnostic::jsonTextField(body, "\"lifecycle\"", lifecycle, sizeof(lifecycle));
+    diagnostic::jsonTextField(body, "\"sessionMode\"", mode, sizeof(mode));
+    diagnostic::jsonTextField(body, "\"operation\"", operation, sizeof(operation));
+    diagnostic::jsonTextField(body, "\"phase\"", phase, sizeof(phase));
     const uint64_t traceId = number64("\"diagnosticTraceId\"");
     const uint32_t visible = number("\"correlationId\"");
     const uint32_t revision = number("\"revision\"");
@@ -1565,14 +1553,11 @@ private:
           notificationType, op, systemTime());
     } else {
       diagnostic::EventKind event = diagnostic::EventKind::StateFetchStarted;
-      if (strcmp(kind, "state_received") == 0) event = diagnostic::EventKind::StateReceived;
-      else if (strcmp(kind, "state_applied") == 0) event = diagnostic::EventKind::StateApplied;
-      else if (strcmp(kind, "rendered") == 0) event = diagnostic::EventKind::BrowserRender;
-      else if (strcmp(kind, "reconstruction") == 0) event = diagnostic::EventKind::Reconstruction;
-      else if (strcmp(kind, "state_fetch_started") != 0) event = diagnostic::EventKind::ResourceHealth;
-      browser->diagnosticTrace_->observeBrowserState(
-          event, clientId, traceId, visible, revision,
-          lifecycleCode, modeCode, observationDetail, op, systemTime());
+      if (diagnostic::browserStateObservationKind(kind, event)) {
+        browser->diagnosticTrace_->observeBrowserState(
+            event, clientId, traceId, visible, revision,
+            lifecycleCode, modeCode, observationDetail, op, systemTime());
+      }
     }
     free(body);
     httpd_resp_set_status(request, "204 No Content");

@@ -27,7 +27,7 @@ foreach ($marker in @(
   if ($interface -notlike "*$marker*") { throw "Download route marker missing: $marker" }
 }
 $sd = Get-Content -Raw (Join-Path $root 'firmware/include/pp/diagnostic_sd.h')
-if (($sd | Select-String -Pattern 'input\.seek\(HeaderBytes\)' -AllMatches).Matches.Count -lt 2) {
+if (($sd | Select-String -Pattern 'seek\(HeaderBytes\)' -AllMatches).Matches.Count -lt 2) {
   throw 'SD diagnostic read/scan paths must explicitly seek past the file header'
 }
 Write-Host 'WP3 /diag/download encoder and route integration: PASS'
