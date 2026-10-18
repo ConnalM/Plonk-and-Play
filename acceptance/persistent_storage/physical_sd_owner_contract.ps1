@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 $root = Resolve-Path (Join-Path $PSScriptRoot '..\..')
 $owner = Get-Content (Join-Path $root 'firmware\include\pp\physical_sd_owner.h') -Raw
 $history = Get-Content (Join-Path $root 'firmware\include\pp\sd_store_arduino.h') -Raw
+$historyStore = Get-Content (Join-Path $root 'firmware\include\pp\history_store.h') -Raw
 $diagnostic = Get-Content (Join-Path $root 'firmware\include\pp\diagnostic_sd.h') -Raw
 $main = Get-Content (Join-Path $root 'firmware\src\main.cpp') -Raw
 $psf = Get-Content (Join-Path $root 'docs\PERSISTENT_STORAGE_FOUNDATION_DESIGN.md') -Raw
@@ -21,6 +22,10 @@ if ($owner -notmatch 'SessionLifecycle::Ready' -or $owner -notmatch 'SessionLife
     $owner -notmatch 'SessionLifecycle::Starting' -or $owner -notmatch 'SessionLifecycle::Racing' -or
     $owner -notmatch 'SessionLifecycle::Paused' -or $owner -notmatch 'SessionLifecycle::Restarting') { throw 'Lifecycle recovery gate is incomplete' }
 if ($owner -notmatch 'xSemaphoreTakeRecursive\([^,]+,\s*0\)') { throw 'Storage arbitration is not bounded/non-blocking' }
+if ($main -match 'History/Records %s' -or $main -notmatch 'namespace reconstruction lazy') { throw 'Boot output does not distinguish physical/store readiness from lazy History reconstruction' }
+if ($historyStore -notmatch 'bool ensure\(\)' -or $historyStore -notmatch 'if \(!store_\.available\(\)\) return false') { throw 'History reconstruction boundary is not guarded by the shared store availability' }
+if ($diagnostic.IndexOf('scanExisting()') -lt 0 -or $diagnostic.IndexOf('health_ = StorageHealth::DurableSd') -lt 0 -or $diagnostic.IndexOf('scanExisting()') -gt $diagnostic.IndexOf('health_ = StorageHealth::DurableSd')) { throw 'Diagnostics durable health is not ordered after namespace scan' }
+if ($history -notmatch 'detailComplete\(') { throw 'Active-detail completion boundary is missing' }
 foreach ($id in @('PSF.31','PSF.32','PSF.33','PSF.34','PSF.35','PSF.36','PSF.37')) {
   if (($psf + $psfAcceptance) -notmatch [regex]::Escape($id)) { throw "Missing $id design/acceptance wording" }
 }

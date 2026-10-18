@@ -593,7 +593,7 @@ void setup(){
   physicalSdOwner.setLifecycle(raceControl.state());
   const bool physicalSdReady = physicalSdOwner.begin();
   const bool sdReady = sdPersistence.begin();
-  diagnostics.log("[INIT] Phase 8B-P1 SD owner %s; History/Records %s; NVS configuration READY=%s",
+  diagnostics.log("[INIT] Phase 8B-P1 SD owner %s; History storage boundary %s (namespace reconstruction lazy); NVS configuration READY=%s",
                   physicalSdReady ? "READY" : "DEGRADED",
                   sdReady ? "READY" : "DEGRADED", storage.available() ? "YES" : "NO");
 #endif
