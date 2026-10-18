@@ -828,6 +828,43 @@ The product-level retained-history behaviour is defined in `BROWSER_FLOW_RESULTS
 
 The storage model must be extensible so that substantially richer information can be retained later without redesigning Race Control or making older records unusable.
 
+### 13.0 Physical storage resource ownership
+
+The P&P Memory/storage responsibilities may use one physical SD card for
+History/Records, active/detail persistence and observation-only Diagnostics,
+but those logical consumers do not own the physical device independently.
+Exactly one P&P physical-storage owner owns FSPI initialisation, the
+`SD.begin()`/mount lifecycle, FAT/filesystem access and physical recovery.
+
+The owner coordinates and serializes actual filesystem operations inside the
+storage boundary. Logical consumers submit bounded work through their defined
+interfaces and namespaces; this serialization must never put SD/FAT latency
+into Race Engine timing, input processing or other timing-critical authority.
+Storage failure, queueing and slow media therefore remain isolated from
+authoritative racing and HTTP operation.
+
+A successful physical mount is shared. Consumers do not create independent
+SPI objects, call `SD.begin()` or opportunistically remount. Physical-device
+health and logical consumer health are separate: History and Diagnostics may
+report independent logical outcomes, but neither may claim durable SD-backed
+operation while the shared physical device is unavailable. Diagnostics may use
+its existing bounded RAM-only/degraded mode.
+
+On reboot, or at an explicit owner-controlled recovery boundary in an eligible
+non-active lifecycle state, the owner mounts once and logical consumers
+reconstruct their own namespaces through it. History commits, active-detail
+streams, diagnostic appends, rolling and export reads use bounded arbitration
+so one consumer cannot monopolize the medium.
+
+Physical recovery is prohibited while the authoritative session lifecycle is
+`STARTING`, `RACING`, `PAUSED` or `RESTARTING`, and while completion settlement
+or finishing has not yet reached `FINISHED`. It is eligible in `READY` and in
+`FINISHED` after normal completion settlement. During a prohibited state,
+racing continues with the existing failure-isolation rules and recovery is
+deferred. Failed recovery leaves the physical and logical capabilities
+unavailable/degraded without affecting racing or HTTP; logical consumers never
+perform an independent remount.
+
 ## 13.1 Information ownership and delivery
 
 P&P may distribute information widely, but it must not distribute ownership. For each authoritative fact or state there is one owner and one truth. Other components may hold views, snapshots or derived presentation data without becoming another authority.

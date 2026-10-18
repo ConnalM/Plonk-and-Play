@@ -29,6 +29,56 @@ The production SD card is canonical for completed official race History, persist
 
 The number of active entries (`PP_MAX_ENTRIES`) is independent of the number of persistent MUG identities, History capacity, and the number of records displayed by a Browser. History capacity is a storage policy independent of UI display count.
 
+### Physical SD ownership
+
+When one physical SD card serves more than one P&P storage function, exactly
+one P&P physical-storage owner owns that device's FSPI initialisation,
+`SD.begin()`/mount, FAT/filesystem lifecycle and recovery. History/Records,
+active/detail persistence and Diagnostics are logical consumers. They use
+subordinate storage interfaces and namespaces supplied by the physical owner;
+they do not create their own `SPIClass`, initialise FSPI, call `SD.begin()` or
+independently remount the card.
+
+All actual filesystem access is coordinated and serialized inside the physical
+storage boundary. Consumers submit bounded work through their defined storage
+boundaries; filesystem latency, queueing or failure must not block
+timing-critical Race Engine processing or alter authoritative racing. The
+owner may schedule bounded recovery work, but a consumer may not retry an
+impossible filesystem operation opportunistically or on every race tick.
+
+There is one mount attempt for each physical-storage lifecycle or explicit
+owner-controlled recovery attempt. A successful mount is shared by all logical
+consumers. The owner reports physical availability separately from each
+consumer's logical health. A logical consumer may be degraded or faulted while
+another remains usable, but no consumer may report durable SD-backed operation
+while the shared physical device is unavailable. Diagnostics may use its
+existing bounded RAM-only/degraded path when durable SD is unavailable.
+
+An SD failure does not stop racing or HTTP. History does not publish a result
+as durable unless its existing commit contract succeeds; diagnostic failure
+follows the bounded degraded/RAM-only rules. A failure in one namespace does
+not imply failure in another unless the common physical layer is the cause.
+
+On reboot, or at an explicit owner-controlled recovery boundary in an eligible
+non-active lifecycle state, the physical owner establishes the device once and
+then each logical consumer scans/reconstructs its own namespace through its
+subordinate interface. Committed History, detail, diagnostic evidence and
+their existing sequence/retention semantics are preserved.
+
+History writes, active-detail streaming, diagnostic appends, diagnostic
+rolling and diagnostic export reads share the owner's bounded arbitration. No
+one consumer may monopolise filesystem work or make another consumer's
+timing-critical authority path wait on SD latency.
+
+Physical recovery is prohibited while the authoritative session lifecycle is
+`STARTING`, `RACING`, `PAUSED` or `RESTARTING`, and while the completion
+settlement/finishing boundary has not yet reached `FINISHED`. Racing continues
+under the existing failure-isolation rules while recovery is deferred. Recovery
+is eligible in `READY` and in `FINISHED` after the normal completion settlement
+has reached that state. A failed recovery leaves physical and logical health
+unavailable/degraded and does not affect racing or HTTP. No logical consumer
+may independently retry or remount at any lifecycle state.
+
 ## Authority and storage boundary
 
 Race Engine remains authoritative for timing, laps, classification, integrity and completed results. It depends only on a persistence/storage boundary and not directly on SD, FATFS, NVS, filenames or filesystem layout.
@@ -70,7 +120,7 @@ Recovery reconstructs only committed, checksum-valid records. Incomplete tempora
 
 A persistence failure never invalidates an authoritative result held in RAM. For a failed History write, the result remains sealed and valid, `persistencePending` remains true, `persistenceFault` becomes true, one storage-fault event/report is emitted, no `HistoryStored` event is emitted, and the same impossible operation is not retried on every Race Engine tick. A retry may occur only through an explicit controlled storage-recovery boundary.
 
-An active-detail storage interruption is distinguished from actual detail loss. While required detail remains in the bounded queue, storage may be recovered through an explicit recovery boundary and the normal drain/finalize/verify/transaction sequence may still publish the race. Once a required detail record is dropped or the stream is proven incomplete, `detailIncomplete` is permanent for that race; later recovery cannot make it eligible for History. Active temporary streams are disposable uncommitted debris after restart: they are never History, are never attached to another session, and may be deterministically reclaimed without deleting committed records.
+An active-detail storage interruption is distinguished from actual detail loss. While required detail remains in the bounded queue, storage may be recovered through the explicit owner-controlled recovery boundary once the lifecycle is eligible, and the normal drain/finalize/verify/transaction sequence may still publish the race. Physical recovery is not attempted during `STARTING`, `RACING`, `PAUSED`, `RESTARTING` or unfinished completion settlement. Once a required detail record is dropped or the stream is proven incomplete, `detailIncomplete` is permanent for that race; later recovery cannot make it eligible for History. Active temporary streams are disposable uncommitted debris after restart: they are never History, are never attached to another session, and may be deterministically reclaimed without deleting committed records.
 
 PB/Track Record failures are explicit and latched; their write result is not silently ignored. A failed record write does not alter race validity or lap eligibility.
 

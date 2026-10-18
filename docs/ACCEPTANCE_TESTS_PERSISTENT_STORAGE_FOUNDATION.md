@@ -36,7 +36,7 @@ These tests verify the persistent-storage boundary without changing frozen Stage
 | PSF.24 | The current Wokwi NVS exhaustion (`slot-10 NOT_ENOUGH_SPACE`) is reproduced as a bounded development failure case, with one latched fault and no per-tick retry storm. | Development |
 | PSF.25 | File-backed and failure-injection backends produce equivalent boundary outcomes for success, failure, recovery and version handling. | Development |
 | PSF.26 | The production SD/FATFS backend stores and reconstructs the same serialized records using the same storage contract. | Hardware |
-| PSF.27 | SD removal, remount and recovery preserve committed records and expose unavailable/pending state without changing authoritative race state. | Hardware |
+| PSF.27 | SD removal, remount and recovery in the permitted non-active lifecycle states preserve committed records and expose unavailable/pending state without changing authoritative race state; recovery is deferred during prohibited session states. | Hardware |
 | PSF.28 | Repeated real power interruption during active SD persistence operations, followed by reboot/remount/reconstruction, proves that no partial or uncommitted result appears as official History; previously committed records remain valid; newly committed records appear only when their commit completed; corrupt/incomplete temporary data is ignored or reclaimed; PB/Track Record/Record Era stores remain internally consistent; and persistence faults/recovery are surfaced correctly. | Hardware |
 | PSF.29 | Complete applicable Stage 1–14C automated, structural, Browser, Wokwi and shared-path regressions remain passing. | Development |
 | PSF.30 | The deliberate evaluator-failure/recovery proof remains genuine and passes against the final storage implementation. | Development |
@@ -48,6 +48,13 @@ These tests verify the persistent-storage boundary without changing frozen Stage
 | WP2E.6 | Practical payload/metadata estimates are recorded as measured development evidence, while final SD capacity/wear thresholds remain hardware debt. | Development |
 | WP2E.7 | Active-detail append and final seal reject an insufficient transaction before creating more temporary data, while authoritative racing remains unaffected. | Development and Hardware |
 | WP2F.1 | A normal Race Engine/Input scenario with a recoverable temporary storage interruption completes, commits, reconstructs Result/Details and reconstructs PB/Track Record consequences without changing authoritative race facts. | Development |
+| PSF.31 | One physical SD owner performs the only FSPI/`SD.begin()` mount for a lifecycle; History, active/detail persistence and Diagnostics consume subordinate interfaces and do not independently mount or remount. | Development and Hardware |
+| PSF.32 | One successful physical mount is shared by History and Diagnostics; a physical mount failure produces the defined independent logical degraded/fault states, with Diagnostics using RAM-only/degraded operation where permitted. | Development and Hardware |
+| PSF.33 | Reboot or explicit owner-controlled recovery in an eligible non-active lifecycle state mounts once, reconstructs the History and Diagnostics namespaces, and preserves committed records and existing sequence/retention semantics. | Development and Hardware |
+| PSF.34 | History writes, active-detail streaming, diagnostic appends, rolling and export reads coexist through bounded owner arbitration without corruption, starvation or uncontrolled temporary growth. | Development and Hardware |
+| PSF.35 | Slow or failing SD access cannot block or alter authoritative Race Engine timing, input processing, results or HTTP operation; failed History work remains uncommitted and diagnostic failure follows its existing bounded degraded/RAM-only rules. | Development and Hardware |
+| PSF.36 | Recovery is requested only through the physical owner boundary; logical consumers cannot retry `SD.begin()` independently at any lifecycle state. | Development and Hardware |
+| PSF.37 | Physical recovery is suppressed in `STARTING`, `RACING`, `PAUSED`, `RESTARTING` and before completion settlement reaches `FINISHED`; authoritative racing continues while deferred. Recovery becomes eligible in `READY` and settled `FINISHED`, performs exactly one owner-controlled mount, reconstructs each subordinate namespace before advertising durable health, and leaves racing/HTTP unaffected if it fails. | Development and Hardware |
 
 ## Required evidence
 
