@@ -18,6 +18,7 @@
 #include "pp/verification.h"
 #include "pp/persistent_storage.h"
 #if defined(PP_PHASE8B_REAL_SD)
+#include "pp/physical_sd_owner.h"
 #include "pp/sd_store_arduino.h"
 #include "pp/diagnostic_sd.h"
 #endif
@@ -77,8 +78,11 @@ public:
 private: Preferences preferences;bool ready=false;
 } storage;
 #if defined(PP_PHASE8B_REAL_SD)
-pp::Esp32SpiSdStore sdPersistence;
+pp::PhysicalSdOwner physicalSdOwner;
+pp::Esp32SpiSdStore sdPersistence(physicalSdOwner);
 pp::SdActiveDetailStore activeDetail(sdPersistence);
+pp::SessionLifecycle physicalRecoveryLifecycle = pp::SessionLifecycle::Faulted;
+bool physicalRecoveryAttempted = false;
 #endif
 class BrowserAuthorityStore final: public pp::AuthorityStore {
 public:
@@ -125,7 +129,7 @@ const auto testObserver=bus.attach(pp::Role::Diagnostics);
 const auto inputObserver=bus.attach(pp::Role::Diagnostics);
 const auto controllerTraceObserver=bus.attach(pp::Role::Diagnostics);
 #if defined(PP_PHASE8B_REAL_SD)
-pp::diagnostic::Esp32SpiSdDiagnosticStorage controllerTraceStorage;
+pp::diagnostic::Esp32SpiSdDiagnosticStorage controllerTraceStorage(physicalSdOwner);
 #else
 pp::diagnostic::ProductionDiagnosticStorage controllerTraceStorage;
 #endif
@@ -153,6 +157,29 @@ bool lastPresentationDurationExpired=false,lastPresentationOvertimeVisible=false
 bool networkDiagnosticKnown=false;
 bool lastNetworkWifi=false,lastNetworkHttp=false;
 uint32_t lastNetworkReconnects=0,lastNetworkErrors=0,lastNetworkSlow=0,lastNetworkStartError=0;
+#endif
+#if defined(PP_PHASE8B_REAL_SD)
+void servicePhysicalSdRecovery() {
+  const pp::SessionLifecycle lifecycle = raceControl.state();
+  physicalSdOwner.setLifecycle(lifecycle);
+  if (lifecycle != physicalRecoveryLifecycle) {
+    physicalRecoveryLifecycle = lifecycle;
+    physicalRecoveryAttempted = false;
+  }
+  if ((lifecycle == pp::SessionLifecycle::Ready ||
+       lifecycle == pp::SessionLifecycle::Finished) &&
+      !physicalSdOwner.available() && !physicalRecoveryAttempted) {
+    physicalRecoveryAttempted = true;
+    if (physicalSdOwner.recover()) {
+      // The owner has completed the only physical mount. Consumers now
+      // reconstruct their own namespaces without touching the physical bus.
+      (void)sdPersistence.recover();
+      (void)activeDetail.recover();
+      (void)controllerTraceStorage.recover();
+      (void)rawHistory.count();
+    }
+  }
+}
 #endif
 #if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
 // Human/demo fixture: a trigger is a momentary passage; production input semantics are unchanged.
@@ -563,8 +590,11 @@ void setup(){
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
   storage.begin();browserAuthority.begin();
 #if defined(PP_PHASE8B_REAL_SD)
+  physicalSdOwner.setLifecycle(raceControl.state());
+  const bool physicalSdReady = physicalSdOwner.begin();
   const bool sdReady = sdPersistence.begin();
-  diagnostics.log("[INIT] Phase 8B-P1 SD History/Records %s; NVS configuration READY=%s",
+  diagnostics.log("[INIT] Phase 8B-P1 SD owner %s; History/Records %s; NVS configuration READY=%s",
+                  physicalSdReady ? "READY" : "DEGRADED",
                   sdReady ? "READY" : "DEGRADED", storage.available() ? "YES" : "NO");
 #endif
   diagnostics.log("[INIT] Normal diagnostics recorder READY (bounded observation-only backend)");
@@ -688,6 +718,7 @@ void loop(){
   raceEngine.tick();
 #if defined(PP_PHASE8B_REAL_SD)
   activeDetail.drain();
+  servicePhysicalSdRecovery();
 #endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   logLifecycleTransition();

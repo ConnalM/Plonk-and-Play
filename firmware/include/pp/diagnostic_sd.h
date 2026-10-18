@@ -5,22 +5,21 @@
 
 #include <Arduino.h>
 #include <FS.h>
-#include <SD.h>
-#include <SPI.h>
 #include <string.h>
 
 #include "diagnostic_contract.h"
+#include "physical_sd_owner.h"
 
 namespace pp {
 namespace diagnostic {
 
 class Esp32SpiSdDiagnosticStorage final : public DiagnosticStorage {
 public:
-  static constexpr int CsPin = 10;
-  static constexpr int MosiPin = 11;
-  static constexpr int SckPin = 12;
-  static constexpr int MisoPin = 13;
-  static constexpr uint32_t SpiFrequency = 20000000U;
+  static constexpr int CsPin = PhysicalSdOwner::CsPin;
+  static constexpr int MosiPin = PhysicalSdOwner::MosiPin;
+  static constexpr int SckPin = PhysicalSdOwner::SckPin;
+  static constexpr int MisoPin = PhysicalSdOwner::MisoPin;
+  static constexpr uint32_t SpiFrequency = PhysicalSdOwner::SpiFrequency;
 
   // Provisional WP4 candidate bounds, pending real-card measurements.
   static constexpr size_t Capacity = 256;
@@ -31,22 +30,25 @@ public:
   static constexpr size_t MaxFileBytes =
       HeaderBytes + Capacity * (RecordOverheadBytes + MaxPayloadBytes);
 
+  explicit Esp32SpiSdDiagnosticStorage(PhysicalSdOwner& owner)
+      : owner_(owner) {}
+
   StorageResult begin(ControllerEpoch epoch) override {
     if (!epoch.valid())
       return fail(StorageResult::Invalid, FailureReason::InvalidRequest);
     epoch_ = epoch;
-    closeReadCursor();
-    spi_.begin(SckPin, MisoPin, MosiPin, CsPin);
-    mounted_ = SD.begin(CsPin, spi_, SpiFrequency);
-    if (!mounted_)
+    auto lease = owner_.lock();
+    if (!lease || !owner_.available())
       return fail(StorageResult::Unavailable, FailureReason::BackendUnavailable);
-    SD.mkdir(RootPath);
-    if (SD.exists(FilePath)) {
+    closeReadCursor();
+    mounted_ = true;
+    owner_.mkdir(RootPath);
+    if (owner_.exists(FilePath)) {
       if (!scanExisting()) {
         char corruptPath[64]{};
         snprintf(corruptPath, sizeof(corruptPath), "%s.corrupt-%llu", RootPath,
                  static_cast<unsigned long long>(epoch.value));
-        if (!SD.rename(FilePath, corruptPath))
+        if (!owner_.rename(FilePath, corruptPath))
           return fail(StorageResult::Corrupt, FailureReason::CorruptRecord);
         health_ = StorageHealth::Degraded;
         lastFailure_ = FailureReason::CorruptRecord;
@@ -65,7 +67,8 @@ public:
   }
 
   StorageResult tryAppend(const RecordView& record, uint64_t sequence) override {
-    if (!open_)
+    auto lease = owner_.lock();
+    if (!lease || !open_)
       return fail(StorageResult::Unavailable, FailureReason::BackendUnavailable);
     if (record.payloadBytes > MaxPayloadBytes ||
         (record.payloadBytes != 0 && !record.payload))
@@ -88,7 +91,7 @@ public:
     // handle.  Arduino SD/FATFS on the S3 does not reliably support those two
     // handles concurrently: the count can advance while the first read
     // fails.  A short-lived append handle keeps writes and reads independent.
-    File output = SD.open(FilePath, FILE_APPEND);
+    File output = owner_.open(FilePath, FILE_APPEND);
     if (!output)
       return fail(StorageResult::WriteFailed, FailureReason::WriteFailure);
     const size_t written = output.write(bytes, pos);
@@ -109,32 +112,31 @@ public:
 
   bool read(size_t wanted, RecordEnvelope& envelope, uint8_t* payload,
             size_t capacity, size_t& length) const override {
+    auto lease = owner_.lock();
+    if (!lease) { length = 0; return false; }
     length = 0;
     if (!mounted_ || wanted >= recordCount_)
       return false;
-    if (!readOpen_ || readRevision_ != revision_ || wanted != readIndex_) {
-      closeReadCursor();
-      readFile_ = SD.open(FilePath, FILE_READ);
-      if (!readFile_ || !readFile_.seek(HeaderBytes)) {
-        closeReadCursor();
-        return false;
-      }
-      readOpen_ = true;
-      readIndex_ = 0;
-      readRevision_ = revision_;
+    // Keep no filesystem handle across calls. The owner lease therefore
+    // covers the complete bounded read and append/export operations cannot
+    // overlap on Arduino SD/FATFS.
+    File input = owner_.open(FilePath, FILE_READ);
+    if (!input || !input.seek(HeaderBytes)) {
+      if (input) input.close();
+      return false;
     }
     uint8_t frame[RecordOverheadBytes + MaxPayloadBytes]{};
-    for (size_t index = readIndex_; index <= wanted; ++index) {
+    for (size_t index = 0; index <= wanted; ++index) {
       uint32_t body = 0;
-      if (!readFrame(readFile_, frame, body)) {
-        closeReadCursor();
+      if (!readFrame(input, frame, body)) {
+        input.close();
         return false;
       }
       if (index != wanted)
         continue;
       const size_t actual = body - EnvelopeBytes;
       if (actual > capacity || (actual && !payload)) {
-        closeReadCursor();
+        input.close();
         return false;
       }
       size_t pos = 4;
@@ -142,10 +144,10 @@ public:
       if (actual)
         memcpy(payload, frame + pos, actual);
       length = actual;
-      readIndex_ = wanted + 1;
+      input.close();
       return true;
     }
-    closeReadCursor();
+    input.close();
     return false;
   }
 
@@ -159,8 +161,10 @@ public:
   }
 
   StorageResult recover() override {
-    if (!mounted_)
+    auto lease = owner_.lock();
+    if (!lease || !owner_.available())
       return fail(StorageResult::Unavailable, FailureReason::BackendUnavailable);
+    mounted_ = true;
     closeReadCursor();
     if (!scanExisting()) {
       health_ = StorageHealth::Degraded;
@@ -184,14 +188,16 @@ public:
   // ordinary append. A failed compaction is reported as a diagnostic fault;
   // it cannot affect product state or cause a retry loop.
   bool evictOldest() override {
+    auto lease = owner_.lock();
+    if (!lease) return failCompaction();
     if (!open_ || recordCount_ == 0) return false;
     closeReadCursor();
     file_.close();
     open_ = false;
     const char* temporaryPath = "/pp-diagnostics/records.roll.tmp";
-    SD.remove(temporaryPath);
-    File input = SD.open(FilePath, FILE_READ);
-    File output = SD.open(temporaryPath, FILE_WRITE);
+    owner_.remove(temporaryPath);
+    File input = owner_.open(FilePath, FILE_READ);
+    File output = owner_.open(temporaryPath, FILE_WRITE);
     if (!input || !output) {
       if (input) input.close();
       if (output) output.close();
@@ -210,10 +216,12 @@ public:
     input.close();
     output.flush();
     output.close();
-    if (!ok || !SD.remove(FilePath) || !SD.rename(temporaryPath, FilePath))
+    if (!ok || !owner_.remove(FilePath) || !owner_.rename(temporaryPath, FilePath))
       return failCompaction();
     recordCount_--;
-    fileBytes_ = SD.open(FilePath, FILE_READ).size();
+    File refreshed = owner_.open(FilePath, FILE_READ);
+    fileBytes_ = refreshed ? refreshed.size() : 0;
+    if (refreshed) refreshed.close();
     open_ = true;
     ++revision_;
     return true;
@@ -244,8 +252,8 @@ private:
 
   bool createFile() {
     closeReadCursor();
-    SD.remove(FilePath);
-    File output = SD.open(FilePath, FILE_WRITE);
+    owner_.remove(FilePath);
+    File output = owner_.open(FilePath, FILE_WRITE);
     if (!output)
       return false;
     uint8_t header[HeaderBytes]{};
@@ -265,7 +273,7 @@ private:
 
   bool scanExisting() const {
     closeReadCursor();
-    File input = SD.open(FilePath, FILE_READ);
+    File input = owner_.open(FilePath, FILE_READ);
     if (!input)
       return false;
     uint8_t header[HeaderBytes]{};
@@ -394,7 +402,7 @@ private:
   mutable size_t readIndex_ = 0;
   mutable bool readOpen_ = false;
   mutable uint64_t readRevision_ = 0;
-  SPIClass spi_{FSPI};
+  PhysicalSdOwner& owner_;
   ControllerEpoch epoch_{};
   StorageHealth health_ = StorageHealth::Fault;
   FailureReason lastFailure_ = FailureReason::None;
