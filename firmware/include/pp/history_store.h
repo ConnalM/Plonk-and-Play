@@ -1,5 +1,7 @@
 #pragma once
 #include "core.h"
+#include <atomic>
+#include <new>
 #include <stdlib.h>
 
 namespace pp {
@@ -38,8 +40,11 @@ public:
 class SlotHistoryStore final : public HistoryStore {
 public:
   explicit SlotHistoryStore(Store& store):store_(store){}
+  ~SlotHistoryStore() override { delete reconstructionWorkspace_; }
 
   bool append(const uint8_t* bytes, size_t length, uint32_t& sequence) override {
+    OperationGuard guard(operationBusy_);
+    if (!guard) { sequence = 0; return false; }
     sequence = 0;
     if (!bytes || length == 0 || length > UINT32_MAX || !ensure()) return false;
     // Leave room for the independently committed metadata candidate. This is
@@ -77,6 +82,8 @@ public:
   }
 
   bool loadNewest(uint8_t index, uint8_t* bytes, size_t capacity, size_t& length, uint32_t& sequence) override {
+    OperationGuard guard(operationBusy_);
+    if (!guard) { length = 0; sequence = 0; return false; }
     length = 0; sequence = 0;
     if (!bytes || !ensure() || index >= meta_.count) return false;
     const Entry& entry = meta_.entries[meta_.count - 1 - index];
@@ -85,11 +92,13 @@ public:
     length = entry.bytes; sequence = entry.sequence; return true;
   }
 
-  uint8_t count() override { return ensure() ? meta_.count : 0; }
-  size_t payloadSize(uint8_t index) override { return ensure()&&index<meta_.count ? meta_.entries[meta_.count-1-index].bytes : 0; }
-  size_t maximumPayloadBytes() override { if(!ensure())return 0;size_t max=0;for(uint8_t i=0;i<meta_.count;++i)if(meta_.entries[i].bytes>max)max=meta_.entries[i].bytes;return max; }
+  uint8_t count() override { OperationGuard guard(operationBusy_); return guard && ensure() ? meta_.count : 0; }
+  size_t payloadSize(uint8_t index) override { OperationGuard guard(operationBusy_); return guard && ensure()&&index<meta_.count ? meta_.entries[meta_.count-1-index].bytes : 0; }
+  size_t maximumPayloadBytes() override { OperationGuard guard(operationBusy_); if(!guard||!ensure())return 0;size_t max=0;for(uint8_t i=0;i<meta_.count;++i)if(meta_.entries[i].bytes>max)max=meta_.entries[i].bytes;return max; }
 
   bool clear() override {
+    OperationGuard guard(operationBusy_);
+    if (!guard) return false;
     if (!ensure()) return false;
     MetadataState empty{}; empty.generation = meta_.generation + 1; empty.nextSequence = meta_.nextSequence;
     return publishMetadata(empty);
@@ -110,7 +119,27 @@ private:
   static constexpr size_t LegacyMetadataBytes = 48;
 
   struct MetadataState { uint32_t generation=0, nextSequence=0; uint8_t count=0; Entry entries[Capacity]{}; };
+  struct ReconstructionWorkspace {
+    uint8_t a[EncodedMetadataBytes]{};
+    uint8_t b[EncodedMetadataBytes]{};
+    MetadataState va{};
+    MetadataState vb{};
+    uint8_t legacy[LegacyMetadataBytes]{};
+    MetadataState old{};
+  };
+  class OperationGuard final {
+  public:
+    explicit OperationGuard(std::atomic_flag& flag):flag_(flag),held_(!flag_.test_and_set(std::memory_order_acquire)){}
+    ~OperationGuard(){if(held_)flag_.clear(std::memory_order_release);}
+    explicit operator bool() const { return held_; }
+  private:
+    std::atomic_flag& flag_;
+    bool held_ = false;
+  };
+
   Store& store_; MetadataState meta_{}; unsigned activeMetaSlot_ = MetaSlotA; bool loaded_ = false;
+  ReconstructionWorkspace* reconstructionWorkspace_ = nullptr;
+  mutable std::atomic_flag operationBusy_ = ATOMIC_FLAG_INIT;
 
   static uint32_t checksum(const uint8_t* p, size_t n) { uint32_t h=2166136261u; while(n--) h=(h^*p++)*16777619u; return h; }
   static uint32_t get32(const uint8_t* p) { return uint32_t(p[0])|(uint32_t(p[1])<<8)|(uint32_t(p[2])<<16)|(uint32_t(p[3])<<24); }
@@ -140,11 +169,17 @@ private:
   }
   bool ensure() {
     if (loaded_) return store_.available();
+    if (!reconstructionWorkspace_) {
+      reconstructionWorkspace_ = new (std::nothrow) ReconstructionWorkspace();
+      if (!reconstructionWorkspace_) return false;
+    }
     loaded_ = true;
     if (!store_.available()) return false;
-    uint8_t a[EncodedMetadataBytes]{},b[EncodedMetadataBytes]{};MetadataState va{},vb{};const bool hasA=store_.read(MetaSlotA,a,sizeof(a))&&decode(a,va);const bool hasB=store_.read(MetaSlotB,b,sizeof(b))&&decode(b,vb);
-    if(hasA||hasB){if(hasB&&(!hasA||vb.generation>va.generation)){meta_=vb;activeMetaSlot_=MetaSlotB;}else{meta_=va;activeMetaSlot_=MetaSlotA;}return true;}
-    uint8_t legacy[LegacyMetadataBytes]{};MetadataState old{};if(store_.read(MetaSlotA,legacy,sizeof(legacy))&&decodeLegacy(legacy,old)){meta_=old;activeMetaSlot_=MetaSlotA;}return true;
+    ReconstructionWorkspace& workspace = *reconstructionWorkspace_;
+    const bool hasA=store_.read(MetaSlotA,workspace.a,sizeof(workspace.a))&&decode(workspace.a,workspace.va);
+    const bool hasB=store_.read(MetaSlotB,workspace.b,sizeof(workspace.b))&&decode(workspace.b,workspace.vb);
+    if(hasA||hasB){if(hasB&&(!hasA||workspace.vb.generation>workspace.va.generation)){meta_=workspace.vb;activeMetaSlot_=MetaSlotB;}else{meta_=workspace.va;activeMetaSlot_=MetaSlotA;}return true;}
+    if(store_.read(MetaSlotA,workspace.legacy,sizeof(workspace.legacy))&&decodeLegacy(workspace.legacy,workspace.old)){meta_=workspace.old;activeMetaSlot_=MetaSlotA;}return true;
   }
   uint8_t freeSlot()const {for(uint8_t slot=0;slot<PhysicalSlots;++slot){bool used=false;for(uint8_t i=0;i<meta_.count;++i)if(meta_.entries[i].slot==slot){used=true;break;}if(!used)return slot;}return InvalidSlot;}
   bool publishMetadata(const MetadataState& candidate) {
