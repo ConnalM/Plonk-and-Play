@@ -387,8 +387,29 @@ void browserHealth(){
   pp::BrowserInterface::HttpHealth health;
   browser.httpHealth(health);
   const String ip=browser.networkAddress();
+  const char* staState="UNCONFIGURED";
+  const char* staFailure="NONE";
+  String staIp;
+  long staRssi=0;
+  unsigned staConfigured=0;
+  unsigned staConnected=0;
+  unsigned staReconnectSuppressed=0;
+  unsigned long staReconnects=0;
+  unsigned mdnsStarted=0;
 #if defined(PP_PHASE8B_REAL_SD)
-  const char* networkMode="AP";
+  pp::BrowserInterface::NetworkStatus network{};
+  browser.networkStatus(network);
+  const auto& networkValue=network.value;
+  staState=pp::ExternalWifiManager::staStateName(networkValue.staState);
+  staFailure=pp::ExternalWifiManager::staFailureName(networkValue.staFailure);
+  staIp=networkValue.staIp;
+  staRssi=static_cast<long>(networkValue.staRssi);
+  staConfigured=networkValue.staConfigured?1U:0U;
+  staConnected=networkValue.staConnected?1U:0U;
+  staReconnectSuppressed=networkValue.reconnectSuppressed?1U:0U;
+  staReconnects=static_cast<unsigned long>(networkValue.reconnectAttempts);
+  mdnsStarted=networkValue.mdnsStarted?1U:0U;
+  const char* networkMode="AP+STA";
   const char* networkState=browser.accessPointStarted()?"STARTED":"STOPPED";
   const int networkStatusCode=-1; // station status is not meaningful in AP mode
   const unsigned apClients=browser.connectedClientCount();
@@ -398,8 +419,8 @@ void browserHealth(){
   const int networkStatusCode=int(WiFi.status());
   const unsigned apClients=0;
 #endif
-  diagnostics.log("[DEV] HTTP HEALTH wifi_mode=%s wifi_state=%s wifi_status=%d wifi_connected=%u ip=%s ap_clients=%u server=%u requests=%lu errors=%lu slow=%lu active=%lu peak=%lu starts=%lu stops=%lu reconnects=%lu last_ms=%lu last_error=%d last_route=%s free_heap=%lu min_heap=%lu max_alloc=%lu loop_worst_us=%llu stack_hwm_words=%lu bus_input=%lu bus_race=%lu bus_presentation=%lu bus_diag=%lu input_backlog=%lu input_peak=%lu diag_dropped=%lu",
-    networkMode,networkState,networkStatusCode,health.wifiConnected?1U:0U,ip.c_str(),apClients,health.serverReady?1U:0U,
+  diagnostics.log("[DEV] HTTP HEALTH wifi_mode=%s wifi_state=%s wifi_status=%d wifi_connected=%u ip=%s ap_clients=%u sta_state=%s sta_configured=%u sta_connected=%u sta_ip=%s sta_rssi=%ld sta_failure=%s sta_reconnect_suppressed=%u sta_reconnects=%lu mdns_started=%u server=%u requests=%lu errors=%lu slow=%lu active=%lu peak=%lu starts=%lu stops=%lu reconnects=%lu last_ms=%lu last_error=%d last_route=%s free_heap=%lu min_heap=%lu max_alloc=%lu loop_worst_us=%llu stack_hwm_words=%lu bus_input=%lu bus_race=%lu bus_presentation=%lu bus_diag=%lu input_backlog=%lu input_peak=%lu diag_dropped=%lu",
+    networkMode,networkState,networkStatusCode,health.wifiConnected?1U:0U,ip.c_str(),apClients,staState,staConfigured,staConnected,staIp.c_str(),staRssi,staFailure,staReconnectSuppressed,staReconnects,mdnsStarted,health.serverReady?1U:0U,
     (unsigned long)health.requestCount,(unsigned long)health.requestErrors,(unsigned long)health.slowRequests,
     (unsigned long)health.activeHandlers,(unsigned long)health.peakHandlers,(unsigned long)health.serverStarts,
     (unsigned long)health.serverStops,(unsigned long)health.reconnectAttempts,(unsigned long)health.lastDurationMs,

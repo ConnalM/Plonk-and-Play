@@ -2128,11 +2128,12 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     }
     char json[4096]{};
     size_t used = static_cast<size_t>(snprintf(json, sizeof(json),
-      "{\"available\":%s,\"ap\":{\"started\":%s,\"ssid\":\"%s\",\"ip\":\"%s\",\"clients\":%u},\"sta\":{\"configured\":%s,\"connected\":%s,\"ssid\":\"%s\",\"ip\":\"%s\",\"rssi\":%ld,\"reconnectSuppressed\":%s,\"reconnectAttempts\":%lu},\"mdns\":{\"started\":%s,\"host\":\"%s\"},\"scan\":{\"running\":%s,\"count\":%d,\"networks\":[",
+      "{\"available\":%s,\"ap\":{\"started\":%s,\"ssid\":\"%s\",\"ip\":\"%s\",\"clients\":%u},\"sta\":{\"configured\":%s,\"state\":\"%s\",\"connected\":%s,\"ssid\":\"%s\",\"ip\":\"%s\",\"rssi\":%ld,\"lastFailure\":\"%s\",\"reconnectSuppressed\":%s,\"reconnectAttempts\":%lu},\"mdns\":{\"started\":%s,\"host\":\"%s\"},\"scan\":{\"running\":%s,\"count\":%d,\"networks\":[",
       v.apStarted || v.staConfigured ? "true" : "false", v.apStarted ? "true" : "false",
       ExternalWifiManager::FactoryApSsid, v.apIp.c_str(), static_cast<unsigned>(v.apClients),
-      v.staConfigured ? "true" : "false", v.staConnected ? "true" : "false", staSsid,
-      v.staIp.c_str(), static_cast<long>(v.staRssi), v.reconnectSuppressed ? "true" : "false",
+      v.staConfigured ? "true" : "false", ExternalWifiManager::staStateName(v.staState),
+      v.staConnected ? "true" : "false", staSsid, v.staIp.c_str(), static_cast<long>(v.staRssi),
+      ExternalWifiManager::staFailureName(v.staFailure), v.reconnectSuppressed ? "true" : "false",
       static_cast<unsigned long>(v.reconnectAttempts), v.mdnsStarted ? "true" : "false",
       ExternalWifiManager::MdnsHost, v.scanRunning ? "true" : "false", static_cast<int>(v.scanCount)));
     if (used >= sizeof(json)) { httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "network status unavailable"); trace.complete(ESP_ERR_INVALID_SIZE); return ESP_FAIL; }
