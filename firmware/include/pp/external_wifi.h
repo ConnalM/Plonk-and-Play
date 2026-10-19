@@ -119,11 +119,14 @@ public:
     WiFi.mode(WIFI_AP_STA);
     WiFi.setAutoReconnect(true);
     suppressed_ = false;
+    // WiFi.begin() starts an asynchronous association.  The driver may not
+    // expose WiFi.SSID() until that work has progressed, so an accepted
+    // configuration request must establish the runtime configured state from
+    // the validated request itself.
+    stationConfigured_ = true;
     staState_ = StaState::Connecting;
     staFailure_ = StaFailure::None;
     const wl_status_t result = WiFi.begin(ssid, password);
-    stationConfigured_ = WiFi.SSID().length() != 0;
-    if (!stationConfigured_) staState_ = StaState::Unconfigured;
     lastAttemptMs_ = millis();
     startMdns();
     (void)result;
