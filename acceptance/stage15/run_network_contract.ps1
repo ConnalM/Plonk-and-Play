@@ -32,6 +32,10 @@ foreach ($section in @(
 foreach ($marker in @('Network','networkPage','/network/status','/network/scan','/network/connect','/network/disconnect','/network/forget','type="password"','network-row','data-network-index','Scanning for available networks','Selected ${ssid}. Enter the password')) {
   if ($browser -notlike "*$marker*") { throw "Browser Network marker missing: $marker" }
 }
+foreach ($marker in @('let networkRefreshTimer=0', 'function scheduleNetworkRefresh', 'scheduleNetworkRefresh(!!scan.running,sta.state===''CONNECTING''', 'await networkPage()')) {
+  if ($browser -notlike "*$marker*") { throw "Browser asynchronous Network refresh marker missing: $marker" }
+}
+if ($browser -match 'if\(scan\.running\)setTimeout\(\(\)=>\{if\(\$\(\x27#networkScan\x27\)\)networkPage\(\)\},500\)') { throw 'Browser retained the one-shot scan refresh.' }
 if ($browser -match 'networkPassword[^;]{0,200}console\.log|networkPassword[^;]{0,200}diagnostic') { throw 'Browser password is sent to diagnostics/logging.' }
 $main = Get-Content -Raw (Join-Path $root 'firmware/src/main.cpp')
 foreach ($marker in @('wifi_mode=%s', 'sta_state=%s', 'sta_configured=%u', 'sta_failure=%s', 'sta_reconnects=%lu', 'mdns_started=%u')) {
