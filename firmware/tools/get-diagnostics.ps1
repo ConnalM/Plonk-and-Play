@@ -13,7 +13,8 @@ New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
 
 $explicitAddress = $PSBoundParameters.ContainsKey('BaseUrl') -or
                    -not [string]::IsNullOrWhiteSpace($env:PP_CONTROLLER_URL)
-if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+$defaultDiscovery = [string]::IsNullOrWhiteSpace($BaseUrl)
+if ($defaultDiscovery) {
   $candidates = @('http://plonk-and-play.local', 'http://192.168.4.1')
 } else {
   $candidates = @($BaseUrl.TrimEnd('/'))
@@ -33,6 +34,41 @@ try {
   foreach ($candidate in $candidates) {
     $attemptNumber++
     $url = "$($candidate.TrimEnd('/'))/diag/download"
+
+    # mDNS can become available shortly after the controller's AP/STA and
+    # HTTP service start.  Probe it with short bounded attempts before using
+    # the factory-AP fallback.  Explicit -BaseUrl requests retain the
+    # original single-attempt behaviour.
+    if ($defaultDiscovery -and $candidate -eq $candidates[0]) {
+      $mdnsDeadline = (Get-Date).AddSeconds(8)
+      $mdnsReachable = $false
+      $mdnsAttempt = 0
+      while ((Get-Date) -lt $mdnsDeadline) {
+        $mdnsAttempt++
+        Write-Output "Discovery: probing mDNS $candidate (attempt $mdnsAttempt)."
+        $previousTimeout = $client.Timeout
+        try {
+          $client.Timeout = [TimeSpan]::FromSeconds(1)
+          $probe = $client.GetAsync("$($candidate.TrimEnd('/'))/network/status").GetAwaiter().GetResult()
+          $probe.Dispose()
+          $mdnsReachable = $true
+          Write-Output "Discovery: mDNS route reachable at $candidate."
+          break
+        } catch {
+          $attempts.Add("$candidate/network/status :: $($_.Exception.Message)")
+          Start-Sleep -Milliseconds 750
+        } finally {
+          $client.Timeout = $previousTimeout
+        }
+      }
+      if (-not $mdnsReachable) {
+        Write-Output "Discovery: mDNS route unavailable after bounded retry; falling back to $($candidates[1])."
+        continue
+      }
+    } else {
+      Write-Output "Discovery: trying controller route $candidate."
+    }
+
     try {
       $response = $client.GetAsync($url).GetAwaiter().GetResult()
       $bytes = $response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
