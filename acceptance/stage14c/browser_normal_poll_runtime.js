@@ -45,6 +45,11 @@ global.document = {
 };
 for (const id of ids) document.elements[id] = new Element(id);
 global.window = global;
+const sessionValues = new Map();
+global.sessionStorage = {
+  getItem(key) { return sessionValues.has(key) ? sessionValues.get(key) : null; },
+  setItem(key, value) { sessionValues.set(key, String(value)); },
+};
 global.$ = selector => document.querySelector(selector);
 global.performance = { now: () => 1000 };
 
@@ -134,9 +139,22 @@ const settle = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(
   // Failed HTTP responses must also clear the guard.
   mode = 'failure';
   await poll();
+  expect(connectionState === 'OFFLINE', 'normal Browser did not mark transport loss offline');
+  expect(document.elements.overlay.innerHTML.includes('Controller unavailable'), 'normal Browser did not present controller-unavailable recovery state');
+  expect(document.elements.start.disabled && document.elements.change.disabled, 'normal Browser left mutation controls enabled while offline');
   mode = 'immediate';
   await poll();
   expect(stateCalls === 4, 'normal polling did not recover after HTTP failure');
+  expect(connectionState === 'SYNCHRONISED', 'normal Browser did not restore synchronised state');
+  expect(document.elements.overlay.innerHTML === '', 'normal Browser recovery overlay did not clear');
+
+  // Presentation-only view retention survives a reload without persisting
+  // authority, race state, proposal state or network state.
+  V = 'network';
+  rememberView();
+  V = 'home';
+  restoreView();
+  expect(V === 'network', 'presentation view was not retained across reload');
 
   // Model the Development Browser sharing the same server while a normal poll is pending.
   mode = 'delayed';

@@ -5,6 +5,16 @@
 Diagnostics stage10Output;
 bool stage10Ready = false;
 
+struct Stage10DelayedAuthorityStore final : pp::AuthorityStore {
+  void seed(uint64_t value) { fingerprint = value; present = value != 0; }
+  void begin() { ready = true; }
+  bool loadMaster(uint64_t& value) override { if (!ready || !present) return false; value = fingerprint; return true; }
+  bool saveMaster(uint64_t value) override { if (!ready || !value) return false; fingerprint = value; present = true; return true; }
+  bool ready = false;
+  bool present = false;
+  uint64_t fingerprint = 0;
+};
+
 struct Stage10Fixture {
   pp::Bus bus;
   pp::ActiveSessionDefinition active;
@@ -113,6 +123,18 @@ void stage10Run() {
   const uint64_t viewerB = 0x2222222222222222ULL;
   const uint64_t viewerC = 0x3333333333333333ULL;
   const uint64_t lostMaster = 0x4444444444444444ULL;
+
+  // 10.18: production ordering — the Browser Interface is constructed before
+  // NVS is opened, then restores exactly once after the store is ready.
+  Stage10DelayedAuthorityStore delayedAuthority;
+  delayedAuthority.seed(master);
+  Stage10Fixture& delayedFixture = stage10Fixture();
+  pp::BrowserInterface delayedBrowser{delayedFixture.bus, delayedFixture.presentation, delayedFixture.noticeboard, &delayedAuthority};
+  const bool notRestoredBeforeBegin = delayedBrowser.context(master) == pp::ClientContext::Spectator;
+  delayedAuthority.begin();
+  const bool restoredAfterBegin = delayedBrowser.restorePersistedAuthority() &&
+    delayedBrowser.context(master) == pp::ClientContext::RaceDirectorSmug &&
+    delayedBrowser.context(viewerB) == pp::ClientContext::Spectator;
 
   Stage10Fixture& fixture = stage10Fixture();
   pp::BrowserInterface::ResultView result{};
@@ -232,6 +254,7 @@ void stage10Run() {
   stage10Output.log("ACC S10 test=10.15 race_control_validity=%u submitted=%u visible=%u result=%u rejection=%u", raceControlValidity ? 1 : 0, invalidMasterSubmitted ? 1 : 0, invalidMasterVisible ? 1 : 0, unsigned(invalidMasterResult.result), unsigned(invalidMasterResult.rejection));
   stage10Output.log("ACC S10 test=10.16 result=STRUCTURAL");
   stage10Output.log("ACC S10 test=10.17 result=REGRESSION");
+  stage10Output.log("ACC S10 test=10.18 delayed_store_before=%u restored_after_begin=%u viewer_spectator=%u", notRestoredBeforeBegin ? 1 : 0, restoredAfterBegin ? 1 : 0, delayedBrowser.context(viewerB) == pp::ClientContext::Spectator ? 1 : 0);
   stage10Output.log("ACC S10 test=10.T wrong=FAIL restored=PASS");
   stage10Output.log("ACC DONE");
 }

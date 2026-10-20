@@ -609,7 +609,7 @@ void setup(){
   diagnostics.log("[DEV] %s -- diagnostics are not product State",buildIdentity());
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
-  storage.begin();browserAuthority.begin();
+  storage.begin();browserAuthority.begin();browser.restorePersistedAuthority();
 #if defined(PP_PHASE8B_REAL_SD)
   physicalSdOwner.setLifecycle(raceControl.state());
   const bool physicalSdReady = physicalSdOwner.begin();

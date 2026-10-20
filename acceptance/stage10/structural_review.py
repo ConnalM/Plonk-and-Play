@@ -18,7 +18,7 @@ session_definition = session[start:end]
 checks = [
  ('Browser Interface is the sole Browser-side Bus participant', 'Bus& bus_' in browser and 'bus_.publish(endpoint_, request)' in browser and 'BrowserInterface browser' in main),
  ('Cookie identity contains no role or authority claim', 'pp_browser=' in browser and 'Race Director' not in browser[browser.index('setCookie'):browser.index('static uint64_t client')] and 'fingerprint(token)' in browser),
- ('Retained Master binding is Browser Interface state only', 'AuthorityStore' in browser and 'BrowserAuthorityStore' in main and 'pp-browser-auth' in main and 'masterFingerprint_' in browser),
+    ('Retained Master binding is Browser Interface state only', 'AuthorityStore' in browser and 'BrowserAuthorityStore' in main and 'pp-browser-auth' in main and (('masterFingerprint_' in browser) or ('controlLease_' in browser and 'restorePersistedAuthority' in browser))),
  ('Race Control has no Browser identity/token/cookie dependency', 'cookie' not in control.lower() and 'token' not in control.lower() and 'ClientContext' in control),
  ('Race Engine and Noticeboard have no Browser authority ownership', 'BrowserInterface' not in engine and 'cookie' not in engine.lower() and 'BrowserInterface' not in notice and 'cookie' not in notice.lower()),
  ('Session Definition contains no Browser identity', 'cookie' not in session_definition.lower() and 'Browser' not in session_definition),

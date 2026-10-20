@@ -58,6 +58,14 @@ public:
     if (authority_->loadMaster(persisted) && persisted) controlLease_.restore(persisted);
   }
   uint64_t controllerEpoch() const { return controllerEpoch_; }
+  // The production authority store is opened after global object construction.
+  // Retry the constructor-time load once the store is ready, before HTTP starts.
+  bool restorePersistedAuthority() {
+    if (controlLease_.hasOwner()) return true;
+    uint64_t persisted = 0;
+    if (!authority_->loadMaster(persisted) || !persisted) return false;
+    return controlLease_.restore(persisted);
+  }
   void setDiagnosticTrace(diagnostic::ControllerOperationTrace* trace) { diagnosticTrace_ = trace; }
   void setDiagnosticBuildIdentity(const char* identity) {
     diagnosticBuildIdentity_ = identity && *identity ? identity : "unknown";

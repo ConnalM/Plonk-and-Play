@@ -117,6 +117,7 @@ global.EventSource = class {
 };
 global.window = { poll };
 global.diagnosticObservation = () => {};
+global.markOffline = () => {};
 global.setTimeout = callback => { reconnect = callback; return 1; };
 const start = normal.indexOf('let eventStream=null;let eventStreamWatchdog=null;function eventStreamIsOpen()');
 const end = normal.indexOf("$('#logo').onclick", start);
