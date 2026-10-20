@@ -29,6 +29,8 @@ $failureKinds = [System.Collections.Generic.List[string]]::new()
 [void][Reflection.Assembly]::LoadWithPartialName('System.Net.Http')
 $client = [System.Net.Http.HttpClient]::new()
 $client.Timeout = [TimeSpan]::FromSeconds([Math]::Max(1, $TimeoutSeconds))
+$probeClient = [System.Net.Http.HttpClient]::new()
+$probeClient.Timeout = [TimeSpan]::FromSeconds(1)
 
 try {
   foreach ($candidate in $candidates) {
@@ -46,10 +48,8 @@ try {
       while ((Get-Date) -lt $mdnsDeadline) {
         $mdnsAttempt++
         Write-Output "Discovery: probing mDNS $candidate (attempt $mdnsAttempt)."
-        $previousTimeout = $client.Timeout
         try {
-          $client.Timeout = [TimeSpan]::FromSeconds(1)
-          $probe = $client.GetAsync("$($candidate.TrimEnd('/'))/network/status").GetAwaiter().GetResult()
+          $probe = $probeClient.GetAsync("$($candidate.TrimEnd('/'))/network/status").GetAwaiter().GetResult()
           $probe.Dispose()
           $mdnsReachable = $true
           Write-Output "Discovery: mDNS route reachable at $candidate."
@@ -57,8 +57,6 @@ try {
         } catch {
           $attempts.Add("$candidate/network/status :: $($_.Exception.Message)")
           Start-Sleep -Milliseconds 750
-        } finally {
-          $client.Timeout = $previousTimeout
         }
       }
       if (-not $mdnsReachable) {
@@ -126,5 +124,6 @@ try {
   }
   throw ("${overallKind}: unable to retrieve P&P diagnostics. Attempts:`n" + ($attempts -join "`n"))
 } finally {
+  $probeClient.Dispose()
   $client.Dispose()
 }

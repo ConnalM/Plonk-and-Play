@@ -7,10 +7,11 @@ foreach ($marker in @(
   'network/status',
   'AddSeconds(8)',
   'FromSeconds(1)',
+  '$probeClient = [System.Net.Http.HttpClient]::new()',
   'Start-Sleep -Milliseconds 750',
   'mDNS route unavailable after bounded retry',
   'explicitAddress')) {
-  if ($tool -notlike "*$marker*") { throw "Diagnostics-tool discovery marker missing: $marker" }
+  if (-not $tool.Contains($marker)) { throw "Diagnostics-tool discovery marker missing: $marker" }
 }
 
 if ($tool -notmatch '\$defaultDiscovery -and \$candidate -eq \$candidates\[0\]') {
@@ -18,6 +19,9 @@ if ($tool -notmatch '\$defaultDiscovery -and \$candidate -eq \$candidates\[0\]')
 }
 if ($tool -notlike '*$candidates = @($BaseUrl.TrimEnd(''*' -or $tool -notlike '*$explicitAddress*') {
   throw 'Explicit -BaseUrl handling no longer uses a single explicit candidate.'
+}
+if ($tool -like '*$client.Timeout = [TimeSpan]::FromSeconds(1)*') {
+  throw 'The export client timeout must not be mutated after its first request.'
 }
 
 Write-Host 'Diagnostics retrieval discovery contract: PASS'
