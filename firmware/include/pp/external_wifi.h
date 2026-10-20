@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
+#include <esp_wifi.h>
 
 namespace pp {
 
@@ -71,7 +72,7 @@ public:
     WiFi.mode(WIFI_AP_STA);
     apStarted_ = WiFi.softAP(FactoryApSsid);
     suppressed_ = false;
-    stationConfigured_ = WiFi.SSID().length() != 0;
+    stationConfigured_ = hasStoredStationConfiguration();
     staFailure_ = StaFailure::None;
     if (stationConfigured_) {
       staState_ = StaState::Connecting;
@@ -87,7 +88,7 @@ public:
                   WiFi.softAPIP().toString().c_str(),
                   static_cast<unsigned>(WiFi.softAPgetStationNum()));
     if (stationConfigured_) {
-      Serial.printf("[WIFI] external STA remembered ssid=%s\n", WiFi.SSID().c_str());
+      Serial.println("[WIFI] external STA remembered configuration detected");
     }
   }
 
@@ -182,6 +183,15 @@ public:
   }
 
 private:
+  // WiFi.SSID() reports the currently associated AP only.  The driver-owned
+  // configuration is the authoritative persistent store and is available
+  // through esp_wifi_get_config before association has begun.
+  static bool hasStoredStationConfiguration() {
+    wifi_config_t config{};
+    if (esp_wifi_get_config((wifi_interface_t)ESP_IF_WIFI_STA, &config) != ESP_OK) return false;
+    return config.sta.ssid[0] != '\0';
+  }
+
   void refreshStaState() {
     if (!stationConfigured_) {
       staState_ = StaState::Unconfigured;

@@ -6,6 +6,7 @@ $browser = Get-Content -Raw (Join-Path $root 'firmware/browser/normal_browser.ht
 
 foreach ($marker in @(
   'WiFi.persistent(true)', 'WiFi.mode(WIFI_AP_STA)', 'WiFi.begin()',
+  '#include <esp_wifi.h>', 'esp_wifi_get_config', 'ESP_IF_WIFI_STA',
   'WiFi.setAutoReconnect(false)', 'WiFi.disconnect(false, false)',
   'WiFi.disconnect(false, true)', 'MDNS.begin("plonk-and-play")',
   'scanNetworks(true, true)', 'FactoryApSsid = "Plonk-and-Play"')) {
@@ -16,6 +17,14 @@ if ($manager -notmatch 'stationConfigured_ = true;[\s\S]{0,260}WiFi\.begin\(ssid
 }
 if ($manager -match 'WiFi\.begin\(ssid, password\);[\s\S]{0,120}stationConfigured_ = WiFi\.SSID\(\)\.length\(\)') {
   throw 'Connect still derives configured state from the driver SSID immediately after WiFi.begin.'
+}
+$managerConnectStart = $manager.IndexOf('  bool connect(const char* ssid')
+if ($managerConnectStart -lt 0) { throw 'External Wi-Fi connect boundary missing.' }
+if ($manager.Substring(0, $managerConnectStart) -match 'stationConfigured_ = WiFi\.SSID\(\)\.length\(\)') {
+  throw 'Startup or runtime configured-state detection still uses the associated-AP SSID.'
+}
+if ($manager -notmatch 'stationConfigured_ = hasStoredStationConfiguration\(\);[\s\S]{0,260}WiFi\.begin\(\)') {
+  throw 'Startup does not detect persisted driver configuration before stored-configuration WiFi.begin.'
 }
 foreach ($marker in @('StaState', 'UNCONFIGURED', 'DISCONNECTED', 'CONNECTING', 'CONNECTED', 'StaFailure', 'NO_SSID_AVAILABLE', 'CONNECT_FAILED', 'CONNECTION_LOST', 'lastFailure')) {
   if ($manager -notlike "*$marker*" -and $interface -notlike "*$marker*") { throw "STA observability marker missing: $marker" }
@@ -67,6 +76,24 @@ foreach ($status in $networkStatuses) {
 if ($polls -ne 3 -or $pending) { throw 'Accepted Connect regression model did not poll through stale UNCONFIGURED to CONNECTED.' }
 if ($deadlinePolls -le $polls) { throw 'Accepted Connect regression model is not bounded.' }
 Write-Host 'Accepted Connect stale-status regression model: PASS'
+
+# Startup/recovery distinctions required by the frozen AP+STA contract:
+# persistent driver configuration is independent of current association.
+$storedConfig = $true
+$associated = $false
+$suppressed = $false
+$configured = $storedConfig
+$startupState = if ($configured) { 'CONNECTING' } else { 'UNCONFIGURED' }
+if ($startupState -ne 'CONNECTING') { throw 'Remembered driver configuration did not produce CONNECTING at boot.' }
+$routerAbsentState = 'DISCONNECTED'
+if ($routerAbsentState -eq 'UNCONFIGURED') { throw 'Router absence incorrectly collapses remembered configuration to UNCONFIGURED.' }
+$suppressed = $true # deliberate Disconnect; credentials remain in the driver
+$suppressed = $false # reboot clears runtime suppression
+if (-not $storedConfig -or $suppressed) { throw 'Disconnect-then-reboot model did not restore automatic reconnect eligibility.' }
+$storedConfig = $false # successful Forget erases the driver configuration
+$configured = $storedConfig
+if ($configured) { throw 'Forget-then-reboot model retained remembered configuration.' }
+Write-Host 'Remembered STA boot/Disconnect/Forget distinction model: PASS'
 $main = Get-Content -Raw (Join-Path $root 'firmware/src/main.cpp')
 foreach ($marker in @('wifi_mode=%s', 'sta_state=%s', 'sta_configured=%u', 'sta_failure=%s', 'sta_reconnects=%lu', 'mdns_started=%u')) {
   if ($main -notlike "*$marker*") { throw "Serial AP+STA health marker missing: $marker" }
