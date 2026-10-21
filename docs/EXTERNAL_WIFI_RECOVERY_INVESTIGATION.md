@@ -181,6 +181,49 @@ No product decision is required. A firmware correction is required for scan
 eligibility coordination; a separate sanitized station-event diagnostic is
 needed before selecting a precise Reconfigure/association fix.
 
+## Wi-Fi scan coordination and station-event diagnostics implementation
+
+The demonstrated scan-state defect is corrected in the existing
+`ExternalWifiManager` boundary. When a remembered STA is disconnected or in
+the Arduino idle transition that can still represent an in-flight driver
+operation, a scan request is accepted as a bounded `RUNNING` operation, the
+STA reconnect attempt is paused, and the current STA operation is cancelled
+without erasing the driver-managed configuration. The asynchronous scan starts
+from the manager tick after the short cancellation fence. On scan completion or
+failure, the pause is released, auto-reconnect is restored, and the existing
+bounded retry loop may resume. The factory AP and HTTP service remain up, and
+the Browser sees the existing non-blocking scan lifecycle.
+
+The S3 build now also subscribes to the Arduino Wi-Fi event stream and emits
+sanitized station evidence: `STA_EVENT` start/connected/disconnected/lost-IP,
+numeric disconnect reason plus the framework reason name, successful DHCP IP,
+and the immediate `WiFi.begin()` status/result. No SSID or password value is
+logged. This is instrumentation only; no speculative association fix was
+made.
+
+Acceptance/build evidence:
+
+* `acceptance/stage15/run_network_contract.ps1` — PASS, including scan/STA
+  coordination and event-diagnostic markers.
+* Stage 14C Browser polling, recovery and structural checks — PASS.
+* Stage 15 control-lease and bounded SSE checks — PASS; production HTTP/SSE
+  choreography remains environment-dependent and was not run.
+* WP3 diagnostic export acceptance — PASS.
+* `stage8bp1s3sd` clean build — PASS. Existing unrelated compiler warnings
+  remain unchanged.
+* Merged image:
+  `firmware/.pio/build/stage8bp1s3sd/firmware.merged.bin`, 1,078,080 bytes,
+  SHA-256 `602AF843FCFBA7F029B50F86B3D8669C81163910B8E5A1CBE3541BAC95539B2D`.
+  The artifact was verified at the established ESP32-S3 offsets: bootloader
+  `0x0000`, partitions `0x8000`, boot_app0 `0xE000`, application `0x10000`.
+
+The next hardware attempt should use one controlling Browser: open the Network
+page, press Scan once, wait for its result, then submit one Reconfigure with
+the selected SSID and password. Inspect the complete Serial log for the
+`SCAN_DEFERRED`/`SCAN_ACCEPTED`/`SCAN_COMPLETE` sequence and the sanitized
+`STA_EVENT`/`STA_BEGIN` sequence. The SD mount failure remains a separate
+checkpoint.
+
 ## 107d0fb real-hardware checkpoint
 
 **Investigation date:** 2026-10-21

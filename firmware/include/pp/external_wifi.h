@@ -93,6 +93,7 @@ public:
   void begin() {
     WiFi.persistent(true);
     WiFi.mode(WIFI_AP_STA);
+    installEventDiagnostics();
     apStarted_ = WiFi.softAP(FactoryApSsid);
     suppressed_ = false;
     stationConfigured_ = hasStoredStationConfiguration();
@@ -128,6 +129,14 @@ public:
     if (apStarted_) startMdns();
     refreshScanState();
     refreshStaState();
+    if (scanDeferred_ && static_cast<int32_t>(now - scanNotBeforeMs_) >= 0) {
+      const wl_status_t status = WiFi.status();
+      if (!stationConfigured_ || (status != WL_IDLE_STATUS)) {
+        scanDeferred_ = false;
+        beginScan();
+      }
+    }
+    if (scanPauseReconnect_) return;
     if (!stationConfigured_ || suppressed_ || WiFi.status() == WL_CONNECTED) return;
     if (static_cast<uint32_t>(now - lastAttemptMs_) < 5000U) return;
     ++reconnectAttempts_;
@@ -152,6 +161,8 @@ public:
     staState_ = StaState::Connecting;
     staFailure_ = StaFailure::None;
     const wl_status_t result = WiFi.begin(ssid, password);
+    Serial.printf("[WIFI] STA_BEGIN result=%d status=%d\n",
+                  static_cast<int>(result), static_cast<int>(WiFi.status()));
     lastAttemptMs_ = millis();
     startMdns();
     (void)result;
@@ -199,16 +210,38 @@ public:
   bool startScan() {
     ++scanRequests_;
     Serial.printf("[WIFI] SCAN_REQUEST received count=%lu\n", static_cast<unsigned long>(scanRequests_));
+    if (scanState_ == ScanState::Running) {
+      Serial.println("[WIFI] SCAN_ALREADY_RUNNING accepted=true");
+      return true;
+    }
     wifi_mode_t mode = WIFI_MODE_NULL;
     const esp_err_t modeResult = esp_wifi_get_mode(&mode);
+    const wl_status_t staStatus = WiFi.status();
     Serial.printf("[WIFI] SCAN_START_PREP mode=%d mode_result=%d sta_status=%d scan_before=%d ap_started=%s\n",
                   static_cast<int>(mode), static_cast<int>(modeResult),
-                  static_cast<int>(WiFi.status()), static_cast<int>(WiFi.scanComplete()),
+                  static_cast<int>(staStatus), static_cast<int>(WiFi.scanComplete()),
                   apStarted_ ? "true" : "false");
+    scanState_ = ScanState::Running;
+    const bool staDriverBusy = stationConfigured_ &&
+      (staStatus == WL_DISCONNECTED || staStatus == WL_IDLE_STATUS);
+    if (staDriverBusy) {
+      scanDeferred_ = true;
+      scanPauseReconnect_ = true;
+      WiFi.setAutoReconnect(false);
+      (void)WiFi.disconnect(false, false);
+      scanNotBeforeMs_ = millis() + 100U;
+      Serial.printf("[WIFI] SCAN_DEFERRED reason=STA_DRIVER_BUSY status=%d\n",
+                    static_cast<int>(staStatus));
+      return true;
+    }
+    return beginScan();
+  }
+
+private:
+  bool beginScan() {
     const int16_t result = WiFi.scanNetworks(true, true);
     scanLastResult_ = result;
     if (result == WIFI_SCAN_RUNNING) {
-      scanState_ = ScanState::Running;
       ++scanAccepted_;
       Serial.printf("[WIFI] SCAN_ACCEPTED state=RUNNING result=%d accepted=%lu\n",
                     static_cast<int>(result), static_cast<unsigned long>(scanAccepted_));
@@ -218,16 +251,64 @@ public:
       scanState_ = ScanState::Complete;
       ++scanAccepted_;
       ++scanCompleted_;
+      finishScan();
       Serial.printf("[WIFI] SCAN_COMPLETE count=%d completed=%lu\n",
                     static_cast<int>(result), static_cast<unsigned long>(scanCompleted_));
       return true;
     }
     scanState_ = ScanState::Unavailable;
     ++scanUnavailable_;
+    finishScan();
     Serial.printf("[WIFI] SCAN_UNAVAILABLE result=%d failures=%lu\n",
                   static_cast<int>(result), static_cast<unsigned long>(scanUnavailable_));
     return false;
   }
+
+  void finishScan() {
+    scanDeferred_ = false;
+    if (!scanPauseReconnect_) return;
+    scanPauseReconnect_ = false;
+    WiFi.setAutoReconnect(true);
+    lastAttemptMs_ = millis();
+  }
+
+  void installEventDiagnostics() {
+    if (eventHandlerRegistered_) return;
+    WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info) {
+      switch (event) {
+        case ARDUINO_EVENT_WIFI_STA_START:
+          Serial.println("[WIFI] STA_EVENT event=START");
+          break;
+        case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+          Serial.printf("[WIFI] STA_EVENT event=CONNECTED channel=%u authmode=%u\n",
+                        static_cast<unsigned>(info.wifi_sta_connected.channel),
+                        static_cast<unsigned>(info.wifi_sta_connected.authmode));
+          break;
+        case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
+          const uint8_t reason = info.wifi_sta_disconnected.reason;
+          Serial.printf("[WIFI] STA_EVENT event=DISCONNECTED reason=%u name=%s\n",
+                        static_cast<unsigned>(reason),
+                        WiFi.disconnectReasonName(static_cast<wifi_err_reason_t>(reason)));
+          break;
+        }
+        case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+          Serial.printf("[WIFI] STA_EVENT event=GOT_IP ip=%u.%u.%u.%u\n",
+                        static_cast<unsigned>(info.got_ip.ip_info.ip.addr & 0xffU),
+                        static_cast<unsigned>((info.got_ip.ip_info.ip.addr >> 8U) & 0xffU),
+                        static_cast<unsigned>((info.got_ip.ip_info.ip.addr >> 16U) & 0xffU),
+                        static_cast<unsigned>((info.got_ip.ip_info.ip.addr >> 24U) & 0xffU));
+          break;
+        case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+          Serial.println("[WIFI] STA_EVENT event=LOST_IP");
+          break;
+        default:
+          break;
+      }
+    });
+    eventHandlerRegistered_ = true;
+  }
+
+public:
 
   void status(Status& value) const {
     const bool connected = WiFi.status() == WL_CONNECTED;
@@ -305,17 +386,23 @@ private:
     if (result >= 0) {
       scanState_ = ScanState::Complete;
       ++scanCompleted_;
+      finishScan();
       Serial.printf("[WIFI] SCAN_COMPLETE count=%d completed=%lu\n",
                     static_cast<int>(result), static_cast<unsigned long>(scanCompleted_));
       return;
     }
     scanState_ = ScanState::Unavailable;
     ++scanUnavailable_;
+    finishScan();
     Serial.printf("[WIFI] SCAN_UNAVAILABLE result=%d failures=%lu\n",
                   static_cast<int>(result), static_cast<unsigned long>(scanUnavailable_));
   }
 
   ScanState scanState_ = ScanState::Idle;
+  bool scanDeferred_ = false;
+  bool scanPauseReconnect_ = false;
+  bool eventHandlerRegistered_ = false;
+  uint32_t scanNotBeforeMs_ = 0;
   uint32_t scanRequests_ = 0;
   uint32_t scanAccepted_ = 0;
   uint32_t scanCompleted_ = 0;

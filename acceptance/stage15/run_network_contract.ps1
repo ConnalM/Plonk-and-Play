@@ -10,7 +10,9 @@ foreach ($marker in @(
   '#include <esp_wifi.h>', 'esp_wifi_get_config', 'ESP_IF_WIFI_STA',
   'WiFi.setAutoReconnect(false)', 'WiFi.disconnect(false, false)',
   'WiFi.disconnect(false, true)', 'MDNS.begin("plonk-and-play")',
-  'scanNetworks(true, true)', 'ScanState', 'SCAN_ACCEPTED', 'SCAN_UNAVAILABLE', 'SCAN_COMPLETE', 'FactoryApSsid = "Plonk-and-Play"')) {
+  'scanNetworks(true, true)', 'ScanState', 'SCAN_ACCEPTED', 'SCAN_DEFERRED', 'SCAN_UNAVAILABLE', 'SCAN_COMPLETE',
+  'STA_EVENT event=CONNECTED', 'STA_EVENT event=DISCONNECTED', 'STA_EVENT event=GOT_IP', 'STA_BEGIN result=',
+  'FactoryApSsid = "Plonk-and-Play"')) {
   if ($manager -notlike "*$marker*") { throw "External Wi-Fi manager marker missing: $marker" }
 }
 if ($manager -notmatch 'stationConfigured_ = true;[\s\S]{0,260}WiFi\.begin\(ssid, password\)') {
@@ -131,3 +133,17 @@ foreach ($marker in @('wifi_mode=%s', 'sta_state=%s', 'sta_configured=%u', 'sta_
   if ($main -notlike "*$marker*") { throw "Serial AP+STA health marker missing: $marker" }
 }
 Write-Host 'Stage 15 optional external Wi-Fi contract: PASS'
+
+# The physical driver rejected scans while a remembered STA reconnect was in
+# flight.  The owner must defer that scan, pause only the bounded reconnect
+# attempt, and resume it after the asynchronous scan reaches a terminal state.
+foreach ($marker in @('scanDeferred_', 'scanPauseReconnect_', 'finishScan()', 'WiFi.disconnect(false, false)', 'WiFi.setAutoReconnect(false)')) {
+  if ($manager -notlike "*$marker*") { throw "Scan/STA coordination marker missing: $marker" }
+}
+if ($manager -notmatch 'staDriverBusy[\s\S]{0,320}scanDeferred_ = true[\s\S]{0,320}WiFi\.disconnect\(false, false\)') {
+  throw 'Scan does not defer and cancel an in-flight remembered STA operation before driver scan start.'
+}
+if ($manager -notmatch 'void finishScan\(\)[\s\S]{0,220}WiFi\.setAutoReconnect\(true\)') {
+  throw 'Scan completion does not restore the bounded STA reconnect lifecycle.'
+}
+Write-Host 'Scan/STA coordination contract: PASS'
