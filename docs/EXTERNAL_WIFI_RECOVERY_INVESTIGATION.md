@@ -152,3 +152,91 @@ could be added. No product/design decision is required by this evidence. A
 future targeted capture should include the Browser's authoritative `/context`
 state at the time of the Reconfigure press and, if needed, the scan status
 response; it should not record credentials.
+
+## eef9a83 continuation: repeated Reconfigure and Scan checkpoint
+
+**Investigation date:** 2026-10-21  
+**Firmware under test:** `eef9a83da0ee1e71d4e6d284870cd8fd6efbac80`  
+**Evidence:** `firmware/logs/device-monitor-261021-170305.log`  
+**Scope:** remembered STA repeatedly reported by the operator as
+`CONNECTING` → `DISCONNECTED`; two Scan presses and one Reconfigure press were
+made from the Network page. No source change was made.
+
+### Reconfigure request path
+
+The capture contains no `/network/connect`, `RECONFIGURE_ACCEPTED` or
+`RECONFIGURE_REJECTED` marker. Therefore the Reconfigure press did not reach
+P&P's connect route: the credential parser did not run, `ExternalWifiManager::connect()`
+was not called, and the driver-managed credential store was not touched by
+this press.
+
+The current Browser implementation makes the no-request mechanism explicit.
+`networkPage()` computes `const control=!!C?.isMaster` and emits
+`#networkConnect` disabled unless that authoritative context value is true.
+The click handler also returns immediately when the button is disabled, before
+constructing `fetch('/network/connect', ...)`. `C` is populated only by a
+successful `/context` response during the authoritative poll; Browser code has
+no local authority fallback.
+
+This run contains one `/context` HTTP error:
+
+```text
+[DEV] HTTP ERROR route=/context duration_ms=5 result=45062 ...
+```
+
+`45062` is `0xB006`, `ESP_ERR_HTTPD_RESP_SEND`, meaning the HTTP server could
+not send that response packet to the client. The capture therefore does not
+contain the `/context` body and cannot distinguish whether the controller's
+authoritative lease was absent, or whether a valid lease response was lost at
+the Browser/transport boundary. It does establish that the observed silent
+press was client-side gating/no request, rather than a P&P validation,
+authority rejection (`403`), or Wi-Fi association rejection. A request that
+did reach the route would have produced a `/network/connect` trace even when
+the lease check rejected it.
+
+The frozen NET15.3 rule remains satisfied by this boundary: only a recognized
+controlling Browser may mutate network configuration. The evidence instead
+identifies a Browser/transport observability and recovery gap when authoritative
+`/context` is unavailable; it does not justify weakening the lease check.
+
+### Scan request path
+
+Both Scan presses reached P&P and failed identically:
+
+```text
+[WIFI] SCAN_REQUEST route_received=true
+[WIFI] SCAN_REQUEST received count=1
+[WIFI] SCAN_UNAVAILABLE result=-2 failures=1
+[WIFI] SCAN_REQUEST route_received=true
+[WIFI] SCAN_REQUEST received count=2
+[WIFI] SCAN_UNAVAILABLE result=-2 failures=2
+```
+
+`ExternalWifiManager::startScan()` calls Arduino-ESP32
+`WiFi.scanNetworks(true, true)`. In the actual framework used by the S3 build,
+that function returns `WIFI_SCAN_FAILED` (`-2`) when the underlying
+`esp_wifi_scan_start()` call is not accepted; the route consequently returns
+the authoritative `409 SCAN_UNAVAILABLE`. This is not a missing Browser route,
+an empty completed result, or a control-lease gate. The source and Serial
+evidence do not expose the lower-level ESP-IDF rejection reason. The failures
+occurred while the remembered STA was repeatedly trying to associate in
+AP+STA mode, which is a plausible driver-state interaction but is not proof of
+the precise lower-level cause.
+
+### Relationship and disposition
+
+The two symptoms are not one demonstrated backend fault:
+
+* Reconfigure: no request was emitted because the Browser did not have a
+  successful authoritative `isMaster` context at the time of the press; the
+  exact lease-versus-response-loss branch remains unproven.
+* Scan: the request arrived and the ESP32 Wi-Fi driver rejected scan start.
+
+The frozen product behaviour requires both a usable observational Scan and a
+controlling-SMUG Reconfigure path. A firmware/driver-level Scan correction is
+therefore still required, but its exact implementation cannot be chosen from
+this capture alone. A Browser/transport correction is required if a valid
+controlling lease is confirmed while `/context` is temporarily unavailable;
+the next evidence must capture a successful `/context` body or a deliberate
+control request before selecting that correction. No product/design decision is
+required by the current evidence, and no credentials were logged or exposed.
