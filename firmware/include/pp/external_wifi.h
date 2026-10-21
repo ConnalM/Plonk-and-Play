@@ -199,6 +199,12 @@ public:
   bool startScan() {
     ++scanRequests_;
     Serial.printf("[WIFI] SCAN_REQUEST received count=%lu\n", static_cast<unsigned long>(scanRequests_));
+    wifi_mode_t mode = WIFI_MODE_NULL;
+    const esp_err_t modeResult = esp_wifi_get_mode(&mode);
+    Serial.printf("[WIFI] SCAN_START_PREP mode=%d mode_result=%d sta_status=%d scan_before=%d ap_started=%s\n",
+                  static_cast<int>(mode), static_cast<int>(modeResult),
+                  static_cast<int>(WiFi.status()), static_cast<int>(WiFi.scanComplete()),
+                  apStarted_ ? "true" : "false");
     const int16_t result = WiFi.scanNetworks(true, true);
     scanLastResult_ = result;
     if (result == WIFI_SCAN_RUNNING) {

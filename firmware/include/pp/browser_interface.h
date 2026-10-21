@@ -451,6 +451,32 @@ public:
   static bool serializeRecordsForAcceptance(TrackRecordStore* records,uint8_t count,char*out,size_t cap,size_t&length){return serializeRecords(records,count,out,cap,length);}
 private:
   static constexpr const char* Phase8bApSsid = "Plonk-and-Play";
+  void traceContextResponse(bool hasMaster, bool isMaster, bool ownerConnected,
+                            bool takeoverPending, bool takeoverRequestedByThis,
+                            ControlLeaseResult result, esp_err_t sent) {
+    const bool changed = !contextTraceValid_ ||
+      contextTraceHasMaster_ != hasMaster ||
+      contextTraceIsMaster_ != isMaster ||
+      contextTraceOwnerConnected_ != ownerConnected ||
+      contextTracePending_ != takeoverPending ||
+      contextTraceRequestedByThis_ != takeoverRequestedByThis ||
+      contextTraceResult_ != result;
+    if (sent != ESP_OK || changed) {
+      Serial.printf("[AUTH] CONTEXT response has_master=%s is_master=%s owner_connected=%s takeover_pending=%s requested_by_this=%s result=%s sent=%d\n",
+                    hasMaster ? "true" : "false", isMaster ? "true" : "false",
+                    ownerConnected ? "true" : "false",
+                    takeoverPending ? "true" : "false",
+                    takeoverRequestedByThis ? "true" : "false",
+                    controlResultText(result), static_cast<int>(sent));
+      contextTraceValid_ = true;
+      contextTraceHasMaster_ = hasMaster;
+      contextTraceIsMaster_ = isMaster;
+      contextTraceOwnerConnected_ = ownerConnected;
+      contextTracePending_ = takeoverPending;
+      contextTraceRequestedByThis_ = takeoverRequestedByThis;
+      contextTraceResult_ = result;
+    }
+  }
   bool networkApStarted() const {
 #if defined(PP_PHASE8B_REAL_SD)
     ExternalWifiManager::Status status{};
@@ -520,6 +546,13 @@ private:
   bool hasFact_ = false;
   bool started_ = false;
   bool wifiConnected_ = false;
+  bool contextTraceValid_ = false;
+  bool contextTraceHasMaster_ = false;
+  bool contextTraceIsMaster_ = false;
+  bool contextTraceOwnerConnected_ = false;
+  bool contextTracePending_ = false;
+  bool contextTraceRequestedByThis_ = false;
+  ControlLeaseResult contextTraceResult_ = ControlLeaseResult::NoPending;
 #if defined(PP_PHASE8B_REAL_SD)
   bool apStarted_ = false;
   uint8_t apClientCount_ = 0;
@@ -1565,6 +1598,16 @@ private:
     const uint32_t revision = number("\"revision\"");
     const uint32_t eventId = number("\"eventId\"");
     const uint32_t detail = number("\"detail\"");
+    // Targeted Wi-Fi fault-finding instrumentation.  These observations are
+    // deliberately credential-free and are emitted to the host log so a
+    // Browser-side gate can be distinguished from an HTTP/API failure even
+    // when the diagnostic SD sink is unavailable.
+    if (strcmp(kind, "network_control_state") == 0 ||
+        strcmp(kind, "network_reconfigure_click") == 0) {
+      Serial.printf("[WIFI] BROWSER_OBSERVATION kind=%s detail=%lu client_is_master=%s\n",
+                    kind, static_cast<unsigned long>(detail),
+                    instance()->isControlOwner(owner) ? "true" : "false");
+    }
     const uint32_t phaseCode = strcmp(phase, "COUNTDOWN") == 0 ? 1U :
       strcmp(phase, "RESUME_COUNTDOWN") == 0 ? 2U :
       strcmp(phase, "GO") == 0 ? 3U : 0U;
@@ -1666,18 +1709,27 @@ private:
     const uint64_t owner = client(request);
     char json[320];
     const ControlLeaseResult result = instance()->controlResultFor(owner);
+    const bool hasMaster = instance()->hasMaster();
+    const bool isMaster = instance()->isControlOwner(owner);
+    const bool ownerConnected = instance()->controlOwnerConnected();
+    const bool takeoverPending = instance()->controlTakeoverPending();
+    const bool takeoverRequestedByThis = instance()->controlTakeoverRequestedBy(owner);
     snprintf(json, sizeof(json), "{\"role\":\"%s\",\"hasMaster\":%s,\"isMaster\":%s,\"ownerConnected\":%s,\"takeoverPending\":%s,\"takeoverRequestedByThis\":%s,\"takeoverRequestId\":%lu,\"takeoverResult\":\"%s\"}",
              instance()->context(owner) == ClientContext::RaceDirectorSmug ? "Race Director" : "Spectator",
-             instance()->hasMaster() ? "true" : "false",
-             instance()->isControlOwner(owner) ? "true" : "false",
-             instance()->controlOwnerConnected() ? "true" : "false",
-             instance()->controlTakeoverPending() ? "true" : "false",
-             instance()->controlTakeoverRequestedBy(owner) ? "true" : "false",
-             static_cast<unsigned long>(instance()->controlTakeoverPending() ? instance()->controlTakeoverRequestId() : 0),
+             hasMaster ? "true" : "false",
+             isMaster ? "true" : "false",
+             ownerConnected ? "true" : "false",
+             takeoverPending ? "true" : "false",
+             takeoverRequestedByThis ? "true" : "false",
+             static_cast<unsigned long>(takeoverPending ? instance()->controlTakeoverRequestId() : 0),
              controlResultText(result));
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
-    const esp_err_t sent = httpd_resp_sendstr(request, json); trace.complete(sent); return sent;
+    const esp_err_t sent = httpd_resp_sendstr(request, json);
+    instance()->traceContextResponse(hasMaster, isMaster, ownerConnected,
+                                     takeoverPending, takeoverRequestedByThis,
+                                     result, sent);
+    trace.complete(sent); return sent;
   }
   static esp_err_t startRoute(httpd_req_t* request) {
     uint32_t correlation = 0; uint64_t traceId = 0;
@@ -2238,7 +2290,17 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   }
   static esp_err_t networkConnectRoute(httpd_req_t* request) {
     RequestTrace trace(instance(), "/network/connect");
-    if (instance()->context(client(request)) != ClientContext::RaceDirectorSmug) {
+    const uint64_t owner = client(request);
+    const bool hasMaster = instance()->hasMaster();
+    const bool isMaster = instance()->isControlOwner(owner);
+    const bool ownerConnected = instance()->controlOwnerConnected();
+    const ClientContext context = instance()->context(owner);
+    Serial.printf("[WIFI] RECONFIGURE_REQUEST route_received=true has_master=%s is_master=%s owner_connected=%s context=%s\n",
+                  hasMaster ? "true" : "false", isMaster ? "true" : "false",
+                  ownerConnected ? "true" : "false",
+                  context == ClientContext::RaceDirectorSmug ? "RACE_DIRECTOR" : "SPECTATOR");
+    if (context != ClientContext::RaceDirectorSmug) {
+      Serial.println("[WIFI] RECONFIGURE_REJECTED reason=RACE_DIRECTOR_REQUIRED");
       httpd_resp_send_err(request, HTTPD_403_FORBIDDEN, "Race Director required");
       trace.complete(ESP_ERR_INVALID_STATE);
       return ESP_FAIL;

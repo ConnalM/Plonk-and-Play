@@ -240,3 +240,27 @@ controlling lease is confirmed while `/context` is temporarily unavailable;
 the next evidence must capture a successful `/context` body or a deliberate
 control request before selecting that correction. No product/design decision is
 required by the current evidence, and no credentials were logged or exposed.
+
+## Targeted fault-finding instrumentation (ready for one hardware run)
+
+The next disposable Phase 8B image adds credential-free tracing only; it does
+not change lease, scan, credential, or network behaviour. The `/context`
+response trace reports `has_master`, the requesting client's `is_master`,
+controller-owner connectivity, takeover state, the authoritative result, and
+HTTP send status when that tuple changes or a send fails. The Reconfigure route
+logs receipt with the same lease facts, then its existing sanitized validation/
+acceptance outcome. The Browser emits bounded observations when its Network
+panel's authoritative control state changes and when Reconfigure is clicked,
+including whether the rendered button was enabled. The ESP-IDF linker wrapper
+logs the exact `esp_wifi_scan_start` result/name and non-secret scan parameters
+while delegating immediately to the real driver call; the existing scan route
+and result handling remain unchanged. Scan preparation also records Wi-Fi mode,
+mode-query result, STA status, prior scan state, and AP availability.
+
+The minimum hardware sequence is: flash this image; connect one Browser to the
+P&P AP; acquire Race Director control if required; open Advanced → Diagnostics
+→ Network; capture one Network-page load, one Scan press, and one Reconfigure
+press with the currently remembered SSID/password state; then stop. The full
+Serial capture must be inspected for the new `[AUTH]`, `BROWSER_OBSERVATION`,
+`RECONFIGURE_REQUEST`, and `esp_wifi_scan_start` markers together with panic,
+reset, SD/FAT, HTTP, and transport errors.
