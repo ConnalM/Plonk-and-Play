@@ -78,3 +78,77 @@ lease and SSE tests, and the WP3 Browser/export/production tests. The
 SHA-256 `871EB19F944108A3F9432DF2EED075181AA0EEA4FD18B8E93C786EAE26C8CA3B`),
 with the standard ESP32-S3 offsets. Real-hardware reconfigure and scan
 acceptance remains to be exercised.
+
+## 107d0fb real-hardware checkpoint
+
+**Investigation date:** 2026-10-21
+**Firmware under test:** `107d0fb17ae3a0f3d6aa6f6b3215202b28c7c241`
+**Evidence:** `firmware/logs/device-monitor-261021-153607.log`
+**Scope:** one boot followed by one Scan and one attempted Reconfigure; no source change was made.
+
+The capture contains one boot/reset header only (`rst:0x1 POWERON`), a successful
+PhysicalSdOwner mount, the factory AP and mDNS startup, and
+`external STA remembered configuration detected`. It contains no panic,
+`Guru Meditation`, `LoadProhibited`, or second reboot. The AP remained available
+and the periodic health line continued with `dropped=0`.
+
+### Scan
+
+The Scan request definitely reached P&P. The relevant serial sequence is:
+
+```text
+[WIFI] SCAN_REQUEST route_received=true
+[WIFI] SCAN_REQUEST received count=1
+[WIFI] SCAN_UNAVAILABLE result=-2 failures=1
+```
+
+`startScan()` calls `WiFi.scanNetworks(true, true)` and treats the Arduino
+ESP32 `-2` result (`WIFI_SCAN_FAILED`) as unavailable. The route therefore
+returned the existing `409 SCAN_UNAVAILABLE` response; the Browser's “Scan
+unavailable” message accurately represented the authoritative outcome. This was
+not a missing route request or a zero-result completed scan. The available
+evidence does not identify the lower-level reason why the ESP32 scan failed
+(for example, transient STA/AP driver state), so it does not justify a source
+change or a product decision by itself.
+
+### Reconfigure
+
+There is no `RECONFIGURE_ACCEPTED`, `RECONFIGURE_REJECTED`,
+`/network/connect` HTTP error, or other connect-route marker anywhere in this
+capture. The request therefore did **not** reach P&P's `/network/connect`
+handler. No credential parser ran, `ExternalWifiManager::connect()` was not
+called, and the driver-managed credential store was not changed by this
+attempt. The boot evidence only confirms that a remembered driver configuration
+was present; password validity remains intentionally undisclosed.
+
+The current Browser renders the mutation controls disabled unless the
+authoritative `/context` response says `isMaster=true`:
+
+```js
+const control=!!C?.isMaster;
+... id="networkConnect" ${control?'':'disabled'} ...
+```
+
+Scan is observational and has no such gate. Thus the combination of a working
+Scan request and a Reconfigure press with no server trace is consistent with the
+Browser not recognising a controlling lease (or the control button being
+disabled before the click). The Serial capture does not include `/context`, so
+it cannot distinguish that precise UI state from a click that never generated a
+request for another client-side reason. It does establish that this was not a
+P&P request validation or Wi-Fi association rejection.
+
+### Common-cause assessment
+
+The two observations are not one proven backend failure:
+
+* Scan reached P&P and the Wi-Fi driver returned `WIFI_SCAN_FAILED` (`-2`).
+* Reconfigure did not reach P&P at all; no SSID/password was accepted or
+  written.
+
+The development PC was not on a route to the controller during this capture:
+`192.168.4.1` was unreachable and `plonk-and-play.local` did not resolve from
+that host, so no live `/network/status`, `/context`, or `/diag/download` query
+could be added. No product/design decision is required by this evidence. A
+future targeted capture should include the Browser's authoritative `/context`
+state at the time of the Reconfigure press and, if needed, the scan status
+response; it should not record credentials.
