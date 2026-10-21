@@ -79,6 +79,108 @@ SHA-256 `871EB19F944108A3F9432DF2EED075181AA0EEA4FD18B8E93C786EAE26C8CA3B`),
 with the standard ESP32-S3 offsets. Real-hardware reconfigure and scan
 acceptance remains to be exercised.
 
+## 587ea41 clean-root real-hardware checkpoint
+
+**Investigation date:** 2026-10-21  
+**Firmware under test:** `587ea41ea1d5b8890c4a63a3ad903a9408c80e3d`  
+**Evidence:** `firmware/logs/device-monitor-261021-212710.log`  
+**Scope:** current Normal Browser at `/`; one Scan request sequence and one
+manual Reconfigure sequence from the controlling Browser. The capture was
+read in full, including the boot, periodic health output and request markers.
+
+### Run integrity and independent storage observation
+
+The application has one ROM boot header (`rst:0x1 (POWERON)`) and no
+`Guru Meditation`, `panic`, `EXCCAUSE`, `EXCVADDR` or second reset header. The
+factory AP and HTTP server started, the AP had one client, and the periodic
+boot-health line continued with `dropped=0`. The physical SD owner failed its
+mount attempt and the diagnostic backend reported its existing degraded
+storage state. That is the already recorded SD/storage issue; it is separate
+from the Wi-Fi request outcomes and did not prevent the AP or HTTP service
+from running.
+
+### Scan: demonstrated driver-state failure
+
+The three scan request records in this capture are:
+
+```text
+[WIFI] SCAN_REQUEST route_received=true
+[WIFI] SCAN_REQUEST received count=1
+[WIFI] SCAN_START_PREP mode=3 mode_result=0 sta_status=6 scan_before=-2 ap_started=true
+[WIFI] esp_wifi_scan_start result=12294 name=ESP_ERR_WIFI_STATE block=false channel=0 scan_type=0
+[WIFI] SCAN_UNAVAILABLE result=-2 failures=1
+```
+
+The same sequence repeats for counts 2 and 3. `mode=3` is AP+STA,
+`sta_status=6` is the Arduino `WL_DISCONNECTED` state, and `scan_before=-2`
+shows that no earlier scan was running. The ESP-IDF wrapper reports
+`12294` (`ESP_ERR_WIFI_STATE`), which Arduino exposes as `WIFI_SCAN_FAILED`
+(`-2`). The route therefore returned the authoritative unavailable/rejected
+outcome; this was not a missing Browser request, a lease gate, or a completed
+zero-result scan.
+
+The remembered STA was in its normal bounded reconnect lifecycle at the same
+time: the boot had detected driver-managed configuration and the manager was
+trying to associate while the status remained disconnected. The concrete
+failure is therefore a scan start attempted while the ESP Wi-Fi driver was in
+an incompatible STA/AP state. The capture does not provide an ESP-IDF
+disconnect reason code, authentication result, or association reason for the
+house network; those values are not emitted by the current instrumentation.
+
+The smallest implementation correction to review is to coordinate the
+observation-only scan with the STA reconnect lifecycle: do not call
+`esp_wifi_scan_start` while a STA connect/reconnect operation is in flight;
+hold the bounded scan request until the driver is in a scan-eligible state,
+then resume the existing bounded reconnect behaviour. This preserves the
+existing AP+STA and non-blocking contracts. It should be implemented only
+after the normal driver-state coordination path is reviewed; no speculative
+credential or product change is justified by this capture.
+
+### Reconfigure: request accepted and association outcome unavailable
+
+The capture contains two request sequences (the server received two
+credential submissions during the logged run):
+
+```text
+[WIFI] RECONFIGURE_REQUEST route_received=true has_master=true is_master=true owner_connected=true context=RACE_DIRECTOR
+[WIFI] RECONFIGURE_ACCEPTED ssid_length=13 password_present=true
+```
+
+The same sequence appears again. This proves that the current Normal Browser
+sent the request, the authoritative controlling lease was valid, the SSID
+passed validation, and `ExternalWifiManager::connect()` was invoked. The
+implementation has `WiFi.persistent(true)` and calls `WiFi.begin(ssid,
+password)` on this path; the driver-managed configuration is therefore the
+only credential store being asked to retain the supplied configuration. No
+password value is present in the log.
+
+After acceptance, the capture contains no ESP-IDF station event, driver
+disconnect reason, DHCP result, or `HTTP HEALTH` status snapshot. The
+Browser's observed `CONNECTING` then `DISCONNECTED` is consistent with the
+authoritative asynchronous state, but the available evidence cannot classify
+the association failure as authentication, missing SSID, timeout, or another
+driver reason. The code currently discards the `WiFi.begin()` return value and
+does not log the subsequent station event/reason, so no narrower root cause
+can be claimed without changing instrumentation or inspecting the driver
+event stream.
+
+### Relationship and disposition
+
+The two failures are not one common request/authority defect. Scan reached
+the route and failed synchronously in the ESP-IDF driver with
+`ESP_ERR_WIFI_STATE`. Reconfigure reached the route and was accepted by the
+authority/parser boundary; its later association failure is not diagnosed by
+this capture. Both occur while the same remembered STA is disconnected and
+retrying, so the STA lifecycle is a plausible shared environmental condition,
+but only the scan-side state conflict is demonstrated.
+
+No crash, reset, storage error beyond the pre-existing SD mount failure, or
+credential leakage was observed. The HTTP error/slow lines concern Browser
+page delivery/connection churn and do not establish a Wi-Fi association cause.
+No product decision is required. A firmware correction is required for scan
+eligibility coordination; a separate sanitized station-event diagnostic is
+needed before selecting a precise Reconfigure/association fix.
+
 ## 107d0fb real-hardware checkpoint
 
 **Investigation date:** 2026-10-21
