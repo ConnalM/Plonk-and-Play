@@ -134,6 +134,20 @@ public:
     return stationConfigured_;
   }
 
+  // Reconnect using only the driver's already-persisted STA configuration.
+  // This path deliberately has no SSID/password parameters and never calls
+  // WiFi.begin(), so it cannot overwrite the stored credentials.
+  bool reconnect() {
+    if (!(WiFi.getMode() & WIFI_MODE_STA) || !stationConfigured_) return false;
+    WiFi.setAutoReconnect(true);
+    suppressed_ = false;
+    staState_ = StaState::Connecting;
+    staFailure_ = StaFailure::None;
+    lastAttemptMs_ = millis();
+    (void)WiFi.reconnect();
+    return true;
+  }
+
   bool disconnect() {
     if (!(WiFi.getMode() & WIFI_MODE_STA)) return false;
     WiFi.setAutoReconnect(false);

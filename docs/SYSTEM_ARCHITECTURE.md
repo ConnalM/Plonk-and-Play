@@ -642,10 +642,14 @@ factory AP and, when connected, the assigned external-network address.
 
 Network status and an explicit Wi-Fi scan are observational and may be viewed
 or requested by any connected Browser. Selecting an SSID is local Browser UI
-state until submitted. Submitting credentials, Connect/Reconfigure and Forget
-Network are authoritative configuration mutations and require the current
-Master/Race Director/controlling-SMUG lease. A non-controlling mutation is
-rejected by P&P. Network association never grants or transfers that lease.
+state until submitted. When a remembered network is disconnected, the
+controlling SMUG may issue **RECONNECT**; this uses the driver's stored STA
+configuration, has no SSID/password payload and cannot overwrite credentials.
+**RECONFIGURE** is the separate credential-writing operation for changing the
+remembered network. Reconnect, Disconnect, Reconfigure and Forget Network are
+authoritative mutations and require the current Master/Race
+Director/controlling-SMUG lease. A non-controlling mutation is rejected by
+P&P. Network association never grants or transfers that lease.
 
 The factory AP remains automatic, deliberately open and independent of the
 external network. External connection/reconnection must be non-blocking;
@@ -660,9 +664,11 @@ flash-backed STA configuration is the sole persistent credential store; P&P
 does not maintain a duplicate SSID/password record. It must never subsequently
 be returned, displayed, logged, diagnosed, exported, or included in History or
 Results. An explicit Disconnect retains that driver configuration while
-suppressing automatic reconnection for the remainder of the boot; an explicit
-Connect/Reconfigure clears the suppression, and reboot clears it. Forget
-Network erases the driver's persisted STA configuration and P&P's configured
+suppressing automatic reconnection for the remainder of the boot. Explicit
+Reconnect clears suppression without calling the credential-writing path;
+explicit Reconfigure clears suppression and may replace the driver's stored
+configuration. Reboot clears suppression and permits automatic reconnection.
+Forget Network erases the driver's persisted STA configuration and P&P's configured
 state, with authoritative failure if that operation cannot be completed.
 Network diagnostics expose only sanitized AP/STA state, addresses, signal and
 failure information. Scan/retry/backoff constants remain implementation

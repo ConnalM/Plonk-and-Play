@@ -133,9 +133,12 @@ SMUG. Any connected Browser may request the observation-only download.
 
 The same Advanced/Diagnostics area contains a **Network** section. Any
 connected Browser may view sanitized AP/STA status and request a Wi-Fi scan.
-Selecting an SSID is local presentation state. Submitting credentials,
-Connect/Reconfigure and Forget Network are authoritative mutations requiring
-the controlling SMUG/Race Director lease; no separate diagnostic or network
+Selecting an SSID is local presentation state. For a remembered but
+disconnected network, **RECONNECT** is an authoritative controlling-SMUG
+operation that uses the driver's existing configuration without accepting an
+SSID/password payload. **RECONFIGURE** is the separate credential-writing
+operation. Reconnect, Disconnect, Reconfigure and Forget Network require the
+controlling SMUG/Race Director lease; no separate diagnostic or network
 authority exists. Network credentials are never returned, displayed after
 submission, logged, diagnosed, exported, or placed in History/Results.
 

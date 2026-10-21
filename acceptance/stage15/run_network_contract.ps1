@@ -18,6 +18,12 @@ if ($manager -notmatch 'stationConfigured_ = true;[\s\S]{0,260}WiFi\.begin\(ssid
 if ($manager -match 'WiFi\.begin\(ssid, password\);[\s\S]{0,120}stationConfigured_ = WiFi\.SSID\(\)\.length\(\)') {
   throw 'Connect still derives configured state from the driver SSID immediately after WiFi.begin.'
 }
+$managerReconnectStart = $manager.IndexOf('  bool reconnect()')
+$managerReconnectEnd = $manager.IndexOf('  bool disconnect()', $managerReconnectStart)
+if ($managerReconnectStart -lt 0 -or $managerReconnectEnd -lt $managerReconnectStart) { throw 'External Wi-Fi reconnect implementation missing.' }
+$managerReconnect = $manager.Substring($managerReconnectStart, $managerReconnectEnd - $managerReconnectStart)
+if ($managerReconnect -notlike '*WiFi.reconnect()*') { throw 'Reconnect does not invoke the driver reconnect operation.' }
+if ($managerReconnect -match 'WiFi\.begin|ssid|password') { throw 'Reconnect implementation can write or accept credentials.' }
 $managerConnectStart = $manager.IndexOf('  bool connect(const char* ssid')
 if ($managerConnectStart -lt 0) { throw 'External Wi-Fi connect boundary missing.' }
 if ($manager.Substring(0, $managerConnectStart) -match 'stationConfigured_ = WiFi\.SSID\(\)\.length\(\)') {
@@ -33,6 +39,20 @@ if ($manager -match 'WiFi\.psk|password_') { throw 'Credential material is retai
 foreach ($route in @('/network/status','/network/scan','/network/connect','/network/disconnect','/network/forget')) {
   if ($interface -notlike "*$route*") { throw "Network route missing: $route" }
 }
+$reconnectRoute = '/network/reconnect'
+if ($interface -notlike "*$reconnectRoute*") { throw 'Network reconnect route missing.' }
+$reconnectMethodStart = $interface.IndexOf('bool networkReconnect()')
+if ($reconnectMethodStart -lt 0) { throw 'Network reconnect boundary missing.' }
+$reconnectMethodEnd = $interface.IndexOf('bool networkDisconnect()', $reconnectMethodStart)
+if ($reconnectMethodEnd -lt 0) { throw 'Network reconnect boundary is not terminated.' }
+$reconnectMethod = $interface.Substring($reconnectMethodStart, $reconnectMethodEnd - $reconnectMethodStart)
+if ($reconnectMethod -match 'ssid|password|WiFi.begin') { throw 'Reconnect boundary accepts or writes credentials.' }
+$reconnectRouteStart = $interface.IndexOf('static esp_err_t networkReconnectRoute')
+$reconnectRouteEnd = $interface.IndexOf('static esp_err_t networkDisconnectRoute', $reconnectRouteStart)
+if ($reconnectRouteStart -lt 0 -or $reconnectRouteEnd -lt $reconnectRouteStart) { throw 'Network reconnect route ordering missing.' }
+$reconnectRouteSection = $interface.Substring($reconnectRouteStart, $reconnectRouteEnd - $reconnectRouteStart)
+if ($reconnectRouteSection -notlike '*context(client(request))*ClientContext::RaceDirectorSmug*') { throw 'Network reconnect lacks the controlling-lease guard.' }
+if ($reconnectRouteSection -match 'ssid|password|httpd_req_recv') { throw 'Network reconnect route reads credential payload.' }
 $connectStart = $interface.IndexOf('static esp_err_t networkConnectRoute')
 $disconnectStart = $interface.IndexOf('static esp_err_t networkDisconnectRoute')
 $forgetStart = $interface.IndexOf('static esp_err_t networkForgetRoute')
@@ -44,7 +64,7 @@ foreach ($section in @(
   $interface.Substring($forgetStart, $interface.IndexOf('static esp_err_t health', $forgetStart) - $forgetStart))) {
   if ($section -notlike '*context(client(request))*ClientContext::RaceDirectorSmug*') { throw 'Network mutation lacks the controlling-lease guard.' }
 }
-foreach ($marker in @('Network','networkPage','/network/status','/network/scan','/network/connect','/network/disconnect','/network/forget','type="password"','network-row','data-network-index','Scanning for available networks','Selected ${ssid}. Enter the password')) {
+foreach ($marker in @('Network','networkPage','/network/status','/network/scan','/network/connect','/network/reconnect','/network/disconnect','/network/forget','RECONNECT','RECONFIGURE','type="password"','network-row','data-network-index','Scanning for available networks','Selected ${ssid}. Enter the password')) {
   if ($browser -notlike "*$marker*") { throw "Browser Network marker missing: $marker" }
 }
 foreach ($marker in @('let networkRefreshTimer=0', 'function scheduleNetworkRefresh', 'scheduleNetworkRefresh(!!scan.running,sta.state===''CONNECTING''', 'submitNetworkConnect', 'networkPassword'').onkeydown', 'await networkPage()')) {
@@ -56,6 +76,8 @@ foreach ($marker in @('networkRefreshDeadline', 'networkConnectPendingUntil', 's
 if ($browser -notmatch 'if\(r\.ok\)\{networkConnectPendingUntil=Date\.now\(\)\+15000') {
   throw 'Accepted Connect does not establish a bounded Browser presentation window.'
 }
+if ($browser -notmatch "fetch\('/network/reconnect',\{method:'POST'\}\)") { throw 'Browser reconnect does not use a credential-free POST.' }
+if ($browser -notmatch 'submitNetworkReconnect') { throw 'Browser reconnect handler missing.' }
 if ($browser -match 'if\(scan\.running\)setTimeout\(\(\)=>\{if\(\$\(\x27#networkScan\x27\)\)networkPage\(\)\},500\)') { throw 'Browser retained the one-shot scan refresh.' }
 if ($browser -match 'networkPassword[^;]{0,200}console\.log|networkPassword[^;]{0,200}diagnostic') { throw 'Browser password is sent to diagnostics/logging.' }
 

@@ -295,11 +295,14 @@ Optional external house/club Wi-Fi is available through the Network section of
 Settings → Advanced → Diagnostics and is never required for racing. One
 external network may be remembered for reconnection. Any connected Browser may
 view sanitized AP/STA status and request a scan; choosing an SSID remains local
-presentation state until submission. Submitting credentials, Connect/Reconfigure
-and Forget Network require the current controlling SMUG/Race Director lease and
-are rejected authoritatively for other clients. Association with either the
-factory AP or the external network grants connectivity only and never grants
-control.
+presentation state until submission. When a remembered network is disconnected,
+the controlling SMUG may issue **RECONNECT**, which uses the ESP32 driver's
+already-stored STA configuration and sends no SSID or password. **RECONFIGURE**
+is the separate credential-writing operation for changing the remembered
+network. Connect/Reconfigure, Reconnect, Disconnect and Forget Network require
+the current controlling SMUG/Race Director lease and are rejected
+authoritatively for other clients. Association with either the factory AP or
+the external network grants connectivity only and never grants control.
 
 The factory AP remains automatic, open and independent. HTTP and racing remain
 available as soon as the AP is ready, regardless of station failure or loss.
@@ -310,8 +313,10 @@ The ESP-IDF/Arduino Wi-Fi driver's flash-backed STA configuration is the sole
 persistent credential store for that remembered network; P&P does not maintain
 a duplicate SSID/password record. Disconnect retains the driver configuration
 but suppresses automatic reconnection for the remainder of the boot. Explicit
-Connect/Reconfigure clears that suppression, and reboot clears it. Forget
-Network erases the driver's persisted STA configuration and P&P's configured
+Reconnect clears that suppression without writing credentials. Explicit
+Reconfigure clears that suppression and may replace the driver's stored
+configuration. Reboot clears suppression and permits automatic reconnection.
+Forget Network erases the driver's persisted STA configuration and P&P's configured
 state, with authoritative failure if the operation cannot be completed.
 Network status is sanitized and may include AP/STA state, addresses, signal,
 failure information and mDNS status. `plonk-and-play.local` is preferred when

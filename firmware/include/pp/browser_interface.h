@@ -374,6 +374,13 @@ public:
     (void)ssid; (void)password; return false;
 #endif
   }
+  bool networkReconnect() {
+#if defined(PP_PHASE8B_REAL_SD)
+    return network_.reconnect();
+#else
+    return false;
+#endif
+  }
   bool networkDisconnect() {
 #if defined(PP_PHASE8B_REAL_SD)
     return network_.disconnect();
@@ -2202,6 +2209,21 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     trace.complete(sent);
     return sent;
   }
+  static esp_err_t networkReconnectRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/network/reconnect");
+    if (instance()->context(client(request)) != ClientContext::RaceDirectorSmug) {
+      httpd_resp_send_err(request, HTTPD_403_FORBIDDEN, "Race Director required");
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return ESP_FAIL;
+    }
+    const bool accepted = instance()->networkReconnect();
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    httpd_resp_set_status(request, accepted ? "202 Accepted" : "409 Conflict");
+    const esp_err_t sent = httpd_resp_sendstr(request, accepted ? "{\"accepted\":true}" : "{\"accepted\":false,\"reason\":\"RECONNECT_UNAVAILABLE\"}");
+    trace.complete(sent);
+    return sent;
+  }
   static esp_err_t networkDisconnectRoute(httpd_req_t* request) {
     RequestTrace trace(instance(), "/network/disconnect");
     if (instance()->context(client(request)) != ClientContext::RaceDirectorSmug) { httpd_resp_send_err(request, HTTPD_403_FORBIDDEN, "Race Director required"); trace.complete(ESP_ERR_INVALID_STATE); return ESP_FAIL; }
@@ -2245,6 +2267,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/network/status", HTTP_GET, networkStatusRoute, nullptr},
       {"/network/scan", HTTP_POST, networkScanRoute, nullptr},
       {"/network/connect", HTTP_POST, networkConnectRoute, nullptr},
+      {"/network/reconnect", HTTP_POST, networkReconnectRoute, nullptr},
       {"/network/disconnect", HTTP_POST, networkDisconnectRoute, nullptr},
       {"/network/forget", HTTP_POST, networkForgetRoute, nullptr},
       {"/proposal", HTTP_GET, proposalRoute, nullptr},
