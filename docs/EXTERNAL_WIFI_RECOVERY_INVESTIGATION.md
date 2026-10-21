@@ -1,0 +1,53 @@
+# External Wi-Fi recovery investigation
+
+**Investigation date:** 2026-10-21  
+**Firmware under test:** `5ff85e5b66c3d7e49fe8f7490769a3952f4f8bac`  
+**Scope:** remembered external Wi-Fi reached `DISCONNECTED`, followed by an attempted scan and `RECONFIGURE`. Investigation only; no firmware or Browser change was made.
+
+## Evidence checked
+
+The newest persisted serial capture is `firmware/logs/device-monitor-261021-125221.log`. It contains a normal boot, the factory AP, mDNS, one AP client and the line `external STA remembered configuration detected`. It does not contain a scan result, an STA failure reason, a `/context` snapshot or a Browser identity. It does contain three later entries:
+
+```text
+[DEV] HTTP ERROR route=/network/connect duration_ms=9 result=258 ...
+```
+
+The ESP-IDF value `258` is `ESP_ERR_INVALID_ARG`. In this route that value is assigned by the request-body parser failure path; the controlling-lease rejection path assigns `ESP_ERR_INVALID_STATE` (`259`). The log therefore shows that the reconfigure requests reached the P&P route and failed validation before `ExternalWifiManager::connect()` was called. It does not show a credential write in this run.
+
+The capture contains no `Guru Meditation`, reset header, STA password, SSID password material, scan result or explicit `/network/scan` outcome.
+
+## Reconfigure path
+
+The Network page sends `POST /network/connect` with JSON containing the SSID and password fields. The route first checks the current controlling Race Director lease, then requires a valid non-empty SSID and a password property, and only then calls `ExternalWifiManager::connect()`.
+
+The current log's `result=258` identifies the body-validation branch, rather than an authority rejection (`403`, trace result `259`) or a remembered-network association failure (`409` after `connect()` returns false). The observed “Connection request rejected” is therefore not evidence that a remembered-but-disconnected state is forbidden. It is an invalid request reaching the route. The exact malformed/missing body is not recoverable from the existing sanitized log because request bodies are deliberately not recorded.
+
+The approved workflow does permit recovery from invalid remembered credentials: the controlling SMUG uses explicit **RECONFIGURE** with a selected SSID and newly entered password. **RECONNECT** is the separate no-credential operation for a remembered configuration. A failed remembered association does not by itself prohibit reconfiguration. A non-controlling Browser must still be rejected by the lease check, but that is not the branch evidenced by this capture.
+
+The current request did not reach `WiFi.begin()` and therefore did not overwrite the driver-managed credential store during the recorded attempts. Whether the older blank-password incident had already damaged the stored password cannot be determined from this run, by design: password material is never exposed. The boot line proves that a stored STA SSID/configuration was detected, not that its password is valid.
+
+## Scan path
+
+Scan is observational and has no Race Director check. The Browser sends `POST /network/scan`; P&P calls `WiFi.scanNetworks(true, true)` and returns `202` when the asynchronous scan is accepted or already running, otherwise `409 SCAN_UNAVAILABLE`. The Browser then polls `/network/status` while `scan.running` is true and renders the returned network list.
+
+The current capture has no `/network/scan` trace, and successful scan routes are not logged with their accepted/failed result. Consequently the evidence cannot distinguish “the click/request did not leave the Browser” from “the driver rejected/failed the asynchronous scan” or “the scan completed with zero results.” The source contains no authority or remembered-credential condition that should intentionally disable scanning. If a scan was attempted while the STA retry loop was actively reconnecting, the Arduino/ESP32 driver may return `WIFI_SCAN_FAILED`; that is a state-dependent driver outcome to verify with a route/status trace, not a product rule.
+
+The Browser does have a visible scanning state and bounded polling. The current implementation therefore has an evidence/diagnostic gap for scan failures, but the existing frozen design already makes the intended behaviour clear: any connected Browser may request a sanitized scan and selecting an SSID is local presentation state.
+
+## Common cause and boundary
+
+The two symptoms do not share one proven backend cause:
+
+* Reconfigure is proven to have reached `/network/connect` and failed request-body validation. Authority is a separate preceding branch; no authority failure is evidenced here.
+* Scan is authority-independent, but its outcome is absent from the serial evidence. A busy/retrying STA driver is a plausible state-dependent cause, while a Browser/request omission remains possible because the current firmware does not trace the route outcome.
+
+The remembered STA retry loop is deliberate: `ExternalWifiManager::tick()` retries with `WiFi.reconnect()` after its bounded interval and reports `CONNECTING`/`DISCONNECTED` without blocking the AP, HTTP service or racing. The capture does not expose the sanitized failure state or retry count for this run.
+
+No new product or design decision is required. The frozen AP+STA and Network contracts already define the recovery operation and scan authority. A follow-up implementation investigation should add only enough sanitized route/status observability to identify scan acceptance/completion/failure and the reconfigure validation reason without recording credentials; it should then address the concrete request/UI or driver-state defect found by that evidence.
+
+## Conclusion
+
+* **Likely reconfigure root cause:** the submitted request was rejected by `networkCredentialsFromBody()` (`ESP_ERR_INVALID_ARG`), before credential writing. It was not a remembered-state prohibition and not the controlling-lease branch in the available evidence.
+* **Scan root cause:** not conclusively identifiable from the available capture because `/network/scan` outcomes are not logged and no status snapshot was retained. The source permits scan for all connected Browsers; a driver failure while STA retry is active is plausible but unproven.
+* **Credential state:** the run detected a remembered driver configuration. The old password's validity is intentionally unknowable from sanitized evidence; this run did not write a replacement password.
+* **Product decision:** none required. The approved workflow is sufficient; this is an implementation/evidence follow-up, not a scope change.
