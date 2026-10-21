@@ -2098,16 +2098,41 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     trace.complete(outcome);
     return outcome;
   }
-  static bool networkCredentialsFromBody(httpd_req_t* request, char* ssid, size_t ssidCapacity,
-                                         char* password, size_t passwordCapacity) {
-    if (!ssid || !password || request->content_len <= 0 || request->content_len >= 256) return false;
+  enum class NetworkCredentialParseResult : uint8_t {
+    Accepted,
+    MissingBody,
+    BodyTooLarge,
+    ReceiveFailed,
+    SsidMissing,
+    SsidEmpty,
+    PasswordMissing,
+    ValueInvalid,
+  };
+  static const char* networkCredentialParseReason(NetworkCredentialParseResult result) {
+    switch (result) {
+      case NetworkCredentialParseResult::Accepted: return "ACCEPTED";
+      case NetworkCredentialParseResult::MissingBody: return "BODY_MISSING";
+      case NetworkCredentialParseResult::BodyTooLarge: return "BODY_TOO_LARGE";
+      case NetworkCredentialParseResult::ReceiveFailed: return "BODY_RECEIVE_FAILED";
+      case NetworkCredentialParseResult::SsidMissing: return "SSID_MISSING";
+      case NetworkCredentialParseResult::SsidEmpty: return "SSID_EMPTY";
+      case NetworkCredentialParseResult::PasswordMissing: return "PASSWORD_MISSING";
+      case NetworkCredentialParseResult::ValueInvalid: return "VALUE_INVALID";
+    }
+    return "INVALID_REQUEST";
+  }
+  static NetworkCredentialParseResult networkCredentialsFromBody(httpd_req_t* request, char* ssid, size_t ssidCapacity,
+                                                                 char* password, size_t passwordCapacity) {
+    if (!ssid || !password || request->content_len <= 0) return NetworkCredentialParseResult::MissingBody;
+    if (request->content_len >= 256) return NetworkCredentialParseResult::BodyTooLarge;
     char body[256]{};
     int received = 0;
     while (received < request->content_len) {
       const int part = httpd_req_recv(request, body + received, request->content_len - received);
-      if (part <= 0) return false;
+      if (part <= 0) return NetworkCredentialParseResult::ReceiveFailed;
       received += part;
     }
+    body[received] = 0;
     const auto value = [&](const char* key, char* out, size_t capacity) {
       out[0] = 0;
       const char* start = strstr(body, key);
@@ -2127,8 +2152,10 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       out[0] = 0;
       return false;
     };
-    return value("\"ssid\"", ssid, ssidCapacity) && ssid[0] != 0 &&
-           value("\"password\"", password, passwordCapacity);
+    if (!value("\"ssid\"", ssid, ssidCapacity)) return NetworkCredentialParseResult::SsidMissing;
+    if (ssid[0] == 0) return NetworkCredentialParseResult::SsidEmpty;
+    if (!value("\"password\"", password, passwordCapacity)) return NetworkCredentialParseResult::PasswordMissing;
+    return NetworkCredentialParseResult::Accepted;
   }
   static esp_err_t networkStatusRoute(httpd_req_t* request) {
     RequestTrace trace(instance(), "/network/status");
@@ -2143,14 +2170,18 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     }
     char json[4096]{};
     size_t used = static_cast<size_t>(snprintf(json, sizeof(json),
-      "{\"available\":%s,\"ap\":{\"started\":%s,\"ssid\":\"%s\",\"ip\":\"%s\",\"clients\":%u},\"sta\":{\"configured\":%s,\"state\":\"%s\",\"connected\":%s,\"ssid\":\"%s\",\"ip\":\"%s\",\"rssi\":%ld,\"lastFailure\":\"%s\",\"reconnectSuppressed\":%s,\"reconnectAttempts\":%lu},\"mdns\":{\"started\":%s,\"host\":\"%s\"},\"scan\":{\"running\":%s,\"count\":%d,\"networks\":[",
+      "{\"available\":%s,\"ap\":{\"started\":%s,\"ssid\":\"%s\",\"ip\":\"%s\",\"clients\":%u},\"sta\":{\"configured\":%s,\"state\":\"%s\",\"connected\":%s,\"ssid\":\"%s\",\"ip\":\"%s\",\"rssi\":%ld,\"lastFailure\":\"%s\",\"reconnectSuppressed\":%s,\"reconnectAttempts\":%lu},\"mdns\":{\"started\":%s,\"host\":\"%s\"},\"scan\":{\"state\":\"%s\",\"running\":%s,\"count\":%d,\"requests\":%lu,\"accepted\":%lu,\"completed\":%lu,\"unavailable\":%lu,\"lastResult\":%d,\"networks\":[",
       v.apStarted || v.staConfigured ? "true" : "false", v.apStarted ? "true" : "false",
       ExternalWifiManager::FactoryApSsid, v.apIp.c_str(), static_cast<unsigned>(v.apClients),
       v.staConfigured ? "true" : "false", ExternalWifiManager::staStateName(v.staState),
       v.staConnected ? "true" : "false", staSsid, v.staIp.c_str(), static_cast<long>(v.staRssi),
       ExternalWifiManager::staFailureName(v.staFailure), v.reconnectSuppressed ? "true" : "false",
       static_cast<unsigned long>(v.reconnectAttempts), v.mdnsStarted ? "true" : "false",
-      ExternalWifiManager::MdnsHost, v.scanRunning ? "true" : "false", static_cast<int>(v.scanCount)));
+      ExternalWifiManager::MdnsHost, ExternalWifiManager::scanStateName(v.scanState),
+      v.scanRunning ? "true" : "false", static_cast<int>(v.scanCount),
+      static_cast<unsigned long>(v.scanRequests), static_cast<unsigned long>(v.scanAccepted),
+      static_cast<unsigned long>(v.scanCompleted), static_cast<unsigned long>(v.scanUnavailable),
+      static_cast<int>(v.scanLastResult)));
     if (used >= sizeof(json)) { httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "network status unavailable"); trace.complete(ESP_ERR_INVALID_SIZE); return ESP_FAIL; }
 #if defined(PP_PHASE8B_REAL_SD)
     if (v.scanCount > 0) {
@@ -2180,6 +2211,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   }
   static esp_err_t networkScanRoute(httpd_req_t* request) {
     RequestTrace trace(instance(), "/network/scan");
+    Serial.println("[WIFI] SCAN_REQUEST route_received=true");
     const bool accepted = instance()->networkStartScan();
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
@@ -2196,16 +2228,27 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       return ESP_FAIL;
     }
     char ssid[33]{}, password[65]{};
-    if (!networkCredentialsFromBody(request, ssid, sizeof(ssid), password, sizeof(password))) {
-      httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "SSID and password required");
+    const NetworkCredentialParseResult parsed = networkCredentialsFromBody(request, ssid, sizeof(ssid), password, sizeof(password));
+    if (parsed != NetworkCredentialParseResult::Accepted) {
+      const char* reason = networkCredentialParseReason(parsed);
+      Serial.printf("[WIFI] RECONFIGURE_REJECTED reason=%s ssid_length=%u password_present=%s\n",
+                    reason, static_cast<unsigned>(strlen(ssid)), parsed == NetworkCredentialParseResult::PasswordMissing ? "false" : "unknown");
+      httpd_resp_set_type(request, "application/json");
+      httpd_resp_set_status(request, "400 Bad Request");
+      char response[128]{};
+      snprintf(response, sizeof(response), "{\"accepted\":false,\"reason\":\"INVALID_REQUEST\",\"detail\":\"%s\"}", reason);
+      httpd_resp_sendstr(request, response);
       trace.complete(ESP_ERR_INVALID_ARG);
       return ESP_FAIL;
     }
+    Serial.printf("[WIFI] RECONFIGURE_ACCEPTED ssid_length=%u password_present=true\n",
+                  static_cast<unsigned>(strlen(ssid)));
     const bool accepted = instance()->networkConnect(ssid, password);
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
     httpd_resp_set_status(request, accepted ? "202 Accepted" : "409 Conflict");
     const esp_err_t sent = httpd_resp_sendstr(request, accepted ? "{\"accepted\":true}" : "{\"accepted\":false,\"reason\":\"CONNECT_FAILED\"}");
+    if (!accepted) Serial.println("[WIFI] RECONFIGURE_REJECTED reason=CONNECT_UNAVAILABLE");
     trace.complete(sent);
     return sent;
   }

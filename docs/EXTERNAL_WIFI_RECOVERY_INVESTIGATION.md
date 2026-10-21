@@ -51,3 +51,30 @@ No new product or design decision is required. The frozen AP+STA and Network con
 * **Scan root cause:** not conclusively identifiable from the available capture because `/network/scan` outcomes are not logged and no status snapshot was retained. The source permits scan for all connected Browsers; a driver failure while STA retry is active is plausible but unproven.
 * **Credential state:** the run detected a remembered driver configuration. The old password's validity is intentionally unknowable from sanitized evidence; this run did not write a replacement password.
 * **Product decision:** none required. The approved workflow is sufficient; this is an implementation/evidence follow-up, not a scope change.
+
+## Follow-up implementation
+
+The approved correction preserves Network-page drafts while asynchronous STA or
+scan polling redraws the page. SSID/password values are captured from the
+controls before refresh, restored only in Browser memory, and submitted as the
+explicit JSON `{ssid,password}` payload. The password is cleared after
+submission and is never sent to diagnostics or Serial. The P&P parser now
+terminates the received body explicitly and returns sanitized validation detail
+for malformed requests.
+
+Scan now has a bounded P&P-owned lifecycle (`IDLE`, `RUNNING`, `COMPLETE` or
+`UNAVAILABLE`) with request, acceptance, completion and failure counters and a
+numeric driver result. `/network/scan`, `/network/status` and the normal Serial
+health output expose only this non-secret state. The Browser keeps polling for
+the bounded scan window even when the first status sample still predates the
+driver's asynchronous `RUNNING` transition. No authority, credential-store,
+AP+STA or race behaviour changed.
+
+The implementation was checked by `acceptance/stage15/run_network_contract.ps1`,
+the Stage 14C Browser polling/recovery/presentation tests, the Stage 15 control
+lease and SSE tests, and the WP3 Browser/export/production tests. The
+`stage8bp1s3sd` build succeeded. The merged image is a development artifact at
+`firmware/.pio/build/stage8bp1s3sd/firmware.merged.bin` (1,089,392 bytes,
+SHA-256 `871EB19F944108A3F9432DF2EED075181AA0EEA4FD18B8E93C786EAE26C8CA3B`),
+with the standard ESP32-S3 offsets. Real-hardware reconfigure and scan
+acceptance remains to be exercised.

@@ -29,6 +29,13 @@ public:
     ConnectionLost,
   };
 
+  enum class ScanState : uint8_t {
+    Idle,
+    Running,
+    Complete,
+    Unavailable,
+  };
+
   static const char* staStateName(StaState state) {
     switch (state) {
       case StaState::Unconfigured: return "UNCONFIGURED";
@@ -49,6 +56,16 @@ public:
     return "UNKNOWN";
   }
 
+  static const char* scanStateName(ScanState state) {
+    switch (state) {
+      case ScanState::Idle: return "IDLE";
+      case ScanState::Running: return "RUNNING";
+      case ScanState::Complete: return "COMPLETE";
+      case ScanState::Unavailable: return "UNAVAILABLE";
+    }
+    return "UNAVAILABLE";
+  }
+
   struct Status {
     bool apStarted = false;
     bool staConfigured = false;
@@ -57,6 +74,12 @@ public:
     bool mdnsStarted = false;
     bool scanRunning = false;
     int16_t scanCount = -2;
+    ScanState scanState = ScanState::Idle;
+    uint32_t scanRequests = 0;
+    uint32_t scanAccepted = 0;
+    uint32_t scanCompleted = 0;
+    uint32_t scanUnavailable = 0;
+    int16_t scanLastResult = -2;
     uint8_t apClients = 0;
     int32_t staRssi = 0;
     uint32_t reconnectAttempts = 0;
@@ -103,6 +126,7 @@ public:
                     static_cast<unsigned>(WiFi.softAPgetStationNum()));
     }
     if (apStarted_) startMdns();
+    refreshScanState();
     refreshStaState();
     if (!stationConfigured_ || suppressed_ || WiFi.status() == WL_CONNECTED) return;
     if (static_cast<uint32_t>(now - lastAttemptMs_) < 5000U) return;
@@ -173,8 +197,30 @@ public:
   }
 
   bool startScan() {
+    ++scanRequests_;
+    Serial.printf("[WIFI] SCAN_REQUEST received count=%lu\n", static_cast<unsigned long>(scanRequests_));
     const int16_t result = WiFi.scanNetworks(true, true);
-    return result == WIFI_SCAN_RUNNING || result >= 0;
+    scanLastResult_ = result;
+    if (result == WIFI_SCAN_RUNNING) {
+      scanState_ = ScanState::Running;
+      ++scanAccepted_;
+      Serial.printf("[WIFI] SCAN_ACCEPTED state=RUNNING result=%d accepted=%lu\n",
+                    static_cast<int>(result), static_cast<unsigned long>(scanAccepted_));
+      return true;
+    }
+    if (result >= 0) {
+      scanState_ = ScanState::Complete;
+      ++scanAccepted_;
+      ++scanCompleted_;
+      Serial.printf("[WIFI] SCAN_COMPLETE count=%d completed=%lu\n",
+                    static_cast<int>(result), static_cast<unsigned long>(scanCompleted_));
+      return true;
+    }
+    scanState_ = ScanState::Unavailable;
+    ++scanUnavailable_;
+    Serial.printf("[WIFI] SCAN_UNAVAILABLE result=%d failures=%lu\n",
+                  static_cast<int>(result), static_cast<unsigned long>(scanUnavailable_));
+    return false;
   }
 
   void status(Status& value) const {
@@ -186,6 +232,12 @@ public:
     value.mdnsStarted = mdnsStarted_;
     value.scanCount = WiFi.scanComplete();
     value.scanRunning = value.scanCount == WIFI_SCAN_RUNNING;
+    value.scanState = scanState_;
+    value.scanRequests = scanRequests_;
+    value.scanAccepted = scanAccepted_;
+    value.scanCompleted = scanCompleted_;
+    value.scanUnavailable = scanUnavailable_;
+    value.scanLastResult = scanLastResult_;
     value.apClients = WiFi.softAPgetStationNum();
     value.staRssi = value.staConnected ? WiFi.RSSI() : 0;
     value.reconnectAttempts = reconnectAttempts_;
@@ -238,6 +290,31 @@ private:
         break;
     }
   }
+
+  void refreshScanState() {
+    if (scanState_ != ScanState::Running) return;
+    const int16_t result = WiFi.scanComplete();
+    if (result == WIFI_SCAN_RUNNING) return;
+    scanLastResult_ = result;
+    if (result >= 0) {
+      scanState_ = ScanState::Complete;
+      ++scanCompleted_;
+      Serial.printf("[WIFI] SCAN_COMPLETE count=%d completed=%lu\n",
+                    static_cast<int>(result), static_cast<unsigned long>(scanCompleted_));
+      return;
+    }
+    scanState_ = ScanState::Unavailable;
+    ++scanUnavailable_;
+    Serial.printf("[WIFI] SCAN_UNAVAILABLE result=%d failures=%lu\n",
+                  static_cast<int>(result), static_cast<unsigned long>(scanUnavailable_));
+  }
+
+  ScanState scanState_ = ScanState::Idle;
+  uint32_t scanRequests_ = 0;
+  uint32_t scanAccepted_ = 0;
+  uint32_t scanCompleted_ = 0;
+  uint32_t scanUnavailable_ = 0;
+  int16_t scanLastResult_ = -2;
 
   void startMdns() {
     if (mdnsStarted_) return;

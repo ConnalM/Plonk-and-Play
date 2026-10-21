@@ -9,7 +9,7 @@ foreach ($marker in @(
   '#include <esp_wifi.h>', 'esp_wifi_get_config', 'ESP_IF_WIFI_STA',
   'WiFi.setAutoReconnect(false)', 'WiFi.disconnect(false, false)',
   'WiFi.disconnect(false, true)', 'MDNS.begin("plonk-and-play")',
-  'scanNetworks(true, true)', 'FactoryApSsid = "Plonk-and-Play"')) {
+  'scanNetworks(true, true)', 'ScanState', 'SCAN_ACCEPTED', 'SCAN_UNAVAILABLE', 'SCAN_COMPLETE', 'FactoryApSsid = "Plonk-and-Play"')) {
   if ($manager -notlike "*$marker*") { throw "External Wi-Fi manager marker missing: $marker" }
 }
 if ($manager -notmatch 'stationConfigured_ = true;[\s\S]{0,260}WiFi\.begin\(ssid, password\)') {
@@ -57,20 +57,20 @@ $connectStart = $interface.IndexOf('static esp_err_t networkConnectRoute')
 $disconnectStart = $interface.IndexOf('static esp_err_t networkDisconnectRoute')
 $forgetStart = $interface.IndexOf('static esp_err_t networkForgetRoute')
 if ($connectStart -lt 0 -or $disconnectStart -lt $connectStart -or $forgetStart -lt $disconnectStart) { throw 'Network mutation route ordering missing.' }
-if (-not $interface.Contains('ssid[0] != 0')) { throw 'Network credentials parser does not require an SSID while permitting an empty password for open networks.' }
+if (-not $interface.Contains('ssid[0] == 0') -or -not $interface.Contains('NetworkCredentialParseResult::SsidEmpty')) { throw 'Network credentials parser does not require an SSID while permitting an empty password for open networks.' }
 foreach ($section in @(
   $interface.Substring($connectStart, $disconnectStart - $connectStart),
   $interface.Substring($disconnectStart, $forgetStart - $disconnectStart),
   $interface.Substring($forgetStart, $interface.IndexOf('static esp_err_t health', $forgetStart) - $forgetStart))) {
   if ($section -notlike '*context(client(request))*ClientContext::RaceDirectorSmug*') { throw 'Network mutation lacks the controlling-lease guard.' }
 }
-foreach ($marker in @('Network','networkPage','/network/status','/network/scan','/network/connect','/network/reconnect','/network/disconnect','/network/forget','RECONNECT','RECONFIGURE','type="password"','network-row','data-network-index','Scanning for available networks','Selected ${ssid}. Enter the password')) {
+foreach ($marker in @('Network','networkPage','/network/status','/network/scan','/network/connect','/network/reconnect','/network/disconnect','/network/forget','RECONNECT','RECONFIGURE','type="password"','network-row','data-network-index','Scanning for available networks','Selected ${ssid}. Enter the password','networkDraftSsid','networkDraftPassword','Accept'':''application/json')) {
   if ($browser -notlike "*$marker*") { throw "Browser Network marker missing: $marker" }
 }
-foreach ($marker in @('let networkRefreshTimer=0', 'function scheduleNetworkRefresh', 'scheduleNetworkRefresh(!!scan.running,sta.state===''CONNECTING''', 'submitNetworkConnect', 'networkPassword'').onkeydown', 'await networkPage()')) {
+foreach ($marker in @('let networkRefreshTimer=0', 'function scheduleNetworkRefresh', 'scheduleNetworkRefresh(scanBusy,sta.state===''CONNECTING''', 'submitNetworkConnect', 'networkPassword'').onkeydown', 'await networkPage()')) {
   if ($browser -notlike "*$marker*") { throw "Browser asynchronous Network refresh marker missing: $marker" }
 }
-foreach ($marker in @('networkRefreshDeadline', 'networkConnectPendingUntil', 'scheduleNetworkRefresh(false,true,true)', "const staState=connectPending?'CONNECTING'")) {
+foreach ($marker in @('networkRefreshDeadline', 'networkConnectPendingUntil', 'networkScanPendingUntil', 'scheduleNetworkRefresh(false,true,true)', "const staState=connectPending?'CONNECTING'")) {
   if ($browser -notlike "*$marker*") { throw "Browser accepted-connect polling marker missing: $marker" }
 }
 if ($browser -notmatch 'if\(r\.ok\)\{networkConnectPendingUntil=Date\.now\(\)\+15000') {
@@ -80,6 +80,9 @@ if ($browser -notmatch "fetch\('/network/reconnect',\{method:'POST'\}\)") { thro
 if ($browser -notmatch 'submitNetworkReconnect') { throw 'Browser reconnect handler missing.' }
 if ($browser -match 'if\(scan\.running\)setTimeout\(\(\)=>\{if\(\$\(\x27#networkScan\x27\)\)networkPage\(\)\},500\)') { throw 'Browser retained the one-shot scan refresh.' }
 if ($browser -match 'networkPassword[^;]{0,200}console\.log|networkPassword[^;]{0,200}diagnostic') { throw 'Browser password is sent to diagnostics/logging.' }
+if ($interface -notmatch 'RECONFIGURE_REJECTED reason=%s ssid_length=%u password_present=%s') { throw 'Reconfigure validation evidence is not sanitized.' }
+if ($interface -notmatch 'SCAN_REQUEST route_received=true') { throw 'Scan request receipt evidence is missing.' }
+if ($interface -notmatch 'scanStateName\(v\.scanState\)') { throw 'Scan lifecycle state is not exposed through Network status.' }
 
 # Deterministic regression for the physical race: an accepted Connect may be
 # followed by an immediately stale UNCONFIGURED status before the asynchronous
@@ -117,7 +120,7 @@ $configured = $storedConfig
 if ($configured) { throw 'Forget-then-reboot model retained remembered configuration.' }
 Write-Host 'Remembered STA boot/Disconnect/Forget distinction model: PASS'
 $main = Get-Content -Raw (Join-Path $root 'firmware/src/main.cpp')
-foreach ($marker in @('wifi_mode=%s', 'sta_state=%s', 'sta_configured=%u', 'sta_failure=%s', 'sta_reconnects=%lu', 'mdns_started=%u')) {
+foreach ($marker in @('wifi_mode=%s', 'sta_state=%s', 'sta_configured=%u', 'sta_failure=%s', 'sta_reconnects=%lu', 'mdns_started=%u', 'scan_state=%s', 'scan_requests=%lu', 'scan_completed=%lu', 'scan_unavailable=%lu')) {
   if ($main -notlike "*$marker*") { throw "Serial AP+STA health marker missing: $marker" }
 }
 Write-Host 'Stage 15 optional external Wi-Fi contract: PASS'
