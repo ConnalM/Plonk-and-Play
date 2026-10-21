@@ -264,3 +264,93 @@ press with the currently remembered SSID/password state; then stop. The full
 Serial capture must be inspected for the new `[AUTH]`, `BROWSER_OBSERVATION`,
 `RECONFIGURE_REQUEST`, and `esp_wifi_scan_start` markers together with panic,
 reset, SD/FAT, HTTP, and transport errors.
+
+## 2b750a9 complete instrumented hardware run
+
+**Investigation date:** 2026-10-21  
+**Firmware under test:** `2b750a9e36ccaa2c36850e00722bc936ceffd5b6`  
+**Evidence:** `firmware/logs/device-monitor-261021-175016.log` (1,250 lines)
+
+The capture contains two boot segments. The first segment runs to roughly
+11.6 billion microseconds; a second explicit ROM header then reports
+`rst:0x1 (POWERON)` and starts another clean application boot. The log does
+not contain a panic or a reason for that reset, so the reset is retained as an
+unexplained capture-boundary/reboot observation rather than silently counted
+as a single uninterrupted run. Each segment shows the physical storage owner
+mounting once, the factory AP starting at `192.168.4.1`, mDNS starting, and the
+HTTP server starting with `error=0`. There are
+no `Guru Meditation`, `panic`, `EXCCAUSE`, `EXCVADDR`, HTTP error/slow, or Wi-Fi
+scan/association crash markers. The repeated
+`records.roll.tmp does not exists or is directory` messages remain the separate
+known cleanup issue and are not evidence of a crash in this run.
+
+### A — false “P&P AP unavailable”
+
+The AP-unavailable presentation is a Browser-path/presentation defect, not an
+AP failure. The same capture proves the AP was running and had the tablet as a
+client. It also contains two successful authoritative context responses:
+
+```text
+[AUTH] CONTEXT response has_master=true is_master=true owner_connected=false takeover_pending=false requested_by_this=false result=NONE sent=0
+[AUTH] CONTEXT response has_master=true is_master=true owner_connected=true takeover_pending=false requested_by_this=false result=NONE sent=0
+```
+
+Thus the tablet's control lease and HTTP context path were working. The current
+Normal Browser source renders AP availability from `/network/status.ap.started`,
+and the generated `/normal` artifact in this commit contains that path. The
+legacy root route `/` still serves the older diagnostic Browser and does not
+serve the current Network page. The run contains none of the new
+`BROWSER_OBSERVATION`, `/network/scan`, or `/network/connect` markers, so the
+page that produced the observed Network presentation did not execute the
+instrumented current Network-page path. The concrete correction is to make the
+customer entry point unambiguously serve the current Normal Browser (or otherwise
+guarantee that the tablet uses `/normal`) and to remove the parallel stale
+presentation path from the shipped workflow. No AP or authority correction is
+indicated by this evidence.
+
+### B — Scan failure
+
+This run does not establish the low-level cause of the Scan failure. There is no
+`[WIFI] BROWSER_OBSERVATION`, `SCAN_REQUEST`, `SCAN_START_PREP`, or wrapped
+`esp_wifi_scan_start` line. Therefore no scan request reached the instrumented
+route in this capture, and the driver result cannot be attributed to a particular
+ESP-IDF mode/state error. Earlier runs established that the route can return
+`WIFI_SCAN_FAILED (-2)`, but that is not newly explained here.
+
+The concrete next correction is the Browser-entry/path correction above, followed
+by making the scan request/result path observable on the actual served page. Only
+then can the existing raw-driver instrumentation distinguish a real ESP-IDF
+rejection from another stale-page/request problem. No product decision is needed;
+the missing fact is a driver-level scan call, which this run did not make.
+
+### C — Reconfigure did nothing
+
+The absence of both `BROWSER_OBSERVATION kind=network_reconfigure_click` and
+`RECONFIGURE_REQUEST` proves that the click never reached the current Browser
+handler or P&P's `/network/connect` route. It was not rejected by the Race
+Director lease, credential parser, or Wi-Fi manager. The `/context` evidence
+shows `is_master=true` for the tablet, so authority was available. The current
+Normal Browser handler records the click before its disabled-button guard and
+then constructs `/network/connect`; neither side appeared in the capture.
+
+The smallest correction is therefore the same entry-path correction as A: ensure
+the physical customer Browser is the current generated Normal Browser with the
+instrumented Network handlers, rather than allowing the legacy root Browser or a
+stale cached artifact to be used for product networking. No lease weakening or
+credential-path change is justified.
+
+### Shared cause and remaining evidence
+
+A and C share the demonstrated Browser-surface/path problem. B is not shown to
+share the Wi-Fi driver failure because this run did not invoke the instrumented
+scan endpoint at all. Apart from the explicit ROM reboot header described above,
+the capture contains no HTTP transport errors, SD/FAT mount failure,
+dropped-event report, or other new cause for the
+sluggish presentation. The dense periodic boot-self-test output and repeated
+temporary-file removal errors are observability noise and a separate cleanup
+follow-up; they do not establish a Race Engine or network timing fault.
+
+No source or product change was made from this run. The durable implementation
+work needed next is to make `/normal` the unambiguous shipped Browser entry (or
+make `/` serve the same artifact), then re-run only the scan/reconfigure evidence
+through that page so the already-added driver instrumentation can answer B.
