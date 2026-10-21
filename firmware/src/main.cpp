@@ -120,7 +120,7 @@ pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint,activeSession,&history,&r
 pp::OutputModule output{bus.attach(pp::Role::Output)};
 const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
 pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
-pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthority,&history,&records);
+pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthority,&history,&records,&raceEngine);
 #if defined(PP_STAGE8A_TASTER_WOKWI)
 pp::TasterRuntime taster(browser);
 #endif

@@ -50,9 +50,9 @@ public:
   };
   BrowserInterface(Bus& bus, Bus::Endpoint endpoint, const Noticeboard& noticeboard,
                    AuthorityStore* authority = nullptr, HistoryStore* history = nullptr,
-                   TrackRecordStore* records = nullptr)
+                   TrackRecordStore* records = nullptr, const DetailSource* detailSource = nullptr)
       : bus_(bus), endpoint_(endpoint), noticeboard_(noticeboard),
-        authority_(authority ? authority : &fallback_), history_(history), records_(records) {
+        authority_(authority ? authority : &fallback_), history_(history), records_(records), detailSource_(detailSource) {
     controllerEpoch_ = newControllerEpoch();
     uint64_t persisted = 0;
     if (authority_->loadMaster(persisted) && persisted) controlLease_.restore(persisted);
@@ -441,12 +441,12 @@ public:
   bool serializeStateForAcceptance(char* out,size_t cap,size_t&length)const{return serializeState(current(),systemTime(),out,cap,length);}
   bool serializeProposalForAcceptance(char*out,size_t cap,size_t&length)const{return serializeProposal(proposedRaceSetup(),controllerEpoch_,proposalRevision(),readiness(),out,cap,length);}
   bool serializePracticeSummaryForAcceptance(char*out,size_t cap,size_t&length)const{return serializePracticeSummary(noticeboard_.practiceSummary(),out,cap,length);}
-  bool serializeResultsForAcceptance(char* out,size_t cap,size_t&length)const{auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(calloc(1,sizeof(RaceEngineModule::CompletedRaceResult)));if(!loaded)return false;const bool ok=serializeResults(displayResult(*loaded),out,cap,length);RaceEngineModule::clearResult(*loaded);free(loaded);return ok;}
+  bool serializeResultsForAcceptance(char* out,size_t cap,size_t&length)const{auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(calloc(1,sizeof(RaceEngineModule::CompletedRaceResult)));if(!loaded)return false;const bool ok=serializeResults(displayResult(*loaded),out,cap,length,detailSource_);RaceEngineModule::clearResult(*loaded);free(loaded);return ok;}
   bool serializeDetailsForAcceptance(char* out,size_t cap,size_t&length)const{auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(calloc(1,sizeof(RaceEngineModule::CompletedRaceResult)));if(!loaded)return false;const bool ok=serializeDetails(displayResult(*loaded),out,cap,length);RaceEngineModule::clearResult(*loaded);free(loaded);return ok;}
   bool serializeRecordsForAcceptance(char* out,size_t cap,size_t&length)const{return serializeRecords(records_,current().entryCount,out,cap,length);}
   bool serializeHistoryForAcceptance(char* out,size_t cap,size_t&length)const{auto* scratch=static_cast<RaceEngineModule::CompletedRaceResult*>(calloc(1,sizeof(RaceEngineModule::CompletedRaceResult)));if(!scratch)return false;const bool ok=serializeHistory(history_,out,cap,length,scratch);RaceEngineModule::clearResult(*scratch);free(scratch);return ok;}
   static bool serializeStateForAcceptance(const NoticeboardState& value,Time now,char*out,size_t cap,size_t&length){return serializeState(value,now,out,cap,length);}
-  static bool serializeResultsForAcceptance(const RaceEngineModule::CompletedRaceResult& value,char*out,size_t cap,size_t&length){return serializeResults(value,out,cap,length);}
+  static bool serializeResultsForAcceptance(const RaceEngineModule::CompletedRaceResult& value,char*out,size_t cap,size_t&length,const DetailSource* detailSource=nullptr){return serializeResults(value,out,cap,length,detailSource);}
   static bool serializeDetailsForAcceptance(const RaceEngineModule::CompletedRaceResult& value,char*out,size_t cap,size_t&length){return serializeDetails(value,out,cap,length);}
   static bool serializeRecordsForAcceptance(TrackRecordStore* records,uint8_t count,char*out,size_t cap,size_t&length){return serializeRecords(records,count,out,cap,length);}
 private:
@@ -500,6 +500,7 @@ private:
   AuthorityStore* authority_;
   HistoryStore* history_ = nullptr;
   TrackRecordStore* records_ = nullptr;
+  const DetailSource* detailSource_ = nullptr;
   VolatileAuthorityStore fallback_;
   ExternalWifiManager network_{};
   httpd_handle_t server_ = nullptr;
@@ -849,22 +850,37 @@ private:
   // raw monotonic Relevant-Time value used for authoritative ordering and
   // persistence.  The API supplies the elapsed value so Browser code never
   // subtracts controller timestamps.
-  static Time finishDurationUs(const RaceEngineModule::ResultEntry& entry){
+  static Time finishDurationUs(const RaceEngineModule::ResultEntry& entry,const DetailSource* detailSource=nullptr){
     if(!entry.completed||!entry.completionTime||!entry.recordCount)return 0;
     Time origin=0,finalRacing=0; bool haveOrigin=false;
-    for(uint32_t i=0;i<entry.recordCount;++i){
-      const auto& lap=entry.records[i]; if(!lap.valid)continue;
-      if(!haveOrigin){origin=lap.startTime;haveOrigin=true;}
-      if(lap.finishTime==entry.completionTime)finalRacing=lap.racingFinishTime;
+    if(entry.records){
+      for(uint32_t i=0;i<entry.recordCount;++i){
+        const auto& lap=entry.records[i]; if(!lap.valid)continue;
+        if(!haveOrigin){origin=lap.startTime;haveOrigin=true;}
+        if(lap.finishTime==entry.completionTime)finalRacing=lap.racingFinishTime;
+      }
+    } else if(detailSource){
+      uint8_t sourceEntry=detailSource->detailEntryCount();
+      for(uint8_t i=0;i<sourceEntry;++i){
+        if(detailSource->detailEntryId(i)==entry.raceEntryId){sourceEntry=i;break;}
+      }
+      if(sourceEntry>=detailSource->detailEntryCount())return 0;
+      for(uint32_t i=0;i<entry.recordCount;++i){
+        LapRecord lap{};
+        if(!detailSource->readDetail(sourceEntry,i,lap))return 0;
+        if(!lap.valid)continue;
+        if(!haveOrigin){origin=lap.startTime;haveOrigin=true;}
+        if(lap.finishTime==entry.completionTime)finalRacing=lap.racingFinishTime;
+      }
     }
     if(!haveOrigin)return 0;
     if(!finalRacing)finalRacing=entry.completionTime;
     return finalRacing>=origin?finalRacing-origin:0;
   }
-  static bool serializeResults(const RaceEngineModule::CompletedRaceResult&r,char*out,size_t cap,size_t&length){
+  static bool serializeResults(const RaceEngineModule::CompletedRaceResult&r,char*out,size_t cap,size_t&length,const DetailSource* detailSource=nullptr){
     const uint64_t overtimeUs=r.overtime&&r.finishTime>r.expiryTime?r.finishTime-r.expiryTime:0;size_t n=0;const char* mode=r.mode==SessionMode::Endurance?"ENDURANCE":r.mode==SessionMode::OpenPractice?"OPEN_PRACTICE":"LAP_RACE";bool ok=true;ok=appendJson(out,cap,n,"{\"sealed\":%s,\"valid\":%s,\"mode\":\"%s\"",r.sealed?"true":"false",r.valid?"true":"false",mode)&&ok;ok=appendJson(out,cap,n,",\"lapTarget\":%lu,\"durationMinutes\":%u,\"durationUs\":%llu",(unsigned long)r.lapTarget,unsigned(r.durationMinutes),(unsigned long long)r.durationUs)&&ok;ok=appendJson(out,cap,n,",\"expiryTime\":%llu,\"overtime\":%s,\"overtimeUs\":%llu",(unsigned long long)r.expiryTime,r.overtime?"true":"false",(unsigned long long)overtimeUs)&&ok;ok=appendJson(out,cap,n,",\"winningTime\":%llu,\"finishTime\":%llu,\"finishBehaviour\":\"%s\"",(unsigned long long)r.winningTime,(unsigned long long)r.finishTime,finishBehaviour(r.behaviour))&&ok;ok=appendJson(out,cap,n,",\"deadHeat\":%s,\"fastestLap\":%llu,\"fastestEntryId\":%lu,\"fastestLapTied\":%s,\"entries\":[",r.deadHeat?"true":"false",(unsigned long long)r.fastestLap,(unsigned long)r.fastestEntryId,r.fastestLapTied?"true":"false")&&ok;
     if(r.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=r.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:r.entryCount;
-    for(uint8_t i=0;i<count;++i){const auto&e=r.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"tied\":%s,\"lapsBehind\":%lu,\"completed\":%s,\"completionTime\":%llu,\"finishDurationUs\":%llu,\"bestLap\":%llu}",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,e.tied?"true":"false",(unsigned long)e.lapsBehind,e.completed?"true":"false",(unsigned long long)e.completionTime,(unsigned long long)finishDurationUs(e),(unsigned long long)e.bestLap)&&ok;}
+    for(uint8_t i=0;i<count;++i){const auto&e=r.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"tied\":%s,\"lapsBehind\":%lu,\"completed\":%s,\"completionTime\":%llu,\"finishDurationUs\":%llu,\"bestLap\":%llu}",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,e.tied?"true":"false",(unsigned long)e.lapsBehind,e.completed?"true":"false",(unsigned long long)e.completionTime,(unsigned long long)finishDurationUs(e,detailSource),(unsigned long long)e.bestLap)&&ok;}
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
   }
   static bool serializeDetails(const RaceEngineModule::CompletedRaceResult&r,char*out,size_t cap,size_t&length){
@@ -948,7 +964,7 @@ private:
     auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(calloc(1,sizeof(RaceEngineModule::CompletedRaceResult))); char* json=static_cast<char*>(malloc(ResultsJsonCapacity));
     if(!loaded||!json){if(loaded)RaceEngineModule::clearResult(*loaded);free(loaded);free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"result buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}
     bool found=false; const auto&r=instance()->displayResult(*loaded,sequence,found); if(sequence&&!found){RaceEngineModule::clearResult(*loaded);free(loaded);free(json);httpd_resp_send_err(request,HTTPD_404_NOT_FOUND,"history result not found");trace.complete(ESP_ERR_NOT_FOUND);return ESP_FAIL;}
-    size_t length=0; if(!serializeResults(r,json,ResultsJsonCapacity,length)){RaceEngineModule::clearResult(*loaded);free(loaded);free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"result entry count exceeds capacity");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}
+    size_t length=0; const DetailSource* detailSource=sequence?nullptr:instance()->detailSource_; if(!serializeResults(r,json,ResultsJsonCapacity,length,detailSource)){RaceEngineModule::clearResult(*loaded);free(loaded);free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"result entry count exceeds capacity");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}
     httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);RaceEngineModule::clearResult(*loaded);free(loaded);free(json);trace.complete(sent);return sent;
   }
   static esp_err_t detailsRoute(httpd_req_t* request) {

@@ -83,6 +83,7 @@ public:
   };
   RaceEngineModule(Bus&b,Bus::Endpoint e,ActiveSessionDefinition&a,HistoryStore*h=nullptr,TrackRecordStore*r=nullptr,ActiveDetailStore*d=nullptr):bus_(b),endpoint_(e),active_(a),history_(h),records_(r),detailStore_(d){}
   uint8_t detailEntryCount() const override { return entryCount(); }
+  uint32_t detailEntryId(uint8_t entry) const override { return entry<entryCount() ? entries_[entry].raceEntryId : 0; }
   uint32_t detailRecordCount(uint8_t entry) const override { return entry<entryCount() ? (detailStore_ ? detailStore_->detailRecordCount(entry) : entries_[entry].detail.recordCount) : 0; }
   bool readDetail(uint8_t entry,uint32_t index,LapRecord& out) const override { if(entry>=entryCount())return false; if(detailStore_)return detailStore_->readDetail(entry,index,out); if(index>=entries_[entry].detail.recordCount)return false; out=entries_[entry].detail.records[index]; return true; }
   bool detailComplete() const override { return detailStore_ ? detailStore_->detailComplete() : completeDetail(); }

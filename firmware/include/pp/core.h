@@ -15,6 +15,11 @@ class DetailSource {
 public:
   virtual ~DetailSource() = default;
   virtual uint8_t detailEntryCount() const = 0;
+  // Results are published in sporting order, while a streamed detail source
+  // retains the session entry order.  Sources which can identify entries
+  // should override this so presentation can select the matching stream
+  // without assuming either ordering.
+  virtual uint32_t detailEntryId(uint8_t entry) const { (void)entry; return 0; }
   virtual uint32_t detailRecordCount(uint8_t entry) const = 0;
   virtual bool readDetail(uint8_t entry,uint32_t index,LapRecord& out) const = 0;
   virtual bool detailComplete() const = 0;

@@ -2,6 +2,28 @@
 // use the same Race Control, Race Engine, Noticeboard and Browser serializers
 // as the production routes; no Browser-side state is substituted.
 static void stage14cFacilitiesAcceptanceRun(){
+  // Results can retain a non-zero recordCount while the active detail store
+  // keeps the LapRecord array on SD.  Exercise the same production serializer
+  // boundary with a source-backed record and with an unavailable source; both
+  // cases must remain bounded and must never dereference a null records
+  // pointer.
+  struct ResultsDetailSource final : pp::DetailSource {
+    pp::LapRecord record{};
+    uint32_t id=0;
+    uint8_t detailEntryCount() const override { return 1; }
+    uint32_t detailEntryId(uint8_t entry) const override { return entry==0?id:0; }
+    uint32_t detailRecordCount(uint8_t entry) const override { return entry==0?1:0; }
+    bool readDetail(uint8_t entry,uint32_t index,pp::LapRecord& out) const override { if(entry!=0||index!=0)return false; out=record; return true; }
+    bool detailComplete() const override { return true; }
+  } streamed{};
+  streamed.id=42; streamed.record.valid=true; streamed.record.startTime=1000000; streamed.record.finishTime=5000000; streamed.record.racingFinishTime=5000000;
+  pp::RaceEngineModule::CompletedRaceResult streamedResult{}; streamedResult.sealed=true; streamedResult.valid=true; streamedResult.entryCount=1; streamedResult.entries[0].raceEntryId=42; streamedResult.entries[0].completed=true; streamedResult.entries[0].completionTime=5000000; streamedResult.entries[0].recordCount=1; streamedResult.entries[0].records=nullptr;
+  char* streamedJson=static_cast<char*>(malloc(2048)); size_t streamedLength=0;
+  const bool streamedOk=streamedJson&&pp::BrowserInterface::serializeResultsForAcceptance(streamedResult,streamedJson,2048,streamedLength,&streamed)&&strstr(streamedJson,"\"finishDurationUs\":4000000");
+  size_t unavailableLength=0; const bool unavailableOk=streamedJson&&pp::BrowserInterface::serializeResultsForAcceptance(streamedResult,streamedJson,2048,unavailableLength,nullptr)&&strstr(streamedJson,"\"finishDurationUs\":0");
+  s14c("14C.P19",streamedOk&&unavailableOk,"results_streamed_detail=%u unavailable_detail_safe=%u",streamedOk?1:0,unavailableOk?1:0);
+  free(streamedJson);
+
   auto* readiness=::new(stage14cStorage)Stage14CFixture();
   char* proposalJson=static_cast<char*>(malloc(4096)); size_t proposalLength=0; if(proposalJson)memset(proposalJson,0,4096);
   const auto readyState=readiness->noticeboard.current();
