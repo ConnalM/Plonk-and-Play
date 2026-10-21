@@ -3,6 +3,7 @@ $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $manager = Get-Content -Raw (Join-Path $root 'firmware/include/pp/external_wifi.h')
 $interface = Get-Content -Raw (Join-Path $root 'firmware/include/pp/browser_interface.h')
 $browser = Get-Content -Raw (Join-Path $root 'firmware/browser/normal_browser.html')
+$embed = Get-Content -Raw (Join-Path $root 'firmware/browser/embed_normal.py')
 
 foreach ($marker in @(
   'WiFi.persistent(true)', 'WiFi.mode(WIFI_AP_STA)', 'WiFi.begin()',
@@ -67,6 +68,12 @@ foreach ($section in @(
 foreach ($marker in @('Network','networkPage','/network/status','/network/scan','/network/connect','/network/reconnect','/network/disconnect','/network/forget','RECONNECT','RECONFIGURE','type="password"','network-row','data-network-index','Scanning for available networks','Selected ${ssid}. Enter the password','networkDraftSsid','networkDraftPassword','Accept'':''application/json')) {
   if ($browser -notlike "*$marker*") { throw "Browser Network marker missing: $marker" }
 }
+if ($embed -notlike '*{"/", HTTP_GET, normalPage, nullptr}*' -or
+    $embed -notlike '*{"/normal", HTTP_GET, normalPage, nullptr}*' -or
+    $embed -like '*anchor + `n      {"/normal", HTTP_GET, normalPage, nullptr}*') {
+  throw 'Normal Browser embed does not make the root entry point serve the current Normal Browser.'
+}
+Write-Host 'Normal Browser root-entry contract: PASS'
 foreach ($marker in @('let networkRefreshTimer=0', 'function scheduleNetworkRefresh', 'scheduleNetworkRefresh(scanBusy,sta.state===''CONNECTING''', 'submitNetworkConnect', 'networkPassword'').onkeydown', 'await networkPage()')) {
   if ($browser -notlike "*$marker*") { throw "Browser asynchronous Network refresh marker missing: $marker" }
 }

@@ -113,7 +113,11 @@ text = text.replace(needle, route + needle, 1)
 anchor = '{"/", HTTP_GET, page, nullptr},'
 if anchor not in text:
     raise RuntimeError("BrowserInterface root route anchor not found")
-text = text.replace(anchor, anchor + '\n      {"/normal", HTTP_GET, normalPage, nullptr},', 1)
+# The customer-facing entry point is the Normal Browser.  Keep the legacy
+# diagnostic page implementation available for source compatibility, but do
+# not let it masquerade as the shipped product Browser at `/`.  `/normal`
+# remains an explicit equivalent route for development and acceptance tools.
+text = text.replace(anchor, '{"/", HTTP_GET, normalPage, nullptr},\n      {"/normal", HTTP_GET, normalPage, nullptr},', 1)
 generated_interface = generated_pp / "browser_interface.h"
 generated_interface.write_text(text, encoding="utf-8")
 project_pp = root / "include" / "pp"
