@@ -1,12 +1,18 @@
-# P&P Analogue Controller Interface Design
+# REU Analogue Controller Interface Design
 
 **Status:** Recovered design record — current product-owner decisions and previously agreed interface principles  
-**Scope:** P&P analogue controller/powerbase interface only. REU integration is deliberately excluded until this baseline is recorded and reviewed.  
-**Date recovered:** 22 October 2026
+**Scope:** Analogue controller/powerbase interface for the optional REU. The core P&P unit does not require this interface.  
+**Date recovered/corrected:** 22 October 2026
 
 ## 1. Purpose
 
-This document records the analogue controller-interface decisions made during P&P design discussions but not previously captured in the repository.
+This document records the analogue controller-interface work developed for the optional electrical-control module that evolved into the REU.
+
+A design-history correction is important: during discussion, the interface was sometimes described loosely as a "P&P interface" because REU is part of the wider P&P system. That wording must not be interpreted as requiring the core P&P box itself to sit in the controller circuit.
+
+The product boundary is:
+
+> **P&P observes and understands the race. REU electrically influences the cars.**
 
 It distinguishes:
 
@@ -14,25 +20,35 @@ It distinguishes:
 - **WORKING ASSUMPTION** — design direction used in discussion but not yet sufficiently specified to freeze implementation.
 - **OPEN** — intentionally unresolved and must not be invented by implementation.
 
-This is the baseline to be understood before designing REU integration.
-
-## 2. Product principle
+## 2. Core P&P boundary
 
 ### DECIDED
 
-P&P is intended to work with ordinary analogue slot-car equipment while retaining the user's existing controllers, powerbase/track power supply and cars wherever practical.
+Core P&P is fundamentally a sensor-based lap counter/race system.
 
-P&P must not require a user to open or modify a powerbase merely to use the system.
+Its authoritative lap/sector crossings come from timing detectors, currently including the per-lane ToF start/finish sensors. P&P does not require an electrical connection between the hand controller and powerbase in order to count laps, time races, classify competitors or maintain results.
 
-The analogue controller interface must support systems that already use the P&P standard connector directly and systems that require a simple conversion/adaptor arrangement.
+Core P&P has **no track-power-control requirement**. Throttle manipulation, power limiting, braking, electrical start lockout and similar electrical intervention are not core P&P functions.
 
-P&P's current product design includes an analogue controller/powerbase interface as part of standalone P&P operation. The later REU concept must not make that existing P&P function dependent on an REU.
+Therefore the core P&P box does **not** require the 3.5 mm TRS controller/powerbase interface described below.
 
-## 3. P&P standard physical connector
+This restores the intended Plonk & Play principle: a customer can use the core P&P race system without modifying, adapting or passing the hand-controller wiring through the P&P main unit.
+
+## 3. Relationship to the earlier optional Power Module
+
+### DECIDED / DESIGN HISTORY
+
+Earlier P&P architecture allowed an optional Power Module/output capability to provide electrical track-control functions without making them prerequisites for P&P.
+
+The later REU is the much more capable descendant of that optional electrical-control concept. The detailed controller-interface work — TRS, polarity handling, two-wire compatibility and proprietary-controller conversion — belongs to REU/electrical-control hardware, not to the core P&P box.
+
+References during design discussion to a "P&P controller interface" mean an interface belonging to the wider P&P product ecosystem. They do not establish a requirement for that circuitry in the P&P main unit.
+
+## 4. REU standard physical connector
 
 ### DECIDED
 
-The P&P standard analogue controller interface is **3.5 mm TRS**.
+The standard analogue controller interface developed for REU is **3.5 mm TRS**.
 
 For the supported native three-wire TRS families investigated:
 
@@ -45,7 +61,7 @@ Automatic identification of the two outer-contact functions/polarity is the acce
 
 Examples investigated as native/compatible TRS-type systems include Scalextric Sport and Ninco. Policar has also been treated as an out-of-box TRS candidate in the hardware discussions. Final production compatibility must be verified electrically rather than inferred merely from connector shape.
 
-## 4. Three wires do not always mean the same thing
+## 5. Three wires do not always mean the same thing
 
 ### DECIDED
 
@@ -55,11 +71,11 @@ For example, Carrera GO was identified as a case in which the additional control
 
 Therefore connector shape and conductor count alone are not a sufficient compatibility definition.
 
-## 5. Two-wire controllers
+## 6. Two-wire controllers
 
 ### DECIDED
 
-Two-wire analogue controllers are a separate supported interface family in principle.
+Two-wire analogue controllers are a separate supported REU interface family in principle.
 
 They provide the equivalent of:
 
@@ -68,17 +84,17 @@ They provide the equivalent of:
 
 They do **not** acquire a genuine third-wire braking function merely by being adapted to a TRS connector.
 
-Where a two-wire controller is presented through the P&P standard TRS physical interface, the unused contact remains functionally absent. P&P must respect the capabilities actually present rather than assume three-wire braking.
+Where a two-wire controller is presented through the standard REU TRS physical interface, the unused contact remains functionally absent. REU must respect the capabilities actually present rather than assume three-wire braking.
 
 ### OPEN
 
 The exact production electrical detection/identification circuit for distinguishing supported two-wire arrangements from three-wire arrangements is not frozen in this document.
 
-## 6. Non-TRS controllers — agreed cable-conversion method
+## 7. Non-TRS controllers — agreed cable-conversion method
 
 ### DECIDED
 
-Where a controller/powerbase uses a proprietary or otherwise unsuitable connector and no clean plug-in interposer is available, the agreed retrofit method is a **single cut in the controller cable**, creating a standard P&P insertion point.
+Where a controller/powerbase uses a proprietary or otherwise unsuitable connector and no clean plug-in interposer is available, the agreed retrofit method is a **single cut in the controller cable**, creating a standard REU insertion point.
 
 Original arrangement:
 
@@ -96,17 +112,17 @@ Controller -- cable -- [bespoke TRS male]
                      [bespoke TRS female] -- cable -- original plug -> Powerbase
 ```
 
-The male and female are deliberately complementary so that, with P&P absent, they plug directly into one another and restore the original controller-to-powerbase circuit.
+The male and female are deliberately complementary so that, with REU absent, they plug directly into one another and restore the original controller-to-powerbase circuit.
 
-With P&P inserted, the standardised connection becomes conceptually:
+With REU inserted:
 
 ```text
-Controller -- converted TRS interface -> P&P -> converted TRS interface -- original plug -> Powerbase
+Controller -- converted TRS interface -> REU -> converted TRS interface -- original plug -> Powerbase
 ```
 
-This means the one-time cable conversion does **not** make the controller dependent on P&P. Remove P&P, reconnect the complementary male/female pair, and the controller/powerbase works in its original form.
+This means the one-time cable conversion does **not** make the controller dependent on REU. Remove REU, reconnect the complementary male/female pair, and the controller/powerbase works in its original form.
 
-## 7. Bespoke conversion terminations
+## 8. Bespoke conversion terminations
 
 ### DECIDED / DESIGN DIRECTION
 
@@ -128,13 +144,13 @@ No satisfactory off-the-shelf part matching the desired arrangement was identifi
 
 The exact mechanical design, enclosure, spring terminal part and production assembly are not yet frozen.
 
-## 8. Manufacturer-specific adaptors/interposers
+## 9. Manufacturer-specific adaptors/interposers
 
 ### DECIDED
 
 Cable cutting is not mandatory where a cleaner reversible adaptor can be provided.
 
-For systems whose existing connectors permit it, manufacturer/system-specific adaptor or interposer leads may convert the existing controller connection to the standard P&P interface without modifying the user's equipment.
+For systems whose existing connectors permit it, manufacturer/system-specific adaptor or interposer leads may convert the existing controller connection to the standard REU interface without modifying the user's equipment.
 
 The preference is:
 
@@ -144,7 +160,7 @@ The preference is:
 
 The objective is compatibility without requiring modification of the powerbase or replacement of the user's controller.
 
-## 9. Electrical identification and polarity
+## 10. Electrical identification and polarity
 
 ### DECIDED
 
@@ -161,46 +177,31 @@ Automatic electrical identification is preferable to a manufacturer selector in 
 
 ### OPEN
 
-The final sensing/protection circuit and complete list of certified wiring families remain hardware-design work. Arbitrary unknown wire orders must not be assumed safely auto-identifiable merely because known supported families can be identified.
+The final sensing/protection circuit and complete list of certified wiring families remain REU hardware-design work. Arbitrary unknown wire orders must not be assumed safely auto-identifiable merely because known supported families can be identified.
 
-## 10. Pass-through and independence
+## 11. Pass-through and independence
 
 ### DECIDED
 
-The standardised controller connection must preserve ordinary controller use when P&P is removed.
+The standardised controller connection must preserve ordinary controller use when REU is removed.
 
 For a converted non-TRS controller, this is achieved physically by reconnecting the complementary male and female conversion terminations.
 
-P&P must not turn a converted controller into proprietary equipment that can only be used with P&P attached.
+REU must not turn a converted controller into proprietary equipment that can only be used with REU attached.
 
-## 11. P&P timing and controller interface
-
-### DECIDED
-
-P&P's authoritative lap/sector crossing information comes from its timing detectors (for example the per-lane ToF start/finish sensors in the current design).
-
-The analogue controller/powerbase interface is nevertheless part of the current standalone P&P product design and must be preserved as such; REU must not become a prerequisite for it.
-
-An earlier September design assumption described electrical track-power control as an optional Power Module while timing detectors alone performed lap counting. Subsequent controller-interface design work and the product owner's current clarification supersede treating the analogue interface as something that may simply be designed out of the standalone P&P hardware.
-
-### OPEN
-
-This recovered record does **not** invent the final P&P analogue sensing/switching schematic. The exact electrical functions performed by the current P&P main-unit interface, beyond the accepted physical/interface requirements above, need to be reconciled with the hardware design before schematic freeze.
+REU itself must also remain useful independently of P&P. Conversely, P&P remains a complete lap/race system without REU.
 
 ## 12. What is deliberately NOT decided here
 
 This document does not decide:
 
-- REU placement relative to P&P;
 - P&P-to-REU communications transport;
 - REU PWM/MOSFET topology;
 - BEMF sensing;
 - future Ghost electrical control;
-- the final P&P analogue-interface circuit;
+- the final REU analogue-interface circuit;
 - production protection/hot-plug components;
 - a universal automatic mapping algorithm for arbitrary unknown controllers.
-
-Those questions must be considered only after this existing P&P interface baseline is accepted.
 
 ## 13. Compatibility rule
 
@@ -218,22 +219,30 @@ Production compatibility must account for at least:
 
 ## 14. Baseline diagrams
 
-### Native compatible TRS system
+### Core P&P — no analogue controller interface
 
 ```text
-Controller -- 3.5 mm TRS --> P&P -- 3.5 mm TRS --> existing powerbase
+ToF timing detectors -> P&P -> lap timing / race state / results
+
+Controller -------------------------------> Powerbase -> Track
 ```
 
-### Converted non-TRS system, P&P absent
+### Native compatible TRS system with standalone REU
+
+```text
+Controller -- 3.5 mm TRS --> REU -- 3.5 mm TRS --> existing powerbase
+```
+
+### Converted non-TRS system, REU absent
 
 ```text
 Controller -- cable -- [TRS male] <-> [TRS female] -- cable -- original plug --> Powerbase
 ```
 
-### Converted non-TRS system, P&P present
+### Converted non-TRS system, REU present
 
 ```text
-Controller -- cable -- [TRS male] --> P&P --> [TRS female] -- cable -- original plug --> Powerbase
+Controller -- cable -- [TRS male] --> REU --> [TRS female] -- cable -- original plug --> Powerbase
 ```
 
 ### Two-wire controller
@@ -246,14 +255,13 @@ third TRS contact: no invented brake function
 
 ## 15. Design guardrail for subsequent REU work
 
-Before choosing how P&P and REU are physically chained or how they communicate, the combined design must preserve all of the following:
+The combined product architecture must preserve all of the following:
 
-1. P&P remains useful and complete without REU.
-2. The existing P&P analogue interface is not silently migrated into REU.
-3. REU remains independently useful without P&P.
-4. Native compatible controllers remain simple to connect.
+1. **P&P works completely without REU** and does not require controller/powerbase analogue wiring.
+2. **REU works without P&P** for its standalone electrical-control functions.
+3. Controller/TRS/polarity/pass-through circuitry belongs to REU, not the core P&P box.
+4. Native compatible controllers remain simple to connect to REU.
 5. Converted non-TRS controllers remain usable with neither P&P nor REU present by reconnecting their complementary conversion pair.
 6. Two-wire controllers are never falsely treated as three-wire braking controllers.
-7. Manufacturer wiring differences are handled by hardware/interface design, not by requiring the ordinary user to understand pin assignments.
-
-Only after these constraints are preserved should the combined P&P + REU topology be selected.
+7. Manufacturer wiring differences are handled by REU hardware/interface design, not by requiring the ordinary user to understand pin assignments.
+8. Adding REU capability must not make the base P&P product less Plonk & Play.
