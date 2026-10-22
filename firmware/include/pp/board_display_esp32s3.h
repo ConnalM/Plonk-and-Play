@@ -13,19 +13,24 @@ namespace pp {
 
 class Esp32S3BoardDisplay final {
 public:
-  bool begin() {
-    // Match the stable Phase 8B probe: allow the board's display power and
-    // RGB panel signals to settle before enabling the continuous pixel clock.
-    delay(300);
+  Esp32S3BoardDisplay() {
+    // Match the known-working project: allocate the panel objects during
+    // global board-display construction, but defer begin() and scanout.
     displayBus_ = new Arduino_ESP32RGBPanel(
         kTftDe, kTftVsync, kTftHsync, kTftPclk,
         kTftR0, kTftR1, kTftR2, kTftR3, kTftR4,
         kTftG0, kTftG1, kTftG2, kTftG3, kTftG4, kTftG5,
         kTftB0, kTftB1, kTftB2, kTftB3, kTftB4,
-        0, 210, 30, 16, 0, 22, 13, 10, 1, 16000000);
+        0, 210, 30, 16, 0, 22, 13, 10, 1, 12000000);
     display_ = new Arduino_RGB_Display(
         kDisplayWidth, kDisplayHeight, displayBus_, 0, true, nullptr,
         kBacklight);
+  }
+
+  bool begin() {
+    // Match the stable Phase 8B probe: allow the board's display power and
+    // RGB panel signals to settle before enabling the continuous pixel clock.
+    delay(300);
     if (display_ == nullptr || !display_->begin()) {
       Serial.println("[DISPLAY] ESP32-8048S070 init FAILED");
       return false;
