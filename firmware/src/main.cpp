@@ -563,9 +563,6 @@ void observeControllerTrace(){
 }
 void setup(){
   Serial.begin(115200);
-#if defined(PP_PHASE8B_REAL_SD)
-  boardDisplay.begin();
-#endif
 #ifdef PP_ACCEPTANCE
   acceptanceBeforeBoot();
 #endif
@@ -839,7 +836,7 @@ void loop(){
       ready=testsPassed;
       bootFailed=!testsPassed;
 #if defined(PP_PHASE8B_REAL_SD)
-      if (ready) boardDisplay.showReady();
+      if (ready && boardDisplay.begin()) boardDisplay.showReady();
 #endif
 #ifdef PP_VERIFY
       if(verificationReboot)diagnostics.log("[TEST] Rebooting after diagnostics drain to verify persistent configuration");

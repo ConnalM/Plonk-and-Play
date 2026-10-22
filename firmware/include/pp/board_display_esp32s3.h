@@ -32,7 +32,6 @@ public:
     }
     display_->setRotation(0);
     initialized_ = true;
-    showMessage("P&P BOOTING...", "PLEASE WAIT");
     Serial.println("[DISPLAY] ESP32-8048S070 init OK");
     return true;
   }
