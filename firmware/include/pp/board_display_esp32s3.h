@@ -14,6 +14,9 @@ namespace pp {
 class Esp32S3BoardDisplay final {
 public:
   bool begin() {
+    // Match the stable Phase 8B probe: allow the board's display power and
+    // RGB panel signals to settle before enabling the continuous pixel clock.
+    delay(300);
     displayBus_ = new Arduino_ESP32RGBPanel(
         kTftDe, kTftVsync, kTftHsync, kTftPclk,
         kTftR0, kTftR1, kTftR2, kTftR3, kTftR4,
