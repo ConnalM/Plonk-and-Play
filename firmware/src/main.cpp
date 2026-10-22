@@ -21,6 +21,7 @@
 #include "pp/physical_sd_owner.h"
 #include "pp/sd_store_arduino.h"
 #include "pp/diagnostic_sd.h"
+#include "pp/board_display_esp32s3.h"
 #endif
 #include "pp/diagnostic_memory.h"
 #include "pp/diagnostic_trace.h"
@@ -81,6 +82,7 @@ private: Preferences preferences;bool ready=false;
 pp::PhysicalSdOwner physicalSdOwner;
 pp::Esp32SpiSdStore sdPersistence(physicalSdOwner);
 pp::SdActiveDetailStore activeDetail(sdPersistence);
+pp::Esp32S3BoardDisplay boardDisplay;
 pp::SessionLifecycle physicalRecoveryLifecycle = pp::SessionLifecycle::Faulted;
 bool physicalRecoveryAttempted = false;
 #endif
@@ -561,6 +563,9 @@ void observeControllerTrace(){
 }
 void setup(){
   Serial.begin(115200);
+#if defined(PP_PHASE8B_REAL_SD)
+  boardDisplay.begin();
+#endif
 #ifdef PP_ACCEPTANCE
   acceptanceBeforeBoot();
 #endif
@@ -833,6 +838,9 @@ void loop(){
       diagnostics.log("[INIT] No capabilities discovered or assigned; session readiness not claimed");
       ready=testsPassed;
       bootFailed=!testsPassed;
+#if defined(PP_PHASE8B_REAL_SD)
+      if (ready) boardDisplay.showReady();
+#endif
 #ifdef PP_VERIFY
       if(verificationReboot)diagnostics.log("[TEST] Rebooting after diagnostics drain to verify persistent configuration");
       else
