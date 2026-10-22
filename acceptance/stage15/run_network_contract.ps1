@@ -67,9 +67,13 @@ foreach ($section in @(
   $interface.Substring($forgetStart, $interface.IndexOf('static esp_err_t health', $forgetStart) - $forgetStart))) {
   if ($section -notlike '*context(client(request))*ClientContext::RaceDirectorSmug*') { throw 'Network mutation lacks the controlling-lease guard.' }
 }
-foreach ($marker in @('Network','networkPage','/network/status','/network/scan','/network/connect','/network/reconnect','/network/disconnect','/network/forget','RECONNECT','RECONFIGURE','type="password"','network-row','data-network-index','Scanning for available networks','Selected ${ssid}. Enter the password','networkDraftSsid','networkDraftPassword','Accept'':''application/json')) {
+foreach ($marker in @('Network','networkPage','/network/status','/network/scan','/network/connect','/network/reconnect','/network/disconnect','/network/forget','RECONNECT','CONNECT','type="password"','network-row','data-network-index','Scanning for available networks','Selected ${ssid}. Enter the password','networkDraftSsid','networkDraftPassword','Accept'':''application/json')) {
   if ($browser -notlike "*$marker*") { throw "Browser Network marker missing: $marker" }
 }
+if ($browser -notmatch "const configureLabel='CONNECT'") { throw 'Network credential action is not labelled CONNECT.' }
+if ($browser -match "configureLabel=sta\.configured\?'RECONFIGURE':'CONFIGURE NETWORK'") { throw 'Network page retains the old Configure/Reconfigure label.' }
+if ($browser -match 'press RECONFIGURE') { throw 'Network selection help text still instructs the user to press RECONFIGURE.' }
+if ($browser -match 'until Connect/Reconfigure or reboot') { throw 'Network suppression help text still uses the old Reconfigure vocabulary.' }
 if ($embed -notlike '*{"/", HTTP_GET, normalPage, nullptr}*' -or
     $embed -notlike '*{"/normal", HTTP_GET, normalPage, nullptr}*' -or
     $embed -like '*anchor + `n      {"/normal", HTTP_GET, normalPage, nullptr}*') {
