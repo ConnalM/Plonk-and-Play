@@ -22,7 +22,7 @@ public:
         kTftR0, kTftR1, kTftR2, kTftR3, kTftR4,
         kTftG0, kTftG1, kTftG2, kTftG3, kTftG4, kTftG5,
         kTftB0, kTftB1, kTftB2, kTftB3, kTftB4,
-        0, 210, 30, 16, 0, 22, 13, 10, 1, 12000000,
+        0, 210, 30, 16, 0, 22, 13, 10, 1, 16000000,
         false, 0, 0, kDisplayWidth * 10);
     display_ = new Arduino_RGB_Display(
         kDisplayWidth, kDisplayHeight, displayBus_, 0, true, nullptr,
