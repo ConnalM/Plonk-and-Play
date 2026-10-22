@@ -127,7 +127,9 @@ public:
                     static_cast<unsigned>(WiFi.softAPgetStationNum()));
     }
     if (apStarted_) startMdns();
-    refreshScanState();
+    // A deferred request has not started a new driver scan yet.  Do not let
+    // WiFi.scanComplete() report a stale result from the previous attempt.
+    if (!scanDeferred_) refreshScanState();
     refreshStaState();
     if (scanDeferred_ && static_cast<int32_t>(now - scanNotBeforeMs_) >= 0) {
       const wl_status_t status = WiFi.status();
@@ -223,7 +225,8 @@ public:
                   apStarted_ ? "true" : "false");
     scanState_ = ScanState::Running;
     const bool staDriverBusy = stationConfigured_ &&
-      (staStatus == WL_DISCONNECTED || staStatus == WL_IDLE_STATUS);
+      (staStatus == WL_DISCONNECTED || staStatus == WL_IDLE_STATUS ||
+       staStatus == WL_NO_SSID_AVAIL);
     if (staDriverBusy) {
       scanDeferred_ = true;
       scanPauseReconnect_ = true;

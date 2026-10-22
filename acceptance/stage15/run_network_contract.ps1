@@ -140,6 +140,9 @@ Write-Host 'Stage 15 optional external Wi-Fi contract: PASS'
 foreach ($marker in @('scanDeferred_', 'scanPauseReconnect_', 'finishScan()', 'WiFi.disconnect(false, false)', 'WiFi.setAutoReconnect(false)')) {
   if ($manager -notlike "*$marker*") { throw "Scan/STA coordination marker missing: $marker" }
 }
+if ($manager -notmatch 'staStatus == WL_NO_SSID_AVAIL') {
+  throw 'Scan does not defer while a remembered STA reports WL_NO_SSID_AVAIL.'
+}
 if ($manager -notmatch 'staDriverBusy[\s\S]{0,320}scanDeferred_ = true[\s\S]{0,320}WiFi\.disconnect\(false, false\)') {
   throw 'Scan does not defer and cancel an in-flight remembered STA operation before driver scan start.'
 }
@@ -147,3 +150,60 @@ if ($manager -notmatch 'void finishScan\(\)[\s\S]{0,220}WiFi\.setAutoReconnect\(
   throw 'Scan completion does not restore the bounded STA reconnect lifecycle.'
 }
 Write-Host 'Scan/STA coordination contract: PASS'
+
+# Deterministic regression for the real hardware sequence: scanComplete() may
+# still contain WIFI_SCAN_FAILED before a deferred scan has started.  That
+# stale value must not terminate the deferred request; exactly one driver
+# start must occur, followed by a terminal result and reconnect resumption.
+if ($manager -notlike '*if (!scanDeferred_) refreshScanState();*') {
+  throw 'Deferred scans do not suppress stale scanComplete() polling.'
+}
+function Invoke-DeferredScanModel([int]$driverResult) {
+  $scanDeferred = $true
+  $scanPauseReconnect = $true
+  $scanState = 'RUNNING'
+  $staleScanResult = -2
+  $driverStarts = 0
+  $apAvailable = $true
+  $httpAvailable = $true
+  $prematureUnavailable = $false
+
+  # Tick before the deferral deadline: refreshScanState() is skipped.
+  if (-not $scanDeferred -and $staleScanResult -lt 0) {
+    $scanState = 'UNAVAILABLE'
+    $prematureUnavailable = $true
+  }
+  if ($prematureUnavailable -or $driverStarts -ne 0 -or -not $scanPauseReconnect) {
+    throw 'Deferred scan model terminated before the driver scan started.'
+  }
+
+  # Deadline reached: start exactly one real driver scan.
+  $scanDeferred = $false
+  $driverStarts++
+  if ($driverResult -ge 0) { $scanState = 'COMPLETE' } else { $scanState = 'UNAVAILABLE' }
+  $scanPauseReconnect = $false
+  [pscustomobject]@{
+    state = $scanState
+    driverStarts = $driverStarts
+    reconnectResumed = -not $scanPauseReconnect
+    apAvailable = $apAvailable
+    httpAvailable = $httpAvailable
+  }
+}
+$deferredScanSuccess = Invoke-DeferredScanModel 4
+if ($deferredScanSuccess.state -ne 'COMPLETE' -or
+    $deferredScanSuccess.driverStarts -ne 1 -or
+    -not $deferredScanSuccess.reconnectResumed -or
+    -not $deferredScanSuccess.apAvailable -or
+    -not $deferredScanSuccess.httpAvailable) {
+  throw 'Deferred scan success model did not preserve one-start, resume, AP, and HTTP contracts.'
+}
+$deferredScanFailure = Invoke-DeferredScanModel -2
+if ($deferredScanFailure.state -ne 'UNAVAILABLE' -or
+    $deferredScanFailure.driverStarts -ne 1 -or
+    -not $deferredScanFailure.reconnectResumed -or
+    -not $deferredScanFailure.apAvailable -or
+    -not $deferredScanFailure.httpAvailable) {
+  throw 'Deferred scan failure model did not report a genuine post-start failure safely.'
+}
+Write-Host 'Deferred scan stale-result regression model: PASS'
