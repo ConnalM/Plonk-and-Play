@@ -79,6 +79,28 @@ Write-Host 'Normal Browser root-entry contract: PASS'
 foreach ($marker in @('let networkRefreshTimer=0', 'function scheduleNetworkRefresh', 'scheduleNetworkRefresh(scanBusy,sta.state===''CONNECTING''', 'submitNetworkConnect', 'networkPassword'').onkeydown', 'await networkPage()')) {
   if ($browser -notlike "*$marker*") { throw "Browser asynchronous Network refresh marker missing: $marker" }
 }
+if ($browser -notmatch "if\(r\.ok\)\{networkDraftSsid='';networkDraftPassword='';networkDraftActive=false;ssidInput\.value='';passwordInput\.value=''\}.*await networkPage\(\)") {
+  throw 'Accepted Forget does not clear Browser-local SSID/password drafts before authoritative re-render.'
+}
+if ($browser -notmatch "networkDraftSsid='';networkDraftPassword='';networkDraftActive=false") {
+  throw 'Forget Browser draft state reset is missing.'
+}
+# Deterministic regression for the real Forget/re-render path: a stale local
+# draft must not survive an accepted authoritative Forget, including when the
+# Network view is reconstructed from the current /network/status response.
+$forgetDraftSsid = 'previous-network'
+$forgetDraftPassword = 'draft-password'
+$forgetDraftActive = $true
+$forgetAccepted = $true
+if ($forgetAccepted) {
+  $forgetDraftSsid = ''
+  $forgetDraftPassword = ''
+  $forgetDraftActive = $false
+}
+if ($forgetDraftSsid -ne '' -or $forgetDraftPassword -ne '' -or $forgetDraftActive) {
+  throw 'Accepted Forget regression model retained stale Browser-local network draft state.'
+}
+Write-Host 'Accepted Forget Browser draft-clearing regression model: PASS'
 foreach ($marker in @('networkRefreshDeadline', 'networkConnectPendingUntil', 'networkScanPendingUntil', 'scheduleNetworkRefresh(false,true,true)', "const staState=connectPending?'CONNECTING'")) {
   if ($browser -notlike "*$marker*") { throw "Browser accepted-connect polling marker missing: $marker" }
 }
