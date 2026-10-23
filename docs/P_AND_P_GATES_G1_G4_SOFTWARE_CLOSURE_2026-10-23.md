@@ -36,14 +36,13 @@ failure boundaries, rolling retention and the physical SD ownership contract
 tests PSF.31–PSF.37 / PS15.88–PS15.92. The Results, Details, History and
 Practice Browser regressions pass.
 
-The historical `1 lap` / no-time observation is classified by the frozen
-Results contract, rather than treated as a storage defect: a competitor
-stopped immediately when the winner finishes has authoritative progress but
-no finishing crossing, so its Results TIME is `—`. The current serializer
-supplies per-entry `finishDurationUs` for entries that actually complete their
-permitted finish, while the Browser never substitutes the overall
-`finishTime` or calculates a duration. A fresh physical historical-result
-check remains part of WP5 where the stored race can be identified directly.
+The historical `1 lap` / no-time observation is a Results defect: a competitor
+stopped immediately when the winner finishes still has an authoritative elapsed
+duration for its completed progress, so Results TIME must show that duration.
+Only an entry with no completed lap has TIME `—`. The serializer supplies
+per-entry `finishDurationUs`; the Browser never substitutes overall `finishTime`
+or calculates a duration. A fresh physical Results/Details/History check remains
+part of WP5.
 
 The Results HTTP stack correction is present and the Browser Results runtime
 regression exercises current, historical and unavailable-result paths without

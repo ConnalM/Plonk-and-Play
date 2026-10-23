@@ -147,8 +147,10 @@ The primary Results screen should answer who won without becoming an analysis da
 Lap Race Results use the columns **POSITION | LANE/RACER | PROGRESS | TIME |
 BEST | GAP**. PROGRESS is authoritative classified race progress against the
 configured target where applicable. TIME is the authoritative per-entry
-race-relative finish duration and is shown only for an entry that completed its
-permitted finish. GAP uses only authoritative gap information supplied by P&P;
+race-relative elapsed duration at that entry's permitted final crossing, or at
+its last completed lap when the race stopped that entry before a final crossing.
+A racer with no completed lap has no TIME and shows an em dash. The Browser
+never derives this value. GAP uses only authoritative gap information supplied by P&P;
 the Browser does not calculate classification or substitute a finish time for
 progress or gap.
 

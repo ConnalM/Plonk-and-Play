@@ -29,7 +29,8 @@ required = {
     'paused-practice-end': 'id="endPractice"' in text and "practice?'<button" in text,
     'resume-duration-guard': "phase==='RESUME_COUNTDOWN'" in text and 'S.remainingDuration' in text,
     'lap-results-columns': 'LANE/RACER' in text and 'PROGRESS' in text and '<div>TIME</div>' in text and '<div>GAP</div>' in text,
-    'lap-results-authoritative-time': 'e.completed?sec(e.finishDurationUs):' in text and 'e.completed?sec(e.completionTime)' not in text,
+    'lap-results-authoritative-time': "e.finishDurationUs?sec(e.finishDurationUs):" in text and 'e.completed?sec(e.completionTime)' not in text,
+    'lap-results-stopped-progress-time': "finishDurationUs?sec(finishDurationUs)" not in text or "e.finishDurationUs?sec(e.finishDurationUs):" in text,
     'practice-summary-actions': 'id="again">PRACTICE AGAIN' in text and 'id="homePractice">HOME' in text and '/request/practice-again' in text,
 }
 failed = [k for k, ok in required.items() if not ok]

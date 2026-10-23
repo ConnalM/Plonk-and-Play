@@ -138,9 +138,9 @@ Typical information:
 
 For Lap Race Results, progress and finishing information are separate fields.
 Progress shows authoritative classified race distance against the configured
-target where applicable. Time shows an entry's authoritative race-relative
-finish duration only when that entry completed its permitted finish; an entry
-stopped when the winner finished shows an em dash. Gap shows only information
+target where applicable. Time shows an entry's authoritative race-relative elapsed duration at its
+permitted final crossing, or at its last completed lap when it was stopped
+before a final crossing. An entry with no completed lap shows an em dash. Gap shows only information
 supplied by P&P, such as authoritative laps behind. The Browser does not
 replace one field with another or calculate classification, finish times or
 time gaps.

@@ -882,31 +882,34 @@ private:
   // persistence.  The API supplies the elapsed value so Browser code never
   // subtracts controller timestamps.
   static Time finishDurationUs(const RaceEngineModule::ResultEntry& entry,const DetailSource* detailSource=nullptr){
-    if(!entry.completed||!entry.completionTime||!entry.recordCount)return 0;
-    Time origin=0,finalRacing=0; bool haveOrigin=false;
+    // TIME is the elapsed race duration at this entry's own permitted final
+    // crossing.  A racer stopped by an immediate finish has no final crossing
+    // and therefore has no TIME unless it completed one or more laps; in that
+    // case the last completed lap's elapsed race time is authoritative.
+    if(!entry.recordCount)return 0;
+    Time origin=0,lastRacing=0,finalRacing=0; bool haveOrigin=false;
+    auto consume=[&](const LapRecord& lap){
+      if(!lap.valid)return;
+      if(!haveOrigin||lap.startTime<origin){origin=lap.startTime;haveOrigin=true;}
+      const Time racing=lap.racingFinishTime?lap.racingFinishTime:lap.finishTime;
+      if(racing>lastRacing)lastRacing=racing;
+      if(entry.completed&&entry.completionTime&&lap.finishTime==entry.completionTime)finalRacing=racing;
+    };
     if(entry.records){
-      for(uint32_t i=0;i<entry.recordCount;++i){
-        const auto& lap=entry.records[i]; if(!lap.valid)continue;
-        if(!haveOrigin){origin=lap.startTime;haveOrigin=true;}
-        if(lap.finishTime==entry.completionTime)finalRacing=lap.racingFinishTime;
-      }
+      for(uint32_t i=0;i<entry.recordCount;++i)consume(entry.records[i]);
     } else if(detailSource){
       uint8_t sourceEntry=detailSource->detailEntryCount();
       for(uint8_t i=0;i<sourceEntry;++i){
         if(detailSource->detailEntryId(i)==entry.raceEntryId){sourceEntry=i;break;}
       }
       if(sourceEntry>=detailSource->detailEntryCount())return 0;
-      for(uint32_t i=0;i<entry.recordCount;++i){
-        LapRecord lap{};
-        if(!detailSource->readDetail(sourceEntry,i,lap))return 0;
-        if(!lap.valid)continue;
-        if(!haveOrigin){origin=lap.startTime;haveOrigin=true;}
-        if(lap.finishTime==entry.completionTime)finalRacing=lap.racingFinishTime;
-      }
+      const uint32_t available=detailSource->detailRecordCount(sourceEntry);
+      const uint32_t count=available<entry.recordCount?available:entry.recordCount;
+      for(uint32_t i=0;i<count;++i){LapRecord lap{};if(!detailSource->readDetail(sourceEntry,i,lap))return 0;consume(lap);}
     }
-    if(!haveOrigin)return 0;
-    if(!finalRacing)finalRacing=entry.completionTime;
-    return finalRacing>=origin?finalRacing-origin:0;
+    if(!haveOrigin||!lastRacing)return 0;
+    const Time finish=finalRacing?finalRacing:lastRacing;
+    return finish>=origin?finish-origin:0;
   }
   static bool serializeResults(const RaceEngineModule::CompletedRaceResult&r,char*out,size_t cap,size_t&length,const DetailSource* detailSource=nullptr){
     const uint64_t overtimeUs=r.overtime&&r.finishTime>r.expiryTime?r.finishTime-r.expiryTime:0;size_t n=0;const char* mode=r.mode==SessionMode::Endurance?"ENDURANCE":r.mode==SessionMode::OpenPractice?"OPEN_PRACTICE":"LAP_RACE";bool ok=true;ok=appendJson(out,cap,n,"{\"sealed\":%s,\"valid\":%s,\"mode\":\"%s\"",r.sealed?"true":"false",r.valid?"true":"false",mode)&&ok;ok=appendJson(out,cap,n,",\"lapTarget\":%lu,\"durationMinutes\":%u,\"durationUs\":%llu",(unsigned long)r.lapTarget,unsigned(r.durationMinutes),(unsigned long long)r.durationUs)&&ok;ok=appendJson(out,cap,n,",\"expiryTime\":%llu,\"overtime\":%s,\"overtimeUs\":%llu",(unsigned long long)r.expiryTime,r.overtime?"true":"false",(unsigned long long)overtimeUs)&&ok;ok=appendJson(out,cap,n,",\"winningTime\":%llu,\"finishTime\":%llu,\"finishBehaviour\":\"%s\"",(unsigned long long)r.winningTime,(unsigned long long)r.finishTime,finishBehaviour(r.behaviour))&&ok;ok=appendJson(out,cap,n,",\"deadHeat\":%s,\"fastestLap\":%llu,\"fastestEntryId\":%lu,\"fastestLapTied\":%s,\"entries\":[",r.deadHeat?"true":"false",(unsigned long long)r.fastestLap,(unsigned long)r.fastestEntryId,r.fastestLapTied?"true":"false")&&ok;

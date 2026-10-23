@@ -65,10 +65,27 @@ The next bounded run uses the existing protected P1 simulated-detector fixture
 to create one short two-lane Lap Race. It is a physical P&P/SD/Browser test;
 the fixture still enters through Input Module → Message Bus → Race Engine.
 
-The required observation is a coherent fresh result: the winner shows target
-progress and its own authoritative TIME, the competitor stopped by the
-immediate finish policy shows its classified progress and `—` TIME, and BEST
-and GAP remain authoritative. Details must show the stored lap records, and
-History must show one committed entry with the same result when opened. The
-controller must remain stable with no panic, unexpected reboot or false
-Results/History HTTP error.
+### Test 2 result — FAIL (Results semantics and refresh)
+
+The first physical run exposed two Results defects. Immediately after finish,
+the winner showed target progress but TIME and BEST were `—`; opening
+Details/History and returning to Results caused them to appear. A stopped
+competitor that had completed one lap showed its progress and BEST, but TIME
+was `—` even though Details and the Developer view contained the authoritative
+3.40-second lap.
+
+These are implementation defects, not expected presentation: Results must
+refresh from the sealed authoritative result when the committed History
+sequence becomes available, and TIME must show the authoritative elapsed
+duration through a stopped racer's completed progress. An entry with no
+completed lap alone remains `—`.
+
+### Retest after the correction
+
+Run one short two-lane Lap Race with the existing fixture and open Results
+immediately after finish, before visiting Details or History. Verify that the
+winner immediately shows its target progress, own TIME and BEST; verify that a
+racer stopped after one completed lap shows `1 / target`, its lap elapsed TIME
+and BEST (the physical reference was 3.40 s); verify GAP remains authoritative.
+Then open Details/History and return to Results and confirm the same values,
+with no HTTP error, panic, unexpected reboot or false remount.
