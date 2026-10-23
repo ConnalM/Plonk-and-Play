@@ -1,6 +1,6 @@
 # WP5 Test 1 — Gate A boot and retained controller lease
 
-**Status:** candidate prepared; awaiting one controlled physical run  
+**Status:** Test 1 PASS; Test 2 prepared  
 **Source commit:** `bd46a1c79274185e497806d35f69d988c023ad80`  
 **Branch:** `browser-product-ux-stage15`
 
@@ -49,3 +49,26 @@ Serial and Browser evidence should be retained automatically in the existing
 `firmware/logs/device-monitor-*.log` and Browser/diagnostic paths. A failure
 is recorded against the affected acceptance requirement before any further
 WP5 action is chosen.
+
+## Test 1 result — PASS
+
+The human completed the controlled single-power-cycle run. The tablet
+reconnected, the Browser recovered, the same tablet retained Race Director
+authority, and the Network view was restored. No crash, reset loop or abnormal
+behaviour was observed. This closes the first retained-authority/recovery
+observation for the candidate; broader WP5 multi-client and race tests remain
+separate.
+
+## Test 2 — fresh two-lane Results/History path
+
+The next bounded run uses the existing protected P1 simulated-detector fixture
+to create one short two-lane Lap Race. It is a physical P&P/SD/Browser test;
+the fixture still enters through Input Module → Message Bus → Race Engine.
+
+The required observation is a coherent fresh result: the winner shows target
+progress and its own authoritative TIME, the competitor stopped by the
+immediate finish policy shows its classified progress and `—` TIME, and BEST
+and GAP remain authoritative. Details must show the stored lap records, and
+History must show one committed entry with the same result when opened. The
+controller must remain stable with no panic, unexpected reboot or false
+Results/History HTTP error.
