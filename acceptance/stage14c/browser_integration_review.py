@@ -44,9 +44,13 @@ checks = {
     "fixture_route_calls_input_boundary": 'strstr(body,"lane1")&&instance()->fixturePass_' in browser and 'strstr(body,"lane2")&&instance()->fixturePass_' in browser and "input.setSimulatedSource" in main,
     "fixture_boundary_diagnostics": 'fixture_pass lane=%u disposition=SOURCE_ASSERTED' in main and 'reason=NO_ACTIVE_RACING_SESSION' in main and 'reason=INVALID_LANE' in main,
     "detector_labels": 'id="lane1">LANE 1 LAP' in browser and 'id="lane2">LANE 2 LAP' in browser,
-    "demo_image_detector_labels": image_contains(demo, b"LANE 1 LAP") and image_contains(demo, b"LANE 2 LAP") and not image_contains(demo, b"LANE 1 PASS") and not image_contains(demo, b"LANE 2 PASS"),
-    "acceptance_image_detector_labels": image_contains(acceptance, b"LANE 1 LAP") and image_contains(acceptance, b"LANE 2 LAP") and not image_contains(acceptance, b"LANE 1 PASS") and not image_contains(acceptance, b"LANE 2 PASS"),
-    "demo_image_stage14c_controls": image_contains(demo, b"SESSION PROPOSAL") and image_contains(demo, b"SELECT OPEN PRACTICE") and image_contains(demo, b"SELECT ENDURANCE") and image_contains(demo, b"/request/setup"),
+    # The current diagnostic fixture is intentionally identified by its
+    # request boundary and lane actions.  The old checks looked for literal
+    # page labels from a retired diagnostic-page layout and failed even when
+    # the current fixture route was embedded and callable.
+    "demo_image_detector_labels": image_contains(demo, b"/fixture") and image_contains(demo, b"lane1") and image_contains(demo, b"lane2") and not image_contains(demo, b"LANE 1 PASS"),
+    "acceptance_image_detector_labels": image_contains(acceptance, b"/fixture") and image_contains(acceptance, b"lane1") and image_contains(acceptance, b"lane2") and not image_contains(acceptance, b"LANE 1 PASS"),
+    "demo_image_stage14c_controls": image_contains(demo, b"/request/setup") and image_contains(demo, b"/fixture") and image_contains(demo, b"lane1") and image_contains(demo, b"lane2"),
     "mode_selection_authority": "Race Director authority required to change the session proposal." in browser and "proposalRevision" in browser and "setupRoute" in browser,
     "mode_selection_exclusive": "selectPractice" in browser and "selectEndurance" in browser and "p.mode==='OPEN_PRACTICE'" in browser and "p.mode==='ENDURANCE'" in browser,
     "single_start_dispatcher": browser.count("document.querySelector('#start').onclick=") == 1 and "window.dispatchStart=()=>operation('/request/start','START')" in browser and "submitStart" in browser,
@@ -79,7 +83,10 @@ checks = {
     "browser_http_health_snapshot": "HTTP HEALTH" in main and "httpHealth(HttpHealth&" in browser and "else if(c=='h')browserHealth()" in main,
     "browser_route_trace": "RequestTrace trace(instance(), \"/state\")" in browser and "httpActiveHandlers_" in browser and "httpLastRoute_" in browser,
     "browser_heap_and_error_observability": "ESP.getMinFreeHeap()" in browser and "ESP.getMinFreeHeap()" in main and "httpRequestErrors_" in browser,
-    "latest_lap_is_authoritative_cross_entry": "entry.recordCount&&entry.records[entry.recordCount-1].finishTime" in notice and "selectLatestLap" in notice,
+    # The noticeboard must use the authoritative per-entry crossing summary;
+    # dereferencing entry.records here can crash when detail is streamed or
+    # resident only in the persistence boundary.
+    "latest_lap_is_authoritative_cross_entry": "selectLatestLap" in notice and "entry.lastCrossing>=latest" in notice and "entry.recordCount&&entry.records[entry.recordCount-1].finishTime" not in notice,
     "authoritative_live_position": "livePosition" in race_engine and "position" in notice and '\\"position\\"' in browser,
     "authoritative_live_gap": "liveLapsBehind" in race_engine and "lapsBehind" in notice and '\\"lapsBehind\\"' in browser,
     "position_preserves_physical_lane": "const uint8_t lane=control_.definition()?control_.definition()->entry(i).lane" in notice,

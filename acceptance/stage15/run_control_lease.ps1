@@ -14,6 +14,15 @@ finally {
 }
 
 $browser = Get-Content -Raw (Join-Path $root 'firmware/include/pp/browser_interface.h')
+$constructorStart = $browser.IndexOf('BrowserInterface(Bus&')
+$constructorEnd = $browser.IndexOf('uint64_t controllerEpoch()', $constructorStart)
+$constructor = if ($constructorStart -ge 0 -and $constructorEnd -gt $constructorStart) { $browser.Substring($constructorStart, $constructorEnd - $constructorStart) } else { '' }
+if ($constructor -match 'loadMaster') {
+  throw 'BrowserInterface constructor must not load persisted authority before the store is ready'
+}
+if ($browser -notmatch 'bool restorePersistedAuthority\(\)[\s\S]*?authority_->loadMaster\(persisted\)') {
+  throw 'persisted authority restoration is not present in the post-begin restoration path'
+}
 foreach ($marker in @(
   '/request/take-control',
   '/request/take-control/allow',

@@ -54,12 +54,10 @@ public:
       : bus_(bus), endpoint_(endpoint), noticeboard_(noticeboard),
         authority_(authority ? authority : &fallback_), history_(history), records_(records), detailSource_(detailSource) {
     controllerEpoch_ = newControllerEpoch();
-    uint64_t persisted = 0;
-    if (authority_->loadMaster(persisted) && persisted) controlLease_.restore(persisted);
   }
   uint64_t controllerEpoch() const { return controllerEpoch_; }
   // The production authority store is opened after global object construction.
-  // Retry the constructor-time load once the store is ready, before HTTP starts.
+  // Restore exactly once from the ready store before HTTP starts.
   bool restorePersistedAuthority() {
     if (controlLease_.hasOwner()) return true;
     uint64_t persisted = 0;
