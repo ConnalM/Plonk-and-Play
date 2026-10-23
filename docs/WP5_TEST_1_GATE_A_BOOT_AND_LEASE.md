@@ -1,0 +1,51 @@
+# WP5 Test 1 — Gate A boot and retained controller lease
+
+**Status:** candidate prepared; awaiting one controlled physical run  
+**Source commit:** `bd46a1c79274185e497806d35f69d988c023ad80`  
+**Branch:** `browser-product-ux-stage15`
+
+## Candidate
+
+The Gate A candidate was rebuilt from the accepted source with the installed
+PlatformIO Espressif32 6.9.0 toolchain and merged for the ESP32-S3 N16R8 board:
+
+`firmware/.pio/build/stage8bp1s3sd/firmware.merged.bin`
+
+- Size: 1,099,472 bytes
+- SHA-256: `C6FD7218BEA1137C747FC2E0DB4CF37820520C9EF2C374D364E095AFD9395A62`
+- Bootloader: `0x0000` (image header `E9`)
+- Partition table: `0x8000` (ESP32 partition magic `AA`)
+- `boot_app0.bin`: `0xE000` (image header `01`)
+- Application: `0x10000` (image header `E9`)
+
+The build reports 84,464 bytes of the 327,680-byte RAM budget and 1,033,569
+bytes of the 6,553,600-byte application partition.
+
+## Test purpose
+
+This is the first bounded WP5 run for the Gate A candidate. It checks that the
+candidate boots into the real P&P appliance and that the accepted retained
+Browser controller identity is reconstructed after one controller restart.
+It does not begin the wider SD, race-policy, multi-client or qualification
+campaign.
+
+## Human action
+
+Flash the merged image above, connect the tablet to the P&P AP, take Race
+Director control if the Browser asks for it, leave the tablet on the Network
+page, then power-cycle the controller once and wait for the Browser to recover.
+
+## Evidence required
+
+Archie needs the single outcome of that run:
+
+- the candidate boots and the P&P AP/Browser return;
+- the same tablet identity regains Race Director control after recovery;
+- the Network page is restored with authoritative status;
+- a second Browser identity, if present, remains a spectator;
+- no panic, unexpected reset, authority transfer or loss of the AP is seen.
+
+Serial and Browser evidence should be retained automatically in the existing
+`firmware/logs/device-monitor-*.log` and Browser/diagnostic paths. A failure
+is recorded against the affected acceptance requirement before any further
+WP5 action is chosen.
