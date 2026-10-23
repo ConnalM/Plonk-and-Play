@@ -742,7 +742,18 @@ private:
     // Control has published FINISHED. Do not expose it while completion is
     // still being settled.
     if(current.sealed){
-      if(noticeboard_.current().lifecycle!=SessionLifecycle::Finished){RaceEngineModule::clearResult(loaded);return loaded;}
+      const auto state=noticeboard_.current();
+      if(state.lifecycle!=SessionLifecycle::Finished){RaceEngineModule::clearResult(loaded);return loaded;}
+      // Once the current result has been committed, serve that committed
+      // History payload.  The sealed engine object is still needed as the
+      // provisional result while persistence is pending, but streamed detail
+      // is finalized by then and is no longer a safe source for an HTTP
+      // Results request.  Returning the current object after HistoryStored
+      // therefore loses finish durations and other reconstructed fields.
+      if(!state.persistencePending&&!state.persistenceFault&&state.historySequence&&history_){
+        size_t bytes=0; uint32_t stored=0;
+        if(history_->loadSequence(state.historySequence,reinterpret_cast<uint8_t*>(&loaded),sizeof(loaded),bytes,stored)&&bytes==sizeof(loaded)&&stored==state.historySequence&&loaded.sealed&&loaded.formatVersion==RaceEngineModule::ResultFormatVersion){found=true;return loaded;}
+      }
       return current;
     }
     if(!history_) return current;
