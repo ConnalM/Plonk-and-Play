@@ -1009,7 +1009,11 @@ private:
     auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(calloc(1,sizeof(RaceEngineModule::CompletedRaceResult))); char* json=static_cast<char*>(malloc(ResultsJsonCapacity));
     if(!loaded||!json){if(loaded)RaceEngineModule::clearResult(*loaded);free(loaded);free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"result buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}
     bool found=false; const auto&r=instance()->displayResult(*loaded,sequence,found); if(sequence&&!found){RaceEngineModule::clearResult(*loaded);free(loaded);free(json);httpd_resp_send_err(request,HTTPD_404_NOT_FOUND,"history result not found");trace.complete(ESP_ERR_NOT_FOUND);return ESP_FAIL;}
-    size_t length=0; const DetailSource* detailSource=sequence?nullptr:instance()->detailSource_; if(!serializeResults(r,json,ResultsJsonCapacity,length,detailSource)){RaceEngineModule::clearResult(*loaded);free(loaded);free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"result entry count exceeds capacity");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}
+    // A committed History result has already reconstructed its own lap detail.
+    // Do not let the live Race Engine detail source shadow that payload: the
+    // active source may be finalized/reset by the time the HTTP request runs,
+    // which would preserve progress/BEST metadata but erase per-entry TIME.
+    size_t length=0; const DetailSource* detailSource=(sequence||found)?nullptr:instance()->detailSource_; if(!serializeResults(r,json,ResultsJsonCapacity,length,detailSource)){RaceEngineModule::clearResult(*loaded);free(loaded);free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"result entry count exceeds capacity");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}
     httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);RaceEngineModule::clearResult(*loaded);free(loaded);free(json);trace.complete(sent);return sent;
   }
   static esp_err_t detailsRoute(httpd_req_t* request) {
