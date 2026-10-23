@@ -1,298 +1,222 @@
-# P&P Master Project Plan
+# P&P Consolidated Completion Plan
 
-**Status:** Project-control baseline — October 2026  
-**Purpose:** High-level, tickable plan for taking P&P from the current engineering system to a complete, supportable product. Detailed stage/acceptance documents remain authoritative for product behaviour.
+**Status:** Authoritative project-control plan — 23 October 2026  
+**Purpose:** One route from the present engineering system to a releasable P&P v1.
 
-## Development rhythm
+This file supersedes the old Stage plan, the earlier WP0–WP12 execution plan and ad-hoc gap lists **as project roadmaps**. Those documents remain authoritative specifications and evidence where applicable. Nothing already proved is to be rerun merely because this plan is newer.
 
-P&P work is organised into coherent software/specification batches followed by deliberate real-hardware validation rounds. Do not bounce between Wokwi and physical hardware for ordinary software changes.
+The detailed reconciliation that feeds this plan is `docs/P_AND_P_COMPLETION_RECONCILIATION_2026-10-23.md`.
 
-Normal flow:
+## 1. Project-control rules
 
-**Frozen docs / product decision → implementation + automated tests → PC/Wokwi integration → semantic sanity review → hardware candidate → concentrated hardware validation**
+### One-plan rule
+Every known requirement or unresolved obligation must have exactly one disposition:
 
-Real hardware complements simulation and must cumulatively revalidate applicable accepted behaviour.
+- **DONE** — sufficient evidence exists;
+- **CURRENT/LATER WP** — required for v1 and assigned here;
+- **DEFERRED POST-v1** — deliberately outside v1;
+- **SUPERSEDED** — historical path/wording no longer applicable.
 
-## Roles
+No separate Stage/WP/gap list may become a competing execution plan.
 
-- **Connal — Project Owner:** product scope, priorities, customer behaviour and final approval; physical testing at deliberate hardware checkpoints, not routine firmware test labour.
-- **Archie — Project Manager / Senior Architect:** roadmap, dependencies, scope control, architecture, docs-first discipline, acceptance gates and readiness to move from specification to software to hardware.
-- **Al — Chief Programmer / Troubleshooter:** repository reality, implementation, builds, automated tests, Wokwi, diagnostics and technical investigation within frozen behaviour.
-- **Gina — UX/UI Lead:** Browser and local-display interaction/presentation after underlying behaviour is settled.
-- **Bob — Test & Verification:** later independent acceptance/evidence review; not another designer or coder.
+### Development rhythm
 
-## High-level work packages
+**Frozen behaviour/product decision → implementation + automated tests → PC/Wokwi integration → semantic review → software gate → one hardware candidate → concentrated hardware validation.**
 
-- [x] **WP0 — Establish exact current baseline**  
-  Owners: Archie + Al + Connal.  
-  Workplace: repository/docs + existing hardware evidence.  
-  Produce one agreed software and hardware status showing DONE / PARTLY DONE / DESIGNED ONLY / NOT STARTED / DEFERRED. Establish the proposed v1 boundary and dependencies before further implementation.
+Connal is not routine firmware test labour. Hardware testing is grouped at deliberate gates.
 
-### Software Batch 1 — Finish the base
+### Evidence rule
+Existing valid host, Wokwi and physical evidence is credited. Physical requirements still require physical evidence, but an already passed physical test is not repeated merely for paperwork.
 
-- [ ] **WP1 — Complete current P&P racing base** *(implementation complete; formal acceptance pending external execution)*  
-  Owners: Archie + Al + Gina.  
-  Workplace: specification + PC/Wokwi.  
-  Complete/cohere currently supported Lap, Open Practice and Endurance behaviour, Normal Browser lifecycle/presentation, all Lap finish variants, Results semantics, Race Director/multiple-client behaviour and mode-specific automated acceptance.
+### Project-owner information rule
+Connal is Project Owner, not the technical message bus. He is involved when a product/scope/cost decision, physical action or acceptance observation is required.
 
-- [ ] **WP2 — Complete storage and records** *(WP2A–F software accepted; physical SD failure/recovery remains WP4 debt)*
-  Owners: Archie + Al.  
-  Workplace: software/Wokwi first.  
-  Complete Results/History/detail/PB/Track Record/Record Era/reconstruction/retention and transactional/failure behaviour that can be developed without real hardware.
+Archie and Al resolve routine technical detail between themselves through the repository wherever possible. Al records concise reconciliation/implementation outcomes in GitHub; Archie reads them directly. Connal is not expected to interpret source code, logs or detailed acceptance reports.
 
-- [ ] **WP3 — Complete diagnostics and support path** *(software implementation complete for review; final/physical acceptance pending)*
-  Owners: Archie + Al + Gina where UI is required.  
-  Workplace: software/Wokwi.  
-  Finish production diagnostic recording, health/status/version information and P&P → SD diagnostic artifact → Browser DOWNLOAD support flow.
+## 2. Roles
 
-### Hardware Round 1 — Prove the base
+- **Connal — Project Owner:** scope, priorities, customer behaviour, cost decisions, deliberate physical acceptance and final approval.
+- **Archie — Project Manager / Senior Architect:** roadmap, dependencies, scope control, architecture, gates, reconciliation and readiness decisions.
+- **Al — Chief Programmer / Troubleshooter:** repository reality, implementation, builds, automated tests, Wokwi, diagnostics and technical investigation.
+- **Gina — UX/UI Lead:** Browser/local-display interaction, wording and presentation once underlying behaviour is settled.
+- **Bob — Independent Test & Verification:** later release-candidate evidence review; not another designer/coder.
 
-- [ ] **WP4 — Base-system real-hardware validation**  
-  Owners: Connal + Al + Archie.  
-  Workplace: physical ESP32-S3 P&P.  
-  Continue from evidence already obtained rather than restarting. Validate multi-client/Race Director behaviour, completed Results/History, SD reboot reconstruction, second-race retention, storage failure/recovery, resources/stability and cumulative applicable hardware acceptance.
+## 3. v1 boundary
 
-### Software Batch 2 — Turn the base into an appliance
+P&P v1 includes:
 
-- [ ] **WP5 — Recovery, Reset and firmware update**  
-  Owners: Archie + Al + Gina; Connal approves customer behaviour.  
-  Workplace: specification + software/Wokwi first.  
-  Define and implement restart/reset/factory-reset/recovery semantics plus customer firmware upload, validation, SD staging, install, interrupted/bad-update recovery, versioning and customer-data retention.
+- Lap Race with all three finish policies;
+- Open Practice;
+- Endurance: Stop at Zero and Finish Current Lap;
+- 1–8 lane software/product architecture, initially provable with two physical lanes;
+- Normal Browser, one Race Director/controller lease and spectator Browsers;
+- local 7-inch display/Taster operation;
+- real optical lap detection and Track Setup;
+- Results, Finish Display, History/Details, PB, Track Record and Record Era where applicable;
+- SD persistence, transactional behaviour and recovery;
+- always-available factory AP plus optional AP+STA external networking;
+- `plonk-and-play.local` on LAN with IP fallback;
+- diagnostics, support download, health/status/version;
+- restart/reset/factory recovery and customer firmware update;
+- useful basic audio;
+- production PSU, connectors/cabling, enclosure, instructions, production test and support process.
 
-- [ ] **WP6 — Track hardware system**  
-  Owners: Archie + Al + Connal.  
-  Workplace: software/Wokwi then bench hardware.  
-  Turn detector architecture into product track hardware: sensor addressing, lane assignment, health, Track Setup, minimum-lap/detection behaviour, connections, gantry and expansion architecture.
-
-- [ ] **WP7 — Local P&P: Taster, display and audio**  
-  Owners: Archie + Gina + Al + Connal.  
-  Workplace: software first, then physical hardware.  
-  Complete local controls/display/start lights/pause-resume/recovery/AP information and define/implement authoritative useful audio, volume and mute behaviour.
-
-### Hardware Round 2 — Prove the appliance
-
-- [ ] **WP8 — Complete-appliance hardware integration**  
-  Owners: Connal + Al + Archie.  
-  Workplace: real P&P.  
-  Concentrated validation of Reset/recovery, firmware update/failure, real sensors/multiple lanes, SD/power failures, Taster/display, Browser/multiple clients, audio, Wi-Fi, diagnostics download and long-running races.
-
-### Software Batch 3 — Expansion selected for v1
-
-- [ ] **WP9 — Additional displays / MUG**  
-  Owners: Archie + Gina + Al.  
-  Workplace: software/Wokwi.  
-  Implement only the additional display/MUG capabilities selected for v1. Other ideas move to v1.x/v2.
-
-- [ ] **WP10 — Additional race modes**  
-  Owners: Archie + Al + Gina.  
-  Workplace: specification + software/Wokwi.  
-  Implement only additional modes selected for v1 (candidate future areas include Timed Practice, Stage/Rally and Drag). Do not hold v1 hostage to every planned mode.
-
-### Hardware Round 3 — Release candidate
-
-- [ ] **WP11 — Full cumulative v1 hardware acceptance**  
-  Owners: Connal + Archie + Al; Bob for independent verification.  
-  Workplace: real product hardware.  
-  Full applicable acceptance programme plus soak/repeated races/reboots/power/storage/network/sensor/update/reset/first-use abuse. This round is expected to pass rather than serve as exploratory development.
-
-- [ ] **WP12 — Productisation and release**  
-  Owners: Connal + Archie + Al + Gina as appropriate.  
-  Workplace: mixed.  
-  Final enclosure/connectors/cables/PSU/SD/labels/instructions/first-start access/release process/unit production test/support procedure and novice-user Plonk & Play test.
-
-## WP0 hardware status method
-
-For every physical subsystem classify it separately as:
-
-**HAVE IT → BASIC TESTED → INTEGRATED WITH P&P → ACCEPTANCE TESTED**
-
-Minimum hardware inventory to audit:
-
-- ESP32-S3 controller board
-- 7-inch 800×480 display/backlight
-- flash and PSRAM
-- microSD interface/card
-- Wi-Fi AP
-- speaker/amplifier/audio
-- rotary encoder/buttons/Taster
-- VL53L0X detector(s)
-- intended VL53L4CD detector(s)
-- two-lane connections
-- MCP23017/IO expansion
-- 4/8-lane expansion
-- gantry/mounting
-- wired sensor cabling
-- wireless detector concept
-- power supply
-- production connectors
-- enclosure
-
-Known evidence already obtained must be credited rather than rerun merely to populate the table. WP0 determines exactly what remains unproved.
-
-## Current project position
-
-**NOW: WP0 is COMPLETE.** The agreed baseline and v1 boundary are recorded below.
-
-**WP1:** implementation/product work is complete. Formal acceptance remains pending the specific external runtime evidence recorded below. This does not claim those pending runs passed.
-
-**WP2:** WP2A–F are software-accepted. WP2E establishes bounded storage housekeeping, capacity, version and wear discipline without changing sporting authority; WP2F closes the software chain with a normal Race Engine/Input semantic scenario. Physical SD removal, remount and power-loss validation remains WP4 acceptance debt. No further WP2 software batch is open.
-
-### WP1 closure record
-
-**Status:** IMPLEMENTATION COMPLETE / FORMAL ACCEPTANCE PENDING.
-
-No WP1 implementation or product work remains. The following acceptance evidence is still unexecuted:
-
-1. Production-path P16/P17/P18 execution for the three Lap finish behaviours: Immediate/All Stop, Finish Current Lap, and Complete Full Race Distance.
-2. Integrated production HTTP/SSE multi-client execution covering controller and spectator live fan-out, KEEP, ALLOW, same-identity reconnect, genuine disconnect/reacquisition, and race continuity.
-
-The current blocker is environmental: the Wokwi CI Hobby Plus quota is exhausted, and no suitable live production endpoint was available for the multi-client run. These scenarios remain pending, not passed. WP2 may proceed as a separate package while WP1 retains this explicit pending-acceptance status.
-
-The Stage 10 `masterFingerprint_` structural check and Stage 13 exact-text committed-GO check are recorded as test-maintenance debt. They were audited as stale checks against current, compliant mechanisms and are not fixed or treated as product defects here.
-
-### WP2 opening record
-
-**Status:** WP2A–F software accepted; physical SD failure/recovery remains WP4 debt.
-
-WP2 completes the frozen storage and records boundary: NVS for small controller/configuration state, SD for committed History/Results/Details, PB, Track Record and Record Era data, versioned/checksummed serialization, bounded rolling retention, reconstruction, and transactional/failure/recovery behaviour. The production policy is the latest 100 completed races with complete available lap detail; current four-race/8,192-byte development History and provisional bounded active-detail workspace are not product limits.
-
-The real ESP32-S3 + SD P1 integration and SD probe are evidence for WP4 hardware validation, not a substitute for WP2 software completion. Transactional commit/index recovery, rolling eviction, reboot reconstruction and persistence-failure semantics are covered by WP2A/B; WP2C removed the former fixed detail ceiling and WP2D now provides the production active-detail stream, controlled recovery boundary and software failure boundary. WP2E adds bounded housekeeping and explicit capacity/version policy without changing sporting authority. Browser work belongs in WP2 only where it consumes the existing authoritative History/Results contract; diagnostics remain WP3, physical validation WP4, recovery/reset/update WP5, and Personal MUG work later.
-
-### WP2F software acceptance record
-
-**Status:** SOFTWARE ACCEPTED / PHYSICAL VALIDATION DEFERRED TO WP4.
-
-The final development campaign covers transaction safety, rolling-100 history,
-full-detail streaming and reconstruction beyond the former RAM limits, PB/
-Track Record/Record Era persistence, controlled recovery, version and
-housekeeping behavior, and one coherent Race Engine/Input scenario combining
-recoverable interruption, commit, Result/Details reconstruction and record
-consequences. Real SD media removal/remount, power interruption, filesystem
-allocation, wear, throughput and final capacity thresholds remain explicitly
-physical WP4 evidence.
-
-### WP3A diagnostics/support design record
-
-**Status:** DESIGN ACCEPTED/FROZEN; SOFTWARE IMPLEMENTATION COMPLETE FOR REVIEW.
-started.
-
-WP3A freezes the v1 support workflow and boundaries for diagnostics: Normal
-diagnostics are always-on, quiet, bounded and observation-only; Development
-diagnostics are deeper, explicit and controlled by the existing Master/
-Race-Director/controlling-SMUG lease; any connected Browser may request one
-P&P-generated observation-only support download. The support artifact is a
-versioned UTF-8 NDJSON snapshot with deterministic structured records,
-provenance and explicit incomplete/volatile/drop state. Export capability is
-authoritative (`AVAILABLE`, `LIMITED` or `UNAVAILABLE`), and diagnostic
-failure cannot affect racing or product authority.
-
-Development logging automatically stops after four hours, or earlier when
-deliberately stopped by the controlling SMUG. Normal diagnostics continue and
-retained Development evidence is not deleted on expiry. Development mode is
-volatile: reboot, reset or power loss ends it, P&P restarts in Normal
-diagnostics only, and there is no automatic resume or resume prompt. Existing
-diagnostic material remains subject to bounded retention.
-
-The WP3 software implementation now provides the observation-only production
-recorder integration, bounded RAM/degraded storage status, controlling-SMUG
-Development start/stop, observation-only status/records/download routes, the
-Normal Browser Diagnostics workflow and a versioned NDJSON support artifact.
-Focused Phase 1–7 regressions, the WP3 production-recorder contract test and
-Browser/support structural checks pass. WP4A now adds a provisional
-durable ESP32-S3 SD diagnostic backend behind the existing
-`DiagnosticStorage` boundary; final capacities, privacy/redaction review, SD
-housekeeping/wear tuning and real ESP32-S3/SD acceptance remain open. This
-record does not grant final WP3 or Stage 15 acceptance.
-
-
-### WP4A diagnostics/storage integration record
-
-**Status:** SOFTWARE IMPLEMENTED FOR HARDWARE CANDIDATE / PHYSICAL VALIDATION PENDING.
-
-WP4A adds the production ESP32-S3 SD/FATFS diagnostic backend behind the existing `DiagnosticStorage` boundary. Normal and Development recording, controller-lease enforcement, observation-only status/retrieval/download, four-hour expiry and reboot-volatility semantics are unchanged. The WP4 candidate uses a checksummed versioned record stream at `/pp-diagnostics/records.bin`, with a provisional 256-record / 256-byte-payload bound. This is an engineering value, not a frozen product limit. Diagnostic failure remains isolated from racing and authoritative History/Results/PB/Track Record data. Real-card reboot reconstruction, removal/remount, interruption, resource and wear evidence remain WP4 hardware acceptance work.
-
-Do not start new implementation simply because an item is visible later in this plan. Each work package is opened deliberately after its dependencies and exit criteria are agreed.
-
-
-## WP0 — agreed baseline and v1 boundary
-
-**Status:** COMPLETE — baseline agreed by Archie and Connal.  
-**Recorded:** October 2026.  
-**Scope:** project control and release-boundary baseline only; this section does not change product implementation.
-
-### WP0 completion record
-
-- **DONE:** WP0A software/product baseline audit.
-- **DONE:** repository-hygiene audit.
-- **DONE:** preservation of unique intentional current work, pushed on branch `browser-product-ux-stage15` at preservation commit `6ea8620ae8ddf0790bacdba4bafffd972a595f7a`. This branch is not merged into `main` by WP0.
-- **DONE:** WP0B physical-hardware evidence audit.
-- **DONE:** Connal's physical inventory corrections recorded.
-- **DONE:** P&P v1 boundary and product promise agreed.
-- **PARTLY DONE:** several base software and real-hardware integrations have evidence, but remaining acceptance and productionisation work stays in the later work packages below.
-- **DESIGNED/SPECIFIED ONLY:** capabilities whose governing specifications exist without complete implementation or acceptance evidence.
-- **DEFERRED/POST-V1:** facilities listed below as outside the v1 boundary remain on their existing specifications/roadmap; they are deferred, not cancelled.
-- **NOT STARTED:** physical items Connal does not currently own or have available, and any later work package not explicitly opened.
-
-### Agreed P&P v1 product boundary
-
-The v1 product includes:
-
-- Lap Race, with all three finish behaviours: all stop when the winner finishes; the winner finishes while other racers finish their current lap; and the winner finishes while other racers complete the total race distance.
-- Open Practice.
-- Endurance, including Stop at Zero and Finish Current Lap.
-- A 1–8 lane product/software architecture. Initial physical proving and supply may begin with two physical lanes.
-- Normal Browser, the single Race Director/controller lease, spectator Browsers, and local 7-inch display/Taster operation.
-- Real optical lap detection and Track Setup sufficient to configure the real product.
-- Results, Finish Display, History and History Details, PB, Track Record, and Record Era where applicable.
-- SD persistence and transactional/recovery behaviour.
-- The automatic open P&P factory Wi-Fi access point and optional AP+STA
-  external-network connection configured from Advanced → Diagnostics → Network.
-  Normal racing requires no router, internet or account; external-network
-  loss must not affect the AP or racing.
-- Production diagnostics, Browser diagnostic-log download, health/status/version information, restart/reset/factory recovery, and customer firmware update.
-- Basic useful audio.
-- Production power supply, production connectors/cabling, enclosure, and the support/release/productisation work required to sell and support v1.
-
-The v1 product promise is:
+Product promise:
 
 > Take P&P out of the box, connect the sensors, switch it on and race — without a PC, router, account or technical setup.
 
-A phone/tablet Browser provides richer SMUG controls but is not required simply to run a race.
+Deferred post-v1: Personal MUG, dedicated TV/projector display, Timed Practice, Stage/Rally/Hill Climb, Drag, wireless detectors, Screen Designer, championships/events, Rex/REU-dependent facilities and other later expansion unless explicitly promoted by Connal through scope control.
 
-The final electrical method for 4/8-lane sensor expansion remains an engineering decision for the relevant later work package; WP0 does not choose MCP23017 or an alternative.
+## 4. Work packages and closure gates
 
-### Explicitly deferred beyond v1
+### WP0 — Baseline, reconciliation and scope
+**Status: CLOSED.**
 
-The following remain on their existing specifications and roadmap as post-v1/v1.x/v2 work:
+The repository, Stage/WP documents, implementation, tests, evidence, hardware inventory and known gaps have been reconciled. The v1 boundary above is frozen. Historical overlaps/superseded paths are recorded in the reconciliation report.
 
-- Personal MUG.
-- Dedicated TV/projector display.
-- Timed Practice.
-- Stage/Rally/Hill Climb.
-- Drag.
-- Wireless detectors.
-- Screen Designer.
-- Championships/events.
-- Other later expansion facilities.
+**Closure gate G0 — PASSED:** every known item is classified DONE, assigned below, deferred or superseded. No new implementation is required merely to close WP0.
 
-### WP0 physical inventory record
+---
 
-**Physically owned, not thereby tested or integrated:**
+### WP1 — Racing core
+**Scope:** Lap, Open Practice, Endurance, lifecycle, start/pause/resume/restart/abandon, all three Lap finish policies, authoritative race state and sporting semantics.
 
-- ESP32-S3/7-inch target board.
-- VL53L0X modules, currently not connected.
-- Rotary encoder and push-button hardware, currently not connected.
-- Speaker/audio hardware, currently not connected.
-- Physical microSD/card already tested as recorded.
+**Already credited:** core architecture/timing/input abstraction; Stage 14A variable entries; Open Practice real-ESP32 acceptance; extensive Lap/Endurance automated coverage.
 
-**Not currently owned or available:**
+**Remaining before closure:**
+- reconcile/fix only genuine software defects found by review;
+- close production-path semantics for P16/P17/P18: All Stop, Finish Current Lap, Complete Full Race Distance;
+- ensure Endurance software acceptance is complete; physical Browser/Taster proof belongs to WP5.
 
-- VL53L4CD.
-- MCP23017.
-- Gantry/mountings.
-- Production sensor cabling/connectors.
-- Production power supply; the board is currently powered from a laptop.
-- Enclosure.
+**G1 closure:** all racing-core automated/Wokwi/spec acceptance passes; no known racing-core software defect remains. Physical proof is explicitly deferred to WP5 rather than blocking software closure.
 
-Ownership is not a test or integration claim. Existing hardware evidence remains classified by the WP0B audit and later work-package acceptance gates.
+### WP2 — Results, records and persistence
+**Scope:** Results/Details/History, PB, Track Record, Record Era, rolling retention, reconstruction, transactional/failure semantics and authoritative SD ownership.
 
+**Already credited:** WP2A–F software acceptance, versioning, reconstruction, rolling retention, active-detail streaming and failure-injection work.
+
+**Remaining before closure:**
+- classify the historical Lane 2 `1 lap`/missing-time anomaly as legacy or reproduce/fix it;
+- verify no unresolved software-only persistence/records obligation remains.
+
+Real-card removal/remount, reboot reconstruction, interruption, coexistence and recovery belong to WP5.
+
+**G2 closure:** software records/persistence matrix is clean; anomaly resolved/classified; no known software-only WP2 defect remains.
+
+### WP3 — Browser, authority and networking
+**Scope:** normal Browser lifecycle/reconstruction, Race Director lease, spectators, multi-client SSE, KEEP/ALLOW, reconnect/reacquisition, AP+STA and LAN access.
+
+**Already credited:** Scan/CONNECT/AP+STA/LAN/DISCONNECT/reboot reconnect/FORGET/Forget+reboot hardware passes; `plonk-and-play.local` was physically resolved successfully on 23 October and is accepted evidence; no repeat mDNS test is required merely to create an artifact.
+
+**Remaining before closure:**
+- software/automated closure for live multi-client authority semantics;
+- retained Race Director identity/restoration path after controller/P&P restart must be software-correct before hardware proof.
+
+**G3 closure:** Browser/authority/network software suite and semantic review pass; networking behaviour remains frozen; no known software defect remains. Live multi-client/reboot authority proof belongs to WP5.
+
+### WP4 — Diagnostics and support
+**Scope:** production recorder, privacy/redaction boundary, health/status/version, bounded/degraded storage behaviour and P&P → SD artifact → Browser DOWNLOAD support path.
+
+**Already credited:** recorder/export implementation and tests, successful real export, diagnostics Browser route and NDJSON support artifact.
+
+**Remaining before closure:** software-only privacy/redaction/capacity/recovery/storage-health obligations and support-artifact semantics.
+
+**G4 closure:** end-to-end simulated/automated support path passes and diagnostic failure cannot affect racing or product authority. Physical SD/degraded-storage proof belongs to WP5.
+
+### GATE A — BASE SOFTWARE FREEZE
+WP1–WP4 must all be closed. Archie performs a cross-WP semantic review. Al produces one identified firmware candidate. No known base-software defect may be carried silently into hardware acceptance.
+
+---
+
+### WP5 — Base-system hardware acceptance
+**Purpose:** one concentrated physical campaign against the Gate-A candidate, crediting all existing evidence.
+
+Must close the remaining physical obligations for the base, including:
+- all three Lap finish policies with fresh Results/Details/History inspection;
+- multi-Browser controller/spectator fan-out, KEEP/ALLOW, reconnect/reacquisition and race continuity;
+- retained Race Director restoration after reboot;
+- Endurance physical checkpoint;
+- Browser/Taster coexistence required at this base checkpoint;
+- fresh Results check sufficient to close the historical missing-time concern if not already classified;
+- SD reboot reconstruction, second-race retention, removal/remount, failure/recovery and interruption obligations applicable here;
+- diagnostics download/degraded-storage physical path;
+- resource/stability checks appropriate to this candidate.
+
+**GATE B — BASE PROVEN:** all applicable base hardware acceptance passes on a controlled candidate; failures are fixed and only affected tests plus necessary cumulative checks are rerun; evidence is recorded. The base is then frozen against casual redesign.
+
+---
+
+### WP6 — Recovery, Reset and customer firmware update
+Define and implement restart/reset/factory-reset/recovery semantics; customer firmware upload, validation, SD staging, installation, versioning, interrupted/bad-update recovery and customer-data retention.
+
+**G6 closure:** automated failure/recovery matrix passes and the candidate is ready for integrated hardware proof.
+
+### WP7 — Track hardware system
+Productise real detection: sensor addressing, lane assignment, health, Track Setup, minimum-lap/detection behaviour, connections/cabling, gantry and 4/8-lane expansion architecture. Final MCP23017/alternative choice is made here, not assumed by WP0.
+
+**G7 closure:** two-lane product-intent detection works reliably; setup/fault/replacement behaviour is defined and tested; expansion architecture is sufficiently proven for the v1 promise.
+
+### WP8 — Local appliance: display, Taster and audio
+Complete local 7-inch presentation, Taster/local controls, start lights, pause/resume/recovery/AP information, authoritative audio, volume/mute and coexistence with Browser authority.
+
+**G8 closure:** P&P can perform the promised core race experience without phone/PC; Browser and local operation converge correctly; display/audio/control failure behaviour is defined.
+
+### GATE C — COMPLETE APPLIANCE PROVEN
+Concentrated hardware integration of WP6–WP8 plus cumulative base behaviour: reset/update failures, real sensors/multiple lanes, SD/power failures, display/Taster, Browser/multiple clients, audio, Wi-Fi, diagnostics and long-running races. Gate closes only when the appliance works as one system.
+
+---
+
+### WP9 — v1 optional expansion decision
+This is a **scope gate**, not an invitation to add features. Connal and Archie decide whether any currently deferred display/MUG/race-mode facility is essential to v1.
+
+Default answer is **none**. Anything not explicitly promoted remains post-v1.
+
+**GATE D — FEATURE FREEZE:** final v1 feature list frozen. No Rex/REU, Drag, Rally or other attractive rabbit hole may enter v1 without an explicit scope/cost/schedule decision by Connal.
+
+---
+
+### WP10 — Qualification and release-candidate acceptance
+Run the deliberate abuse/soak campaign: repeated races, reboots, AP+STA cycles, router loss/restore, wrong credentials, DHCP changes, SD removal/recovery, power interruption, storage load/wear/throughput, heap/stack/resources, long-duration races, sensor faults, update/reset/recovery and first-use abuse.
+
+Bob may independently review evidence here.
+
+**G10 closure:** qualification matrix passes with no release-blocking defect and no unexplained resource/stability trend.
+
+### WP11 — Production hardware
+Finalise PCB/electronics as applicable, PSU, connectors, cables, SD, enclosure, gantry/mounting and labels. Build production-intent unit(s).
+
+**G11 closure:** production-intent unit passes all relevant cumulative acceptance and can be built/tested reproducibly.
+
+### WP12 — Release
+Complete instructions, first-start/access experience, firmware/release process, unit production test, support procedure, diagnostic support workflow and novice-user Plonk & Play trial.
+
+**GATE E — P&P v1 RELEASED:** a novice can unpack, connect, power on and race; release package/support path is complete; no open release blocker remains.
+
+## 5. Current project position
+
+**Current activity: WP1–WP4 software closure against Gates G1–G4.**
+
+WP0 is closed. Much of WP1–WP4 is already implemented and accepted; these packages are closure reviews, not rewrites. Connal should not be asked for routine physical testing until Gate A produces the deliberate WP5 hardware candidate.
+
+Immediate technical order is:
+
+1. Archie/Al close WP1 software obligations.
+2. Close WP2 anomaly/software obligations.
+3. Close WP3 authority software obligations while retaining the already-passed networking evidence.
+4. Close WP4 software-only diagnostics obligations.
+5. Archie performs Gate A review; Al produces the hardware candidate.
+6. Connal performs the bounded WP5 physical campaign one focused test at a time.
+
+## 6. Status reporting
+
+When Connal asks **“where are we?”**, the answer must come from this file plus current repository evidence, not memory.
+
+Routine status should contain only:
+
+- current WP/gate;
+- what has closed since last report;
+- blockers;
+- whether Connal must decide/do anything;
+- next gate.
+
+Technical detail remains in the underlying specifications, reconciliation, commits and acceptance evidence unless Connal asks for it.
