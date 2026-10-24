@@ -648,10 +648,11 @@ void setup(){
   testsPassed&=bus.subscribe(testPublisher,pp::Type::DiagnosticProbe);
   testsPassed&=bus.subscribe(testObserver,pp::Type::DiagnosticProbe);
   testsPassed&=bus.subscribe(inputObserver,pp::Type::InputEvent);
-#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   // Diagnostics observes authoritative event boundaries without participating
   // in control flow. High-frequency NoticeboardChanged and ordinary bus
-  // traffic remain intentionally unobserved here.
+  // traffic remain intentionally unobserved here. The P1 build enables this
+  // observer only to expose the terminal persistence outcome on Serial.
   for(pp::Type type : {pp::Type::StartRequest,pp::Type::RequestResult,pp::Type::SessionOperationRequest,pp::Type::SessionOperation,pp::Type::GoScheduled,pp::Type::LapCompleted,pp::Type::Paused,pp::Type::RestartScheduled,pp::Type::Resumed,pp::Type::FalseStart,pp::Type::EnduranceExpired,pp::Type::CompetitionComplete,pp::Type::HistoryStored,pp::Type::StorageFault,pp::Type::RaceIntegrityFault,pp::Type::PauseSettled,pp::Type::FinishSettled}) testsPassed&=bus.subscribe(testObserver,type);
 #endif
   // Normal diagnostics uses the same observation-only spine on production
@@ -796,7 +797,7 @@ void loop(){
     diagnostics.log("[DEV] %s Browser server=%s error=%d",buildIdentity(),browser.serverReady()?"READY":"FAILED",browser.serverStartError());
   }
 #endif
-#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   observeDiagnosticEvents();
 #endif
   observeControllerTrace();
