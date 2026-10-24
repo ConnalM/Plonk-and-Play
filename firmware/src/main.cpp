@@ -489,7 +489,7 @@ void observeDiagnosticEvents(){
       case pp::Type::HistoryStored:
         diagnostics.log("[RESULT] history_stored sequence=%lu relevant_us=%llu",static_cast<unsigned long>(event.historySequence),static_cast<unsigned long long>(event.relevantTime)); break;
       case pp::Type::StorageFault:
-        diagnostics.log("[ERROR] history_storage_fault relevant_us=%llu",static_cast<unsigned long long>(event.relevantTime)); break;
+        diagnostics.log("[ERROR] history_storage_fault reason=%u(%s) relevant_us=%llu",unsigned(event.probe),pp::persistenceFailureReasonName(event.probe),static_cast<unsigned long long>(event.relevantTime)); break;
       case pp::Type::RaceIntegrityFault:
         diagnostics.log("[ERROR] race_integrity_fault reason=%u relevant_us=%llu",unsigned(event.integrityReason),static_cast<unsigned long long>(event.relevantTime)); break;
       case pp::Type::PauseSettled:

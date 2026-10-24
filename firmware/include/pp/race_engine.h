@@ -6,6 +6,32 @@
 
 namespace pp {
 
+// Observation-only reason carried on StorageFault diagnostics.  These values
+// identify the first persistence boundary that failed; they do not alter the
+// persistence decision or retry/failure-isolation behaviour.
+enum class PersistenceFailureReason : uint32_t {
+  RecordObservation = 1,
+  DetailLost = 2,
+  DetailFinalize = 3,
+  DetailIncomplete = 4,
+  ResultDetailIncomplete = 5,
+  HistoryAppendDetailed = 6,
+  HistoryAppend = 7
+};
+
+inline const char* persistenceFailureReasonName(uint32_t value) {
+  switch (static_cast<PersistenceFailureReason>(value)) {
+    case PersistenceFailureReason::RecordObservation: return "record_observation";
+    case PersistenceFailureReason::DetailLost: return "detail_lost";
+    case PersistenceFailureReason::DetailFinalize: return "detail_finalize";
+    case PersistenceFailureReason::DetailIncomplete: return "detail_incomplete";
+    case PersistenceFailureReason::ResultDetailIncomplete: return "result_detail_incomplete";
+    case PersistenceFailureReason::HistoryAppendDetailed: return "history_append_detailed";
+    case PersistenceFailureReason::HistoryAppend: return "history_append";
+    default: return "unknown";
+  }
+}
+
 #ifndef PP_ACTIVE_DETAIL_BUDGET_BYTES
 // Provisional development/resource budget per active entry.  This is not a
 // sporting or product lap maximum; exhaustion preserves the race and marks
@@ -232,7 +258,7 @@ private:
     s.hasLap=true;
     ++s.laps;
     storeLap(s,lap,m.relevantTime);
-    if(recordEligible_&&records_&&!records_->observe(def.lane,lap))latchPersistenceFault(m.relevantTime,true);
+    if(recordEligible_&&records_&&!records_->observe(def.lane,lap))latchPersistenceFault(m.relevantTime,true,PersistenceFailureReason::RecordObservation);
     publishLap(def,s,lap,m);
     applyFinish(i,m.relevantTime);
   }
@@ -245,7 +271,7 @@ private:
     if(enduranceExpired_&&!at)return;
     if(after&&finishBehaviour_!=LapFinishBehaviour::CompleteCurrentLap)return;
     Time lap=m.relevantTime-s.lastCrossing;if(resumeAt_&&s.lastCrossing<pauseAt_){const Time stopped=resumeAt_-pauseAt_;lap=lap>stopped?lap-stopped:0;}
-    s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;++s.laps;storeLap(s,lap,m.relevantTime);if(recordEligible_&&records_&&!records_->observe(def.lane,lap))latchPersistenceFault(m.relevantTime,true);publishLap(def,s,lap,m);
+    s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;++s.laps;storeLap(s,lap,m.relevantTime);if(recordEligible_&&records_&&!records_->observe(def.lane,lap))latchPersistenceFault(m.relevantTime,true,PersistenceFailureReason::RecordObservation);publishLap(def,s,lap,m);
     if(after||at){if(after)s.postExpiryCompleted=true;if(enduranceExpired_&&finishBehaviour_==LapFinishBehaviour::CompleteCurrentLap){observed_[indexOf(s.raceEntryId)]=true;candidateF_=m.relevantTime;finishReady_=allObserved();}return;}
   }
   // The first eligible crossing after expiry completes the lap that was in
@@ -258,7 +284,7 @@ private:
     const Time lap=m.relevantTime-s.lastCrossing;
     s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;++s.laps;
     storeLap(s,lap,m.relevantTime);
-    if(recordEligible_&&records_&&lap&&!records_->observe(def.lane,lap))latchPersistenceFault(m.relevantTime,true);
+    if(recordEligible_&&records_&&lap&&!records_->observe(def.lane,lap))latchPersistenceFault(m.relevantTime,true,PersistenceFailureReason::RecordObservation);
     publishLap(def,s,lap,m);
     uint8_t i=indexOf(s.raceEntryId);if(i<entryCount())observed_[i]=true;
     candidateF_=m.relevantTime;finishReady_=allObserved();
@@ -285,8 +311,8 @@ private:
     m.probe=deadHeat_?1:0;
     if(bus_.publish(endpoint_,m)==Delivery::Delivered){completionPublished_=true;complete_=true;}
   }
-  void latchPersistenceFault(Time at,bool record){if(record)recordPersistenceFault_=true;else historyPersistFailed_=true;persistenceFault_=true;if(storageFaultPublished_)return;storageFaultPublished_=true;Message fault{};fault.type=Type::StorageFault;fault.relevantTime=at;bus_.publish(endpoint_,fault);publishNoticeboardChanged();}
-  void persistResult(){if(!result_.sealed||persisted_||historyPersistFailed_||!history_)return;if(detailStore_){detailStore_->drain();if(detailStore_->detailLost()){detailIncomplete_=true;for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=false;historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false);return;}if(!detailStore_->finalize()){if(detailStore_->storagePending())return;detailIncomplete_=true;for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=false;historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false);return;}if(!detailStore_->detailComplete()){detailIncomplete_=true;for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=false;historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false);return;}for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=true;}if(!completeDetail()||detailIncomplete_){historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false);return;}uint32_t sequence=0;const bool stored=detailStore_?history_->appendDetailed(reinterpret_cast<const void*>(&result_),sizeof(result_),*detailStore_,sequence):history_->append(reinterpret_cast<const uint8_t*>(&result_),sizeof(result_),sequence);if(stored){historySequence_=sequence;persisted_=true;Message storedFact{};storedFact.type=Type::HistoryStored;storedFact.historySequence=sequence;storedFact.relevantTime=result_.finishTime;bus_.publish(endpoint_,storedFact);publishNoticeboardChanged();}else{latchPersistenceFault(result_.finishTime,false);}}
+  void latchPersistenceFault(Time at,bool record,PersistenceFailureReason reason){if(record)recordPersistenceFault_=true;else historyPersistFailed_=true;persistenceFault_=true;if(storageFaultPublished_)return;storageFaultPublished_=true;Message fault{};fault.type=Type::StorageFault;fault.relevantTime=at;fault.probe=static_cast<uint32_t>(reason);bus_.publish(endpoint_,fault);publishNoticeboardChanged();}
+  void persistResult(){if(!result_.sealed||persisted_||historyPersistFailed_||!history_)return;if(detailStore_){detailStore_->drain();if(detailStore_->detailLost()){detailIncomplete_=true;for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=false;historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false,PersistenceFailureReason::DetailLost);return;}if(!detailStore_->finalize()){if(detailStore_->storagePending())return;detailIncomplete_=true;for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=false;historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false,PersistenceFailureReason::DetailFinalize);return;}if(!detailStore_->detailComplete()){detailIncomplete_=true;for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=false;historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false,PersistenceFailureReason::DetailIncomplete);return;}for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=true;}if(!completeDetail()||detailIncomplete_){historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false,PersistenceFailureReason::ResultDetailIncomplete);return;}uint32_t sequence=0;const bool stored=detailStore_?history_->appendDetailed(reinterpret_cast<const void*>(&result_),sizeof(result_),*detailStore_,sequence):history_->append(reinterpret_cast<const uint8_t*>(&result_),sizeof(result_),sequence);if(stored){historySequence_=sequence;persisted_=true;Message storedFact{};storedFact.type=Type::HistoryStored;storedFact.historySequence=sequence;storedFact.relevantTime=result_.finishTime;bus_.publish(endpoint_,storedFact);publishNoticeboardChanged();}else{latchPersistenceFault(result_.finishTime,false,detailStore_?PersistenceFailureReason::HistoryAppendDetailed:PersistenceFailureReason::HistoryAppend);}}
   static bool before(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){if(a.classifiedLaps!=b.classifiedLaps)return a.classifiedLaps>b.classifiedLaps;if(f==LapFinishBehaviour::Immediate)return false;if(!a.completionTime)return false;if(!b.completionTime)return true;return a.completionTime<b.completionTime;}
   static bool beforeLive(const EntryState&a,const EntryState&b,LapFinishBehaviour f){const uint32_t ac=a.laps>a.lapPenalty?a.laps-a.lapPenalty:0;const uint32_t bc=b.laps>b.lapPenalty?b.laps-b.lapPenalty:0;if(ac!=bc)return ac>bc;if(f==LapFinishBehaviour::Immediate)return false;if(!a.lastCrossing)return false;if(!b.lastCrossing)return true;return a.lastCrossing<b.lastCrossing;}
   static bool samePlace(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){return a.classifiedLaps==b.classifiedLaps&&(f==LapFinishBehaviour::Immediate||a.completionTime==b.completionTime);}
