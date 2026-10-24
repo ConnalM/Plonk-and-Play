@@ -53,6 +53,10 @@ function renderResults(r){
 }
 async function results(){
  let key=selectedHistorySequence||0;
+ if(!selectedHistorySequence&&S?.lifecycle==='FINISHED'&&!S?.persistenceFault&&(!Number(S?.historySequence||0)||S?.persistencePending)){
+  A.innerHTML='<section class="hero"><div class="eye">RESULTS</div><h1>Saving result…</h1><div class="muted">Preparing the committed result and lap times.</div></section>';
+  return;
+ }
  if(resultData&&resultDataKey===key){
   if(!resultTimingPending(resultData)){renderResults(resultData);return}
   resultData=null;resultDataKey=null;resultDataHistorySequence=null;
