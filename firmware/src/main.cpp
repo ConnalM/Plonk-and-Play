@@ -172,14 +172,27 @@ void servicePhysicalSdRecovery() {
        lifecycle == pp::SessionLifecycle::Finished) &&
       !physicalSdOwner.available() && !physicalRecoveryAttempted) {
     physicalRecoveryAttempted = true;
-    if (physicalSdOwner.recover()) {
-      // The owner has completed the only physical mount. Consumers now
-      // reconstruct their own namespaces without touching the physical bus.
-      (void)sdPersistence.recover();
-      (void)activeDetail.recover();
-      (void)controllerTraceStorage.recover();
-      (void)rawHistory.count();
+    // The owner has completed the only physical mount. Consumers now
+    // reconstruct their own namespaces without touching the physical bus.
+    const bool ownerRecovered = physicalSdOwner.recover();
+    bool historyBoundary = false;
+    bool detailBoundary = false;
+    bool diagnosticsBoundary = false;
+    bool historyReconstructionAttempted = false;
+    uint8_t historyCount = 0;
+    if (ownerRecovered) {
+      historyBoundary = sdPersistence.recover();
+      detailBoundary = activeDetail.recover();
+      diagnosticsBoundary = controllerTraceStorage.recover() == pp::diagnostic::StorageResult::Accepted;
+      historyCount = rawHistory.count();
+      historyReconstructionAttempted = true;
     }
+    Serial.printf("[P8-P1] SD recovery lifecycle=%u owner=%u owner_health=%u history_boundary=%u history_available=%u detail_boundary=%u diagnostics_boundary=%u history_reconstruction_attempted=%u history_count=%u\n",
+                  static_cast<unsigned>(lifecycle), ownerRecovered ? 1u : 0u,
+                  static_cast<unsigned>(physicalSdOwner.health()), historyBoundary ? 1u : 0u,
+                  sdPersistence.available() ? 1u : 0u, detailBoundary ? 1u : 0u,
+                  diagnosticsBoundary ? 1u : 0u, historyReconstructionAttempted ? 1u : 0u,
+                  static_cast<unsigned>(historyCount));
   }
 }
 #endif

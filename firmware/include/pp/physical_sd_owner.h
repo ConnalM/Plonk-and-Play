@@ -70,9 +70,17 @@ public:
   // consumer cannot remount, and recovery is refused during a live session.
   bool recover() {
     auto lease = lock();
-    if (!lease || !recoveryAllowed()) return false;
+    const bool allowed = recoveryAllowed();
+    Serial.printf("[P8-P1] SD owner recover request lifecycle=%u lease=%u allowed=%u mounted=%u health=%u\n",
+                  static_cast<unsigned>(lifecycle_), lease ? 1u : 0u,
+                  allowed ? 1u : 0u, mounted_ ? 1u : 0u,
+                  static_cast<unsigned>(health_));
+    if (!lease || !allowed) return false;
     if (mounted_) return true;
-    return mountLocked();
+    const bool recovered = mountLocked();
+    Serial.printf("[P8-P1] SD owner recover result mounted=%u health=%u\n",
+                  recovered ? 1u : 0u, static_cast<unsigned>(health_));
+    return recovered;
   }
 
   void setLifecycle(SessionLifecycle lifecycle) { lifecycle_ = lifecycle; }

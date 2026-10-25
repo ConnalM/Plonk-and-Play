@@ -31,6 +31,9 @@ public:
     root_ = root ? root : "/pp-p1";
     auto lease = owner_.lock();
     mounted_ = bool(lease) && owner_.available();
+    Serial.printf("[P8-P1] History store begin owner_lease=%u owner_mounted=%u owner_health=%u\n",
+                  lease ? 1u : 0u, owner_.available() ? 1u : 0u,
+                  static_cast<unsigned>(owner_.health()));
     if (!mounted_) {
       Serial.println("[P8-P1] SD mount FAILED");
       return false;
@@ -82,7 +85,12 @@ public:
   bool recover() {
     auto lease = owner_.lock();
     mounted_ = bool(lease) && owner_.available();
+    Serial.printf("[P8-P1] History store recover owner_lease=%u owner_mounted=%u owner_health=%u\n",
+                  lease ? 1u : 0u, owner_.available() ? 1u : 0u,
+                  static_cast<unsigned>(owner_.health()));
     if (lease && mounted_) { owner_.mkdir(root_); lastHealth_ = StoreHealth::Healthy; cleanupSlotTemps(); }
+    Serial.printf("[P8-P1] History store recover result mounted=%u health=%u\n",
+                  mounted_ ? 1u : 0u, static_cast<unsigned>(health()));
     return mounted_;
   }
 
@@ -200,6 +208,9 @@ public:
   static constexpr size_t QueueCapacity = 16;
   bool begin(uint32_t sessionId,uint8_t entries) override {
     abort(); session_=sessionId; entries_=entries; complete_=true; storagePending_=!mounted(); finalized_=false; dropped_=0; queueSize_=0; memset(counts_,0,sizeof(counts_));
+    Serial.printf("[P8-P1] detail_begin session=%lu entries=%u mounted=%u storage_pending=%u\n",
+                  static_cast<unsigned long>(session_), static_cast<unsigned>(entries_),
+                  mounted() ? 1u : 0u, storagePending_ ? 1u : 0u);
     cleanupOrphans();
     return true;
   }
@@ -211,7 +222,13 @@ public:
   void drain() override {
     if(storagePending_)return;
     while(queueSize_){Item item=queue_[0];
-      if(!writeRecord(item.entry,item.record)){storagePending_=true;return;}
+      if(!writeRecord(item.entry,item.record)){
+        storagePending_=true;
+        Serial.printf("[P8-P1] detail_drain write_failed entry=%u reason=%s queue=%u\n",
+                      static_cast<unsigned>(item.entry), lastWriteFailure_,
+                      static_cast<unsigned>(queueSize_));
+        return;
+      }
       for(size_t i=1;i<queueSize_;++i){
         queue_[i-1]=queue_[i];
       }
@@ -220,9 +237,28 @@ public:
     }
   }
   bool finalize() override {
-    drain(); if(!complete_||queueSize_||storagePending_||!mounted())return false;
-    for(uint8_t i=0;i<entries_;++i)if(!sealFile(i)){complete_=false;return false;}
-    finalized_=true; return true;
+    Serial.printf("[P8-P1] detail_finalize begin session=%lu entries=%u complete=%u queue=%u pending=%u mounted=%u dropped=%lu\n",
+                  static_cast<unsigned long>(session_), static_cast<unsigned>(entries_),
+                  complete_ ? 1u : 0u, static_cast<unsigned>(queueSize_),
+                  storagePending_ ? 1u : 0u, mounted() ? 1u : 0u,
+                  static_cast<unsigned long>(dropped_));
+    drain();
+    if(!complete_){Serial.println("[P8-P1] detail_finalize failed stage=precondition reason=detail_incomplete");return false;}
+    if(queueSize_){Serial.printf("[P8-P1] detail_finalize failed stage=drain reason=queue_pending queue=%u\n",static_cast<unsigned>(queueSize_));return false;}
+    if(storagePending_){Serial.println("[P8-P1] detail_finalize failed stage=drain reason=storage_pending");return false;}
+    if(!mounted()){Serial.println("[P8-P1] detail_finalize failed stage=mount reason=unmounted");return false;}
+    for(uint8_t i=0;i<entries_;++i){
+      if(!sealFile(i)){
+        complete_=false;
+        Serial.printf("[P8-P1] detail_finalize failed stage=seal entry=%u reason=%s verify=%s\n",
+                      static_cast<unsigned>(i), lastSealFailure_, lastVerifyFailure_);
+        return false;
+      }
+    }
+    finalized_=true;
+    Serial.printf("[P8-P1] detail_finalize success session=%lu entries=%u\n",
+                  static_cast<unsigned long>(session_), static_cast<unsigned>(entries_));
+    return true;
   }
   void abort() override { auto lease=store_.storageLock(); if(lease&&mounted()){for(uint8_t i=0;i<PP_MAX_ENTRIES;++i){store_.remove(path(i));store_.remove(markerPath(i));}} queueSize_=0; finalized_=false; complete_=true; storagePending_=false; dropped_=0; session_=0; entries_=0; for(auto&c:counts_)c=0; }
   uint8_t detailEntryCount() const override { return entries_; }
@@ -240,22 +276,34 @@ public:
   uint32_t dropped() const override { return dropped_; }
   bool storagePending() const override { return storagePending_||queueSize_!=0; }
   bool detailLost() const override { return !complete_||dropped_!=0; }
-  bool recover() override { if(mounted()){storagePending_=false;return true;} storagePending_=!store_.recover(); return !storagePending_; }
+  bool recover() override {
+    Serial.printf("[P8-P1] detail_recover before mounted=%u pending=%u finalized=%u\n",
+                  mounted() ? 1u : 0u, storagePending_ ? 1u : 0u, finalized_ ? 1u : 0u);
+    if(mounted()){storagePending_=false;return true;}
+    storagePending_=!store_.recover();
+    const bool recovered = !storagePending_;
+    Serial.printf("[P8-P1] detail_recover result mounted=%u pending=%u recovered=%u\n",
+                  mounted() ? 1u : 0u, storagePending_ ? 1u : 0u, recovered ? 1u : 0u);
+    return recovered;
+  }
   bool mounted() const { return store_.available(); }
 private:
   struct Item { uint8_t entry=0; LapRecord record{}; };
   static constexpr size_t HeaderBytes=24,RecordBytes=40;
   Esp32SpiSdStore& store_; uint32_t session_=0,dropped_=0;uint8_t entries_=0;uint32_t counts_[PP_MAX_ENTRIES]{};Item queue_[QueueCapacity]{};size_t queueSize_=0;bool complete_=true,finalized_=false,storagePending_=false;
+  const char* lastWriteFailure_="none";
+  const char* lastSealFailure_="none";
+  mutable const char* lastVerifyFailure_="none";
   String path(uint8_t entry) const { String p="/pp-p1/active-";p+=String(session_);p+="-";p+=String(entry);p+=".tmp";return p; }
   static void put32(uint8_t*p,uint32_t v){for(unsigned i=0;i<4;++i)p[i]=uint8_t(v>>(8*i));}
   static void put64(uint8_t*p,uint64_t v){for(unsigned i=0;i<8;++i)p[i]=uint8_t(v>>(8*i));}
   static uint32_t get32(const uint8_t*p){return uint32_t(p[0])|(uint32_t(p[1])<<8)|(uint32_t(p[2])<<16)|(uint32_t(p[3])<<24);}
   static uint64_t get64(const uint8_t*p){uint64_t v=0;for(unsigned i=0;i<8;++i)v|=uint64_t(p[i])<<(8*i);return v;}
   static uint32_t hashRecord(uint32_t h,const uint8_t*b){for(size_t i=0;i<RecordBytes;++i){h^=b[i];h*=16777619u;}return h;}
-  bool writeRecord(uint8_t entry,const LapRecord&r){auto lease=store_.storageLock();if(!lease||!store_.canWrite(HeaderBytes+RecordBytes))return false;String p=path(entry);File existing=store_.open(p,FILE_READ);const bool exists=bool(existing);if(existing)existing.close();File f=exists?store_.open(p,FILE_APPEND):store_.open(p,FILE_WRITE);if(!f)return false;if(!exists){uint8_t h[HeaderBytes]{};put32(h,0x50504432u);put32(h+4,session_);h[8]=entry;if(f.write(h,sizeof(h))!=sizeof(h)){f.close();return false;}}uint8_t b[RecordBytes]{};put32(b,r.lapNumber);put64(b+4,r.startTime);put64(b+12,r.finishTime);put64(b+20,r.lapTime);put64(b+28,r.racingFinishTime);b[36]=r.valid?1:0;const bool ok=f.write(b,sizeof(b))==sizeof(b);f.flush();f.close();return ok;}
+  bool writeRecord(uint8_t entry,const LapRecord&r){lastWriteFailure_="none";auto lease=store_.storageLock();if(!lease){lastWriteFailure_="storage_lease";return false;}if(!store_.canWrite(HeaderBytes+RecordBytes)){lastWriteFailure_="capacity_or_mount";return false;}String p=path(entry);File existing=store_.open(p,FILE_READ);const bool exists=bool(existing);if(existing)existing.close();File f=exists?store_.open(p,FILE_APPEND):store_.open(p,FILE_WRITE);if(!f){lastWriteFailure_=exists?"append_open":"create_open";return false;}if(!exists){uint8_t h[HeaderBytes]{};put32(h,0x50504432u);put32(h+4,session_);h[8]=entry;if(f.write(h,sizeof(h))!=sizeof(h)){lastWriteFailure_="header_write";f.close();return false;}}uint8_t b[RecordBytes]{};put32(b,r.lapNumber);put64(b+4,r.startTime);put64(b+12,r.finishTime);put64(b+20,r.lapTime);put64(b+28,r.racingFinishTime);b[36]=r.valid?1:0;const bool ok=f.write(b,sizeof(b))==sizeof(b);f.flush();f.close();if(!ok)lastWriteFailure_="record_write";return ok;}
   String markerPath(uint8_t entry) const { String p=path(entry);p.remove(p.length()-4);p+=".ok";return p; }
-  bool sealFile(uint8_t entry){auto lease=store_.storageLock();if(!lease||!store_.canWrite(12))return false;File f=store_.open(path(entry),FILE_READ);if(!f||f.size()!=HeaderBytes+size_t(counts_[entry])*RecordBytes){if(f)f.close();return false;}uint8_t h[HeaderBytes]{};if(f.read(h,sizeof(h))!=sizeof(h)||get32(h)!=0x50504432u||get32(h+4)!=session_||h[8]!=entry){f.close();return false;}uint32_t hash=2166136261u;uint8_t b[RecordBytes]{};for(uint32_t i=0;i<counts_[entry];++i){if(f.read(b,sizeof(b))!=sizeof(b)||b[36]>1){f.close();return false;}hash=hashRecord(hash,b);}f.close();File out=store_.open(markerPath(entry),FILE_WRITE);if(!out)return false;uint8_t marker[12]{};put32(marker,0x504f4b32u);put32(marker+4,counts_[entry]);put32(marker+8,hash);const bool ok=out.write(marker,sizeof(marker))==sizeof(marker);out.flush();out.close();return ok&&verifyFile(entry);}
-  bool verifyFile(uint8_t entry) const {auto lease=store_.storageLock();if(!lease)return false;File f=store_.open(path(entry),FILE_READ);if(!f||f.size()!=HeaderBytes+size_t(counts_[entry])*RecordBytes){if(f)f.close();return false;}uint8_t h[HeaderBytes]{};if(f.read(h,sizeof(h))!=sizeof(h)||get32(h)!=0x50504432u||get32(h+4)!=session_||h[8]!=entry){f.close();return false;}uint32_t hash=2166136261u;uint8_t b[RecordBytes]{};for(uint32_t i=0;i<counts_[entry];++i){if(f.read(b,sizeof(b))!=sizeof(b)||b[36]>1){f.close();return false;}hash=hashRecord(hash,b);}f.close();File marker=store_.open(markerPath(entry),FILE_READ);uint8_t m[12]{};const bool ok=marker&&marker.read(m,sizeof(m))==sizeof(m)&&get32(m)==0x504f4b32u&&get32(m+4)==counts_[entry]&&get32(m+8)==hash;if(marker)marker.close();return ok;}
+  bool sealFile(uint8_t entry){lastSealFailure_="none";lastVerifyFailure_="none";auto lease=store_.storageLock();if(!lease){lastSealFailure_="storage_lease";return false;}if(!store_.canWrite(12)){lastSealFailure_="marker_capacity_or_mount";return false;}File f=store_.open(path(entry),FILE_READ);if(!f){lastSealFailure_="active_open";return false;}if(f.size()!=HeaderBytes+size_t(counts_[entry])*RecordBytes){f.close();lastSealFailure_="active_size";return false;}uint8_t h[HeaderBytes]{};if(f.read(h,sizeof(h))!=sizeof(h)||get32(h)!=0x50504432u||get32(h+4)!=session_||h[8]!=entry){f.close();lastSealFailure_="active_header";return false;}uint32_t hash=2166136261u;uint8_t b[RecordBytes]{};for(uint32_t i=0;i<counts_[entry];++i){if(f.read(b,sizeof(b))!=sizeof(b)||b[36]>1){f.close();lastSealFailure_="active_record";return false;}hash=hashRecord(hash,b);}f.close();File out=store_.open(markerPath(entry),FILE_WRITE);if(!out){lastSealFailure_="marker_open";return false;}uint8_t marker[12]{};put32(marker,0x504f4b32u);put32(marker+4,counts_[entry]);put32(marker+8,hash);const bool ok=out.write(marker,sizeof(marker))==sizeof(marker);out.flush();out.close();if(!ok){lastSealFailure_="marker_write";return false;}if(!verifyFile(entry)){lastSealFailure_="verify";return false;}return true;}
+  bool verifyFile(uint8_t entry) const {lastVerifyFailure_="none";auto lease=store_.storageLock();if(!lease){lastVerifyFailure_="storage_lease";return false;}File f=store_.open(path(entry),FILE_READ);if(!f){lastVerifyFailure_="active_open";return false;}if(f.size()!=HeaderBytes+size_t(counts_[entry])*RecordBytes){f.close();lastVerifyFailure_="active_size";return false;}uint8_t h[HeaderBytes]{};if(f.read(h,sizeof(h))!=sizeof(h)||get32(h)!=0x50504432u||get32(h+4)!=session_||h[8]!=entry){f.close();lastVerifyFailure_="active_header";return false;}uint32_t hash=2166136261u;uint8_t b[RecordBytes]{};for(uint32_t i=0;i<counts_[entry];++i){if(f.read(b,sizeof(b))!=sizeof(b)||b[36]>1){f.close();lastVerifyFailure_="active_record";return false;}hash=hashRecord(hash,b);}f.close();File marker=store_.open(markerPath(entry),FILE_READ);if(!marker){lastVerifyFailure_="marker_open";return false;}uint8_t m[12]{};const bool ok=marker.read(m,sizeof(m))==sizeof(m)&&get32(m)==0x504f4b32u&&get32(m+4)==counts_[entry]&&get32(m+8)==hash;if(marker)marker.close();if(!ok)lastVerifyFailure_="marker_invalid";return ok;}
   void cleanupOrphans(){auto lease=store_.storageLock();if(!lease||!mounted())return;File root=store_.open("/pp-p1",FILE_READ);if(!root||!root.isDirectory()){if(root)root.close();return;}for(;;){File file=root.openNextFile();if(!file)break;String name=file.name();const bool orphan=name.indexOf("active-")>=0&&(name.endsWith(".tmp")||name.endsWith(".ok"));file.close();if(orphan)store_.remove(name);}root.close();}
   static bool readEncoded(File&f,LapRecord&r){uint8_t b[RecordBytes]{};if(f.read(b,sizeof(b))!=sizeof(b)||b[36]>1)return false;r.lapNumber=get32(b);r.startTime=get64(b+4);r.finishTime=get64(b+12);r.lapTime=get64(b+20);r.racingFinishTime=get64(b+28);r.valid=b[36]!=0;return true;}
 };
