@@ -1,11 +1,12 @@
 param(
   [string]$BuildDirectory = (Join-Path $PSScriptRoot '..\..\firmware\.pio\build\stage8bp1s3sd'),
-  [string]$ExpectedCommit = ''
+  [string]$ExpectedCommit = '',
+  [string]$BinaryPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $header = Join-Path $BuildDirectory 'generated\pp\build_identity_generated.h'
-$binary = Join-Path $BuildDirectory 'firmware.merged.instrumented.bin'
+$binary = if ($BinaryPath) { $BinaryPath } else { Join-Path $BuildDirectory 'firmware.merged.instrumented.bin' }
 if (-not (Test-Path $header)) { throw "Generated build identity header missing: $header" }
 if (-not (Test-Path $binary)) { throw "Merged candidate missing: $binary" }
 
