@@ -56,3 +56,27 @@ changing credential semantics or adding a second store.
 The terminal-state and active-form corrections are software-only and ready for
 review. The WPA association failure remains a separate open hardware/network
 investigation. No physical retest is requested by this change.
+
+## Privacy-safe association evidence
+
+The accepted Reconfigure Serial evidence now records the submitted password
+length alongside `password_present=true`, while never recording the password
+value, a fingerprint, or any credential material. This is diagnostic evidence
+only and does not change the driver-managed credential store or association
+behaviour. The corresponding contract regression checks the length marker and
+rejects value-bearing logging.
+
+The remaining WPA association diagnosis is still open. The next candidate is
+intended to distinguish an empty/truncated Browser submission from a genuine
+driver/AP authentication failure using this sanitized length together with
+the existing station event reason.
+
+## Browser polling architecture reconciliation item
+
+The current bounded 500 ms Network-page polling remains a temporary
+presentation mechanism. It is not accepted as the final asynchronous-network
+architecture. A later Browser architecture task must establish the
+authoritative event/invalidation behaviour for asynchronous Network state and
+remove or replace polling accordingly. That reconciliation is deliberately
+outside this STA diagnostic candidate and must not alter the AP+STA authority
+or credential semantics here.

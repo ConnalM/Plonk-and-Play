@@ -2335,8 +2335,9 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       trace.complete(ESP_ERR_INVALID_ARG);
       return ESP_FAIL;
     }
-    Serial.printf("[WIFI] RECONFIGURE_ACCEPTED ssid_length=%u password_present=true\n",
-                  static_cast<unsigned>(strlen(ssid)));
+    Serial.printf("[WIFI] RECONFIGURE_ACCEPTED ssid_length=%u password_present=true password_length=%u\n",
+                  static_cast<unsigned>(strlen(ssid)),
+                  static_cast<unsigned>(strlen(password)));
     const bool accepted = instance()->networkConnect(ssid, password);
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");

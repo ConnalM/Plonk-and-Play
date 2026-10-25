@@ -152,6 +152,21 @@ if ($browser -notmatch 'submitNetworkReconnect') { throw 'Browser reconnect hand
 if ($browser -match 'if\(scan\.running\)setTimeout\(\(\)=>\{if\(\$\(\x27#networkScan\x27\)\)networkPage\(\)\},500\)') { throw 'Browser retained the one-shot scan refresh.' }
 if ($browser -match 'networkPassword[^;]{0,200}console\.log|networkPassword[^;]{0,200}diagnostic') { throw 'Browser password is sent to diagnostics/logging.' }
 if ($interface -notmatch 'RECONFIGURE_REJECTED reason=%s ssid_length=%u password_present=%s') { throw 'Reconfigure validation evidence is not sanitized.' }
+$acceptedMarker = 'RECONFIGURE_ACCEPTED ssid_length=%u password_present=true password_length=%u'
+if ($interface -notlike "*$acceptedMarker*") { throw 'Accepted Reconfigure evidence does not include sanitized password length.' }
+$acceptedStart = $interface.IndexOf('RECONFIGURE_ACCEPTED')
+$acceptedEnd = $interface.IndexOf('const bool accepted = instance()->networkConnect', $acceptedStart)
+if ($acceptedStart -lt 0 -or $acceptedEnd -le $acceptedStart) { throw 'Accepted Reconfigure logging boundary is missing.' }
+$acceptedSection = $interface.Substring($acceptedStart, $acceptedEnd - $acceptedStart)
+if ($acceptedSection -notmatch 'strlen\(password\)') { throw 'Accepted Reconfigure password length is not derived from the submitted value.' }
+if ($acceptedSection -match 'password[^\r\n]*%s') { throw 'Accepted Reconfigure evidence may expose password material.' }
+if ($acceptedSection -match 'password[^\r\n]*password[^\r\n]*%s') { throw 'Accepted Reconfigure evidence may expose password material.' }
+Write-Host 'Accepted Reconfigure password-length privacy regression: PASS'
+$acceptedPasswordLength = 12
+$sanitizedAssociationEvidence = "password_present=true password_length=$acceptedPasswordLength"
+if ($sanitizedAssociationEvidence -match 'password=(?!present|length)') { throw 'Sanitized association evidence contains a password value.' }
+if ($sanitizedAssociationEvidence -notmatch 'password_length=12') { throw 'Sanitized password-length evidence regression model failed.' }
+Write-Host 'Sanitized association password-length model: PASS'
 if ($interface -notmatch 'SCAN_REQUEST route_received=true') { throw 'Scan request receipt evidence is missing.' }
 if ($interface -notmatch 'scanStateName\(v\.scanState\)') { throw 'Scan lifecycle state is not exposed through Network status.' }
 
