@@ -11,13 +11,12 @@ $writeRecord = $source.Substring($start, $end - $start)
 # handle. The production path must therefore preflight existence and choose
 # FILE_WRITE for the first record.
 $readIndex = $writeRecord.IndexOf('store_.open(p,FILE_READ)')
-$appendIndex = $writeRecord.IndexOf('store_.open(p,FILE_APPEND)')
-$writeIndex = $writeRecord.IndexOf('store_.open(p,FILE_WRITE)')
+$modeIndex = $writeRecord.IndexOf('const char* mode=exists?FILE_APPEND:FILE_WRITE')
 $headerIndex = $writeRecord.IndexOf('if(!exists)')
-if ($readIndex -lt 0 -or $appendIndex -lt 0 -or $writeIndex -lt 0 -or $headerIndex -lt 0) {
+if ($readIndex -lt 0 -or $modeIndex -lt 0 -or $headerIndex -lt 0) {
   throw 'Active-detail creation path does not explicitly separate existing append from first-file header creation'
 }
-if ($readIndex -ge $appendIndex -or $readIndex -ge $writeIndex -or $headerIndex -le $writeIndex) {
+if ($readIndex -ge $modeIndex -or $headerIndex -le $modeIndex) {
   throw 'Active-detail existence preflight/header ordering is unsafe for append-creates-missing semantics'
 }
 if ($writeRecord -match 'File f=store_\.open\(p,FILE_APPEND\);if\(!f\)') {
