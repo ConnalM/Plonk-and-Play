@@ -33,3 +33,20 @@ if ($openMode -ne 'w' -or $headerWrites -ne 1) {
 }
 Write-Host 'WP5 active-detail FILE_APPEND creation contract: PASS'
 
+$cleanupStart = $source.IndexOf('void cleanupOrphans()')
+$cleanupEnd = $source.IndexOf('static bool readEncoded', $cleanupStart)
+if ($cleanupStart -lt 0 -or $cleanupEnd -le $cleanupStart) {
+  throw 'Active-detail orphan cleanup boundary missing'
+}
+$cleanup = $source.Substring($cleanupStart, $cleanupEnd - $cleanupStart)
+if ($cleanup -notmatch 'String path=file\.path\(\)') {
+  throw 'Active-detail orphan cleanup does not use the full filesystem path'
+}
+if ($cleanup -match 'String name=file\.name\(\)') {
+  throw 'Active-detail orphan cleanup still passes a basename to SD removal'
+}
+if ($cleanup -notmatch 'store_\.remove\(path\)') {
+  throw 'Active-detail orphan cleanup does not remove the canonical full path'
+}
+Write-Host 'WP5 active-detail stale-orphan cleanup contract: PASS full_path_removal=1'
+
