@@ -122,3 +122,19 @@ This capture contains no 30-second `/normal` response. Context traces identify
 two clients: `client_tag=1` is master and `client_tag=2` is spectator, both
 with `owner_connected=true`; no authority contradiction is shown.
 
+## Seal-size diagnostic follow-up — commit 27945df
+
+The diagnostic-only follow-up records `entry`, expected and observed file
+sizes, header size, record size and expected record count directly at the
+`sealFile()` size invariant. It leaves the invariant and all persistence
+behaviour unchanged.
+
+The source path confirms that `sealFile()` opens the active-detail path anew
+with `FILE_READ`, then obtains the measured size from `File::size()`. Each
+write path flushes and closes its file before the queue item is removed; the
+finalize drain completes before `sealFile()` is called. Thus the measurement
+is a fresh read-side size obtained after the writer has flushed and closed its
+handle. The new trace is intended to distinguish a wrong write size from a
+wrong expected count or framework size-reporting issue on the next physical
+run.
+
