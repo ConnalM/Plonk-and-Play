@@ -230,7 +230,7 @@ private:
     encode(candidate,workspace->bytes);
     const unsigned target=activeMetaSlot_==MetaSlotA?MetaSlotB:MetaSlotA;
     if (!store_.canWrite(EncodedMetadataBytes)) { historyCommitTrace("metadata_publish", "capacity", EncodedMetadataBytes); return false; }
-    if (!store_.write(target,workspace->bytes,sizeof(workspace->bytes))) { historyCommitTrace("metadata_publish", "write", target); return false; }
+    if (!store_.writeMetadata(target,workspace->bytes,sizeof(workspace->bytes))) { historyCommitTrace("metadata_publish", "write", target); return false; }
     const bool readBack = store_.read(target,workspace->verify,sizeof(workspace->verify));
     const bool decoded = readBack && decode(workspace->verify,workspace->checked);
     const bool generation = decoded && workspace->checked.generation == candidate.generation;

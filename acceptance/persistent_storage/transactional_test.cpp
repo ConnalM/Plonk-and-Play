@@ -2,6 +2,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "pp/persistent_storage.h"
 
@@ -13,6 +14,10 @@ public:
   int failWriteSlot = -1;
   int failReadSlot = -1;
   int corruptWriteSlot = -1;
+  int failMetadataRemoveSlot = -1;
+  int failMetadataPublishSlot = -1;
+  std::vector<unsigned> metadataRemoved;
+  std::vector<unsigned> unreferencedWrites;
   std::vector<std::vector<uint8_t>> slots = std::vector<std::vector<uint8_t>>(256);
 
   bool available() const override { return online; }
@@ -32,6 +37,37 @@ public:
     if (static_cast<int>(slot) == failWriteSlot) {
       failWriteSlot = -1;
       return false;
+    }
+    slots[slot].assign(data, data + length);
+    if (static_cast<int>(slot) == corruptWriteSlot) {
+      corruptWriteSlot = -1;
+      if (!slots[slot].empty()) slots[slot][0] ^= 0x5a;
+    }
+    return true;
+  }
+
+  bool writeUnreferenced(unsigned slot, const uint8_t* data, size_t length) override {
+    unreferencedWrites.push_back(slot);
+    return write(slot, data, length);
+  }
+
+  bool writeMetadata(unsigned slot, const uint8_t* data, size_t length) override {
+    if (!online || !data || slot >= slots.size()) return false;
+    if (static_cast<int>(slot) == failMetadataPublishSlot) {
+      failMetadataPublishSlot = -1;
+      return false;
+    }
+    if (static_cast<int>(slot) == failWriteSlot) {
+      failWriteSlot = -1;
+      return false;
+    }
+    if (!slots[slot].empty()) {
+      if (static_cast<int>(slot) == failMetadataRemoveSlot) {
+        failMetadataRemoveSlot = -1;
+        return false;
+      }
+      metadataRemoved.push_back(slot);
+      slots[slot].clear();
     }
     slots[slot].assign(data, data + length);
     if (static_cast<int>(slot) == corruptWriteSlot) {
@@ -83,13 +119,57 @@ int main() {
                   sequence == 2 && history.count() == 2 && loadPayload(history, 0, second) && loadPayload(history, 1, first);
   check("PSF.18", secondOk, "committed_order_and_reconstruction=1");
 
-  store.failWriteSlot = 208; // next metadata generation; prior slot 6 remains committed
-  bool commitFailure = !history.append(reinterpret_cast<const uint8_t*>(orphan), strlen(orphan), failed) &&
-                       failed == 0 && history.count() == 2 && loadPayload(history, 0, second) && loadPayload(history, 1, first);
-  check("PSF.16", commitFailure, "metadata_commit_failure_preserves_previous_generation=1");
+  // The next publication targets the inactive slot 208, which already holds
+  // generation 1. It is replaced only through the metadata boundary; the
+  // active slot 6 remains untouched until the new copy verifies.
+  const size_t removedBefore = store.metadataRemoved.size();
+  bool replacement = history.append(reinterpret_cast<const uint8_t*>(orphan), strlen(orphan), sequence) &&
+                     sequence == 3 && history.count() == 3 &&
+                     store.metadataRemoved.size() == removedBefore + 1 &&
+                     store.metadataRemoved.back() == 208 &&
+                     std::find(store.unreferencedWrites.begin(), store.unreferencedWrites.end(), 6u) == store.unreferencedWrites.end() &&
+                     loadPayload(history, 0, orphan) && loadPayload(history, 1, second);
+  check("PSF.16", replacement, "existing_inactive_metadata_replaced_active_preserved=1");
+
+  // A failed inactive-target removal leaves the current authoritative copy
+  // intact and does not publish a new generation.
+  store.failMetadataRemoveSlot = 6;
+  const size_t removedAtFailure = store.metadataRemoved.size();
+  bool removalFailure = !history.append(reinterpret_cast<const uint8_t*>(first), strlen(first), failed) &&
+                        failed == 0 && history.count() == 3 &&
+                        store.metadataRemoved.size() == removedAtFailure &&
+                        loadPayload(history, 0, orphan) && loadPayload(history, 2, first);
+  check("PSF.21", removalFailure, "inactive_metadata_remove_failure_preserves_active=1");
+
+  // A failure after the inactive copy was removed but before publication is
+  // also safe: the old active copy remains the only valid generation.
+  store.failMetadataPublishSlot = 6;
+  bool publishFailure = !history.append(reinterpret_cast<const uint8_t*>(first), strlen(first), failed) &&
+                        failed == 0 && history.count() == 3 &&
+                        loadPayload(history, 0, orphan) && loadPayload(history, 2, first);
+  check("PSF.22", publishFailure, "post_remove_metadata_failure_preserves_active=1");
+
+  bool metadataBoundary = !store.unreferencedWrites.empty() &&
+                          std::find(store.unreferencedWrites.begin(), store.unreferencedWrites.end(), 6u) == store.unreferencedWrites.end() &&
+                          std::find(store.unreferencedWrites.begin(), store.unreferencedWrites.end(), 208u) == store.unreferencedWrites.end();
+  check("PSF.23", metadataBoundary, "metadata_never_uses_writeUnreferenced=1");
+
+  TestStore verifyStore;
+  SlotHistoryStore verifyHistory(verifyStore);
+  uint32_t verifySequence = 0;
+  const bool verifyFirst = verifyHistory.append(reinterpret_cast<const uint8_t*>(first), strlen(first), verifySequence);
+  verifyStore.corruptWriteSlot = 6; // inactive metadata target on generation 2
+  uint32_t verifyFailedSequence = 0;
+  const bool metadataVerifyFailure = !verifyHistory.append(reinterpret_cast<const uint8_t*>(second), strlen(second), verifyFailedSequence) &&
+                             verifyFailedSequence == 0 && verifyHistory.count() == 1 &&
+                             loadPayload(verifyHistory, 0, first);
+  SlotHistoryStore verifyReload(verifyStore);
+  const bool verifyRecovery = verifyReload.count() == 1 && loadPayload(verifyReload, 0, first);
+  check("PSF.24", verifyFirst && metadataVerifyFailure && verifyRecovery,
+        "metadata_readback_verification_failure_preserves_old_generation=1");
 
   SlotHistoryStore reloaded(store);
-  bool reloadedCommitted = reloaded.count() == 2 && loadPayload(reloaded, 0, second) && loadPayload(reloaded, 1, first);
+  bool reloadedCommitted = reloaded.count() == 3 && loadPayload(reloaded, 0, orphan) && loadPayload(reloaded, 1, second);
   check("PSF.20", reloadedCommitted, "stale_orphan_hidden_after_reload=1");
 
   TestStore corrupted;

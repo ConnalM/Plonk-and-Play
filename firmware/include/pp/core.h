@@ -225,6 +225,12 @@ public:
   virtual bool writeUnreferenced(unsigned slot, const uint8_t* data, size_t size) {
     return write(slot, data, size);
   }
+  // Metadata publication has its own replacement boundary.  Backends that
+  // support transactional alternating metadata slots override this method;
+  // the default preserves source compatibility for simple stores.
+  virtual bool writeMetadata(unsigned slot, const uint8_t* data, size_t size) {
+    return write(slot, data, size);
+  }
   virtual StoreHealth health() const { return available() ? StoreHealth::Healthy : StoreHealth::Unavailable; }
   virtual uint64_t totalBytes() const { return 0; }
   virtual uint64_t freeBytes() const { return 0; }

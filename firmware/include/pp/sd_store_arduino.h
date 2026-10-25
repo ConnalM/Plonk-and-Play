@@ -119,8 +119,16 @@ public:
     return writeImpl(slot, data, size, true);
   }
 
+  bool writeMetadata(unsigned slot, const uint8_t* data, size_t size) override {
+    // Metadata is published to the inactive alternating slot.  Its existing
+    // target may be an older valid generation, so remove it only after the
+    // replacement temporary has been fully written and verified.
+    return writeImpl(slot, data, size, false, true);
+  }
+
 private:
-  bool writeImpl(unsigned slot, const uint8_t* data, size_t size, bool replaceUnreferenced) {
+  bool writeImpl(unsigned slot, const uint8_t* data, size_t size,
+                 bool replaceUnreferenced, bool replaceMetadataTarget = false) {
     auto lease = owner_.lock();
     if (!lease || !mounted_ || !data) { Serial.printf("[P8-P1] history_store_write stage=precondition slot=%u size=%lu lease=%u mounted=%u data=%u\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size), lease ? 1u : 0u, mounted_ ? 1u : 0u, data ? 1u : 0u); return false; }
     if (!canWrite(size)) { lastHealth_ = StoreHealth::Insufficient; Serial.printf("[P8-P1] history_store_write stage=capacity slot=%u size=%lu\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size)); return false; }
@@ -166,6 +174,13 @@ private:
     verify.close();
     if (!matches) {
       Serial.printf("[P8-P1] history_store_write stage=temp_verify_read slot=%u size=%lu\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size));
+      owner_.remove(temporary);
+      return false;
+    }
+
+    if (replaceMetadataTarget && owner_.exists(target.c_str()) && !owner_.remove(target)) {
+      Serial.printf("[P8-P1] history_store_write stage=metadata_target_remove slot=%u size=%lu\n",
+                    static_cast<unsigned>(slot), static_cast<unsigned long>(size));
       owner_.remove(temporary);
       return false;
     }
