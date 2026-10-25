@@ -455,10 +455,30 @@ public:
   static bool serializeRecordsForAcceptance(TrackRecordStore* records,uint8_t count,char*out,size_t cap,size_t&length){return serializeRecords(records,count,out,cap,length);}
 private:
   static constexpr const char* Phase8bApSsid = "Plonk-and-Play";
-  void traceContextResponse(bool hasMaster, bool isMaster, bool ownerConnected,
+  uint32_t contextClientTag(uint64_t owner) {
+    const uint64_t value = fingerprint(owner);
+    for (size_t i = 0; i < ContextClientTagCapacity; ++i) {
+      if (contextClientFingerprints_[i] == value && contextClientTags_[i] != 0) {
+        return contextClientTags_[i];
+      }
+    }
+    for (size_t i = 0; i < ContextClientTagCapacity; ++i) {
+      if (contextClientTags_[i] == 0) {
+        uint32_t tag = nextContextClientTag_++;
+        if (tag == 0) tag = nextContextClientTag_++;
+        contextClientFingerprints_[i] = value;
+        contextClientTags_[i] = tag;
+        return tag;
+      }
+    }
+    // Bounded diagnostic aid: never expose the Browser token itself.
+    return static_cast<uint32_t>((value ^ (value >> 32)) | 0x80000000u);
+  }
+  void traceContextResponse(uint32_t clientTag, bool hasMaster, bool isMaster, bool ownerConnected,
                             bool takeoverPending, bool takeoverRequestedByThis,
                             ControlLeaseResult result, esp_err_t sent) {
     const bool changed = !contextTraceValid_ ||
+      contextTraceClientTag_ != clientTag ||
       contextTraceHasMaster_ != hasMaster ||
       contextTraceIsMaster_ != isMaster ||
       contextTraceOwnerConnected_ != ownerConnected ||
@@ -466,13 +486,15 @@ private:
       contextTraceRequestedByThis_ != takeoverRequestedByThis ||
       contextTraceResult_ != result;
     if (sent != ESP_OK || changed) {
-      Serial.printf("[AUTH] CONTEXT response has_master=%s is_master=%s owner_connected=%s takeover_pending=%s requested_by_this=%s result=%s sent=%d\n",
+      Serial.printf("[AUTH] CONTEXT response client_tag=%lu has_master=%s is_master=%s owner_connected=%s takeover_pending=%s requested_by_this=%s result=%s sent=%d\n",
+                    static_cast<unsigned long>(clientTag),
                     hasMaster ? "true" : "false", isMaster ? "true" : "false",
                     ownerConnected ? "true" : "false",
                     takeoverPending ? "true" : "false",
                     takeoverRequestedByThis ? "true" : "false",
                     controlResultText(result), static_cast<int>(sent));
       contextTraceValid_ = true;
+      contextTraceClientTag_ = clientTag;
       contextTraceHasMaster_ = hasMaster;
       contextTraceIsMaster_ = isMaster;
       contextTraceOwnerConnected_ = ownerConnected;
@@ -554,6 +576,11 @@ private:
   bool started_ = false;
   bool wifiConnected_ = false;
   bool contextTraceValid_ = false;
+  static constexpr size_t ContextClientTagCapacity = 16;
+  uint64_t contextClientFingerprints_[ContextClientTagCapacity]{};
+  uint32_t contextClientTags_[ContextClientTagCapacity]{};
+  uint32_t nextContextClientTag_ = 1;
+  uint32_t contextTraceClientTag_ = 0;
   bool contextTraceHasMaster_ = false;
   bool contextTraceIsMaster_ = false;
   bool contextTraceOwnerConnected_ = false;
@@ -1751,6 +1778,7 @@ private:
   static esp_err_t contextRoute(httpd_req_t* request) {
     RequestTrace trace(instance(), "/context");
     const uint64_t owner = client(request);
+    const uint32_t clientTag = instance()->contextClientTag(owner);
     char json[320];
     const ControlLeaseResult result = instance()->controlResultFor(owner);
     const bool hasMaster = instance()->hasMaster();
@@ -1770,7 +1798,7 @@ private:
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
     const esp_err_t sent = httpd_resp_sendstr(request, json);
-    instance()->traceContextResponse(hasMaster, isMaster, ownerConnected,
+    instance()->traceContextResponse(clientTag, hasMaster, isMaster, ownerConnected,
                                      takeoverPending, takeoverRequestedByThis,
                                      result, sent);
     trace.complete(sent); return sent;

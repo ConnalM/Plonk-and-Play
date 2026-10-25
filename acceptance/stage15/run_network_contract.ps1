@@ -86,6 +86,10 @@ Write-Host 'Normal Browser root-entry contract: PASS'
 foreach ($marker in @(
   'constexpr size_t NormalBrowserChunkSize = 4096',
   'httpd_resp_send_chunk(request, kNormalBrowserHtml + offset, count)',
+  'NORMAL_CHUNK index=',
+  'chunkStartedMs = millis()',
+  'normalStartedMs = millis()',
+  'terminator=1',
   'if (chunkResult != ESP_OK)',
   'httpd_resp_send_chunk(request, nullptr, 0)',
   'trace.complete(chunkResult)',
@@ -117,6 +121,20 @@ if (-not $normalFailure.error -or $normalFailure.terminalSent -or $normalFailure
   throw 'Normal Browser chunk failure model did not propagate the failed chunk or suppress termination.'
 }
 Write-Host 'Normal Browser bounded chunk success/error/termination regression: PASS'
+
+$authorityInterface = Get-Content -Raw (Join-Path $root 'firmware/include/pp/browser_interface.h')
+foreach ($marker in @(
+  'ContextClientTagCapacity',
+  'contextClientFingerprints_',
+  'contextClientTags_',
+  'client_tag=%lu',
+  'traceContextResponse(clientTag')) {
+  if ($authorityInterface -notlike "*$marker*") { throw "Privacy-safe Browser identity correlation marker missing: $marker" }
+}
+if ($authorityInterface -match 'CONTEXT response.*fingerprint|CONTEXT response.*cookie|CONTEXT response.*token') {
+  throw 'Context diagnostics expose a Browser identity value rather than a bounded diagnostic tag.'
+}
+Write-Host 'Browser context privacy-safe client correlation contract: PASS'
 foreach ($marker in @('let networkRefreshTimer=0', 'function scheduleNetworkRefresh', 'scheduleNetworkRefresh(scanBusy,sta.state===''CONNECTING''', 'submitNetworkConnect', 'networkPassword'').onkeydown', 'await networkPage(true)')) {
   if ($browser -notlike "*$marker*") { throw "Browser asynchronous Network refresh marker missing: $marker" }
 }
