@@ -106,7 +106,7 @@ generated_pp.mkdir(parents=True, exist_ok=True)
 text = source.read_text(encoding="utf-8")
 text = text.replace('#include "system_time.h"', '#include "system_time.h"\n#include "normal_browser_page.h"', 1)
 needle = '  static esp_err_t health(httpd_req_t* request) {'
-route = '''  static esp_err_t normalPage(httpd_req_t* request) {\n    RequestTrace trace(instance(), "/normal");\n    client(request);\n    httpd_resp_set_type(request, "text/html; charset=utf-8");\n    httpd_resp_set_hdr(request, "Cache-Control", "no-store");\n    const esp_err_t sent = httpd_resp_send(request, kNormalBrowserHtml, HTTPD_RESP_USE_STRLEN);\n    trace.complete(sent);\n    return sent;\n  }\n'''
+route = '''  static esp_err_t normalPage(httpd_req_t* request) {\n    RequestTrace trace(instance(), "/normal");\n    client(request);\n    httpd_resp_set_type(request, "text/html; charset=utf-8");\n    httpd_resp_set_hdr(request, "Cache-Control", "no-store");\n    constexpr size_t NormalBrowserChunkSize = 4096;\n    const size_t length = strlen(kNormalBrowserHtml);\n    for (size_t offset = 0; offset < length; offset += NormalBrowserChunkSize) {\n      const size_t count = (length - offset) < NormalBrowserChunkSize ? (length - offset) : NormalBrowserChunkSize;\n      const esp_err_t chunkResult = httpd_resp_send_chunk(request, kNormalBrowserHtml + offset, count);\n      if (chunkResult != ESP_OK) {\n        trace.complete(chunkResult);\n        return chunkResult;\n      }\n    }\n    const esp_err_t sent = httpd_resp_send_chunk(request, nullptr, 0);\n    trace.complete(sent);\n    return sent;\n  }\n'''
 if needle not in text:
     raise RuntimeError("BrowserInterface health route anchor not found")
 text = text.replace(needle, route + needle, 1)

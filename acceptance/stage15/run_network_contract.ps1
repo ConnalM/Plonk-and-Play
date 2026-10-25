@@ -83,6 +83,40 @@ if ($embed -notlike '*{"/", HTTP_GET, normalPage, nullptr}*' -or
   throw 'Normal Browser embed does not make the root entry point serve the current Normal Browser.'
 }
 Write-Host 'Normal Browser root-entry contract: PASS'
+foreach ($marker in @(
+  'constexpr size_t NormalBrowserChunkSize = 4096',
+  'httpd_resp_send_chunk(request, kNormalBrowserHtml + offset, count)',
+  'if (chunkResult != ESP_OK)',
+  'httpd_resp_send_chunk(request, nullptr, 0)',
+  'trace.complete(chunkResult)',
+  'trace.complete(sent)')) {
+  if ($embed -notlike "*$marker*") { throw "Normal Browser chunk transport marker missing: $marker" }
+}
+function Invoke-NormalBrowserChunkModel([int]$length, [int]$chunkSize, [int]$failAt) {
+  $offset = 0
+  $chunks = 0
+  $bytes = 0
+  $terminalSent = $false
+  $error = $false
+  while ($offset -lt $length) {
+    $count = [Math]::Min($chunkSize, $length - $offset)
+    $chunks++
+    if ($failAt -gt 0 -and $chunks -eq $failAt) { $error = $true; break }
+    $bytes += $count
+    $offset += $count
+  }
+  if (-not $error -and $offset -eq $length) { $terminalSent = $true }
+  [pscustomobject]@{ chunks = $chunks; bytes = $bytes; terminalSent = $terminalSent; error = $error }
+}
+$normalSuccess = Invoke-NormalBrowserChunkModel 10001 4096 0
+if ($normalSuccess.bytes -ne 10001 -or -not $normalSuccess.terminalSent -or $normalSuccess.error -or $normalSuccess.chunks -ne 3) {
+  throw 'Normal Browser successful chunking model did not preserve all bytes and the terminating chunk.'
+}
+$normalFailure = Invoke-NormalBrowserChunkModel 10001 4096 2
+if (-not $normalFailure.error -or $normalFailure.terminalSent -or $normalFailure.bytes -ne 4096) {
+  throw 'Normal Browser chunk failure model did not propagate the failed chunk or suppress termination.'
+}
+Write-Host 'Normal Browser bounded chunk success/error/termination regression: PASS'
 foreach ($marker in @('let networkRefreshTimer=0', 'function scheduleNetworkRefresh', 'scheduleNetworkRefresh(scanBusy,sta.state===''CONNECTING''', 'submitNetworkConnect', 'networkPassword'').onkeydown', 'await networkPage(true)')) {
   if ($browser -notlike "*$marker*") { throw "Browser asynchronous Network refresh marker missing: $marker" }
 }
