@@ -179,8 +179,6 @@ private:
     }
 
     if (replaceMetadataTarget && owner_.exists(target.c_str()) && !owner_.remove(target)) {
-      Serial.printf("[P8-P1] history_store_write stage=metadata_target_remove slot=%u size=%lu\n",
-                    static_cast<unsigned>(slot), static_cast<unsigned long>(size));
       owner_.remove(temporary);
       return false;
     }
