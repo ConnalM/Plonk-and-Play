@@ -113,18 +113,19 @@ public:
 
   bool write(unsigned slot, const uint8_t* data, size_t size) override {
     auto lease = owner_.lock();
-    if (!lease || !mounted_ || !data) return false;
-    if (!canWrite(size)) { lastHealth_ = StoreHealth::Insufficient; return false; }
+    if (!lease || !mounted_ || !data) { Serial.printf("[P8-P1] history_store_write stage=precondition slot=%u size=%lu lease=%u mounted=%u data=%u\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size), lease ? 1u : 0u, mounted_ ? 1u : 0u, data ? 1u : 0u); return false; }
+    if (!canWrite(size)) { lastHealth_ = StoreHealth::Insufficient; Serial.printf("[P8-P1] history_store_write stage=capacity slot=%u size=%lu\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size)); return false; }
     const String target = path(slot);
     String temporary = target;
     temporary += ".tmp";
     owner_.remove(temporary);
     File file = owner_.open(temporary, FILE_WRITE);
-    if (!file) return false;
+    if (!file) { Serial.printf("[P8-P1] history_store_write stage=temp_open slot=%u size=%lu\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size)); return false; }
     const size_t written = file.write(data, size);
     file.flush();
     file.close();
     if (written != size) {
+      Serial.printf("[P8-P1] history_store_write stage=temp_write slot=%u requested=%lu written=%lu\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size), static_cast<unsigned long>(written));
       owner_.remove(temporary);
       return false;
     }
@@ -134,6 +135,7 @@ public:
     // prevents a short/corrupt payload from becoming visible at target.
     File verify = owner_.open(temporary, FILE_READ);
     if (!verify || verify.size() != size) {
+      Serial.printf("[P8-P1] history_store_write stage=temp_verify_open_size slot=%u expected=%lu observed=%lu opened=%u\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size), verify ? static_cast<unsigned long>(verify.size()) : 0ul, verify ? 1u : 0u);
       if (verify) verify.close();
       owner_.remove(temporary);
       return false;
@@ -151,6 +153,7 @@ public:
     }
     verify.close();
     if (!matches) {
+      Serial.printf("[P8-P1] history_store_write stage=temp_verify_read slot=%u size=%lu\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size));
       owner_.remove(temporary);
       return false;
     }
@@ -158,10 +161,12 @@ public:
     // ESP-IDF VFS rename is the publication boundary and leaves the prior
     // target intact if the rename cannot be completed.
     if (!owner_.rename(temporary, target)) {
+      Serial.printf("[P8-P1] history_store_write stage=rename slot=%u size=%lu\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size));
       owner_.remove(temporary);
       return false;
     }
     lastHealth_ = healthAfterWrite();
+    Serial.printf("[P8-P1] history_store_write stage=success slot=%u size=%lu\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size));
     return true;
   }
 

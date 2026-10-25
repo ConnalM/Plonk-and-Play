@@ -15,6 +15,7 @@ $ownerContract=Join-Path $PSScriptRoot 'physical_sd_owner_contract.ps1'
 $fileCreationContract=Join-Path $PSScriptRoot 'active_detail_file_creation_contract.ps1'
 $detailInstrumentationContract=Join-Path $PSScriptRoot 'detail_finalize_instrumentation_contract.ps1'
 $metadataWorkspaceContract=Join-Path $PSScriptRoot 'history_metadata_workspace_contract.ps1'
+$historyAppendInstrumentationContract=Join-Path $PSScriptRoot 'history_append_instrumentation_contract.ps1'
 g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'foundation_test.cpp') -o $foundation
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage Foundation foundation compile failed: $LASTEXITCODE" }
 & $foundation
@@ -67,6 +68,8 @@ if ($LASTEXITCODE -ne 0) { throw "Active-detail FILE_APPEND creation contract ac
 if ($LASTEXITCODE -ne 0) { throw "Active-detail instrumentation contract acceptance failed: $LASTEXITCODE" }
 & $metadataWorkspaceContract
 if ($LASTEXITCODE -ne 0) { throw "History metadata workspace contract acceptance failed: $LASTEXITCODE" }
+& $historyAppendInstrumentationContract
+if ($LASTEXITCODE -ne 0) { throw "History append instrumentation contract acceptance failed: $LASTEXITCODE" }
 $engine=Get-Content (Join-Path $root 'firmware\include\pp\race_engine.h') -Raw
 $codec=Get-Content (Join-Path $root 'firmware\include\pp\persistent_storage.h') -Raw
 $history=Get-Content (Join-Path $root 'firmware\include\pp\history_store.h') -Raw
