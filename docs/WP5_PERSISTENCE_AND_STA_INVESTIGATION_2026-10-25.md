@@ -78,3 +78,47 @@ separate from the detail-finalisation defect.
    `GOT_IP` proves the workflow; another reason-15 timeout leaves the fault at
    the authentication/router boundary for separate networking diagnosis.
 
+## 0e97856 instrumented physical run — 2026-10-25 17:05:52
+
+The continuous capture is
+`firmware/logs/device-monitor-261025-170552.log`, from the verified
+`0e978562f9a61b931295a4b3334d7f4fc93b327d` / `stage8bp1s3sd` image. The run
+completed the intended two-lane, two-lap All Stop sequence and emitted the
+sealed, integrity-OK result, but did not store History.
+
+The direct persistence trace is:
+
+1. `detail_finalize begin ... queue=0 pending=0 mounted=1 dropped=0`;
+2. `detail_trace stage=finalize substage=drain_end reason=complete`;
+3. `detail_trace stage=seal substage=active_size reason=active_size`;
+4. `detail_finalize failed stage=seal entry=0 reason=active_size verify=none`;
+5. `history_storage_fault reason=3(detail_finalize)`.
+
+There is no `HistoryStored`, no drain/write failure, no marker or verification
+trace, and no panic/reset. The exact proven failure boundary is therefore the
+active-detail seal size invariant for entry 0. For two records the required
+size is `24 + (2 * 40) = 104` bytes; this candidate did not print the actual
+file size, so the lower-level reason for that mismatch is not established by
+this capture and must not be guessed from the result screen. The next
+diagnostic step, if authorised, is to report expected and observed sizes at the
+seal check; no Results or Browser change is indicated by this evidence.
+
+Because finalisation failed, Race Engine correctly latched
+`DetailFinalize` and did not publish `HistoryStored`. The Browser consequently
+received a sealed result whose per-entry `finishDurationUs` remained zero;
+BEST/progress/gap remained available. This run does not show a Browser timing
+or Results reconstruction fault.
+
+The repeated `/pp-diagnostics/records.roll.tmp` removal errors are separate
+diagnostic rolling cleanup noise. They are interleaved throughout the run but
+are not the reported detail-finalisation boundary. The one
+`active-1-1.tmp ... no permits for creation` line is the existing read-only
+existence probe before the active-detail creation path and is not itself a
+reported write failure.
+
+Secondary evidence: `/normal` emitted five chunk traces (7 ms, 415 ms, 66 ms,
+43 ms, 49 ms) and then failed on chunk 4 with result `45062`, total 582 ms.
+This capture contains no 30-second `/normal` response. Context traces identify
+two clients: `client_tag=1` is master and `client_tag=2` is spectator, both
+with `owner_connected=true`; no authority contradiction is shown.
+
