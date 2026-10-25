@@ -12,6 +12,7 @@ foreach ($marker in @(
   'WiFi.disconnect(false, true)', 'MDNS.begin("plonk-and-play")',
   'scanNetworks(true, true)', 'ScanState', 'SCAN_ACCEPTED', 'SCAN_DEFERRED', 'SCAN_UNAVAILABLE', 'SCAN_COMPLETE',
   'STA_EVENT event=CONNECTED', 'STA_EVENT event=DISCONNECTED', 'STA_EVENT event=GOT_IP', 'STA_BEGIN result=',
+  'STA_IP_OBSERVE ms=', 'driver_status=', 'sta_ip=', 'gateway=', 'subnet=', 'ap_clients=',
   'FactoryApSsid = "Plonk-and-Play"')) {
   if ($manager -notlike "*$marker*") { throw "External Wi-Fi manager marker missing: $marker" }
 }
