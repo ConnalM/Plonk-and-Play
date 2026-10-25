@@ -3,8 +3,22 @@
 #include <atomic>
 #include <new>
 #include <stdlib.h>
+#ifdef ARDUINO
+#include <Arduino.h>
+#endif
 
 namespace pp {
+
+inline void historyCommitTrace(const char* operation, const char* stage,
+                               size_t valueA=0, size_t valueB=0, bool ok=false) {
+#ifdef ARDUINO
+  Serial.printf("[P8-P1] history_commit operation=%s stage=%s a=%lu b=%lu ok=%u\n",
+                operation, stage, static_cast<unsigned long>(valueA),
+                static_cast<unsigned long>(valueB), ok ? 1u : 0u);
+#else
+  (void)operation; (void)stage; (void)valueA; (void)valueB; (void)ok;
+#endif
+}
 
 class HistoryStore {
 public:
@@ -44,28 +58,29 @@ public:
 
   bool append(const uint8_t* bytes, size_t length, uint32_t& sequence) override {
     OperationGuard guard(operationBusy_);
-    if (!guard) { sequence = 0; return false; }
+    if (!guard) { sequence = 0; historyCommitTrace("slot_append", "busy"); return false; }
     sequence = 0;
-    if (!bytes || length == 0 || length > UINT32_MAX || !ensure()) return false;
+    if (!bytes || length == 0 || length > UINT32_MAX) { historyCommitTrace("slot_append", "input", length); return false; }
+    if (!ensure()) { historyCommitTrace("slot_append", "reconstruct"); return false; }
     // Leave room for the independently committed metadata candidate. This is
     // advisory for legacy backends and becomes a real free-space guard on SD.
-    if (!store_.canWrite(length + EncodedMetadataBytes)) return false;
+    if (!store_.canWrite(length + EncodedMetadataBytes)) { historyCommitTrace("slot_append", "capacity", length, EncodedMetadataBytes); return false; }
     // Never overwrite a slot referenced by committed metadata. The spare half
     // of the bounded slot set is the staging area for a new transaction.
     const uint8_t slot = freeSlot();
-    if (slot == InvalidSlot) return false;
+    if (slot == InvalidSlot) { historyCommitTrace("slot_append", "slot"); return false; }
     // Acquire the bounded commit workspace before writing the payload.  A
     // workspace allocation failure therefore leaves no newly written,
     // unreferenced payload behind and cannot publish an uncommitted result.
     CommitWorkspace* workspace = ensureCommitWorkspace();
-    if (!workspace) return false;
+    if (!workspace) { historyCommitTrace("slot_append", "workspace"); return false; }
     uint8_t* verify = static_cast<uint8_t*>(malloc(length));
-    if (!verify) return false;
+    if (!verify) { historyCommitTrace("slot_append", "payload_workspace", length); return false; }
     const bool payloadWritten = store_.write(DataSlot + slot, bytes, length);
     const bool payloadVerified = payloadWritten && store_.read(DataSlot + slot, verify, length) &&
                                  memcmp(bytes, verify, length) == 0;
     free(verify);
-    if (!payloadVerified) return false;
+    if (!payloadVerified) { historyCommitTrace("slot_append", "payload_verify", length, payloadWritten ? 1u : 0u); return false; }
 
     MetadataState& candidate = workspace->candidate;
     candidate = meta_;
@@ -79,7 +94,7 @@ public:
     Entry& entry = candidate.entries[candidate.count++];
     entry.sequence = sequence; entry.bytes = static_cast<uint32_t>(length); entry.slot = slot;
     candidate.generation = meta_.generation + 1;
-    if (!publishMetadata(candidate)) { (void)store_.reclaim(DataSlot + slot); sequence = 0; return false; }
+    if (!publishMetadata(candidate)) { historyCommitTrace("slot_append", "metadata_publish", candidate.generation, sequence); (void)store_.reclaim(DataSlot + slot); sequence = 0; return false; }
     // The new metadata is authoritative before this cleanup runs. A failed
     // cleanup is harmless to logical History and is reported by the backend;
     // the fixed slot set still bounds physical growth.
@@ -205,14 +220,17 @@ private:
   }
   uint8_t freeSlot()const {for(uint8_t slot=0;slot<PhysicalSlots;++slot){bool used=false;for(uint8_t i=0;i<meta_.count;++i)if(meta_.entries[i].slot==slot){used=true;break;}if(!used)return slot;}return InvalidSlot;}
   bool publishMetadata(const MetadataState& candidate) {
-    if (!valid(candidate)) return false;
+    if (!valid(candidate)) { historyCommitTrace("metadata_publish", "candidate", candidate.generation, candidate.count); return false; }
     CommitWorkspace* workspace = ensureCommitWorkspace();
-    if (!workspace) return false;
+    if (!workspace) { historyCommitTrace("metadata_publish", "workspace"); return false; }
     encode(candidate,workspace->bytes);
     const unsigned target=activeMetaSlot_==MetaSlotA?MetaSlotB:MetaSlotA;
-    if (!store_.canWrite(EncodedMetadataBytes)) return false;
-    if (!store_.write(target,workspace->bytes,sizeof(workspace->bytes))) return false;
-    if(!store_.read(target,workspace->verify,sizeof(workspace->verify))||!decode(workspace->verify,workspace->checked)||workspace->checked.generation!=candidate.generation)return false;
+    if (!store_.canWrite(EncodedMetadataBytes)) { historyCommitTrace("metadata_publish", "capacity", EncodedMetadataBytes); return false; }
+    if (!store_.write(target,workspace->bytes,sizeof(workspace->bytes))) { historyCommitTrace("metadata_publish", "write", target); return false; }
+    const bool readBack = store_.read(target,workspace->verify,sizeof(workspace->verify));
+    const bool decoded = readBack && decode(workspace->verify,workspace->checked);
+    const bool generation = decoded && workspace->checked.generation == candidate.generation;
+    if(!generation){ historyCommitTrace("metadata_publish", "verify", readBack ? 1u : 0u, decoded ? workspace->checked.generation : 0u); return false; }
     meta_=candidate;activeMetaSlot_=target;return true;
   }
 };

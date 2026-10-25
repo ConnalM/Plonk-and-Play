@@ -104,10 +104,11 @@ public:
   }
   bool appendDetailed(const void* value,size_t length,const DetailSource& source,uint32_t&sequence) override {
     sequence=0;
-    if(!value||length!=sizeof(RaceEngineModule::CompletedRaceResult))return false;
-    size_t required=1024;for(uint8_t i=0;i<source.detailEntryCount();++i){const size_t count=source.detailRecordCount(i);if(count> (SIZE_MAX-required)/40u)return false;required+=count*40u;}auto* encoded=static_cast<uint8_t*>(malloc(required));if(!encoded)return false;size_t encodedLength=0;
+    if(!value||length!=sizeof(RaceEngineModule::CompletedRaceResult)){historyCommitTrace("append_detailed", "input", length);return false;}
+    size_t required=1024;for(uint8_t i=0;i<source.detailEntryCount();++i){const size_t count=source.detailRecordCount(i);if(count> (SIZE_MAX-required)/40u){historyCommitTrace("append_detailed", "size_overflow", i, count);return false;}required+=count*40u;}auto* encoded=static_cast<uint8_t*>(malloc(required));if(!encoded){historyCommitTrace("append_detailed", "encode_workspace", required);return false;}size_t encodedLength=0;
     const bool encodedOk=VersionedResultCodec::encode(*reinterpret_cast<const RaceEngineModule::CompletedRaceResult*>(value),encoded,required,encodedLength,&source);
-    const bool ok=encodedOk&&backend_.append(encoded,encodedLength,sequence);free(encoded);return ok;
+    if(!encodedOk){free(encoded);historyCommitTrace("append_detailed", "encode", required, encodedLength);return false;}
+    const bool ok=backend_.append(encoded,encodedLength,sequence);historyCommitTrace("append_detailed", "backend", encodedLength, sequence, ok);free(encoded);return ok;
   }
   bool loadNewest(uint8_t index,uint8_t*bytes,size_t capacity,size_t&length,uint32_t&sequence) override {
     length=0;
