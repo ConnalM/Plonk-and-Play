@@ -87,6 +87,10 @@ checks = {
     # dereferencing entry.records here can crash when detail is streamed or
     # resident only in the persistence boundary.
     "latest_lap_is_authoritative_cross_entry": "selectLatestLap" in notice and "entry.lastCrossing>=latest" in notice and "entry.recordCount&&entry.records[entry.recordCount-1].finishTime" not in notice,
+    # Details has no streamed-detail source.  A non-zero record count without
+    # resident records must therefore produce a bounded unavailable response,
+    # never enter the record loop and never crash the HTTPD task.
+    "details_null_records_guard": "detail unavailable" in browser and "HTTPD_500_INTERNAL_SERVER_ERROR" in browser and "if(e.recordCount&&e.records==nullptr)" in browser,
     "authoritative_live_position": "livePosition" in race_engine and "position" in notice and '\\"position\\"' in browser,
     "authoritative_live_gap": "liveLapsBehind" in race_engine and "lapsBehind" in notice and '\\"lapsBehind\\"' in browser,
     "position_preserves_physical_lane": "const uint8_t lane=control_.definition()?control_.definition()->entry(i).lane" in notice,

@@ -21,7 +21,8 @@ static void stage14cFacilitiesAcceptanceRun(){
   char* streamedJson=static_cast<char*>(malloc(2048)); size_t streamedLength=0;
   const bool streamedOk=streamedJson&&pp::BrowserInterface::serializeResultsForAcceptance(streamedResult,streamedJson,2048,streamedLength,&streamed)&&strstr(streamedJson,"\"finishDurationUs\":4000000");
   size_t unavailableLength=0; const bool unavailableOk=streamedJson&&pp::BrowserInterface::serializeResultsForAcceptance(streamedResult,streamedJson,2048,unavailableLength,nullptr)&&strstr(streamedJson,"\"finishDurationUs\":0");
-  s14c("14C.P19",streamedOk&&unavailableOk,"results_streamed_detail=%u unavailable_detail_safe=%u",streamedOk?1:0,unavailableOk?1:0);
+  size_t unavailableDetailsLength=0; const bool unavailableDetails=!pp::BrowserInterface::serializeDetailsForAcceptance(streamedResult,streamedJson,2048,unavailableDetailsLength)&&unavailableDetailsLength==0;
+  s14c("14C.P19",streamedOk&&unavailableOk&&unavailableDetails,"results_streamed_detail=%u unavailable_result_safe=%u unavailable_details_safe=%u",streamedOk?1:0,unavailableOk?1:0,unavailableDetails?1:0);
   free(streamedJson);
 
   auto* readiness=::new(stage14cStorage)Stage14CFixture();

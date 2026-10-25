@@ -929,6 +929,14 @@ private:
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
   }
   static bool serializeDetails(const RaceEngineModule::CompletedRaceResult&r,char*out,size_t cap,size_t&length){
+    // Streamed detail may legitimately leave the resident record pointer
+    // empty while retaining the authoritative record count.  Details has no
+    // DetailSource boundary, so fail closed before emitting any response
+    // rather than dereferencing absent storage.
+    for(uint8_t i=0;i<r.entryCount&&i<PP_MAX_ENTRIES;++i){
+      const auto&e=r.entries[i];
+      if(e.recordCount&&e.records==nullptr){length=0;return false;}
+    }
     size_t n=0;bool ok=appendJson(out,cap,n,"{\"sealed\":%s,\"lapTarget\":%lu,\"entries\":[",r.sealed?"true":"false",(unsigned long)r.lapTarget);
     if(r.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=r.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:r.entryCount;
     for(uint8_t i=0;i<count;++i){const auto&e=r.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"rank\":%lu,\"records\":[",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.rank)&&ok;for(uint32_t j=0;j<e.recordCount;++j){const auto&lap=e.records[j];ok=appendJson(out,cap,n,"%s{\"lapNumber\":%lu,\"startTime\":%llu,\"finishTime\":%llu,\"lapTime\":%llu,\"valid\":%s}",j?",":"",(unsigned long)lap.lapNumber,(unsigned long long)lap.startTime,(unsigned long long)lap.finishTime,(unsigned long long)lap.lapTime,lap.valid?"true":"false")&&ok;}ok=appendJson(out,cap,n,"]}")&&ok;}
@@ -1022,6 +1030,17 @@ private:
     auto* loaded=static_cast<RaceEngineModule::CompletedRaceResult*>(calloc(1,sizeof(RaceEngineModule::CompletedRaceResult))); char* chunk=static_cast<char*>(malloc(320));
     if(!loaded||!chunk){if(loaded)RaceEngineModule::clearResult(*loaded);free(loaded);free(chunk);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"details buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}
     bool found=false; const auto&r=instance()->displayResult(*loaded,sequence,found); if(sequence&&!found){RaceEngineModule::clearResult(*loaded);free(loaded);free(chunk);httpd_resp_send_err(request,HTTPD_404_NOT_FOUND,"history result not found");trace.complete(ESP_ERR_NOT_FOUND);return ESP_FAIL;}
+    // A streamed/degraded result can retain recordCount without resident
+    // records.  This route has no detail source to read from, so report the
+    // unavailable detail explicitly and never enter the record loop.
+    for(uint8_t i=0;i<r.entryCount&&i<PP_MAX_ENTRIES;++i){
+      const auto&e=r.entries[i];
+      if(e.recordCount&&e.records==nullptr){
+        RaceEngineModule::clearResult(*loaded);free(loaded);free(chunk);
+        httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"detail unavailable");
+        trace.complete(ESP_ERR_INVALID_STATE);return ESP_FAIL;
+      }
+    }
     httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");snprintf(chunk,320,"{\"sealed\":%s,\"lapTarget\":%lu,\"entries\":[",r.sealed?"true":"false",(unsigned long)r.lapTarget);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);
     for(uint8_t i=0;i<r.entryCount;++i){const auto&e=r.entries[i];snprintf(chunk,320,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"rank\":%lu,\"records\":[",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.rank);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);for(uint32_t j=0;j<e.recordCount;++j){const auto&lap=e.records[j];snprintf(chunk,320,"%s{\"lapNumber\":%lu,\"startTime\":%llu,\"finishTime\":%llu,\"lapTime\":%llu,\"valid\":%s}",j?",":"",(unsigned long)lap.lapNumber,(unsigned long long)lap.startTime,(unsigned long long)lap.finishTime,(unsigned long long)lap.lapTime,lap.valid?"true":"false");httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);}httpd_resp_send_chunk(request,"]}",2);}
     httpd_resp_send_chunk(request,"]}",2);const esp_err_t sent=httpd_resp_send_chunk(request,nullptr,0);RaceEngineModule::clearResult(*loaded);free(loaded);free(chunk);trace.complete(sent);return sent;
