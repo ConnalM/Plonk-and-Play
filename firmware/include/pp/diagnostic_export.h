@@ -20,6 +20,9 @@ public:
 
 struct DiagnosticExportMetadata {
   const char* firmwareBuild = "unknown";
+  const char* sourceCommit = "unknown";
+  const char* buildEnvironment = "unknown";
+  const char* appElfSha256 = "unknown";
   const char* backend = "unknown";
   const char* capability = "UNAVAILABLE";
   uint8_t storageHealth = static_cast<uint8_t>(StorageHealth::Fault);
@@ -69,13 +72,16 @@ public:
     const int header = snprintf(
         line, sizeof(line),
         "{\"type\":\"header\",\"schema\":\"%s\",\"product\":\"Plonk-and-Play\","
-        "\"firmwareBuild\":\"%s\",\"backend\":\"%s\",\"storageHealth\":%u,"
+        "\"firmwareBuild\":\"%s\",\"sourceCommit\":\"%s\","
+        "\"buildEnvironment\":\"%s\",\"appElfSha256\":\"%s\","
+        "\"backend\":\"%s\",\"storageHealth\":%u,"
         "\"controllerEpoch\":%llu,\"normalSession\":%llu,\"developmentSession\":%llu,"
         "\"developmentLifecycle\":%u,\"exportCapability\":\"%s\","
         "\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,"
         "\"snapshotRecords\":%u,\"snapshotRevision\":%llu,"
         "\"completeness\":\"reported-in-summary\"}\n",
-        Schema, metadata.firmwareBuild, metadata.backend,
+        Schema, metadata.firmwareBuild, metadata.sourceCommit,
+        metadata.buildEnvironment, metadata.appElfSha256, metadata.backend,
         static_cast<unsigned>(metadata.storageHealth),
         static_cast<unsigned long long>(metadata.controllerEpoch.value),
         static_cast<unsigned long long>(metadata.normalSession.value),

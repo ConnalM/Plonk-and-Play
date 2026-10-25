@@ -1,8 +1,10 @@
 #include <Arduino.h>
 #include <Preferences.h>
+#include <esp_ota_ops.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include "pp/system_time.h"
+#include "pp/build_identity_generated.h"
 #include <stdarg.h>
 #include "pp/core.h"
 #include "pp/session_definition.h"
@@ -34,6 +36,19 @@ uint64_t acceptanceReadSharedTime();
 #endif
 namespace {
 using pp::systemTime;
+
+const char* applicationElfSha256() {
+  static char value[65]{};
+  static bool initialised = false;
+  if (!initialised) {
+    if (esp_ota_get_app_elf_sha256(value, sizeof(value)) <= 0) {
+      strncpy(value, "unknown", sizeof(value) - 1);
+    }
+    value[sizeof(value) - 1] = '\0';
+    initialised = true;
+  }
+  return value;
+}
 // Development diagnostics: bounded queue, bounded flush, no wait for UART.
 class Diagnostics {
 public:
@@ -631,6 +646,8 @@ void setup(){
   stage14cAcceptanceBeforeBoot();
 #endif
   diagnostics.log("[DEV] %s -- diagnostics are not product State",buildIdentity());
+  diagnostics.log("[BUILD] source_commit=%s environment=%s app_elf_sha256=%s",
+                  PP_BUILD_SOURCE_COMMIT, PP_BUILD_ENVIRONMENT, applicationElfSha256());
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
   storage.begin();browserAuthority.begin();browser.restorePersistedAuthority();
@@ -652,6 +669,8 @@ void setup(){
                   static_cast<unsigned>(controllerTraceStorage.status().health));
   browser.setDiagnosticTrace(&controllerTrace);
   browser.setDiagnosticBuildIdentity(buildIdentity());
+  browser.setDiagnosticBuildProvenance(PP_BUILD_SOURCE_COMMIT, PP_BUILD_ENVIRONMENT,
+                                       applicationElfSha256());
 #if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   browserAuthority.clearForFixture();
 #endif

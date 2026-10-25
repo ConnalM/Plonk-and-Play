@@ -109,6 +109,9 @@ static DiagnosticExportMetadata metadata(const SessionStatus& normal,
                                          const char* capability) {
   DiagnosticExportMetadata value{};
   value.firmwareBuild = "TEST_BUILD_15_EXPORT";
+  value.sourceCommit = "0123456789abcdef0123456789abcdef01234567";
+  value.buildEnvironment = "stage15-test";
+  value.appElfSha256 = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
   value.backend = storage.backend == BackendKind::FailureInjection
                       ? "FAILURE_INJECTION" : "RAM";
   value.capability = capability;
@@ -160,6 +163,9 @@ int main() {
                                0, sink, result)) return 7;
   if (!result.complete || result.snapshotRecords != 3 || result.exportedRecords != 3 ||
       sink.value.find("TEST_BUILD_15_EXPORT") == std::string::npos ||
+      sink.value.find("0123456789abcdef0123456789abcdef01234567") == std::string::npos ||
+      sink.value.find("stage15-test") == std::string::npos ||
+      sink.value.find("abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789") == std::string::npos ||
       sink.value.find("\"backend\":\"RAM\"") == std::string::npos ||
       sink.value.find("\"sequence\":1") == std::string::npos ||
       sink.value.find("\"sequence\":2") == std::string::npos ||

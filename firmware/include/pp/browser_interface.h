@@ -67,7 +67,13 @@ public:
   void setDiagnosticTrace(diagnostic::ControllerOperationTrace* trace) { diagnosticTrace_ = trace; }
   void setDiagnosticBuildIdentity(const char* identity) {
     diagnosticBuildIdentity_ = identity && *identity ? identity : "unknown";
+  }  void setDiagnosticBuildProvenance(const char* sourceCommit, const char* environment,
+                                    const char* appElfSha256) {
+    diagnosticSourceCommit_ = sourceCommit && *sourceCommit ? sourceCommit : "unknown";
+    diagnosticBuildEnvironment_ = environment && *environment ? environment : "unknown";
+    diagnosticAppElfSha256_ = appElfSha256 && *appElfSha256 ? appElfSha256 : "unknown";
   }
+
   void begin() {
 #if defined(PP_PHASE8B_REAL_SD)
     network_.begin();
@@ -532,6 +538,9 @@ private:
   uint64_t controllerEpoch_ = 0;
   diagnostic::ControllerOperationTrace* diagnosticTrace_ = nullptr;
   const char* diagnosticBuildIdentity_ = "unknown";
+  const char* diagnosticSourceCommit_ = "unknown";
+  const char* diagnosticBuildEnvironment_ = "unknown";
+  const char* diagnosticAppElfSha256_ = "unknown";
   uint32_t noticeRevision_ = 0;
   // Clock/start-light presentation is a separate P&P-driven stream. It does
   // not advance the Noticeboard revision or generate NOTICEBOARD_CHANGED.
@@ -2181,6 +2190,9 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
     diagnostic::DiagnosticExportMetadata metadata{};
     metadata.firmwareBuild = browser->diagnosticBuildIdentity_;
+    metadata.sourceCommit = browser->diagnosticSourceCommit_;
+    metadata.buildEnvironment = browser->diagnosticBuildEnvironment_;
+    metadata.appElfSha256 = browser->diagnosticAppElfSha256_;
     metadata.backend = diagnosticBackendName(storage.backend);
     metadata.capability = capability;
     metadata.storageHealth = static_cast<uint8_t>(storage.health);
@@ -2404,7 +2416,14 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   static esp_err_t health(httpd_req_t* request) {
     RequestTrace trace(instance(), "/health");
     httpd_resp_set_type(request, "application/json");
-    const esp_err_t sent = httpd_resp_sendstr(request, "{\"ok\":true,\"browser\":\"stage13\"}"); trace.complete(sent); return sent;
+    char body[512]{};
+    snprintf(body, sizeof(body),
+             "{\"ok\":true,\"browser\":\"stage13\",\"firmwareBuild\":\"%s\","
+             "\"sourceCommit\":\"%s\",\"buildEnvironment\":\"%s\","
+             "\"appElfSha256\":\"%s\"}",
+             instance()->diagnosticBuildIdentity_, instance()->diagnosticSourceCommit_,
+             instance()->diagnosticBuildEnvironment_, instance()->diagnosticAppElfSha256_);
+    const esp_err_t sent = httpd_resp_sendstr(request, body); trace.complete(sent); return sent;
   }
   void startServer() {
     instance() = this;
