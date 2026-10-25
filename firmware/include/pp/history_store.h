@@ -40,7 +40,7 @@ public:
 class SlotHistoryStore final : public HistoryStore {
 public:
   explicit SlotHistoryStore(Store& store):store_(store){}
-  ~SlotHistoryStore() override { delete reconstructionWorkspace_; }
+  ~SlotHistoryStore() override { delete reconstructionWorkspace_; delete commitWorkspace_; }
 
   bool append(const uint8_t* bytes, size_t length, uint32_t& sequence) override {
     OperationGuard guard(operationBusy_);
@@ -54,6 +54,11 @@ public:
     // of the bounded slot set is the staging area for a new transaction.
     const uint8_t slot = freeSlot();
     if (slot == InvalidSlot) return false;
+    // Acquire the bounded commit workspace before writing the payload.  A
+    // workspace allocation failure therefore leaves no newly written,
+    // unreferenced payload behind and cannot publish an uncommitted result.
+    CommitWorkspace* workspace = ensureCommitWorkspace();
+    if (!workspace) return false;
     uint8_t* verify = static_cast<uint8_t*>(malloc(length));
     if (!verify) return false;
     const bool payloadWritten = store_.write(DataSlot + slot, bytes, length);
@@ -62,7 +67,8 @@ public:
     free(verify);
     if (!payloadVerified) return false;
 
-    MetadataState candidate = meta_;
+    MetadataState& candidate = workspace->candidate;
+    candidate = meta_;
     uint8_t evictedSlot = InvalidSlot;
     if (candidate.count == Capacity) {
       evictedSlot = candidate.entries[0].slot;
@@ -100,7 +106,12 @@ public:
     OperationGuard guard(operationBusy_);
     if (!guard) return false;
     if (!ensure()) return false;
-    MetadataState empty{}; empty.generation = meta_.generation + 1; empty.nextSequence = meta_.nextSequence;
+    CommitWorkspace* workspace = ensureCommitWorkspace();
+    if (!workspace) return false;
+    MetadataState& empty = workspace->candidate;
+    empty = MetadataState{};
+    empty.generation = meta_.generation + 1;
+    empty.nextSequence = meta_.nextSequence;
     return publishMetadata(empty);
   }
 
@@ -127,6 +138,12 @@ private:
     uint8_t legacy[LegacyMetadataBytes]{};
     MetadataState old{};
   };
+  struct CommitWorkspace {
+    uint8_t bytes[EncodedMetadataBytes]{};
+    uint8_t verify[EncodedMetadataBytes]{};
+    MetadataState candidate{};
+    MetadataState checked{};
+  };
   class OperationGuard final {
   public:
     explicit OperationGuard(std::atomic_flag& flag):flag_(flag),held_(!flag_.test_and_set(std::memory_order_acquire)){}
@@ -139,6 +156,7 @@ private:
 
   Store& store_; MetadataState meta_{}; unsigned activeMetaSlot_ = MetaSlotA; bool loaded_ = false;
   ReconstructionWorkspace* reconstructionWorkspace_ = nullptr;
+  CommitWorkspace* commitWorkspace_ = nullptr;
   mutable std::atomic_flag operationBusy_ = ATOMIC_FLAG_INIT;
 
   static uint32_t checksum(const uint8_t* p, size_t n) { uint32_t h=2166136261u; while(n--) h=(h^*p++)*16777619u; return h; }
@@ -181,16 +199,20 @@ private:
     if(hasA||hasB){if(hasB&&(!hasA||workspace.vb.generation>workspace.va.generation)){meta_=workspace.vb;activeMetaSlot_=MetaSlotB;}else{meta_=workspace.va;activeMetaSlot_=MetaSlotA;}return true;}
     if(store_.read(MetaSlotA,workspace.legacy,sizeof(workspace.legacy))&&decodeLegacy(workspace.legacy,workspace.old)){meta_=workspace.old;activeMetaSlot_=MetaSlotA;}return true;
   }
+  CommitWorkspace* ensureCommitWorkspace() {
+    if (!commitWorkspace_) commitWorkspace_ = new (std::nothrow) CommitWorkspace();
+    return commitWorkspace_;
+  }
   uint8_t freeSlot()const {for(uint8_t slot=0;slot<PhysicalSlots;++slot){bool used=false;for(uint8_t i=0;i<meta_.count;++i)if(meta_.entries[i].slot==slot){used=true;break;}if(!used)return slot;}return InvalidSlot;}
   bool publishMetadata(const MetadataState& candidate) {
     if (!valid(candidate)) return false;
-    uint8_t bytes[EncodedMetadataBytes]{};
-    encode(candidate,bytes);
+    CommitWorkspace* workspace = ensureCommitWorkspace();
+    if (!workspace) return false;
+    encode(candidate,workspace->bytes);
     const unsigned target=activeMetaSlot_==MetaSlotA?MetaSlotB:MetaSlotA;
     if (!store_.canWrite(EncodedMetadataBytes)) return false;
-    if (!store_.write(target,bytes,sizeof(bytes))) return false;
-    uint8_t verify[EncodedMetadataBytes]{};MetadataState checked{};
-    if(!store_.read(target,verify,sizeof(verify))||!decode(verify,checked)||checked.generation!=candidate.generation)return false;
+    if (!store_.write(target,workspace->bytes,sizeof(workspace->bytes))) return false;
+    if(!store_.read(target,workspace->verify,sizeof(workspace->verify))||!decode(workspace->verify,workspace->checked)||workspace->checked.generation!=candidate.generation)return false;
     meta_=candidate;activeMetaSlot_=target;return true;
   }
 };
