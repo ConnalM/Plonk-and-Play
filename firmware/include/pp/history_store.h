@@ -76,7 +76,11 @@ public:
     if (!workspace) { historyCommitTrace("slot_append", "workspace"); return false; }
     uint8_t* verify = static_cast<uint8_t*>(malloc(length));
     if (!verify) { historyCommitTrace("slot_append", "payload_workspace", length); return false; }
-    const bool payloadWritten = store_.write(DataSlot + slot, bytes, length);
+    // The selected slot is absent from committed metadata. Its physical file
+    // may nevertheless be an orphan from an older/failed transaction. Use the
+    // explicit payload replacement boundary; metadata writes must retain the
+    // ordinary non-overwriting Store::write() semantics.
+    const bool payloadWritten = store_.writeUnreferenced(DataSlot + slot, bytes, length);
     const bool payloadVerified = payloadWritten && store_.read(DataSlot + slot, verify, length) &&
                                  memcmp(bytes, verify, length) == 0;
     free(verify);

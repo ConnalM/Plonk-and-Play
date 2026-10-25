@@ -219,6 +219,12 @@ public:
   virtual bool available() const = 0;
   virtual bool read(unsigned slot, uint8_t* data, size_t size) = 0;
   virtual bool write(unsigned slot, const uint8_t* data, size_t size) = 0;
+  // Payload transactions may explicitly replace a slot that the caller has
+  // proven is absent from committed metadata. Metadata writes continue to use
+  // write(), which never removes an existing target before publication.
+  virtual bool writeUnreferenced(unsigned slot, const uint8_t* data, size_t size) {
+    return write(slot, data, size);
+  }
   virtual StoreHealth health() const { return available() ? StoreHealth::Healthy : StoreHealth::Unavailable; }
   virtual uint64_t totalBytes() const { return 0; }
   virtual uint64_t freeBytes() const { return 0; }

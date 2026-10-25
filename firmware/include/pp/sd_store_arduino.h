@@ -112,10 +112,22 @@ public:
   }
 
   bool write(unsigned slot, const uint8_t* data, size_t size) override {
+    return writeImpl(slot, data, size, false);
+  }
+
+  bool writeUnreferenced(unsigned slot, const uint8_t* data, size_t size) override {
+    return writeImpl(slot, data, size, true);
+  }
+
+private:
+  bool writeImpl(unsigned slot, const uint8_t* data, size_t size, bool replaceUnreferenced) {
     auto lease = owner_.lock();
     if (!lease || !mounted_ || !data) { Serial.printf("[P8-P1] history_store_write stage=precondition slot=%u size=%lu lease=%u mounted=%u data=%u\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size), lease ? 1u : 0u, mounted_ ? 1u : 0u, data ? 1u : 0u); return false; }
     if (!canWrite(size)) { lastHealth_ = StoreHealth::Insufficient; Serial.printf("[P8-P1] history_store_write stage=capacity slot=%u size=%lu\n", static_cast<unsigned>(slot), static_cast<unsigned long>(size)); return false; }
     const String target = path(slot);
+    if (replaceUnreferenced && owner_.exists(target.c_str()) && !owner_.remove(target)) {
+      return false;
+    }
     String temporary = target;
     temporary += ".tmp";
     owner_.remove(temporary);
@@ -170,7 +182,6 @@ public:
     return true;
   }
 
-private:
   String root_ = "/pp-p1";
   PhysicalSdOwner& owner_;
   bool mounted_ = false;
