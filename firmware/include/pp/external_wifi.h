@@ -292,6 +292,17 @@ private:
           Serial.printf("[WIFI] STA_EVENT event=DISCONNECTED reason=%u name=%s\n",
                         static_cast<unsigned>(reason),
                         WiFi.disconnectReasonName(static_cast<wifi_err_reason_t>(reason)));
+          // A driver disconnect while an association is in progress is a
+          // terminal attempt failure until the bounded reconnect tick starts
+          // another attempt.  Preserve deliberate Disconnect/Forget state.
+          if (!suppressed_) {
+            if (staFailure_ == StaFailure::None) {
+              staFailure_ = staState_ == StaState::Connecting
+                ? StaFailure::ConnectFailed
+                : StaFailure::ConnectionLost;
+            }
+            staState_ = StaState::Disconnected;
+          }
           break;
         }
         case ARDUINO_EVENT_WIFI_STA_GOT_IP:

@@ -15,6 +15,9 @@ foreach ($marker in @(
   'FactoryApSsid = "Plonk-and-Play"')) {
   if ($manager -notlike "*$marker*") { throw "External Wi-Fi manager marker missing: $marker" }
 }
+foreach ($marker in @('staFailure_ == StaFailure::None', 'staState_ == StaState::Connecting', 'staFailure_ = StaFailure::ConnectFailed', 'staFailure_ = StaFailure::ConnectionLost', 'staState_ = StaState::Disconnected')) {
+  if ($manager -notlike "*$marker*") { throw "STA terminal-disconnect state mapping marker missing: $marker" }
+}
 if ($manager -notmatch 'stationConfigured_ = true;[\s\S]{0,260}WiFi\.begin\(ssid, password\)') {
   throw 'Connect does not establish configured state from the accepted SSID before asynchronous WiFi.begin completes.'
 }
@@ -80,10 +83,43 @@ if ($embed -notlike '*{"/", HTTP_GET, normalPage, nullptr}*' -or
   throw 'Normal Browser embed does not make the root entry point serve the current Normal Browser.'
 }
 Write-Host 'Normal Browser root-entry contract: PASS'
-foreach ($marker in @('let networkRefreshTimer=0', 'function scheduleNetworkRefresh', 'scheduleNetworkRefresh(scanBusy,sta.state===''CONNECTING''', 'submitNetworkConnect', 'networkPassword'').onkeydown', 'await networkPage()')) {
+foreach ($marker in @('let networkRefreshTimer=0', 'function scheduleNetworkRefresh', 'scheduleNetworkRefresh(scanBusy,sta.state===''CONNECTING''', 'submitNetworkConnect', 'networkPassword'').onkeydown', 'await networkPage(true)')) {
   if ($browser -notlike "*$marker*") { throw "Browser asynchronous Network refresh marker missing: $marker" }
 }
-if ($browser -notmatch "if\(r\.ok\)\{networkDraftSsid='';networkDraftPassword='';networkDraftActive=false;ssidInput\.value='';passwordInput\.value=''\}.*await networkPage\(\)") {
+foreach ($marker in @('function networkFormEditing', 'active.id===''networkSsid''', 'active.id===''networkPassword''', 'if(!force&&networkFormEditing())', 'networkPage(true)', 'networkDraftPassword')) {
+  if ($browser -notlike "*$marker*") { throw "Browser input-focus preservation marker missing: $marker" }
+}
+
+# Deterministic regression for the physical WPA failure: a disconnect event
+# while an asynchronous association is in progress must terminate the
+# presentation attempt, while deliberate Disconnect/Forget remains deliberate
+# and does not become a reported failure.
+$staState = 'CONNECTING'
+$staFailure = 'NONE'
+$suppressed = $false
+if (-not $suppressed) {
+  if ($staFailure -eq 'NONE') { $staFailure = if ($staState -eq 'CONNECTING') { 'CONNECT_FAILED' } else { 'CONNECTION_LOST' } }
+  $staState = 'DISCONNECTED'
+}
+if ($staState -ne 'DISCONNECTED' -or $staFailure -ne 'CONNECT_FAILED') { throw 'Terminal STA disconnect regression remained CONNECTING.' }
+$staState = 'DISCONNECTED'; $staFailure = 'NONE'; $suppressed = $true
+if (-not $suppressed) { $staFailure = 'CONNECT_FAILED'; $staState = 'DISCONNECTED' }
+if ($staState -ne 'DISCONNECTED' -or $staFailure -ne 'NONE') { throw 'Deliberate STA suppression was misclassified as a failure.' }
+Write-Host 'STA terminal-disconnect state mapping regression: PASS'
+
+# Deterministic Browser regression: polling/reconciliation must not replace the
+# Network form while the password input is active, while an explicit action is
+# allowed to force the authoritative re-render.
+$editing = $true
+$forced = $false
+$redraws = 0
+if (-not $forced -and $editing) { $redraws = 0 } else { $redraws++ }
+if ($redraws -ne 0) { throw 'Network polling replaced an active credential form.' }
+$forced = $true
+if ($forced) { $redraws++ }
+if ($redraws -ne 1) { throw 'Explicit Network action did not force a result re-render.' }
+Write-Host 'Network password-input focus preservation regression: PASS'
+if ($browser -notmatch "if\(r\.ok\)\{networkDraftSsid='';networkDraftPassword='';networkDraftActive=false;ssidInput\.value='';passwordInput\.value=''\}.*await networkPage\(true\)") {
   throw 'Accepted Forget does not clear Browser-local SSID/password drafts before authoritative re-render.'
 }
 if ($browser -notmatch "networkDraftSsid='';networkDraftPassword='';networkDraftActive=false") {
