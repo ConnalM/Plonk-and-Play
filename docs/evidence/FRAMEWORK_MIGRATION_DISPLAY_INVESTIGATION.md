@@ -146,3 +146,92 @@ interaction. This is a diagnostic choice, not an authorised firmware change.
 
 No production display correction is justified from source inspection alone.
 
+## Post-probe startup/resource lifecycle investigation
+
+The isolated probe was physically PASS on `9f511bc7e39a7c099b3fa924aed4d927c023e625`.
+It showed six colour squares, clean grid geometry and three steady text lines;
+the pattern had no horizontal repetition or displacement. The probe therefore
+does not reproduce the migrated RGB corruption. The remaining boundary is the
+full P&P startup/resource lifecycle, not the panel pins, porch values, PCLK,
+rotation or the low-level migrated RGB path by itself.
+
+### Construction and allocation order
+
+The production display adapter is `firmware/include/pp/board_display_esp32s3.h`.
+Its global `pp::Esp32S3BoardDisplay boardDisplay` construction allocates only
+the `Arduino_ESP32RGBPanel` and `Arduino_RGB_Display` objects. It does not call
+`begin()` and therefore does not enable RGB scanout or allocate the full
+framebuffer at global-construction time.
+
+`main.cpp` calls `boardDisplay.begin()` only after the first valid
+`ConfigurationLoaded` message, after these startup boundaries have already run:
+
+1. Serial/build identity and system-time checks;
+2. NVS `storage.begin()`, authority-store startup and persisted-authority
+   restoration;
+3. `PhysicalSdOwner::begin()` and the History/detail storage boundary;
+4. the bounded diagnostics recorder and its SD-backed owner;
+5. message-bus subscriptions, race/control/presentation objects and the bus
+   self-test;
+6. `BrowserInterface::begin()`, which starts the AP/STA manager; and
+7. early `browser.tick()` work, which starts the HTTP server once the P&P AP is
+   available. The server is configured with an 8 KiB task stack, 13 maximum
+   open sockets and LRU purge.
+
+Only then does the configuration response make the application `ready`, after
+which `boardDisplay.begin()` performs the 300 ms settle delay, calls the GFX
+`begin()` path and enables scanout, followed by the single READY draw. The
+display is consequently the first large RGB/PSRAM allocation in the full
+startup path, whereas the isolated probe performs that allocation before SD,
+Wi-Fi, HTTP, Browser or persistence startup.
+
+The one normal RGB framebuffer is 800 x 480 x 2 bytes = 768,000 bytes. Both
+the probe and production adapter use the same one-framebuffer Arduino_GFX
+construction, so the material difference established by source inspection is
+when that allocation occurs, not its size or panel configuration.
+
+### Configuration comparison
+
+The probe and production adapter use the same Arduino_GFX constructor values:
+the DE/VSYNC/HSYNC/PCLK and RGB pins, 800 x 480 geometry, HSYNC
+`0/210/30/16`, VSYNC `0/22/13/10`, active-negative PCLK, 12 MHz, rotation 0,
+null data bus and automatic flush. No remaining source difference in pins,
+porches, polarity, geometry, rotation or framebuffer count was found.
+
+In the migrated Arduino_GFX/IDF-5 path the framebuffer is requested in
+`Arduino_RGB_Display::begin()` through the RGB panel's one-framebuffer
+PSRAM/DMA configuration. The probe exercises the same library path. The
+production source contains no later `boardDisplay` draw, delete/free, direct
+RGB-peripheral reconfiguration, LVGL setup, touch setup or alternate display
+object. `showReady()` writes once and `loop()` does not write to the display.
+Thus source inspection finds no post-`begin()` owner that intentionally
+modifies or frees the framebuffer.
+
+### Resource evidence and limits
+
+The production startup creates the NVS/authority objects, SD owner and
+filesystem handles, diagnostics recorder, bus/race/browser state, AP/STA
+manager and the HTTPD task/socket resources before the framebuffer is
+allocated. Browser route handlers also use bounded request buffers and SSE
+session/work allocations once clients arrive. These are materially absent from
+the probe. The repository has no accepted runtime heap snapshot taken at the
+display allocation boundary, so the exact PSRAM free-space/fragmentation delta
+is not proven by this read-only review. Likewise, no source path proves a
+post-`begin()` framebuffer overwrite. The evidence supports a resource/order
+interaction hypothesis, but does not yet establish whether the cause is PSRAM
+fragmentation, internal-RAM/DMA pressure, cache-coherency interaction after
+other startup activity, or another full-application side effect.
+
+### Smallest discriminating next test
+
+Keep every display setting and production subsystem unchanged, but create a
+diagnostic-only full-P&P candidate that moves the existing single
+`boardDisplay.begin(); boardDisplay.showReady();` boundary to immediately after
+Serial/build startup and before NVS, SD, Browser/AP/STA and HTTP startup. Do
+not add a second display object, change timings or draw more than the existing
+READY image. A stable screen would identify startup allocation/resource order
+as the compatibility boundary; corruption in that placement would leave a
+full-application framework/resource interaction or framebuffer ownership issue
+as the next boundary. This is a proposed discriminator only; no production
+code or firmware was changed in this investigation.
+

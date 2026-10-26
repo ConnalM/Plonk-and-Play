@@ -24,8 +24,23 @@ Physical interpretation:
 * Pattern completely stable/correct: the low-level path works; the next
   boundary is interaction with P&P startup/resource/PSRAM lifecycle.
 
-Software scope check: the probe is compile/build-only in this commit. It has
-not been flashed or physically exercised.
+## Physical validation
+
+The reviewed probe from source commit
+`9f511bc7e39a7c099b3fa924aed4d927c023e625` was flashed once on the target
+ESP32-S3. Serial reported the expected probe commit, `stage8bp1s3sd`
+framework stack, and `init OK`; no P&P subsystem was enabled. The physical
+pattern was PASS: six colour squares, the grid geometry, and all three fixed
+text lines were clean and steady. No horizontal repetition, displacement or
+corruption was observed. This proves the migrated low-level
+ESP32-S3 + Arduino-ESP32 3.3.12 + ESP-IDF 5.5.5 + Arduino_GFX 1.6.5 RGB
+path with the current P&P panel configuration is stable in isolation.
+
+The probe artifact used for that validation was 378,656 bytes with SHA-256
+`3ECAB4F2BD71A395F35AE955752C5B5EE3A8F758563C7E43D53C0D45C3C9B271`.
+
+This does not prove the full P&P startup/resource lifecycle is safe for the
+same framebuffer. That is the next investigation boundary.
 
 ## Software build evidence
 
