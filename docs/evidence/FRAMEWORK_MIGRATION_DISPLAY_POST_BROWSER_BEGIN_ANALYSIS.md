@@ -33,6 +33,13 @@ pre-`browser.begin()` probe, so this is a valid boundary result: the trigger is
 inside `browser.begin()` or asynchronous work it starts.  `browser.tick()` did
 not execute, and there is no HTTP/SSE server-start marker in this capture.
 
+The exact reviewed artifact was uploaded (source `0545f833...`, environment
+`stage8bp1s3sd-display-post-browser-begin-stop`, SHA-256
+`64987C8BB85A5B36E44D8500AA53B0555415C61F5ACD8D4B4113908935AD2029`).  The
+immediate diagnostic return occurs before the queued normal `[BUILD]` diagnostic
+line is flushed, so this capture does not independently print that line; the
+artifact hash and the matching probe markers establish the tested candidate.
+
 Heap deltas are substantial but not exhaustion by themselves:
 
 | boundary | internal free | largest internal | PSRAM free | largest PSRAM |
