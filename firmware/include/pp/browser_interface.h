@@ -647,6 +647,7 @@ private:
   struct SseSession {
     BrowserInterface* owner = nullptr;
     httpd_handle_t server = nullptr;
+    uint32_t serverGeneration = 0;
     int fd = -1;
     uint64_t clientToken = 0;
     uint32_t generation = 0;
@@ -1234,7 +1235,8 @@ private:
     httpd_req_t* request = session->asyncRequest;
     session->asyncRequest = nullptr;
 #if PP_HTTP_ASYNC_RUNTIME
-    const bool serverAlive = server && server == server_;
+    const bool serverAlive = server && server == server_ &&
+                             session->serverGeneration == serverGeneration_;
     // Detach the generation-bound callback before releasing the async request;
     // otherwise a recycled fd could later invoke this session's cleanup path.
     if (serverAlive && fd >= 0 && httpd_sess_get_ctx(server, fd) == session) {
@@ -1253,6 +1255,7 @@ private:
     session->transportClosed = false;
     __atomic_store_n(&session->completionStarted, false, __ATOMIC_RELEASE);
     session->server = nullptr;
+    session->serverGeneration = 0;
     session->fd = -1;
     session->clientToken = 0;
     session->generation = 0;
@@ -1273,6 +1276,7 @@ private:
     }
     if (session->inUse && (!session->valid || session->transportClosed ||
                            session->server != server_ ||
+                           session->serverGeneration != serverGeneration_ ||
                            session->generation != workGeneration ||
                            !session->asyncRequest ||
                            findSseSessionExact(session) != session)) {
@@ -1342,7 +1346,8 @@ private:
                          job.serverGeneration == serverGeneration_ &&
                          httpd_req_to_sockfd(request) == job.fd;
     if (!current) {
-      if (job.server && job.server == server_) completeAsyncRequest(request);
+      if (job.server && job.server == server_ &&
+          job.serverGeneration == serverGeneration_) completeAsyncRequest(request);
       return;
     }
     // sendNormalPage owns the request trace; keeping it in the worker avoids
@@ -1409,6 +1414,7 @@ private:
       if (!session->inUse && !session->workerBusy && !session->asyncRequest) {
         session->owner = this;
         session->server = server_;
+        session->serverGeneration = serverGeneration_;
         session->clientToken = token;
         session->generation = ++nextEventGeneration_;
         if (!session->generation) session->generation = ++nextEventGeneration_;
@@ -1478,7 +1484,8 @@ private:
   }
   void sendEventNotification(SseSession* session, uint32_t workGeneration) {
     if (!session || !session->inUse || !session->valid || !session->asyncRequest ||
-        session->server != server_ || session->generation != workGeneration ||
+        session->server != server_ || session->serverGeneration != serverGeneration_ ||
+        session->generation != workGeneration ||
         findSseSessionExact(session) != session) {
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
       Serial.printf("[SSE] stale_work generation=%lu client=%llu at_us=%llu\n",

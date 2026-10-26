@@ -30,6 +30,7 @@ require("findSseSessionExact(session)" in BROWSER, "generation/session identity 
 require("queuedGeneration" in BROWSER, "stale queued generation is not tracked")
 require("httpd_req_to_sockfd(request) == job.fd" in BROWSER, "page worker has no fd/generation guard")
 require("serverGeneration" in BROWSER, "page worker has no server-generation guard")
+require("session->serverGeneration != serverGeneration_" in BROWSER, "SSE worker has no server-generation guard")
 require('"page ordinary capacity unavailable"' in BROWSER, "page admission does not preserve ordinary capacity")
 require("close_failed" in BROWSER, "close failure is not observable")
 require("httpd_queue_work(server_, &BrowserInterface::eventWork, work)" not in BROWSER,
