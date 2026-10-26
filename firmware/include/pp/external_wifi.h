@@ -96,6 +96,12 @@ public:
     installEventDiagnostics();
     apStarted_ = WiFi.softAP(FactoryApSsid);
     suppressed_ = false;
+#if defined(PP_DISPLAY_AP_ONLY_STOP)
+    // Disposable discriminator: isolate WiFi mode/event/AP startup from the
+    // remembered-STA and mDNS work without changing the production path.
+    Serial.printf("[WIFI] AP_ONLY ap_started=%u\n", apStarted_ ? 1U : 0U);
+    return;
+#endif
     stationConfigured_ = hasStoredStationConfiguration();
     staFailure_ = StaFailure::None;
     if (stationConfigured_) {
