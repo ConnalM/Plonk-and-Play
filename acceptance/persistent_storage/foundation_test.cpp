@@ -9,7 +9,7 @@ using namespace pp;
 
 class MemoryStore final : public Store {
 public:
-  bool online=true,failWrites=false;std::vector<std::vector<uint8_t>> slots=std::vector<std::vector<uint8_t>>(32);
+  bool online=true,failWrites=false;std::vector<std::vector<uint8_t>> slots=std::vector<std::vector<uint8_t>>(256);
   bool available()const override{return online;}
   bool read(unsigned s,uint8_t*out,size_t n)override{if(!online||!out||s>=slots.size()||slots[s].size()!=n)return false;memcpy(out,slots[s].data(),n);return true;}
   bool write(unsigned s,const uint8_t*in,size_t n)override{if(!online||failWrites||!in||s>=slots.size())return false;slots[s].assign(in,in+n);return true;}

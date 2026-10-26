@@ -126,6 +126,12 @@ public:
     return writeImpl(slot, data, size, false, true);
   }
 
+  bool writeTrackRecord(unsigned slot, const uint8_t* data, size_t size) override {
+    // The Track Record A/B boundary has the same safe inactive-target
+    // replacement semantics as metadata, but remains a separate Store API.
+    return writeImpl(slot, data, size, false, true);
+  }
+
 private:
   bool writeImpl(unsigned slot, const uint8_t* data, size_t size,
                  bool replaceUnreferenced, bool replaceMetadataTarget = false) {

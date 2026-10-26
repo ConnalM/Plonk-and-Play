@@ -7,7 +7,7 @@ using namespace pp;
 
 struct MemoryStore final : Store {
   bool online = true;
-  std::vector<std::vector<uint8_t>> slots = std::vector<std::vector<uint8_t>>(16);
+  std::vector<std::vector<uint8_t>> slots = std::vector<std::vector<uint8_t>>(256);
 
   bool available() const override { return online; }
   bool read(unsigned slot, uint8_t* out, size_t size) override {

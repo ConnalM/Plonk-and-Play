@@ -231,6 +231,12 @@ public:
   virtual bool writeMetadata(unsigned slot, const uint8_t* data, size_t size) {
     return write(slot, data, size);
   }
+  // Track Record publication has its own A/B boundary.  A backend may
+  // replace only the inactive copy after the candidate has been staged and
+  // verified; generic Store::write() semantics remain non-replacing.
+  virtual bool writeTrackRecord(unsigned slot, const uint8_t* data, size_t size) {
+    return write(slot, data, size);
+  }
   virtual StoreHealth health() const { return available() ? StoreHealth::Healthy : StoreHealth::Unavailable; }
   virtual uint64_t totalBytes() const { return 0; }
   virtual uint64_t freeBytes() const { return 0; }

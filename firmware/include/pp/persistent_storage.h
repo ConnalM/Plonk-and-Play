@@ -149,23 +149,83 @@ private: HistoryStore&backend_;
 // database limit.
 class VersionedTrackRecordStore final : public TrackRecordStore {
 public:
-  static constexpr uint32_t Magic=0x50535231u,Version=1;static constexpr unsigned Slot=7;
+  static constexpr uint32_t Magic=0x50535231u;
+  static constexpr uint32_t LegacyVersion=1;
+  static constexpr uint32_t Version=2;
+  static constexpr unsigned Slot=7;
+  // Slot 209 is outside History payload slots (8..207) and both alternating
+  // History metadata slots (6 and 208). It is the dedicated Track Record
+  // successor copy; legacy slot 7 remains readable and is never migrated
+  // destructively.
+  static constexpr unsigned AlternateSlot=209;
   explicit VersionedTrackRecordStore(Store&store):store_(store){}
-  bool observe(uint8_t lane,Time lap) override {if(lane<1||lane>PP_MAX_ENTRIES||!lap||!ensure())return false;bool changed=false;if(!data_.pb[lane-1]||lap<data_.pb[lane-1]){data_.pb[lane-1]=lap;changed=true;}if(!data_.track||lap<data_.track){data_.track=lap;data_.trackLane=lane;changed=true;}return !changed||write();}
+  bool observe(uint8_t lane,Time lap) override {
+    if(lane<1||lane>PP_MAX_ENTRIES||!lap||!ensure())return false;
+    Data candidate=data_; bool changed=false;
+    if(!candidate.pb[lane-1]||lap<candidate.pb[lane-1]){candidate.pb[lane-1]=lap;changed=true;}
+    if(!candidate.track||lap<candidate.track){candidate.track=lap;candidate.trackLane=lane;changed=true;}
+    return !changed||publish(candidate);
+  }
   Time lanePb(uint8_t lane)override{return lane>=1&&lane<=PP_MAX_ENTRIES&&ensure()?data_.pb[lane-1]:0;}
   Time trackRecord()override{return ensure()?data_.track:0;}
   uint32_t era()override{return ensure()?data_.era:0;}
-  bool clearLane(uint8_t lane)override{if(lane<1||lane>PP_MAX_ENTRIES||!ensure())return false;data_.pb[lane-1]=0;recompute();++data_.era;return write();}
-  bool clearTrack()override{if(!ensure())return false;data_.track=0;data_.trackLane=0;++data_.era;return write();}
-  bool clearAll()override{if(!ensure())return false;for(uint8_t i=0;i<PP_MAX_ENTRIES;++i)data_.pb[i]=0;data_.track=0;data_.trackLane=0;++data_.era;return write();}
+  bool clearLane(uint8_t lane)override{if(lane<1||lane>PP_MAX_ENTRIES||!ensure())return false;Data candidate=data_;candidate.pb[lane-1]=0;recompute(candidate);++candidate.era;return publish(candidate);}
+  bool clearTrack()override{if(!ensure())return false;Data candidate=data_;candidate.track=0;candidate.trackLane=0;++candidate.era;return publish(candidate);}
+  bool clearAll()override{if(!ensure())return false;Data candidate=data_;for(uint8_t i=0;i<PP_MAX_ENTRIES;++i)candidate.pb[i]=0;candidate.track=0;candidate.trackLane=0;++candidate.era;return publish(candidate);}
 private:
   struct Data{uint32_t era=1;Time pb[PP_MAX_ENTRIES]{};Time track=0;uint8_t trackLane=0;};
-  Store&store_;Data data_{};bool loaded_=false;
+  Store&store_;Data data_{};uint32_t generation_=0;unsigned activeSlot_=Slot;bool loaded_=false;
   static uint32_t sum(const uint8_t*p,size_t n){uint32_t h=2166136261u;while(n--)h=(h^*p++)*16777619u;return h;}
-  static constexpr size_t EncodedBytes=4+4+4+PP_MAX_ENTRIES*8+8+1+4;
-    bool ensure(){if(loaded_)return store_.available();loaded_=true;if(!store_.available())return false;uint8_t bytes[EncodedBytes]{};if(!store_.read(Slot,bytes,sizeof(bytes)))return true;size_t p=0;auto u32=[&](uint32_t&v){v=uint32_t(bytes[p])|(uint32_t(bytes[p+1])<<8)|(uint32_t(bytes[p+2])<<16)|(uint32_t(bytes[p+3])<<24);p+=4;};auto u64=[&](uint64_t&v){v=0;for(unsigned i=0;i<8;++i)v|=uint64_t(bytes[p+i])<<(i*8);p+=8;};uint32_t magic=0,version=0,checksum=0;uint8_t trackLane=0;u32(magic);u32(version);if(magic!=Magic||version!=Version)return true;u32(data_.era);for(uint8_t i=0;i<PP_MAX_ENTRIES;++i)u64(data_.pb[i]);u64(data_.track);trackLane=bytes[p++];u32(checksum);if(checksum!=sum(bytes,sizeof(bytes)-4)||data_.era==0)data_={};else data_.trackLane=trackLane;return true;}
-  bool write(){const size_t size=EncodedBytes;uint8_t bytes[size]{};size_t p=0;auto put32=[&](uint32_t v){bytes[p++]=uint8_t(v);bytes[p++]=uint8_t(v>>8);bytes[p++]=uint8_t(v>>16);bytes[p++]=uint8_t(v>>24);};auto put64=[&](uint64_t v){for(unsigned i=0;i<8;++i)bytes[p++]=uint8_t(v>>(i*8));};put32(Magic);put32(Version);put32(data_.era);for(uint8_t i=0;i<PP_MAX_ENTRIES;++i)put64(data_.pb[i]);put64(data_.track);bytes[p++]=data_.trackLane;const uint32_t checksum=sum(bytes,size-4);put32(checksum);return store_.write(Slot,bytes,size);}
-  void recompute(){data_.track=0;data_.trackLane=0;for(uint8_t i=0;i<PP_MAX_ENTRIES;++i)if(data_.pb[i]&&(!data_.track||data_.pb[i]<data_.track)){data_.track=data_.pb[i];data_.trackLane=i+1;}}
+  static constexpr size_t LegacyEncodedBytes=4+4+4+PP_MAX_ENTRIES*8+8+1+4;
+  static constexpr size_t EncodedBytes=4+4+4+4+PP_MAX_ENTRIES*8+8+1+4;
+  static bool decode(const uint8_t*bytes,size_t size,uint32_t&generation,Data&out){
+    if(!bytes||size<LegacyEncodedBytes)return false;
+    size_t p=0;auto u32=[&](uint32_t&v){if(p+4>size)return false;v=uint32_t(bytes[p])|(uint32_t(bytes[p+1])<<8)|(uint32_t(bytes[p+2])<<16)|(uint32_t(bytes[p+3])<<24);p+=4;return true;};auto u64=[&](uint64_t&v){if(p+8>size)return false;v=0;for(unsigned i=0;i<8;++i)v|=uint64_t(bytes[p+i])<<(i*8);p+=8;return true;};
+    uint32_t magic=0,version=0,checksum=0; if(!u32(magic)||!u32(version)||magic!=Magic)return false;
+    generation=1;
+    if(version==Version){if(size!=EncodedBytes||!u32(generation)||!u32(out.era))return false;}
+    else if(version==LegacyVersion){if(size!=LegacyEncodedBytes||!u32(out.era))return false;}
+    else return false;
+    for(uint8_t i=0;i<PP_MAX_ENTRIES;++i)if(!u64(out.pb[i]))return false;
+    if(!u64(out.track)||p>=size)return false;
+    out.trackLane=bytes[p++];
+    if(!u32(checksum))return false;
+    if(checksum!=sum(bytes,size-4)||out.era==0)return false;
+    return true;
+  }
+  static void encode(const Data&value,uint32_t generation,uint8_t*bytes){
+    size_t p=0;auto put32=[&](uint32_t v){bytes[p++]=uint8_t(v);bytes[p++]=uint8_t(v>>8);bytes[p++]=uint8_t(v>>16);bytes[p++]=uint8_t(v>>24);};auto put64=[&](uint64_t v){for(unsigned i=0;i<8;++i)bytes[p++]=uint8_t(v>>(i*8));};put32(Magic);put32(Version);put32(generation);put32(value.era);for(uint8_t i=0;i<PP_MAX_ENTRIES;++i)put64(value.pb[i]);put64(value.track);bytes[p++]=value.trackLane;put32(sum(bytes,EncodedBytes-4));
+  }
+  bool readCopy(unsigned slot,uint32_t&generation,Data&out){
+    uint8_t bytes[EncodedBytes]{};
+    if(store_.read(slot,bytes,sizeof(bytes))&&decode(bytes,sizeof(bytes),generation,out))return true;
+    if(slot!=Slot)return false;
+    uint8_t legacy[LegacyEncodedBytes]{};
+    if(store_.read(slot,legacy,sizeof(legacy))&&decode(legacy,sizeof(legacy),generation,out))return true;
+    return false;
+  }
+  bool ensure(){
+    if(loaded_)return store_.available();
+    loaded_=true;
+    if(!store_.available())return false;
+    Data primary{},alternate{};uint32_t primaryGeneration=0,alternateGeneration=0;
+    const bool primaryValid=readCopy(Slot,primaryGeneration,primary);
+    const bool alternateValid=readCopy(AlternateSlot,alternateGeneration,alternate);
+    if(primaryValid&&(!alternateValid||primaryGeneration>=alternateGeneration)){data_=primary;generation_=primaryGeneration;activeSlot_=Slot;}
+    else if(alternateValid){data_=alternate;generation_=alternateGeneration;activeSlot_=AlternateSlot;}
+    return true;
+  }
+  bool publish(const Data&candidate){
+    if(generation_==0xffffffffu)return false;
+    const uint32_t nextGeneration=generation_+1;
+    const unsigned target=activeSlot_==Slot?AlternateSlot:Slot;
+    uint8_t bytes[EncodedBytes]{};encode(candidate,nextGeneration,bytes);
+    if(!store_.writeTrackRecord(target,bytes,sizeof(bytes)))return false;
+    uint8_t verified[EncodedBytes]{};Data decoded{};uint32_t verifiedGeneration=0;
+    if(!store_.read(target,verified,sizeof(verified))||!decode(verified,sizeof(verified),verifiedGeneration,decoded)||verifiedGeneration!=nextGeneration)return false;
+    data_=candidate;generation_=nextGeneration;activeSlot_=target;return true;
+  }
+  static void recompute(Data&value){value.track=0;value.trackLane=0;for(uint8_t i=0;i<PP_MAX_ENTRIES;++i)if(value.pb[i]&&(!value.track||value.pb[i]<value.track)){value.track=value.pb[i];value.trackLane=i+1;}}
 };
 
 }

@@ -11,6 +11,7 @@ $detailRecovery=Join-Path $env:TEMP 'pp-active-detail-recovery-test.exe'
 $housekeeping=Join-Path $env:TEMP 'pp-storage-housekeeping-test.exe'
 $semantic=Join-Path $env:TEMP 'pp-wp2f-semantic-test.exe'
 $reconstruction=Join-Path $env:TEMP 'pp-reconstruction-readiness-test.exe'
+$trackRecordAb=Join-Path $env:TEMP 'pp-track-record-ab-test.exe'
 $ownerContract=Join-Path $PSScriptRoot 'physical_sd_owner_contract.ps1'
 $fileCreationContract=Join-Path $PSScriptRoot 'active_detail_file_creation_contract.ps1'
 $detailInstrumentationContract=Join-Path $PSScriptRoot 'detail_finalize_instrumentation_contract.ps1'
@@ -60,6 +61,10 @@ g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'reconstructio
 if ($LASTEXITCODE -ne 0) { throw "History reconstruction-readiness compile failed: $LASTEXITCODE" }
 & $reconstruction
 if ($LASTEXITCODE -ne 0) { throw "History reconstruction-readiness acceptance failed: $LASTEXITCODE" }
+g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'track_record_ab_test.cpp') -o $trackRecordAb
+if ($LASTEXITCODE -ne 0) { throw "Track Record A/B compile failed: $LASTEXITCODE" }
+& $trackRecordAb
+if ($LASTEXITCODE -ne 0) { throw "Track Record A/B acceptance failed: $LASTEXITCODE" }
 & $ownerContract
 if ($LASTEXITCODE -ne 0) { throw "Physical SD owner contract acceptance failed: $LASTEXITCODE" }
 & $fileCreationContract
@@ -71,11 +76,14 @@ if ($LASTEXITCODE -ne 0) { throw "History metadata workspace contract acceptance
 & $historyAppendInstrumentationContract
 if ($LASTEXITCODE -ne 0) { throw "History append instrumentation contract acceptance failed: $LASTEXITCODE" }
 $engine=Get-Content (Join-Path $root 'firmware\include\pp\race_engine.h') -Raw
+$core=Get-Content (Join-Path $root 'firmware\include\pp\core.h') -Raw
 $codec=Get-Content (Join-Path $root 'firmware\include\pp\persistent_storage.h') -Raw
 $history=Get-Content (Join-Path $root 'firmware\include\pp\history_store.h') -Raw
 $sd=Get-Content (Join-Path $root 'firmware\include\pp\sd_store_arduino.h') -Raw
 $boundaryOk=($engine -notmatch 'Preferences|SPIFFS|SD\.h|FFat') -and ($engine -match 'historyPersistFailed_') -and ($engine -match 'storageFaultPublished_') -and ($codec -match 'Magic') -and ($codec -match 'Version') -and ($history -match 'Capacity = 100') -and ($history -notmatch 'MaxBytes = 8192') -and ($history -notmatch 'PP_MAX_ENTRIES')
 if(-not $boundaryOk){throw 'PSF.1/PSF.20 structural boundary check failed'}
+if(($core -notmatch 'writeTrackRecord') -or ($codec -notmatch 'AlternateSlot') -or ($sd -notmatch 'writeTrackRecord')){throw 'Track Record A/B publication boundary check failed'}
+Write-Host 'PSF TrackRecord PASS dedicated_AB_publication_boundary=1'
 Write-Host 'PSF PSF.1 PASS race_engine_uses_storage_boundary=1'
 Write-Host 'PSF PSF.20 PASS source_guard_latches_and_suppresses_retry=1'
 if(($sd -notmatch 'cleanupOrphans') -or ($sd -notmatch 'markerPath') -or ($sd -notmatch 'storagePending_') -or ($sd -notmatch 'detailLost')){throw 'WP2D active stream recovery boundary check failed'}
