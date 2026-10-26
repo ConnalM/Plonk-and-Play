@@ -121,6 +121,7 @@ public:
     uint32_t storedSequence=0;
     const bool loaded=backend_.loadNewest(index,encoded,encodedCapacity,encodedLength,storedSequence);
     const bool decodedOk=loaded&&VersionedResultCodec::decode(encoded,encodedLength,*reinterpret_cast<RaceEngineModule::CompletedRaceResult*>(bytes));
+    if (loaded && !decodedOk) traceDecodeFailure(encoded, encodedLength);
     if(decodedOk){
       length=sizeof(RaceEngineModule::CompletedRaceResult);
       sequence=storedSequence;
@@ -141,7 +142,44 @@ public:
     free(encoded); return decodedOk;
   }
   bool clear() override{return backend_.clear();}
-private: HistoryStore&backend_;
+private:
+  static void traceDecodeFailure(const uint8_t* bytes, size_t length) {
+#ifdef ARDUINO
+    const auto read32 = [](const uint8_t* p) {
+      return uint32_t(p[0]) | (uint32_t(p[1]) << 8) |
+             (uint32_t(p[2]) << 16) | (uint32_t(p[3]) << 24);
+    };
+    const auto sum = [](const uint8_t* p, size_t n) {
+      uint32_t h = 2166136261u;
+      while (n--) h = (h ^ *p++) * 16777619u;
+      return h;
+    };
+    uint32_t magic = 0;
+    uint32_t declared = 0;
+    uint16_t wireVersion = 0;
+    uint16_t format = 0;
+    uint8_t flags = 0;
+    bool checksumOk = false;
+    if (bytes && length >= 4) {
+      const uint32_t supplied = read32(bytes + length - 4);
+      checksumOk = sum(bytes, length - 4) == supplied;
+    }
+    if (bytes && length >= 4) magic = read32(bytes);
+    if (bytes && length >= 6) wireVersion = uint16_t(bytes[4]) | (uint16_t(bytes[5]) << 8);
+    if (bytes && length >= 12) declared = read32(bytes + 8);
+    if (bytes && length >= 14) format = uint16_t(bytes[12]) | (uint16_t(bytes[13]) << 8);
+    if (bytes && length >= 15) flags = bytes[14];
+    Serial.printf("[P8-P1] history_payload_decode length=%lu checksum_ok=%u magic=0x%08lx wire_version=%u declared=%lu format=%u expected_format=%u sealed=%u\n",
+                  static_cast<unsigned long>(length), checksumOk ? 1u : 0u,
+                  static_cast<unsigned long>(magic), static_cast<unsigned>(wireVersion),
+                  static_cast<unsigned long>(declared), static_cast<unsigned>(format),
+                  static_cast<unsigned>(RaceEngineModule::ResultFormatVersion),
+                  (flags & 1u) ? 1u : 0u);
+#else
+    (void)bytes; (void)length;
+#endif
+  }
+  HistoryStore&backend_;
 };
 
 // Versioned Track Record persistence for the development backend. It retains

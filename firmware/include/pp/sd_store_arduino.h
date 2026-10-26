@@ -95,20 +95,41 @@ public:
   }
 
   bool read(unsigned slot, uint8_t* data, size_t size) override {
-    if (!mounted_ || !data) return false;
+    if (!mounted_ || !data) {
+      Serial.printf("[P8-P1] history_payload_read slot=%u expected=%lu open=0 file_size=0 bytes_read=0 result=precondition\n",
+                    static_cast<unsigned>(slot), static_cast<unsigned long>(size));
+      return false;
+    }
     auto lease = owner_.lock();
-    if (!lease || !mounted_ || !data) return false;
+    if (!lease || !mounted_ || !data) {
+      Serial.printf("[P8-P1] history_payload_read slot=%u expected=%lu open=0 file_size=0 bytes_read=0 result=lease\n",
+                    static_cast<unsigned>(slot), static_cast<unsigned long>(size));
+      return false;
+    }
     File file = owner_.open(path(slot), FILE_READ);
-    if (!file) return false;
+    if (!file) {
+      Serial.printf("[P8-P1] history_payload_read slot=%u expected=%lu open=0 file_size=0 bytes_read=0 result=open\n",
+                    static_cast<unsigned>(slot), static_cast<unsigned long>(size));
+      return false;
+    }
     const size_t actual = file.size();
     if (actual != size) {
       memset(data, 0, size);
       file.close();
+      Serial.printf("[P8-P1] history_payload_read slot=%u expected=%lu open=1 file_size=%lu bytes_read=0 result=size\n",
+                    static_cast<unsigned>(slot), static_cast<unsigned long>(size),
+                    static_cast<unsigned long>(actual));
       return true;
     }
     const size_t got = file.read(data, size);
     file.close();
-    return got == size;
+    const bool ok = got == size;
+    if (!ok) {
+      Serial.printf("[P8-P1] history_payload_read slot=%u expected=%lu open=1 file_size=%lu bytes_read=%lu result=read\n",
+                    static_cast<unsigned>(slot), static_cast<unsigned long>(size),
+                    static_cast<unsigned long>(actual), static_cast<unsigned long>(got));
+    }
+    return ok;
   }
 
   bool write(unsigned slot, const uint8_t* data, size_t size) override {
