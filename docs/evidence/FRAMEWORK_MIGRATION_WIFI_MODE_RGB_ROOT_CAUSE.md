@@ -161,3 +161,20 @@ failure would leave IDF-5 cache/driver interaction or another WiFi-induced
 resource effect for further analysis. No source change, build, flash, timing
 experiment or production decision is made by this report.
 
+## Production decision (2bf3cf1)
+
+The full-P&P bounce-buffer candidate was physically validated under the normal
+startup path. With the migrated ESP32-S3 stack, SD, AP, remembered STA, mDNS and
+HTTP all running, the READY screen remained steady and clean for the observation
+period. The runtime marker reported `bounce_buffer_size_px=16000`, two 32,000-byte
+RGB565 buffers, and 64,000 bytes total internal DMA SRAM. The single full
+800x480 framebuffer remains in PSRAM; no pins, porch/polarity values, rotation,
+12 MHz PCLK, Arduino_GFX version, or product subsystem semantics changed.
+
+That result is the accepted correction for the IDF-5 WiFi/RGB contention boundary.
+The setting is now part of the normal `stage8bp1s3sd` display adapter rather than
+a probe-only build flag. The disposable
+`stage8bp1s3sd-display-rgb-bounce-probe` environment and probe-only marker were
+removed. The normal runtime keeps only a compact configuration line identifying
+the validated bounce-buffer allocation.
+

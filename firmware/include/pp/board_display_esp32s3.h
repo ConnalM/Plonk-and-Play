@@ -22,9 +22,7 @@ public:
         kTftG0, kTftG1, kTftG2, kTftG3, kTftG4, kTftG5,
         kTftB0, kTftB1, kTftB2, kTftB3, kTftB4,
         0, 210, 30, 16, 0, 22, 13, 10, 1, 12000000
-#if defined(PP_DISPLAY_RGB_BOUNCE_PROBE)
         , false, 0, 0, kBounceBufferSizePx
-#endif
         );
     display_ = new Arduino_RGB_Display(
         kDisplayWidth, kDisplayHeight, displayBus_, 0, true, nullptr,
@@ -39,12 +37,10 @@ public:
       Serial.println("[DISPLAY] ESP32-8048S070 init FAILED");
       return false;
     }
-#if defined(PP_DISPLAY_RGB_BOUNCE_PROBE)
-    Serial.printf("[DISPLAY_BOUNCE_PROBE] bounce_buffer_size_px=%u bytes_each=%u total_bytes=%u\n",
+    Serial.printf("[DISPLAY] RGB bounce buffers configured: bounce_buffer_size_px=%u bytes_each=%u total_bytes=%u\n",
                   static_cast<unsigned>(kBounceBufferSizePx),
                   static_cast<unsigned>(kBounceBufferBytesEach),
                   static_cast<unsigned>(kBounceBufferBytesTotal));
-#endif
     display_->setRotation(0);
     initialized_ = true;
     Serial.println("[DISPLAY] ESP32-8048S070 init OK");
@@ -93,14 +89,13 @@ private:
   static constexpr int kBacklight = 2;
   static constexpr int kDisplayWidth = 800;
   static constexpr int kDisplayHeight = 480;
-#if defined(PP_DISPLAY_RGB_BOUNCE_PROBE)
-  // Espressif's RGB example uses a 20-line bounce buffer. Two RGB565
-  // buffers therefore consume 20 * 800 * 2 * 2 = 64,000 bytes of internal
-  // DMA-capable SRAM while the full framebuffer remains in PSRAM.
+  // The validated IDF-5 WiFi/RGB configuration uses Espressif's 20-line
+  // bounce-buffer pattern. Two RGB565 buffers therefore consume
+  // 20 * 800 * 2 * 2 = 64,000 bytes of internal DMA-capable SRAM while the
+  // full framebuffer remains in PSRAM.
   static constexpr size_t kBounceBufferSizePx = 20 * kDisplayWidth;
   static constexpr size_t kBounceBufferBytesEach = kBounceBufferSizePx * sizeof(uint16_t);
   static constexpr size_t kBounceBufferBytesTotal = 2 * kBounceBufferBytesEach;
-#endif
 
   Arduino_ESP32RGBPanel* displayBus_ = nullptr;
   Arduino_RGB_Display* display_ = nullptr;
