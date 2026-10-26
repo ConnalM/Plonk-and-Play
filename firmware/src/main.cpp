@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <Preferences.h>
-#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE)
+#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE) || defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP)
 #include <esp_heap_caps.h>
 #endif
 #include <esp_ota_ops.h>
@@ -155,7 +155,7 @@ pp::diagnostic::ProductionDiagnosticStorage controllerTraceStorage;
 #endif
 pp::diagnostic::ProductionDiagnosticRecorder controllerTraceRecorder(controllerTraceStorage);
 pp::diagnostic::ControllerOperationTrace controllerTrace(controllerTraceRecorder);
-#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE)
+#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE) || defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP)
 bool displayOrderProbeHttpLogged = false;
 void displayOrderProbeHeap(const char* boundary) {
   Serial.printf("[DISPLAY_ORDER_PROBE] boundary=%s internal_free=%u internal_largest=%u psram_free=%u psram_largest=%u\n",
@@ -664,11 +664,16 @@ void setup(){
                   PP_BUILD_SOURCE_COMMIT, PP_BUILD_ENVIRONMENT, applicationElfSha256());
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
-#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE)
+#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE) || defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP)
   displayOrderProbeHeap("before_display_begin");
   const bool earlyDisplayReady = boardDisplay.begin();
   if (earlyDisplayReady) boardDisplay.showReady();
   displayOrderProbeHeap(earlyDisplayReady ? "after_display_ready" : "after_display_failed");
+#if defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP)
+  Serial.printf("[DISPLAY_FULL_IMAGE_EARLY_STOP] startup halted after READY draw status=%s\n",
+                earlyDisplayReady ? "READY" : "FAILED");
+  return;
+#endif
 #endif
   storage.begin();browserAuthority.begin();browser.restorePersistedAuthority();
 #if defined(PP_PHASE8B_REAL_SD)
@@ -789,6 +794,10 @@ void setup(){
   if(bus.publish(lifecycle,request)!=pp::Delivery::Delivered){bootFailed=true;diagnostics.log("STAGE1_FAIL configuration request");}
 }
 void loop(){
+#if defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP)
+  delay(1000);
+  return;
+#endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   const pp::Time loopStarted=systemTime();
 #endif
