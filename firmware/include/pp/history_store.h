@@ -12,6 +12,7 @@ namespace pp {
 inline void historyCommitTrace(const char* operation, const char* stage,
                                size_t valueA=0, size_t valueB=0, bool ok=false) {
 #ifdef ARDUINO
+  if (ok) return;
   Serial.printf("[P8-P1] history_commit operation=%s stage=%s a=%lu b=%lu ok=%u\n",
                 operation, stage, static_cast<unsigned long>(valueA),
                 static_cast<unsigned long>(valueB), ok ? 1u : 0u);

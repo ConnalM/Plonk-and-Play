@@ -131,7 +131,6 @@ public:
     // WiFi.scanComplete() report a stale result from the previous attempt.
     if (!scanDeferred_) refreshScanState();
     refreshStaState();
-    emitStaIpObservation(now);
     if (scanDeferred_ && static_cast<int32_t>(now - scanNotBeforeMs_) >= 0) {
       const wl_status_t status = WiFi.status();
       if (!stationConfigured_ || (status != WL_IDLE_STATUS)) {
@@ -212,18 +211,11 @@ public:
 
   bool startScan() {
     ++scanRequests_;
-    Serial.printf("[WIFI] SCAN_REQUEST received count=%lu\n", static_cast<unsigned long>(scanRequests_));
     if (scanState_ == ScanState::Running) {
       Serial.println("[WIFI] SCAN_ALREADY_RUNNING accepted=true");
       return true;
     }
-    wifi_mode_t mode = WIFI_MODE_NULL;
-    const esp_err_t modeResult = esp_wifi_get_mode(&mode);
     const wl_status_t staStatus = WiFi.status();
-    Serial.printf("[WIFI] SCAN_START_PREP mode=%d mode_result=%d sta_status=%d scan_before=%d ap_started=%s\n",
-                  static_cast<int>(mode), static_cast<int>(modeResult),
-                  static_cast<int>(staStatus), static_cast<int>(WiFi.scanComplete()),
-                  apStarted_ ? "true" : "false");
     scanState_ = ScanState::Running;
     const bool staDriverBusy = stationConfigured_ &&
       (staStatus == WL_DISCONNECTED || staStatus == WL_IDLE_STATUS ||
@@ -413,32 +405,6 @@ private:
                   static_cast<int>(result), static_cast<unsigned long>(scanUnavailable_));
   }
 
-  // Observation-only checkpoint for diagnosing a disappearing LAN address.
-  // Event callbacks identify transitions, while this bounded periodic sample
-  // also exposes a lost/zero address if the driver fails to emit an expected
-  // event.  No credential or SSID material is included.
-  void emitStaIpObservation(uint32_t now) {
-    if (static_cast<uint32_t>(now - lastStaObservationMs_) < 5000U) return;
-    lastStaObservationMs_ = now;
-    const IPAddress staIp = WiFi.localIP();
-    const IPAddress gateway = WiFi.gatewayIP();
-    const IPAddress subnet = WiFi.subnetMask();
-    const IPAddress apIp = WiFi.softAPIP();
-    const bool staConnected = WiFi.status() == WL_CONNECTED;
-    Serial.printf("[WIFI] STA_IP_OBSERVE ms=%lu driver_status=%d mode=%d configured=%u state=%s failure=%s connected=%u sta_ip=%s gateway=%s subnet=%s rssi=%ld suppressed=%u reconnect_attempts=%lu ap_started=%u ap_ip=%s ap_clients=%u mdns=%u\n",
-                  static_cast<unsigned long>(now), static_cast<int>(WiFi.status()),
-                  static_cast<int>(WiFi.getMode()), stationConfigured_ ? 1U : 0U,
-                  staStateName(staState_), staFailureName(staFailure_),
-                  staConnected ? 1U : 0U, staIp.toString().c_str(),
-                  gateway.toString().c_str(), subnet.toString().c_str(),
-                  staConnected ? static_cast<long>(WiFi.RSSI()) : 0L,
-                  suppressed_ ? 1U : 0U,
-                  static_cast<unsigned long>(reconnectAttempts_),
-                  apStarted_ ? 1U : 0U, apIp.toString().c_str(),
-                  static_cast<unsigned>(WiFi.softAPgetStationNum()),
-                  mdnsStarted_ ? 1U : 0U);
-  }
-
   ScanState scanState_ = ScanState::Idle;
   bool scanDeferred_ = false;
   bool scanPauseReconnect_ = false;
@@ -466,7 +432,6 @@ private:
   bool mdnsStarted_ = false;
   uint32_t lastApAttemptMs_ = 0;
   uint32_t lastAttemptMs_ = 0;
-  uint32_t lastStaObservationMs_ = 0;
   uint32_t reconnectAttempts_ = 0;
   StaState staState_ = StaState::Unconfigured;
   StaFailure staFailure_ = StaFailure::None;

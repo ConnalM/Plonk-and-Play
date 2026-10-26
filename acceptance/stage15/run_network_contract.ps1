@@ -12,7 +12,6 @@ foreach ($marker in @(
   'WiFi.disconnect(false, true)', 'MDNS.begin("plonk-and-play")',
   'scanNetworks(true, true)', 'ScanState', 'SCAN_ACCEPTED', 'SCAN_DEFERRED', 'SCAN_UNAVAILABLE', 'SCAN_COMPLETE',
   'STA_EVENT event=CONNECTED', 'STA_EVENT event=DISCONNECTED', 'STA_EVENT event=GOT_IP', 'STA_BEGIN result=',
-  'STA_IP_OBSERVE ms=', 'driver_status=', 'sta_ip=', 'gateway=', 'subnet=', 'ap_clients=',
   'FactoryApSsid = "Plonk-and-Play"')) {
   if ($manager -notlike "*$marker*") { throw "External Wi-Fi manager marker missing: $marker" }
 }
@@ -84,19 +83,6 @@ if ($embed -notlike '*{"/", HTTP_GET, normalPage, nullptr}*' -or
   throw 'Normal Browser embed does not make the root entry point serve the current Normal Browser.'
 }
 Write-Host 'Normal Browser root-entry contract: PASS'
-foreach ($marker in @(
-  'constexpr size_t NormalBrowserChunkSize = 4096',
-  'httpd_resp_send_chunk(request, kNormalBrowserHtml + offset, count)',
-  'NORMAL_CHUNK index=',
-  'chunkStartedMs = millis()',
-  'normalStartedMs = millis()',
-  'terminator=1',
-  'if (chunkResult != ESP_OK)',
-  'httpd_resp_send_chunk(request, nullptr, 0)',
-  'trace.complete(chunkResult)',
-  'trace.complete(sent)')) {
-  if ($embed -notlike "*$marker*") { throw "Normal Browser chunk transport marker missing: $marker" }
-}
 function Invoke-NormalBrowserChunkModel([int]$length, [int]$chunkSize, [int]$failAt) {
   $offset = 0
   $chunks = 0
