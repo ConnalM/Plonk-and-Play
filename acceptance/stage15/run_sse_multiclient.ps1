@@ -17,7 +17,15 @@ Require $platformio '-DPP_MAX_SSE_CLIENTS=4' 'P1 does not select the provisional
 Require $browser 'SseSession\* sseSessions_\[MaxSseClients\]' 'missing bounded session table'
 Require $browser 'uint64_t clientToken[^;]*;[\s\S]{0,180}uint32_t generation[^;]*;' 'missing client/generation identity'
 Require $browser 'httpd_sess_set_ctx\([^;]+freeSseSession' 'missing HTTP session cleanup association'
-Require $browser 'session->generation != generation' 'queued work is not generation checked'
+Require $browser 'session->generation' 'missing generation identity'
+Require $browser 'findSseSessionExact\(session\)' 'queued work is not session-identity checked'
+Require $browser 'httpd_req_async_handler_begin' 'missing async request ownership'
+Require $browser 'httpd_req_async_handler_complete' 'missing async request release'
+Require $browser 'PageWorkerCount = 2' 'missing bounded page worker capacity'
+Require $browser 'PP_HTTP_ORDINARY_REQUEST_RESERVE' 'missing ordinary request reservation'
+Require $browser 'httpd_get_client_list' 'missing socket-capacity admission check'
+if ($browser.Contains('httpd_queue_work(server_, &BrowserInterface::eventWork, work)')) { throw 'SSE still uses HTTPD queue work for sends' }
+if ($browser.Contains('httpd_socket_send')) { throw 'SSE still uses raw HTTPD socket sends' }
 Require $browser 'httpd_sess_get_ctx\(handle, fd\) != session' 'missing fd/session validation'
 Require $browser '503 Service Unavailable' 'missing bounded-capacity response'
 Require $browser 'findSseSession\(browserToken\)[\s\S]{0,180}invalidateSseSession\(previous, true, false\)' 'same-identity reconnect does not replace its own generation'

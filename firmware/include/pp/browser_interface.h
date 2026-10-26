@@ -4,6 +4,21 @@
 #include <esp_system.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#if defined(ARDUINO_ARCH_ESP32) || defined(ESP_PLATFORM)
+#include <esp_idf_version.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
+#include <freertos/task.h>
+#if defined(ESP_IDF_VERSION_MAJOR) && ESP_IDF_VERSION_MAJOR >= 5
+#define PP_HTTP_ASYNC_RUNTIME 1
+#else
+// Legacy IDF 4.x acceptance images retain their synchronous SSE fallback;
+// the migrated IDF 5.x production image uses the async request API below.
+#define PP_HTTP_ASYNC_RUNTIME 0
+#endif
+#else
+#define PP_HTTP_ASYNC_RUNTIME 0
+#endif
 #include "noticeboard.h"
 #include "system_time.h"
 #include "diagnostic_trace.h"
@@ -14,6 +29,9 @@
 #include "external_wifi.h"
 #ifndef PP_MAX_SSE_CLIENTS
 #define PP_MAX_SSE_CLIENTS 4
+#endif
+#ifndef PP_HTTP_ORDINARY_REQUEST_RESERVE
+#define PP_HTTP_ORDINARY_REQUEST_RESERVE 4
 #endif
 namespace pp {
 // Browser identity and the retained Master binding are Browser Interface State.
@@ -180,7 +198,7 @@ public:
         const bool changed = noticeRevision_ != session->sentRevision;
         const bool presentationChanged = presentationSequence_ != session->sentPresentationSequence;
         const bool keepalive = static_cast<uint32_t>(now - session->lastSendMs) >= 10000U;
-        if ((changed || presentationChanged || session->controlPending || session->controlRefreshPending || keepalive) && !session->workQueued) {
+        if ((changed || presentationChanged || session->controlPending || session->controlRefreshPending || keepalive) && !session->notifyPending) {
           queueEventWork(session);
         }
       }
@@ -556,6 +574,7 @@ private:
   VolatileAuthorityStore fallback_;
   ExternalWifiManager network_{};
   httpd_handle_t server_ = nullptr;
+  uint32_t serverGeneration_ = 0;
   ControlLease controlLease_{};
   uint64_t controllerEpoch_ = 0;
   diagnostic::ControllerOperationTrace* diagnosticTrace_ = nullptr;
@@ -617,6 +636,14 @@ private:
   // Provisional hardware/development capacity. This is intentionally a
   // build-time limit, not a frozen product maximum.
   static constexpr size_t MaxSseClients = PP_MAX_SSE_CLIENTS;
+  static constexpr size_t MaxHttpClientSockets = 10; // max_open_sockets(13) minus ESP-IDF's three internal sockets
+  static constexpr size_t OrdinaryRequestReserve = PP_HTTP_ORDINARY_REQUEST_RESERVE;
+  static constexpr size_t PageWorkerCount = 2;
+  static constexpr size_t PageQueueDepth = 2;
+#if PP_HTTP_ASYNC_RUNTIME
+  static constexpr uint32_t PageWorkerStackWords = 2048; // 8192 bytes per worker
+  static constexpr uint32_t SseWorkerStackWords = 1024;  // 4096 bytes per stream
+#endif
   struct SseSession {
     BrowserInterface* owner = nullptr;
     httpd_handle_t server = nullptr;
@@ -624,22 +651,42 @@ private:
     uint64_t clientToken = 0;
     uint32_t generation = 0;
     volatile bool valid = false;
-    volatile bool workQueued = false;
+    volatile bool inUse = false;
+    volatile bool workerBusy = false;
+    volatile bool transportClosed = false;
+    volatile bool completionStarted = false;
+    volatile bool notifyPending = false;
+    volatile bool initialPending = false;
+    volatile uint32_t queuedGeneration = 0;
     volatile uint32_t sentRevision = 0;
     volatile uint32_t sentPresentationSequence = 0;
     uint32_t lastSendMs = 0;
     volatile bool controlPending = false;
     volatile bool controlRefreshPending = false;
     volatile uint32_t controlRequestId = 0;
-    bool deferDelete = false;
+    httpd_req_t* asyncRequest = nullptr;
+#if PP_HTTP_ASYNC_RUNTIME
+    TaskHandle_t worker = nullptr;
+#endif
   };
-  struct SseWork {
+  struct PageJob {
     BrowserInterface* owner = nullptr;
-    uint64_t clientToken = 0;
+    httpd_handle_t server = nullptr;
+    int fd = -1;
+    httpd_req_t* asyncRequest = nullptr;
     uint32_t generation = 0;
+    uint32_t serverGeneration = 0;
   };
   SseSession* sseSessions_[MaxSseClients]{};
+  SseSession sseStorage_[MaxSseClients]{};
   uint32_t nextEventGeneration_ = 0;
+#if PP_HTTP_ASYNC_RUNTIME
+  QueueHandle_t pageQueue_ = nullptr;
+  TaskHandle_t pageWorkers_[PageWorkerCount]{};
+  volatile uint32_t nextPageGeneration_ = 0;
+  volatile uint32_t pageJobsInFlight_ = 0;
+  bool asyncWorkersStarted_ = false;
+#endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   bool lapNoticePending_ = false;
   uint32_t lapNoticeRevision_ = 0;
@@ -891,8 +938,9 @@ private:
     // keeps values alive through the response without placing any
     // Browser identity in race-control State.
     static char headers[16][112];
-    static uint32_t nextHeader = 0;
-    char* header = headers[nextHeader++ % 16];
+    static volatile uint32_t nextHeader = 0;
+    const uint32_t headerIndex = __atomic_fetch_add(&nextHeader, 1U, __ATOMIC_RELAXED) % 16U;
+    char* header = headers[headerIndex];
     const uint32_t hi = uint32_t(tokenValue >> 32);
     const uint32_t lo = uint32_t(tokenValue);
     snprintf(header, 112,
@@ -1124,23 +1172,186 @@ private:
     auto* session = static_cast<SseSession*>(context);
     if (!session) return;
     session->valid = false;
+    session->transportClosed = true;
     BrowserInterface* browser = session->owner;
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
     Serial.printf("[SSE] disconnected generation=%lu fd=%d at_us=%llu\n",
       static_cast<unsigned long>(session->generation), session->fd,
       static_cast<unsigned long long>(systemTime()));
 #endif
-    if (browser && browser->findSseSessionExact(session) == session) {
-      browser->removeSseSession(session);
-      browser->controlDisconnected(session->clientToken);
-    }
-    if (!session->deferDelete) delete session;
+    if (browser) browser->onSseTransportClosed(session);
   }
-  static void eventWork(void* argument) {
-    auto* work = static_cast<SseWork*>(argument);
-    if (!work) return;
-    if (work->owner) work->owner->sendEventNotification(work->clientToken, work->generation);
-    delete work;
+#if PP_HTTP_ASYNC_RUNTIME
+  static void pageWorkerTask(void* argument) {
+    auto* browser = static_cast<BrowserInterface*>(argument);
+    if (!browser) vTaskDelete(nullptr);
+    PageJob job{};
+    for (;;) {
+      if (xQueueReceive(browser->pageQueue_, &job, portMAX_DELAY) != pdTRUE) continue;
+      if (!job.asyncRequest) continue;
+      browser->runPageJob(job);
+    }
+  }
+  static void sseWorkerTask(void* argument) {
+    auto* session = static_cast<SseSession*>(argument);
+    if (!session || !session->owner) vTaskDelete(nullptr);
+    for (;;) {
+      (void)ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+      const uint32_t workGeneration = session->queuedGeneration;
+      if (session->owner && workGeneration) session->owner->runSseWorker(session, workGeneration);
+    }
+  }
+#endif
+  void onSseTransportClosed(SseSession* session) {
+    if (!session) return;
+    session->valid = false;
+    session->transportClosed = true;
+    if (findSseSessionExact(session) == session) {
+      removeSseSession(session);
+      controlDisconnected(session->clientToken);
+    }
+#if PP_HTTP_ASYNC_RUNTIME
+    if (session->worker) xTaskNotifyGive(session->worker);
+#else
+    runSseWorker(session, session->generation);
+#endif
+  }
+  void completeAsyncRequest(httpd_req_t* request) {
+#if PP_HTTP_ASYNC_RUNTIME
+    if (!request) return;
+    const esp_err_t result = httpd_req_async_handler_complete(request);
+    if (result != ESP_OK) {
+      Serial.printf("[HTTP] async_complete_failed result=%d\n", static_cast<int>(result));
+    }
+#else
+    (void)request;
+#endif
+  }
+  void completeSseRequest(SseSession* session) {
+    if (!session || __atomic_exchange_n(&session->completionStarted, true, __ATOMIC_ACQ_REL)) return;
+    const httpd_handle_t server = session->server;
+    const int fd = session->fd;
+    httpd_req_t* request = session->asyncRequest;
+    session->asyncRequest = nullptr;
+#if PP_HTTP_ASYNC_RUNTIME
+    const bool serverAlive = server && server == server_;
+    // Detach the generation-bound callback before releasing the async request;
+    // otherwise a recycled fd could later invoke this session's cleanup path.
+    if (serverAlive && fd >= 0 && httpd_sess_get_ctx(server, fd) == session) {
+      httpd_sess_set_ctx(server, fd, nullptr, nullptr);
+    }
+    if (serverAlive) completeAsyncRequest(request);
+#else
+    (void)request;
+#endif
+    session->inUse = false;
+    session->workerBusy = false;
+    session->notifyPending = false;
+    session->initialPending = false;
+    session->queuedGeneration = 0;
+    session->valid = false;
+    session->transportClosed = false;
+    __atomic_store_n(&session->completionStarted, false, __ATOMIC_RELEASE);
+    session->server = nullptr;
+    session->fd = -1;
+    session->clientToken = 0;
+    session->generation = 0;
+    session->sentRevision = 0;
+    session->sentPresentationSequence = 0;
+    session->controlPending = false;
+    session->controlRefreshPending = false;
+    session->controlRequestId = 0;
+  }
+  void runSseWorker(SseSession* session, uint32_t workGeneration) {
+    if (!session || !session->inUse || session->generation != workGeneration) return;
+    session->workerBusy = true;
+    while (session->inUse && session->valid && !session->transportClosed) {
+      session->notifyPending = false;
+      sendEventNotification(session, workGeneration);
+      if (!session->valid || session->transportClosed ||
+          session->generation != workGeneration || !session->notifyPending) break;
+    }
+    if (session->inUse && (!session->valid || session->transportClosed ||
+                           session->server != server_ ||
+                           session->generation != workGeneration ||
+                           !session->asyncRequest ||
+                           findSseSessionExact(session) != session)) {
+      session->valid = false;
+      session->transportClosed = true;
+      completeSseRequest(session);
+    }
+    session->workerBusy = false;
+  }
+  void startSseWorker(SseSession* session) {
+#if PP_HTTP_ASYNC_RUNTIME
+    if (!session || session->worker) return;
+    char name[16];
+    snprintf(name, sizeof(name), "pp_sse_%u", static_cast<unsigned>(session - sseStorage_));
+    if (xTaskCreate(&BrowserInterface::sseWorkerTask, name, SseWorkerStackWords,
+                    session, 1, &session->worker) != pdPASS) {
+      session->worker = nullptr;
+    }
+#else
+    (void)session;
+#endif
+  }
+  bool startHttpWorkers() {
+#if PP_HTTP_ASYNC_RUNTIME
+    if (asyncWorkersStarted_) return true;
+    pageQueue_ = xQueueCreate(PageQueueDepth, sizeof(PageJob));
+    if (!pageQueue_) return false;
+    size_t pageStarted = 0;
+    for (size_t i = 0; i < PageWorkerCount; ++i) {
+      char name[16];
+      snprintf(name, sizeof(name), "pp_page_%u", static_cast<unsigned>(i));
+      if (xTaskCreate(&BrowserInterface::pageWorkerTask, name, PageWorkerStackWords,
+                      this, 1, &pageWorkers_[i]) != pdPASS) {
+        for (size_t j = 0; j < pageStarted; ++j) vTaskDelete(pageWorkers_[j]);
+        for (size_t j = 0; j < MaxSseClients; ++j) sseStorage_[j].worker = nullptr;
+        vQueueDelete(pageQueue_);
+        pageQueue_ = nullptr;
+        return false;
+      }
+      ++pageStarted;
+    }
+    size_t sseStarted = 0;
+    for (size_t i = 0; i < MaxSseClients; ++i) {
+      sseStorage_[i].owner = this;
+      startSseWorker(&sseStorage_[i]);
+      if (!sseStorage_[i].worker) {
+        for (size_t j = 0; j < sseStarted; ++j) vTaskDelete(sseStorage_[j].worker);
+        for (size_t j = 0; j < pageStarted; ++j) vTaskDelete(pageWorkers_[j]);
+        for (size_t j = 0; j < MaxSseClients; ++j) sseStorage_[j].worker = nullptr;
+        vQueueDelete(pageQueue_);
+        pageQueue_ = nullptr;
+        return false;
+      }
+      ++sseStarted;
+    }
+    asyncWorkersStarted_ = true;
+    return true;
+#else
+    return true;
+#endif
+  }
+  void runPageJob(PageJob& job) {
+#if PP_HTTP_ASYNC_RUNTIME
+    if (!job.asyncRequest) return;
+    httpd_req_t* request = job.asyncRequest;
+    const bool current = job.owner == this && job.server == server_ &&
+                         job.serverGeneration == serverGeneration_ &&
+                         httpd_req_to_sockfd(request) == job.fd;
+    if (!current) {
+      if (job.server && job.server == server_) completeAsyncRequest(request);
+      return;
+    }
+    // sendNormalPage owns the request trace; keeping it in the worker avoids
+    // double-counting a page while preserving the existing route diagnostics.
+    (void)sendNormalPage(request);
+    completeAsyncRequest(request);
+#else
+    (void)job;
+#endif
   }
   void updatePresentation(Time now) {
     const NoticeboardPresentationState next = noticeboard_.presentationAt(now);
@@ -1194,15 +1405,19 @@ private:
   }
   SseSession* allocateSseSession(uint64_t token) {
     for (size_t i = 0; i < MaxSseClients; ++i) {
-      if (!sseSessions_[i]) {
-        auto* session = new SseSession{};
-        if (!session) return nullptr;
+      SseSession* session = &sseStorage_[i];
+      if (!session->inUse && !session->workerBusy && !session->asyncRequest) {
         session->owner = this;
         session->server = server_;
         session->clientToken = token;
         session->generation = ++nextEventGeneration_;
         if (!session->generation) session->generation = ++nextEventGeneration_;
         session->valid = true;
+        session->inUse = true;
+        session->transportClosed = false;
+        session->completionStarted = false;
+        session->notifyPending = false;
+        session->queuedGeneration = 0;
         sseSessions_[i] = session;
         return session;
       }
@@ -1211,34 +1426,37 @@ private:
   }
   void invalidateSseSession(SseSession* session, bool closeSocket, bool disconnectOwner = true) {
     if (!session) return;
-    if (findSseSession(session->clientToken) == session) {
+    if (findSseSessionExact(session) == session) {
       removeSseSession(session);
       if (disconnectOwner) controlDisconnected(session->clientToken);
     }
     session->valid = false;
+    session->transportClosed = true;
     if (closeSocket && session->server && session->fd >= 0) {
-      httpd_sess_trigger_close(session->server, session->fd);
+      const esp_err_t closeResult = httpd_sess_trigger_close(session->server, session->fd);
+      if (closeResult != ESP_OK && closeResult != ESP_ERR_NOT_FOUND) {
+        Serial.printf("[SSE] close_failed generation=%lu fd=%d result=%d\n",
+                      static_cast<unsigned long>(session->generation), session->fd,
+                      static_cast<int>(closeResult));
+      }
     }
+    session->notifyPending = true;
+#if PP_HTTP_ASYNC_RUNTIME
+    if (session->worker) xTaskNotifyGive(session->worker);
+#else
+    runSseWorker(session, session->generation);
+#endif
   }
   void queueEventWork(SseSession* session) {
-    if (!server_ || !session || !session->valid || session->server != server_ || session->workQueued) return;
-    auto* work = new SseWork{};
-    if (!work) return;
-    work->owner = this;
-    work->clientToken = session->clientToken;
-    work->generation = session->generation;
-    session->workQueued = true;
-    const esp_err_t queued = httpd_queue_work(server_, &BrowserInterface::eventWork, work);
-    if (queued != ESP_OK) {
-      session->workQueued = false;
-      delete work;
-#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
-      Serial.printf("[SSE] queue_failed revision=%lu at_us=%llu result=%d\n",
-        static_cast<unsigned long>(noticeRevision_),
-        static_cast<unsigned long long>(systemTime()), int(queued));
+    if (!server_ || !session || !session->inUse || !session->valid ||
+        session->server != server_ || session->notifyPending) return;
+    session->notifyPending = true;
+    session->queuedGeneration = session->generation;
+#if PP_HTTP_ASYNC_RUNTIME
+    if (session->worker) xTaskNotifyGive(session->worker);
+#else
+    runSseWorker(session, session->generation);
 #endif
-      return;
-    }
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
     const bool lap = lapNoticeRevision_ == noticeRevision_;
     Serial.printf("[SSE] queued generation=%lu revision=%lu lap_entry=%lu lap=%lu event_id=%lu notify_us=%llu\n",
@@ -1258,28 +1476,45 @@ private:
       queueEventWork(session);
     }
   }
-  void sendEventNotification(uint64_t clientToken, uint32_t generation) {
-    const httpd_handle_t handle = server_;
-    SseSession* session = findSseSession(clientToken);
-    if (!handle || !session || !session->valid || session->server != handle ||
-        session->generation != generation) {
+  void sendEventNotification(SseSession* session, uint32_t workGeneration) {
+    if (!session || !session->inUse || !session->valid || !session->asyncRequest ||
+        session->server != server_ || session->generation != workGeneration ||
+        findSseSessionExact(session) != session) {
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
       Serial.printf("[SSE] stale_work generation=%lu client=%llu at_us=%llu\n",
-        static_cast<unsigned long>(generation),
-        static_cast<unsigned long long>(clientToken),
+        static_cast<unsigned long>(workGeneration),
+        static_cast<unsigned long long>(session ? session->clientToken : 0),
         static_cast<unsigned long long>(systemTime()));
 #endif
       return;
     }
+    const httpd_handle_t handle = session->server;
     const int fd = session->fd;
     if (httpd_sess_get_ctx(handle, fd) != session) {
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
       Serial.printf("[SSE] session_mismatch generation=%lu fd=%d at_us=%llu\n",
-        static_cast<unsigned long>(generation), fd,
+        static_cast<unsigned long>(session->generation), fd,
         static_cast<unsigned long long>(systemTime()));
 #endif
-      session->workQueued = false;
       invalidateSseSession(session, true);
+      return;
+    }
+    if (session->initialPending) {
+      char initial[128];
+      const int initialLength = snprintf(initial, sizeof(initial),
+        "retry: 2000\ndata: {\"revision\":%lu}\n\n",
+        static_cast<unsigned long>(noticeRevision_));
+      const esp_err_t initialResult = initialLength > 0
+        ? httpd_resp_send_chunk(session->asyncRequest, initial, size_t(initialLength))
+        : ESP_FAIL;
+      if (initialResult != ESP_OK) {
+        invalidateSseSession(session, true);
+      } else {
+        session->initialPending = false;
+        session->sentRevision = noticeRevision_;
+        session->sentPresentationSequence = presentationSequence_;
+        session->lastSendMs = millis();
+      }
       return;
     }
     char payload[192];
@@ -1329,32 +1564,22 @@ private:
         unsigned(p.redLightsLit), unsigned(p.redLightCount),
         p.startLightsGreen ? "true" : "false");
     }
-    char frame[256];
-    int frameLength = 0;
-    if (length > 0) {
-      const int header = snprintf(frame, sizeof(frame), "%x\r\n", unsigned(length));
-      if (header > 0 && size_t(header + length + 2) < sizeof(frame)) {
-        memcpy(frame + header, payload, size_t(length));
-        frame[header + length] = '\r';
-        frame[header + length + 1] = '\n';
-        frameLength = header + length + 2;
-      }
-    }
-    const int sent = frameLength > 0 ? httpd_socket_send(handle, fd, frame, size_t(frameLength), 0) : -1;
-    if (sent < 0 || sent != frameLength) {
+    const esp_err_t sent = length > 0
+      ? httpd_resp_send_chunk(session->asyncRequest, payload, size_t(length))
+      : ESP_FAIL;
+    if (sent != ESP_OK) {
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
       Serial.printf("[SSE] send_failed revision=%lu lap_entry=%lu event_id=%lu at_us=%llu result=%d\n",
         static_cast<unsigned long>(revision),
         static_cast<unsigned long>(lapNoticeRevision_ == revision ? lapNoticeEntry_ : 0),
         static_cast<unsigned long>(lapNoticeRevision_ == revision ? lapNoticeEventId_ : 0),
-        static_cast<unsigned long long>(systemTime()), sent);
+        static_cast<unsigned long long>(systemTime()), static_cast<int>(sent));
 #endif
-      session->workQueued = false;
       invalidateSseSession(session, true);
     } else {
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
       Serial.printf("[SSE] sent generation=%lu revision=%lu lap_entry=%lu lap=%lu event_id=%lu at_us=%llu\n",
-        static_cast<unsigned long>(generation),
+        static_cast<unsigned long>(session->generation),
         static_cast<unsigned long>(revision),
         static_cast<unsigned long>(lapNoticeRevision_ == revision ? lapNoticeEntry_ : 0),
         static_cast<unsigned long>(lapNoticeRevision_ == revision ? lapNoticeNumber_ : 0),
@@ -1370,13 +1595,12 @@ private:
       }
       if (controlRefreshPending) session->controlRefreshPending = false;
       session->lastSendMs = millis();
-      if (findSseSession(clientToken) != session || !session->valid || session->generation != generation) {
+      if (findSseSessionExact(session) != session || !session->valid) {
         session->valid = false;
       } else {
         (void)httpd_sess_update_lru_counter(handle, fd);
       }
     }
-    if (findSseSession(clientToken) == session) session->workQueued = false;
   }
   static esp_err_t events(httpd_req_t* request) {
     RequestTrace trace(instance(), "/events");
@@ -1394,41 +1618,60 @@ private:
     }
     size_t slotCount = 0;
     for (size_t i = 0; i < MaxSseClients; ++i) if (browser->sseSessions_[i]) ++slotCount;
+    size_t fdsCapacity = 13;
+    int clientFds[13]{};
+    const esp_err_t clientListResult = browser->server_
+      ? httpd_get_client_list(browser->server_, &fdsCapacity, clientFds)
+      : ESP_ERR_INVALID_STATE;
+    if (clientListResult != ESP_OK || fdsCapacity >= MaxHttpClientSockets - OrdinaryRequestReserve) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      trace.complete(clientListResult == ESP_OK ? ESP_ERR_NO_MEM : clientListResult);
+      return ESP_FAIL;
+    }
     if (slotCount >= MaxSseClients) {
       httpd_resp_set_status(request, "503 Service Unavailable");
       trace.complete(ESP_ERR_NO_MEM);
       return ESP_FAIL;
     }
-    httpd_resp_set_type(request, "text/event-stream");
-    httpd_resp_set_hdr(request, "Cache-Control", "no-cache");
-    httpd_resp_set_hdr(request, "Connection", "keep-alive");
-    char initial[128];
-    const int length = snprintf(initial, sizeof(initial), "retry: 2000\ndata: {\"revision\":%lu}\n\n",
-                                (unsigned long)browser->noticeRevision_);
- #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
-    Serial.printf("[SSE] initial_send fd=%d bytes=%d at_us=%llu\n", fd, length,
-      static_cast<unsigned long long>(systemTime()));
- #endif
-    const esp_err_t sent = length > 0 ? httpd_resp_send_chunk(request, initial, size_t(length)) : ESP_FAIL;
-    if (sent != ESP_OK) {
-#if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
-      Serial.printf("[SSE] initial_result fd=%d result=%d at_us=%llu\n", fd, int(sent),
-        static_cast<unsigned long long>(systemTime()));
-#endif
-      trace.complete(sent); return ESP_FAIL;
-    }
-    // Keep the chunked response open for the EventSource client.  Subsequent
-    // notifications are sent from the HTTPD work queue, never by blocking
-    // this request handler.  The context also marks this socket as the
-    // browser's asynchronous notification session for diagnostics.
     auto* session = browser->allocateSseSession(browserToken);
     if (!session) { trace.complete(ESP_ERR_NO_MEM); return ESP_FAIL; }
+#if PP_HTTP_ASYNC_RUNTIME
+    if (!session->worker) {
+      browser->removeSseSession(session);
+      browser->completeSseRequest(session);
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      trace.complete(ESP_ERR_NO_MEM);
+      return ESP_FAIL;
+    }
+#endif
+    httpd_req_t* asyncRequest = nullptr;
+#if PP_HTTP_ASYNC_RUNTIME
+    const esp_err_t asyncResult = httpd_req_async_handler_begin(request, &asyncRequest);
+    if (asyncResult != ESP_OK || !asyncRequest) {
+      browser->removeSseSession(session);
+      browser->completeSseRequest(session);
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      trace.complete(asyncResult);
+      return ESP_FAIL;
+    }
+#else
+    // IDF 4.x has no async-request ownership API. Preserve the historical
+    // synchronous compatibility path for those legacy acceptance builds; the
+    // migrated IDF 5.x production path never enters this branch.
+    asyncRequest = request;
+#endif
+    httpd_resp_set_type(asyncRequest, "text/event-stream");
+    httpd_resp_set_hdr(asyncRequest, "Cache-Control", "no-cache");
+    httpd_resp_set_hdr(asyncRequest, "Connection", "keep-alive");
     session->fd = fd;
+    session->asyncRequest = asyncRequest;
+    session->initialPending = true;
     httpd_sess_set_ctx(browser->server_, fd, session, &BrowserInterface::freeSseSession);
     session->sentRevision = browser->noticeRevision_;
     session->sentPresentationSequence = browser->presentationSequence_;
     session->lastSendMs = millis();
     browser->controlConnected(browserToken);
+    browser->queueEventWork(session);
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
     Serial.printf("[SSE] async_session fd=%d generation=%lu revision=%lu at_us=%llu\n", fd,
       static_cast<unsigned long>(session->generation),
@@ -1927,6 +2170,36 @@ private:
     return httpd_resp_sendstr(request, json);
   }
   static esp_err_t page(httpd_req_t* request) {
+#if PP_HTTP_ASYNC_RUNTIME
+    BrowserInterface* browser = instance();
+    if (!browser || !browser->asyncWorkersStarted_ || !browser->pageQueue_ || uxQueueSpacesAvailable(browser->pageQueue_) == 0) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      return httpd_resp_sendstr(request, "page capacity unavailable");
+    }
+    httpd_req_t* asyncRequest = nullptr;
+    const esp_err_t beginResult = httpd_req_async_handler_begin(request, &asyncRequest);
+    if (beginResult != ESP_OK || !asyncRequest) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      return httpd_resp_sendstr(request, "page request unavailable");
+    }
+    PageJob job{};
+    job.owner = browser;
+    job.server = browser->server_;
+    job.fd = httpd_req_to_sockfd(asyncRequest);
+    job.asyncRequest = asyncRequest;
+    job.generation = ++browser->nextPageGeneration_;
+    job.serverGeneration = browser->serverGeneration_;
+    if (xQueueSend(browser->pageQueue_, &job, 0) != pdTRUE) {
+      browser->completeAsyncRequest(asyncRequest);
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      return ESP_FAIL;
+    }
+    return ESP_OK;
+#else
+    return sendNormalPage(request);
+#endif
+  }
+  static esp_err_t sendNormalPage(httpd_req_t* request) {
     RequestTrace trace(instance(), "/");
     client(request);
     static const char html[] = R"HTML(<!doctype html><meta charset="utf-8"><title>P&amp;P diagnostic Browser</title><style>body{font:16px system-ui;max-width:52rem;margin:2rem auto;padding:0 1rem}pre{background:#eee;padding:1rem;white-space:pre-wrap}.summary{background:#f5f5f5;padding:1rem;border-radius:.35rem;line-height:1.5}.status{font-size:1.3rem;font-weight:600;margin:.5rem 0}button{font:inherit;padding:.5rem;margin:.15rem}input:disabled,select:disabled{background:#eee;color:#555;border:2px solid #888;opacity:.7;cursor:not-allowed}.muted{color:#555}</style><h1>P&amp;P diagnostic Browser</h1><p id="connection">connecting</p><p id="role"></p><div id="human" class="summary">Loading race status...</div><p id="request"></p><button id="bootstrap">Make this Browser Race Director</button><button id="start">START</button><button id="pause">PAUSE</button><button id="honour">HONOUR RESTART</button><button id="grid">GRID RESTART</button><button id="raceAgain">RACE AGAIN</button><button id="restartRace">RESTART RACE</button><button id="endRace">END RACE</button><button id="results">RESULTS</button><button id="details">DETAILS</button><button id="history">HISTORY</button><button id="back">BACK</button><button id="home">HOME</button><button id="target3">NEXT RACE: 3 LAPS</button><div id="resultView" class="summary" hidden></div><h2>SIMULATED DETECTORS</h2><button id="lane1">LANE 1 LAP</button><button id="lane2">LANE 2 LAP</button><button id="resetTest">RESET TEST</button><h2>Engineering State</h2><pre id="state"></pre><h2>Latest Fact</h2><pre id="fact"></pre><script>let revision=null,hasState=false,nextCorrelation=1,polling=false,lastState=null;const $=x=>document.querySelector(x);const requestTimeoutMs=4000;async function get(path){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),requestTimeoutMs);try{const r=await fetch(path,{cache:'no-store',signal:controller.signal});if(r.status===204)return null;if(!r.ok)throw Error(r.status);return r.json()}finally{clearTimeout(timeout)}}function sec(us){return (Number(us||0)/1000000).toFixed(2)+' s'}function life(v){return ({READY:'Ready',STARTING:'Starting',RACING:'Racing',PAUSED:'Paused',RESTARTING:'Restarting',FINISHED:'Finished',FAULTED:'Faulted'})[v]||v}function meth(v){return v==='HONOUR'?'Honour Restart':v==='GRID'?'Grid Restart':'None'}function clock(us){const total=Math.max(0,Math.floor(Number(us||0)/1000000));return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0')}function overtimeClock(us){const totalTenths=Math.max(0,Math.floor(Number(us||0)/100000));const totalSeconds=Math.floor(totalTenths/10);const minutes=Math.floor(totalSeconds/60);const seconds=totalSeconds-minutes*60;const fraction=totalTenths-totalSeconds*10;return '+'+String(minutes).padStart(2,'0')+':'+String(seconds).padStart(2,'0')+'.'+String(fraction)}function render(){const v=lastState;if(!v)return;let h='<div class="status">'+life(v.lifecycle)+'</div>';if(v.lifecycle==='PAUSED')h+='<div>Paused at the authoritative P&amp;P time.</div>';if(v.lifecycle==='RESTARTING')h+='<div>'+meth(v.restartMethod)+' - restart countdown active.</div>';if(v.lifecycle==='RACING')h+=v.sessionMode==='OPEN_PRACTICE'?'<div>Open Practice is running  -  no official result.</div>':v.sessionMode==='ENDURANCE'?'<div>Endurance is running.</div>':'<div>Race is running.</div>';if(v.lifecycle==='FINISHED')h+='<div>Race finished.</div>';h+='<div>'+v.entries.map((e,i)=>'<b>Lane '+e.lane+':</b> '+(e.laps||0)+' laps').join('; ')+'.</div>';if(v.hasLap)h+='<div>Last completed lap: '+sec(v.lastLapTime)+'</div>';if(v.sessionMode==='ENDURANCE'&&v.lifecycle!=='READY'){const displayRemaining=v.lifecycle==='STARTING'?(Number(v.remainingDuration||0)||Number(v.durationMinutes||0)*60000000):Number(v.remainingDuration||0);h+='<div class="status">Time remaining: '+clock(displayRemaining)+(v.lifecycle==='STARTING'?' (starts at GO)':'')+'</div>';if(v.finishBehaviour==='COMPLETE_CURRENT_LAP'&&Number(v.overtime||0)>0)h+='<div class="status">Overtime: '+overtimeClock(v.overtime)+'</div>';}h+='<div class="muted">Race integrity: '+(v.raceIntegrity==='OK'?'OK':'FAULTED')+'; results: '+(v.resultValid?'valid':'invalid')+'</div>';if(v.resultSealed){if(v.sessionMode==='ENDURANCE'){h+='<div><b>Endurance complete.</b> '+(v.durationExpired?'Duration expired at 00:00.':'Session settled.')+' <b>fastest lap:</b> '+(v.fastestLap?sec(v.fastestLap):'none')+'</div>';}else h+='<div><b>Winning time:</b> '+sec(v.winningTime)+'; <b>finish settled:</b> '+sec(v.finishTime)+'; <b>fastest lap:</b> '+(v.fastestLap?sec(v.fastestLap):'none')+'</div>';}if(v.scheduledRestartAt&&v.lifecycle==='RESTARTING')h+='<div id="countdown" class="status">Restart countdown</div>';$('#human').innerHTML=h;if(v.lifecycle==='RESTARTING'&&v.scheduledRestartAt){const deadline=performance.now()+3000;clearInterval(window.restartTimer);window.restartTimer=setInterval(()=>{const c=$('#countdown');if(!c||!lastState||lastState.lifecycle!=='RESTARTING'){clearInterval(window.restartTimer);return}const left=Math.max(0,(deadline-performance.now())/1000);c.textContent=left>0?'Restarting - '+left.toFixed(1)+' s remaining':'Restarting - GO'},100)}}
@@ -2528,14 +2801,23 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     config.stack_size = 8192;
     config.recv_wait_timeout = 5;
     config.send_wait_timeout = 5;
-    // ESP32 Arduino's configured LWIP limit permits at most 13 sockets.
-    // LRU eviction keeps sleeping presentation clients from exhausting them.
+    // ESP32 Arduino's configured LWIP limit permits at most 13 sockets,
+    // including ESP-IDF's three internal sockets.  SSE admission reserves
+    // ordinary-request capacity; LRU eviction remains a last-resort policy.
     config.max_open_sockets = 13;
     config.lru_purge_enable = true;
     config.max_uri_handlers = static_cast<uint16_t>(sizeof(routes) / sizeof(routes[0]));
     const esp_err_t started = httpd_start(&server_, &config);
     if (started != ESP_OK) {
       serverStartError_ = int(started);
+      server_ = nullptr;
+      return;
+    }
+    ++serverGeneration_;
+    if (!serverGeneration_) ++serverGeneration_;
+    if (!startHttpWorkers()) {
+      serverStartError_ = int(ESP_ERR_NO_MEM);
+      httpd_stop(server_);
       server_ = nullptr;
       return;
     }
@@ -2553,24 +2835,28 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   }
   void stopServer() {
     if (!server_) return;
-    SseSession* closing[MaxSseClients]{};
-    size_t closingCount = 0;
     for (size_t i = 0; i < MaxSseClients; ++i) {
       SseSession* session = sseSessions_[i];
       if (!session) continue;
-      session->deferDelete = true;
-      closing[closingCount++] = session;
       session->valid = false;
+      session->transportClosed = true;
       removeSseSession(session);
       controlDisconnected(session->clientToken);
-      httpd_sess_trigger_close(session->server, session->fd);
+      const esp_err_t closeResult = httpd_sess_trigger_close(session->server, session->fd);
+      if (closeResult != ESP_OK && closeResult != ESP_ERR_NOT_FOUND) {
+        Serial.printf("[SSE] close_failed generation=%lu fd=%d result=%d\n",
+                      static_cast<unsigned long>(session->generation), session->fd,
+                      static_cast<int>(closeResult));
+      }
+#if PP_HTTP_ASYNC_RUNTIME
+      if (session->worker) xTaskNotifyGive(session->worker);
+#endif
     }
     ++serverStops_;
     const httpd_handle_t old = server_;
     server_ = nullptr;
     const esp_err_t stopped = httpd_stop(old);
     if (stopped != ESP_OK) serverStartError_ = int(stopped);
-    for (size_t i = 0; i < closingCount; ++i) delete closing[i];
   }
 };
 }  // namespace pp
