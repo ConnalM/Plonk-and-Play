@@ -2176,6 +2176,19 @@ private:
       httpd_resp_set_status(request, "503 Service Unavailable");
       return httpd_resp_sendstr(request, "page capacity unavailable");
     }
+    // Keep the ordinary-request reserve explicit for admitted page jobs as
+    // well as SSE.  The request itself is already present in the HTTPD client
+    // list, so no more than (client capacity - reserve) clients may be in
+    // admitted page/SSE work at once.
+    size_t fdsCapacity = 13;
+    int clientFds[13]{};
+    const esp_err_t clientListResult = browser->server_
+      ? httpd_get_client_list(browser->server_, &fdsCapacity, clientFds)
+      : ESP_ERR_INVALID_STATE;
+    if (clientListResult != ESP_OK || fdsCapacity >= MaxHttpClientSockets - OrdinaryRequestReserve) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      return httpd_resp_sendstr(request, "page ordinary capacity unavailable");
+    }
     httpd_req_t* asyncRequest = nullptr;
     const esp_err_t beginResult = httpd_req_async_handler_begin(request, &asyncRequest);
     if (beginResult != ESP_OK || !asyncRequest) {
