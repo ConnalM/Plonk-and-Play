@@ -47,6 +47,6 @@ same framebuffer. That is the next investigation boundary.
 The `display-migration-probe` environment built successfully with PlatformIO
 Espressif32 8.0.0, Arduino-ESP32 3.3.12 and Arduino_GFX 1.6.5. The generated
 provenance header identifies the probe source commit and environment. The
-candidate artifact before this evidence-only note update was 378,656 bytes;
-the final artifact/hash must be regenerated after the evidence commit so the
-embedded source commit remains exact. No upload or physical test was run.
+validated artifact was 378,656 bytes with SHA-256
+`3ECAB4F2BD71A395F35AE955752C5B5EE3A8F758563C7E43D53C0D45C3C9B271`; it was
+flashed once for the physical probe described above.
