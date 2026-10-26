@@ -235,3 +235,71 @@ full-application framework/resource interaction or framebuffer ownership issue
 as the next boundary. This is a proposed discriminator only; no production
 code or firmware was changed in this investigation.
 
+## Startup-order probe result and pre-setup comparison
+
+The full-P&P startup-order probe remained corrupt even though the display was
+initialized before SD, Browser/AP/STA and HTTP startup. This is diagnostically
+valid because the firmware source was unchanged; it is not evidence that
+ordinary late SD/network/HTTP allocation is the sole cause.
+
+The captured heap snapshots were:
+
+| boundary | internal free | largest internal block | PSRAM free | largest PSRAM block |
+|---|---:|---:|---:|---:|
+| before display begin | 270,552 | 212,980 | 8,384,788 | 8,257,524 |
+| after READY draw | 267,720 | 212,980 | 7,616,400 | 7,602,164 |
+| after SD startup | 266,684 | 212,980 | 7,586,624 | 7,471,092 |
+| after Browser/HTTP startup | 197,524 | 155,636 | 7,573,732 | 7,471,092 |
+
+The display allocation consumes approximately 768 KB of PSRAM, as expected
+for one 800 x 480 RGB565 framebuffer. At the early draw there was still more
+than 8 MB of free PSRAM and a contiguous block over 8 MB; internal free heap
+was over 270 KB. The corruption is therefore not explained by an immediately
+exhausted heap or inability to obtain a contiguous framebuffer.
+
+### Probe versus full-P&P build configuration
+
+Both environments use the same ESP32-S3 N16R8 board definition, Espressif32
+8.0.0, Arduino-ESP32 3.3.12/IDF 5.5.5, Arduino_GFX 1.6.5, DIO flash mode,
+USB CDC disabled, and the same partition/PSRAM board configuration. The
+project has no separate `sdkconfig` or `sdkconfig.defaults`; no distinct
+RGB/DMA/cache sdkconfig setting was found. The display constructor arguments
+are identical.
+
+The full environment additionally compiles the P&P application with
+`PP_PHASE8B_REAL_SD`, `PP_PHASE8B_P1_TEST`, `PP_MAX_ENTRIES=2`,
+`PP_MAX_SSE_CLIENTS=4`, scan instrumentation and the linker scan wrapper. It
+also runs the Browser embed prebuild; the probe only defines
+`PP_DISPLAY_MIGRATION_PROBE` and compiles the display-probe translation unit.
+None of these flags explicitly changes the RGB panel or PSRAM DMA settings.
+
+The link maps show a materially larger pre-setup/static footprint in the full
+image. The full probe has `.dram0.data` 0xCACC (51,916 bytes) and
+`.dram0.bss` 0x8868 (34,920 bytes), compared with 0x3B35 (15,157 bytes) and
+0x1D40 (7,488 bytes) for the isolated probe. The full map also reserves
+0x14FFE0 bytes of linker PSRAM dummy space versus 0x5FFE0 in the probe. The
+dummy-space figure is a linker/heap-layout indicator rather than proof of a
+runtime allocation, but it confirms that the full image has a materially
+different memory layout before `setup()`.
+
+Before `setup()` the full image has global P&P objects for NVS storage,
+PhysicalSdOwner, SD persistence/detail/history/track-record stores, authority,
+race control/engine, noticeboard, Browser, diagnostics and the display adapter.
+Their constructors account for the object/static footprint visible in the map;
+the display adapter itself allocates only its two small GFX objects at this
+stage. The framebuffer is still allocated by `display.begin()`. Arduino core
+startup and PSRAM initialization are otherwise the same board/framework path
+in both environments. No source or map evidence shows a pre-`setup()` RGB
+peripheral reconfiguration in the full image.
+
+### Remaining discriminator
+
+The smallest next discriminator is a disposable full-P&P build that retains
+the same global P&P object set and migrated build flags but exits setup after
+the early display draw, before SD/network/HTTP startup. A clean image there
+would implicate global/static construction or the full link/memory layout;
+corruption there would rule out later subsystem startup and narrow the cause
+to the full application image/framework context around RGB DMA/PSRAM. This is
+only a proposed diagnostic build. No production source, timing, pin mapping,
+LVGL or runtime behaviour was changed here.
+
