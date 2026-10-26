@@ -15,6 +15,12 @@ There was no `history_payload_read` fault. The diagnostic therefore establishes 
 
 The raw 338-byte payload is not present in the retained local capture or export artifacts, so it could not be decoded offline without another non-destructive byte capture.
 
+## Read-only payload recovery audit
+
+The retained workspace was searched for History slot/payload binaries, raw payload dumps, diagnostic-export copies and hexadecimal payload evidence. None contains the selected 338-byte History payload. The existing diagnostic/export surfaces contain diagnostic-recorder payloads, not raw `/pp-p1/slot-*.bin` History files. The development PC exposes no mounted SD volume, and the ESP32 connection is serial/network rather than a host-readable mass-storage mount. No SD contents were changed.
+
+Consequently, direct offline decoding is not possible from the current local evidence. The least-disturbing next step is a read-only SD-card extraction: power the controller down, remove the SD card, mount it read-only on the development PC, and copy the complete `/pp-p1/` directory (or at minimum the metadata-selected payload slot and both metadata slots) unchanged for analysis. No repair, rename, deletion or write-back is required.
+
 ## Wire-schema comparison
 
 `VersionedResultCodec::encode()` and `decode()` use explicit little-endian field widths; they do not serialise C++ structs or depend on native alignment. For wire version 3, both sides use this order:
@@ -56,5 +62,5 @@ The first proven failing boundary is **inside `VersionedResultCodec::decode()` a
 
 The leading possibilities are a later payload semantic/range/record parse condition, or a latent compatibility problem in a stored version-3 payload. The exact gate remains unknown because the payload bytes and inner fields were not captured. There is no basis for changing the format, repairing data, or changing History recovery yet.
 
-The smallest next diagnostic, if Archie authorises it, is fault-only decode-stage evidence (or a non-destructive raw-byte capture) that records mode, behaviour, entry count, each record count, buffer preparation/append result, reader position and the first failing gate. No production correction or further physical test is justified before that distinction.
+If a read-only card extraction is not possible, the alternative is a narrowly scoped diagnostic build that emits the selected raw payload or equivalent field/stage evidence. No production correction or further physical test is justified before the exact decode gate is known.
 
