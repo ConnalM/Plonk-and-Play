@@ -93,6 +93,12 @@ public:
   void begin() {
     WiFi.persistent(true);
     WiFi.mode(WIFI_AP_STA);
+#if defined(PP_DISPLAY_WIFI_MODE_ONLY_STOP)
+    // Disposable discriminator: isolate WiFi.mode() and framework driver/netif
+    // startup from P&P event registration and AP/STA/mDNS work.
+    Serial.println("[WIFI] WIFI_MODE_ONLY mode=WIFI_AP_STA returned");
+    return;
+#endif
     installEventDiagnostics();
     apStarted_ = WiFi.softAP(FactoryApSsid);
     suppressed_ = false;
