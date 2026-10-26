@@ -34,5 +34,21 @@ Interpretation:
   and its resource state, but does not by itself authorize a production
   ordering change.
 
-The candidate is software-build-only pending Archie review and physical
-validation. It must not be flashed as a production image.
+## Build evidence
+
+The candidate was clean-built from source commit
+`473fbb71b36c694e928f735372dad2ac687b145a` using `stage8bp1s3sd-display-order-probe`:
+
+* PlatformIO Espressif32 8.0.0;
+* Arduino-ESP32 3.3.12 / ESP-IDF 5.5.5;
+* Arduino_GFX 1.6.5;
+* ESP32-S3 N16R8, 16 MB flash, existing P&P partition configuration;
+* firmware size 1,454,912 bytes;
+* firmware SHA-256
+  `D8D54F93540BE2929F7CEED181B7C6AE903CC8FAD7698D2A3E7C3D03B8819DB3`.
+
+The generated build-identity header embeds the same source commit and the
+diagnostic environment. Compilation and link succeeded; only the existing
+warning set was reported. No physical flash or validation has been performed.
+This artifact is a diagnostic candidate and must not be treated as a
+production image.
