@@ -1,5 +1,8 @@
 #include <Arduino.h>
 #include <Preferences.h>
+#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE)
+#include <esp_heap_caps.h>
+#endif
 #include <esp_ota_ops.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -152,6 +155,17 @@ pp::diagnostic::ProductionDiagnosticStorage controllerTraceStorage;
 #endif
 pp::diagnostic::ProductionDiagnosticRecorder controllerTraceRecorder(controllerTraceStorage);
 pp::diagnostic::ControllerOperationTrace controllerTrace(controllerTraceRecorder);
+#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE)
+bool displayOrderProbeHttpLogged = false;
+void displayOrderProbeHeap(const char* boundary) {
+  Serial.printf("[DISPLAY_ORDER_PROBE] boundary=%s internal_free=%u internal_largest=%u psram_free=%u psram_largest=%u\n",
+                boundary,
+                static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
+                static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)),
+                static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)),
+                static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM)));
+}
+#endif
 pp::MemoryModule memoryModule(bus,memoryEndpoint,memory);
 pp::Configuration workingConfiguration;
 pp::ProposedRaceSetup proposedRaceSetup{ {pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish}, 1, 10, pp::LapFinishBehaviour::Immediate, 1, true, false };
@@ -650,6 +664,12 @@ void setup(){
                   PP_BUILD_SOURCE_COMMIT, PP_BUILD_ENVIRONMENT, applicationElfSha256());
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
+#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE)
+  displayOrderProbeHeap("before_display_begin");
+  const bool earlyDisplayReady = boardDisplay.begin();
+  if (earlyDisplayReady) boardDisplay.showReady();
+  displayOrderProbeHeap(earlyDisplayReady ? "after_display_ready" : "after_display_failed");
+#endif
   storage.begin();browserAuthority.begin();browser.restorePersistedAuthority();
 #if defined(PP_PHASE8B_REAL_SD)
   physicalSdOwner.setLifecycle(raceControl.state());
@@ -658,6 +678,9 @@ void setup(){
   diagnostics.log("[INIT] Phase 8B-P1 SD owner %s; History storage boundary %s (namespace reconstruction lazy); NVS configuration READY=%s",
                   physicalSdReady ? "READY" : "DEGRADED",
                   sdReady ? "READY" : "DEGRADED", storage.available() ? "YES" : "NO");
+#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE)
+  displayOrderProbeHeap("after_sd_startup");
+#endif
 #endif
   diagnostics.log("[INIT] Normal diagnostics recorder READY (bounded observation-only backend)");
   pp::diagnostic::ControllerEpoch diagnosticEpoch{};
@@ -807,6 +830,12 @@ void loop(){
       browserHttpState?"STARTED":"STOPPED",
       browserHttpState?0:browser.serverStartError());
   }
+#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE)
+  if (browser.serverReady() && !displayOrderProbeHttpLogged) {
+    displayOrderProbeHttpLogged = true;
+    displayOrderProbeHeap("after_browser_http_startup");
+  }
+#endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   observeBrowserNetworkEvents();
   observePresentationState();
@@ -869,7 +898,9 @@ void loop(){
       ready=testsPassed;
       bootFailed=!testsPassed;
 #if defined(PP_PHASE8B_REAL_SD)
+#if !defined(PP_DISPLAY_STARTUP_ORDER_PROBE)
       if (ready && boardDisplay.begin()) boardDisplay.showReady();
+#endif
 #endif
 #ifdef PP_VERIFY
       if(verificationReboot)diagnostics.log("[TEST] Rebooting after diagnostics drain to verify persistent configuration");
