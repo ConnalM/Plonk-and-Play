@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 #include "race_engine.h"
 
 namespace pp {
@@ -95,6 +96,28 @@ private:
 // encoded race workspace.
 class VersionedHistoryStore final : public HistoryStore {
 public:
+  // Shared by the fault-only device dump and the host round-trip contract.
+  // The formatter emits complete, offset-addressed lines without truncating
+  // the payload; callers decide whether and when to emit them.
+  static size_t formatPayloadHexLine(const uint8_t* bytes, size_t length,
+                                     size_t offset, char* out, size_t capacity) {
+    if (!bytes || !out || !capacity || offset >= length) return 0;
+    const size_t count = (length - offset) < 16u ? (length - offset) : 16u;
+    int used = snprintf(out, capacity, "offset=%08lx bytes=",
+                        static_cast<unsigned long>(offset));
+    if (used < 0 || static_cast<size_t>(used) >= capacity) return 0;
+    for (size_t i = 0; i < count; ++i) {
+      const int written = snprintf(out + used, capacity - static_cast<size_t>(used),
+                                   "%02x", static_cast<unsigned>(bytes[offset + i]));
+      if (written < 0 || static_cast<size_t>(written) >= capacity - static_cast<size_t>(used)) return 0;
+      used += written;
+    }
+    if (static_cast<size_t>(used) + 1u >= capacity) return 0;
+    out[used++] = '\n';
+    out[used] = '\0';
+    return static_cast<size_t>(used);
+  }
+
   explicit VersionedHistoryStore(HistoryStore& backend):backend_(backend){}
   bool append(const uint8_t*bytes,size_t length,uint32_t&sequence) override {
     if(!bytes||length!=sizeof(RaceEngineModule::CompletedRaceResult))return false;
@@ -121,7 +144,7 @@ public:
     uint32_t storedSequence=0;
     const bool loaded=backend_.loadNewest(index,encoded,encodedCapacity,encodedLength,storedSequence);
     const bool decodedOk=loaded&&VersionedResultCodec::decode(encoded,encodedLength,*reinterpret_cast<RaceEngineModule::CompletedRaceResult*>(bytes));
-    if (loaded && !decodedOk) traceDecodeFailure(encoded, encodedLength);
+    if (loaded && !decodedOk) traceDecodeFailure(encoded, encodedLength, index, storedSequence);
     if(decodedOk){
       length=sizeof(RaceEngineModule::CompletedRaceResult);
       sequence=storedSequence;
@@ -143,7 +166,8 @@ public:
   }
   bool clear() override{return backend_.clear();}
 private:
-  static void traceDecodeFailure(const uint8_t* bytes, size_t length) {
+  static void traceDecodeFailure(const uint8_t* bytes, size_t length,
+                                 uint8_t historyIndex, uint32_t sequence) {
 #ifdef ARDUINO
     const auto read32 = [](const uint8_t* p) {
       return uint32_t(p[0]) | (uint32_t(p[1]) << 8) |
@@ -160,23 +184,36 @@ private:
     uint16_t format = 0;
     uint8_t flags = 0;
     bool checksumOk = false;
+    uint32_t storedChecksum = 0;
+    uint32_t computedChecksum = 0;
     if (bytes && length >= 4) {
-      const uint32_t supplied = read32(bytes + length - 4);
-      checksumOk = sum(bytes, length - 4) == supplied;
+      storedChecksum = read32(bytes + length - 4);
+      computedChecksum = sum(bytes, length - 4);
+      checksumOk = computedChecksum == storedChecksum;
     }
     if (bytes && length >= 4) magic = read32(bytes);
     if (bytes && length >= 6) wireVersion = uint16_t(bytes[4]) | (uint16_t(bytes[5]) << 8);
     if (bytes && length >= 12) declared = read32(bytes + 8);
     if (bytes && length >= 14) format = uint16_t(bytes[12]) | (uint16_t(bytes[13]) << 8);
     if (bytes && length >= 15) flags = bytes[14];
+    Serial.printf("[P8-P1] history_payload_dump index=%u sequence=%lu length=%lu checksum_ok=%u fnv32=0x%08lx stored_checksum=0x%08lx\n",
+                  static_cast<unsigned>(historyIndex), static_cast<unsigned long>(sequence),
+                  static_cast<unsigned long>(length), checksumOk ? 1u : 0u,
+                  static_cast<unsigned long>(computedChecksum), static_cast<unsigned long>(storedChecksum));
     Serial.printf("[P8-P1] history_payload_decode length=%lu checksum_ok=%u magic=0x%08lx wire_version=%u declared=%lu format=%u expected_format=%u sealed=%u\n",
                   static_cast<unsigned long>(length), checksumOk ? 1u : 0u,
                   static_cast<unsigned long>(magic), static_cast<unsigned>(wireVersion),
                   static_cast<unsigned long>(declared), static_cast<unsigned>(format),
                   static_cast<unsigned>(RaceEngineModule::ResultFormatVersion),
                   (flags & 1u) ? 1u : 0u);
+    char line[96]{};
+    for (size_t offset = 0; offset < length; offset += 16u) {
+      const size_t lineLength = formatPayloadHexLine(bytes, length, offset, line, sizeof(line));
+      if (!lineLength) break;
+      Serial.printf("[P8-P1] history_payload_hex %s", line);
+    }
 #else
-    (void)bytes; (void)length;
+    (void)bytes; (void)length; (void)historyIndex; (void)sequence;
 #endif
   }
   HistoryStore&backend_;
