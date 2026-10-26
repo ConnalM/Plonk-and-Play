@@ -11,6 +11,7 @@ node (Join-Path $PSScriptRoot 'browser_recovery_runtime.js') | Tee-Object -FileP
 node (Join-Path $PSScriptRoot 'browser_presentation_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-presentation-runtime.txt')
 node (Join-Path $PSScriptRoot 'browser_resume_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-resume-runtime.txt')
 node (Join-Path $PSScriptRoot 'browser_normal_poll_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-normal-poll-runtime.txt')
+node (Join-Path $PSScriptRoot 'browser_sse_liveness_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-sse-liveness-runtime.txt')
 node (Join-Path $PSScriptRoot 'browser_notification_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-notification-runtime.txt')
 node (Join-Path $PSScriptRoot 'browser_start_schedule_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-start-schedule-runtime.txt')
 node (Join-Path $PSScriptRoot 'browser_setup_sync_runtime.js') | Tee-Object -FilePath (Join-Path $evidence 'browser-setup-sync-runtime.txt')

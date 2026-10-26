@@ -19,7 +19,7 @@ expect(browser.includes('httpd_sess_get_ctx'), 'SSE send path does not validate 
 expect(browser.includes('session->generation != generation'), 'SSE work has no generation validation');
 expect(browser.includes('httpd_sess_trigger_close'), 'SSE invalidation has no close path');
 expect(browser.includes('frame + header'), 'SSE later sends are not consistently chunk-framed');
-expect(browser.includes(': ping\\n\\n'), 'SSE heartbeat is missing');
+expect(browser.includes('event: heartbeat\\ndata:'), 'Browser-visible SSE heartbeat is missing');
 expect(browser.includes('frame[header + length] = \'\\r\''), 'SSE chunk terminator is missing');
 expect(browser.includes('session->workQueued'), 'notification work has no bounded/coalesced queue guard');
 expect(browser.includes('session->sentRevision'), 'notification stream has no per-client revision coalescing state');

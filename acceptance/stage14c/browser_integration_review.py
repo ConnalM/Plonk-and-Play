@@ -6,6 +6,7 @@ import argparse
 ROOT = Path(__file__).resolve().parents[2]
 browser = (ROOT / "firmware/include/pp/browser_interface.h").read_text(encoding="utf-8")
 normal = (ROOT / "firmware/browser/normal_browser.html").read_text(encoding="utf-8")
+embedded_normal = (ROOT / "firmware/include/pp/normal_browser_page.inc").read_text(encoding="utf-8")
 main = (ROOT / "firmware/src/main.cpp").read_text(encoding="utf-8")
 notice = (ROOT / "firmware/include/pp/noticeboard.h").read_text(encoding="utf-8")
 race_engine = (ROOT / "firmware/include/pp/race_engine.h").read_text(encoding="utf-8")
@@ -69,8 +70,10 @@ checks = {
     "normal_browser_request_timeout": "AbortController" in normal and "requestTimeoutMs=4000" in normal and "signal:controller.signal" in normal,
     "normal_browser_poll_overlap_guard": "async function poll(" in normal and "if(polling){pollDirty=true;return}" in normal and "finally{polling=false" in normal and "setInterval(poll,1000)" not in normal,
     "normal_browser_sse_notification": "new EventSource('/events')" in normal and "openEventStream" in normal and "window.poll" in normal,
-    "embedded_browser_sse_notification": "new EventSource('/events')" in (ROOT / "firmware/include/pp/normal_browser_page.inc").read_text(encoding="utf-8"),
-    "http_sse_notification_boundary": '"/events", HTTP_GET, events, nullptr' in browser and "struct SseSession" in browser and "struct SseWork" in browser and "httpd_queue_work(server_, &BrowserInterface::eventWork, work)" in browser and "freeSseSession" in browser and "httpd_sess_get_ctx" in browser and "session->workQueued" in browser and "session->sentRevision" in browser,
+    "embedded_browser_sse_notification": "new EventSource('/events')" in embedded_normal,
+    "normal_browser_sse_liveness": "eventStreamLivenessTimeoutMs" in embedded_normal and "liveness_timeout" in embedded_normal and "addEventListener('heartbeat'" in embedded_normal,
+    "normal_browser_sse_liveness_runtime": "browser_sse_liveness_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
+    "http_sse_notification_boundary": '"/events", HTTP_GET, events, nullptr' in browser and "struct SseSession" in browser and "struct SseWork" in browser and "httpd_queue_work(server_, &BrowserInterface::eventWork, work)" in browser and "freeSseSession" in browser and "httpd_sess_get_ctx" in browser and "session->workQueued" in browser and "session->sentRevision" in browser and "event: heartbeat" in browser,
     "notification_runtime_regression": "browser_notification_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
     "normal_browser_runtime_regression": "browser_normal_poll_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
     "normal_browser_setup_sync": "setupDesired" in normal and "setupRunning" in normal and "waitSetupResult" in normal and "browser_setup_sync_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8") and "rapid coalescing" in setup_runtime and "stale proposal response" in setup_runtime,

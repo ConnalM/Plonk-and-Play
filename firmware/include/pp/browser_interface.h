@@ -1302,7 +1302,12 @@ private:
 #endif
     int length = 0;
     if (keepalive) {
-      length = snprintf(payload, sizeof(payload), ": ping\n\n");
+      // Keep the existing ten-second idle cadence, but make the liveness
+      // frame visible to EventSource clients. SSE comment frames are not
+      // delivered to Browser JavaScript and cannot drive its watchdog.
+      length = snprintf(payload, sizeof(payload),
+                        "event: heartbeat\ndata: {\"serverUs\":%llu}\n\n",
+                        static_cast<unsigned long long>(systemTime()));
     } else if (noticePending) {
       length = snprintf(payload, sizeof(payload), "data: {\"revision\":%lu,\"serverUs\":%llu,\"lapEntry\":%lu,\"lap\":%lu,\"eventId\":%lu}\n\n",
                         (unsigned long)revision, (unsigned long long)systemTime(),
