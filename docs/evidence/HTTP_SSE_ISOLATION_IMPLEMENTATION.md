@@ -38,7 +38,7 @@ production migrated environment uses the async path.
 
 The dedicated worker stack reservation is 32,768 bytes total, before FreeRTOS
 TCBs and the small queue/session records. The clean build reports 87,148 bytes
-static RAM used and 1,446,743 bytes application flash used; the pre-isolation
+static RAM used and 1,446,843 bytes application flash used; the pre-isolation
 same-framework build was 87,116 bytes RAM and 1,445,859 bytes flash.
 
 ## Verification
