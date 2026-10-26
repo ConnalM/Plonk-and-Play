@@ -12,7 +12,6 @@ $housekeeping=Join-Path $env:TEMP 'pp-storage-housekeeping-test.exe'
 $semantic=Join-Path $env:TEMP 'pp-wp2f-semantic-test.exe'
 $reconstruction=Join-Path $env:TEMP 'pp-reconstruction-readiness-test.exe'
 $trackRecordAb=Join-Path $env:TEMP 'pp-track-record-ab-test.exe'
-$payloadDump=Join-Path $env:TEMP 'pp-history-payload-dump-test.exe'
 $ownerContract=Join-Path $PSScriptRoot 'physical_sd_owner_contract.ps1'
 $fileCreationContract=Join-Path $PSScriptRoot 'active_detail_file_creation_contract.ps1'
 $metadataWorkspaceContract=Join-Path $PSScriptRoot 'history_metadata_workspace_contract.ps1'
@@ -64,10 +63,12 @@ g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'track_record_
 if ($LASTEXITCODE -ne 0) { throw "Track Record A/B compile failed: $LASTEXITCODE" }
 & $trackRecordAb
 if ($LASTEXITCODE -ne 0) { throw "Track Record A/B acceptance failed: $LASTEXITCODE" }
-g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'history_payload_dump_test.cpp') -o $payloadDump
-if ($LASTEXITCODE -ne 0) { throw "History payload dump compile failed: $LASTEXITCODE" }
-& $payloadDump
-if ($LASTEXITCODE -ne 0) { throw "History payload dump acceptance failed: $LASTEXITCODE" }
+$payloadDecode=Join-Path $env:TEMP 'pp-history-payload-decode-test.exe'
+g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'history_payload_dump_test.cpp') -o $payloadDecode
+if ($LASTEXITCODE -ne 0) { throw "History payload decode compile failed: $LASTEXITCODE" }
+$payloadHex=Join-Path $root 'docs\evidence\history-payload-sequence-9-ae87916.hex'
+& $payloadDecode $payloadHex
+if ($LASTEXITCODE -ne 0) { throw "History payload decode acceptance failed: $LASTEXITCODE" }
 & $ownerContract
 if ($LASTEXITCODE -ne 0) { throw "Physical SD owner contract acceptance failed: $LASTEXITCODE" }
 & $fileCreationContract
