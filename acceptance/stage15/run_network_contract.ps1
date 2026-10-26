@@ -83,24 +83,29 @@ if ($embed -notlike '*{"/", HTTP_GET, normalPage, nullptr}*' -or
   throw 'Normal Browser embed does not make the root entry point serve the current Normal Browser.'
 }
 Write-Host 'Normal Browser root-entry contract: PASS'
+if ($embed -notmatch 'const size_t count = .*NormalBrowserChunkSize.*:.*NormalBrowserChunkSize') {
+  throw 'Normal Browser implementation does not cap each response chunk at NormalBrowserChunkSize.'
+}
 function Invoke-NormalBrowserChunkModel([int]$length, [int]$chunkSize, [int]$failAt) {
   $offset = 0
   $chunks = 0
   $bytes = 0
+  $maxChunk = 0
   $terminalSent = $false
   $error = $false
   while ($offset -lt $length) {
     $count = [Math]::Min($chunkSize, $length - $offset)
+    if ($count -gt $maxChunk) { $maxChunk = $count }
     $chunks++
     if ($failAt -gt 0 -and $chunks -eq $failAt) { $error = $true; break }
     $bytes += $count
     $offset += $count
   }
   if (-not $error -and $offset -eq $length) { $terminalSent = $true }
-  [pscustomobject]@{ chunks = $chunks; bytes = $bytes; terminalSent = $terminalSent; error = $error }
+  [pscustomobject]@{ chunks = $chunks; bytes = $bytes; maxChunk = $maxChunk; terminalSent = $terminalSent; error = $error }
 }
 $normalSuccess = Invoke-NormalBrowserChunkModel 10001 4096 0
-if ($normalSuccess.bytes -ne 10001 -or -not $normalSuccess.terminalSent -or $normalSuccess.error -or $normalSuccess.chunks -ne 3) {
+if ($normalSuccess.bytes -ne 10001 -or $normalSuccess.maxChunk -gt 4096 -or -not $normalSuccess.terminalSent -or $normalSuccess.error -or $normalSuccess.chunks -ne 3) {
   throw 'Normal Browser successful chunking model did not preserve all bytes and the terminating chunk.'
 }
 $normalFailure = Invoke-NormalBrowserChunkModel 10001 4096 2
