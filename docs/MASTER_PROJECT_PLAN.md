@@ -132,11 +132,11 @@ WP1–WP4 must all be closed. Archie performs a cross-WP semantic review. Al pro
 **Purpose:** one concentrated physical campaign against the Gate-A candidate, crediting all existing evidence.
 
 Must close the remaining physical obligations for the base, including:
-- all three Lap finish policies with fresh Results/Details/History inspection;
+- all three Lap finish policies with fresh Results/Details/History inspection (P16 already physically satisfied; P17 Finish Current Lap and P18 Complete Full Race Distance passed physically in Session 1 on candidate `031834d`);
 - multi-Browser controller/spectator fan-out, KEEP/ALLOW, reconnect/reacquisition and race continuity;
 - retained Race Director restoration after reboot;
-- Endurance physical checkpoint;
-- Browser/Taster coexistence required at this base checkpoint;
+- Endurance physical checkpoint *(DEFERRED-BY-DEPENDENCY to WP8: the physical display/Taster implementation is assigned to WP8 and no pre-WP8 physical Taster exists; the Stage 14C criterion remains mandatory and is not waived)*;
+- Browser/Taster coexistence required at this base checkpoint *(DEFERRED-BY-DEPENDENCY to WP8 for the same reason; the Phase 8B criterion remains mandatory and is not waived)*;
 - fresh Results check sufficient to close the historical missing-time concern if not already classified;
 - SD reboot reconstruction, second-race retention, removal/remount, failure/recovery and interruption obligations applicable here;
 - diagnostics download/degraded-storage physical path;
@@ -158,6 +158,12 @@ Productise real detection: sensor addressing, lane assignment, health, Track Set
 
 ### WP8 — Local appliance: display, Taster and audio
 Complete local 7-inch presentation, Taster/local controls, start lights, pause/resume/recovery/AP information, authoritative audio, volume/mute and coexistence with Browser authority.
+
+WP8 is an entry dependency for the deferred physical Taster obligations recorded
+under WP5: once the physical display/Taster candidate exists, the mandatory
+Stage 14C Browser/Taster checkpoint and Stage 15 Phase 8B Browser/Taster
+coexistence acceptance must be executed without changing or weakening those
+acceptance criteria.
 
 **G8 closure:** P&P can perform the promised core race experience without phone/PC; Browser and local operation converge correctly; display/audio/control failure behaviour is defined.
 

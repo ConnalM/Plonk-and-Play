@@ -43,6 +43,13 @@ Before final stage acceptance, the resource evidence must include one product-pr
 
 ## Human ESP32 Browser/Taster checkpoint
 
+**Project-control status:** This physical checkpoint remains mandatory and its
+acceptance semantics are unchanged, but it is **DEFERRED-BY-DEPENDENCY to
+WP8**. The physical display/Taster implementation is assigned to WP8 and no
+pre-WP8 physical Taster is available on the current base candidate. This
+dependency removes the checkpoint from the WP5 closure blocker list; it does
+not waive, weaken or mark the checkpoint passed.
+
 Using the prepared Endurance image, the operator will:
 
 1. Confirm clean READY and the documented authority state.

@@ -203,12 +203,16 @@ The full concurrent runtime choreography of Browser ↔ P&P ↔ Taster has not
 been directly demonstrated in one Wokwi runtime. This is an explicit evidence
 limitation, not a reason to create a new Phase 8A orchestration framework.
 
-**Phase 8B — real hardware: PENDING.** The physical ESP32-8048S070 and SD
-checkpoint remains outstanding. Phase 8B must run the real P&P core with the
-normal Browser and physical Taster over the same authoritative instance, and
-must demonstrate READY convergence, START from Taster, PAUSE from Browser,
-RESUME from Taster, rejected-request behaviour, completion/results agreement,
-and Taster reconstruction.
+**Phase 8B — real hardware: PENDING and DEFERRED-BY-DEPENDENCY to WP8.** The
+physical ESP32-8048S070 and SD checkpoint remains outstanding. The physical
+display/Taster implementation is assigned to WP8 and no pre-WP8 physical
+Taster is available on the current base candidate. Once that candidate exists,
+Phase 8B must run the real P&P core with the normal Browser and physical Taster
+over the same authoritative instance, and must demonstrate READY convergence,
+START from Taster, PAUSE from Browser, RESUME from Taster, rejected-request
+behaviour, completion/results agreement, and Taster reconstruction. The
+dependency changes WP5 scheduling only; it does not waive or weaken any Phase
+8B acceptance requirement.
 
 Phase 8B must also complete the existing boot, flash, PSRAM, LCD/backlight,
 encoder/touch where fitted, SD, persistence/reconstruction, resource,
