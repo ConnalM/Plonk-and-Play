@@ -26,3 +26,12 @@ Physical interpretation:
 
 Software scope check: the probe is compile/build-only in this commit. It has
 not been flashed or physically exercised.
+
+## Software build evidence
+
+The `display-migration-probe` environment built successfully with PlatformIO
+Espressif32 8.0.0, Arduino-ESP32 3.3.12 and Arduino_GFX 1.6.5. The generated
+provenance header identifies the probe source commit and environment. The
+candidate artifact before this evidence-only note update was 378,656 bytes;
+the final artifact/hash must be regenerated after the evidence commit so the
+embedded source commit remains exact. No upload or physical test was run.
