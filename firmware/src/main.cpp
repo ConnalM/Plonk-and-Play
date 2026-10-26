@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <Preferences.h>
-#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE) || defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP) || defined(PP_DISPLAY_PRE_BROWSER_STOP)
+#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE) || defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP) || defined(PP_DISPLAY_PRE_BROWSER_STOP) || defined(PP_DISPLAY_POST_BROWSER_BEGIN_STOP)
 #include <esp_heap_caps.h>
 #endif
 #include <esp_ota_ops.h>
@@ -155,7 +155,7 @@ pp::diagnostic::ProductionDiagnosticStorage controllerTraceStorage;
 #endif
 pp::diagnostic::ProductionDiagnosticRecorder controllerTraceRecorder(controllerTraceStorage);
 pp::diagnostic::ControllerOperationTrace controllerTrace(controllerTraceRecorder);
-#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE) || defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP) || defined(PP_DISPLAY_PRE_BROWSER_STOP)
+#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE) || defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP) || defined(PP_DISPLAY_PRE_BROWSER_STOP) || defined(PP_DISPLAY_POST_BROWSER_BEGIN_STOP)
 bool displayOrderProbeHttpLogged = false;
 void displayOrderProbeHeap(const char* boundary) {
   Serial.printf("[DISPLAY_ORDER_PROBE] boundary=%s internal_free=%u internal_largest=%u psram_free=%u psram_largest=%u\n",
@@ -664,7 +664,7 @@ void setup(){
                   PP_BUILD_SOURCE_COMMIT, PP_BUILD_ENVIRONMENT, applicationElfSha256());
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
-#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE) || defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP) || defined(PP_DISPLAY_PRE_BROWSER_STOP)
+#if defined(PP_DISPLAY_STARTUP_ORDER_PROBE) || defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP) || defined(PP_DISPLAY_PRE_BROWSER_STOP) || defined(PP_DISPLAY_POST_BROWSER_BEGIN_STOP)
   displayOrderProbeHeap("before_display_begin");
   const bool earlyDisplayReady = boardDisplay.begin();
   if (earlyDisplayReady) boardDisplay.showReady();
@@ -765,6 +765,11 @@ void setup(){
   return;
 #endif
   browser.begin();
+#if defined(PP_DISPLAY_POST_BROWSER_BEGIN_STOP)
+  displayOrderProbeHeap("post_browser_begin");
+  Serial.println("[DISPLAY_POST_BROWSER_BEGIN_STOP] startup halted after browser.begin before first browser.tick");
+  return;
+#endif
 #if defined(PP_STAGE8A_TASTER_WOKWI)
   taster.begin();
 #endif
@@ -799,7 +804,7 @@ void setup(){
   if(bus.publish(lifecycle,request)!=pp::Delivery::Delivered){bootFailed=true;diagnostics.log("STAGE1_FAIL configuration request");}
 }
 void loop(){
-#if defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP) || defined(PP_DISPLAY_PRE_BROWSER_STOP)
+#if defined(PP_DISPLAY_FULL_IMAGE_EARLY_STOP) || defined(PP_DISPLAY_PRE_BROWSER_STOP) || defined(PP_DISPLAY_POST_BROWSER_BEGIN_STOP)
   delay(1000);
   return;
 #endif
