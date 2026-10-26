@@ -104,13 +104,17 @@ Real-card removal/remount, reboot reconstruction, interruption, coexistence and 
 **G2 closure:** software records/persistence matrix is clean; anomaly resolved/classified; no known software-only WP2 defect remains.
 
 ### WP3 — Browser, authority and networking
-**Scope:** normal Browser lifecycle/reconstruction, Race Director lease, spectators, multi-client SSE, KEEP/ALLOW, reconnect/reacquisition, AP+STA and LAN access.
+**Scope:** normal Browser lifecycle/reconstruction, Race Director lease, spectators, multi-client SSE, bounded HTTP/SSE transport isolation, KEEP/ALLOW, reconnect/reacquisition, AP+STA and LAN access.
 
 **Already credited:** Scan/CONNECT/AP+STA/LAN/DISCONNECT/reboot reconnect/FORGET/Forget+reboot hardware passes; `plonk-and-play.local` was physically resolved successfully on 23 October and is accepted evidence; no repeat mDNS test is required merely to create an artifact.
 
 **Remaining before closure:**
 - software/automated closure for live multi-client authority semantics;
 - retained Race Director identity/restoration path after controller/P&P restart must be software-correct before hardware proof.
+- implement and verify the bounded HTTP/SSE isolation contract: stalled page/SSE
+  work cannot block ordinary HTTP or another healthy SSE client, while fresh
+  state/proposal/context reconstruction and existing authority semantics remain
+  unchanged.
 
 **G3 closure:** Browser/authority/network software suite and semantic review pass; networking behaviour remains frozen; no known software defect remains. Live multi-client/reboot authority proof belongs to WP5.
 

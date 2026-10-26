@@ -236,6 +236,36 @@ correct. Presentation may supersede ordinary notification work according to
 its established contract, but must not block or lose race-critical operation.
 Reconnected viewers reconstruct current State.
 
+### 10.10a HTTP/SSE transport isolation
+
+**Setup:** Use the production HTTP route table and a product-profile HTTPD
+configuration with two independent Browser identities. Prepare one page client
+that stops consuming its complete response and one SSE client that stops reading
+without closing its connection. Keep a second Browser healthy.
+
+**Stimulus:** While both deliberately stalled clients remain connected, issue
+`/health`, `/context`, `/state` and `/proposal` from the healthy Browser and
+open/use a second healthy SSE stream. Then release or disconnect the stalled
+clients and exercise an SSE identity replacement that can reuse a file
+descriptor.
+
+**Expected:** Ordinary requests and the healthy SSE stream complete within the
+bounded service budget; the stalled page and SSE jobs do not monopolise the
+HTTPD task or each other. A complete page is either delivered with its
+terminating chunk or fails explicitly without truncation. Page/SSE admission is
+finite and preserves ordinary-request capacity. Every async request/session is
+completed/released exactly once; disconnect, replacement, close failure and fd
+reuse cannot deliver stale work to a new session. Resources are reclaimed after
+release, and a full budget produces an explicit bounded failure rather than a
+leak or indefinite wait.
+
+The Browser marks itself unsynchronised and keeps authoritative controls
+unavailable until fresh `/state`, `/proposal` and `/context` have been acquired.
+Authority is derived only from fresh `/context`; no Browser cache, reconnect
+ordering or transport event creates authority. No Race Engine, Race Control,
+Noticeboard, persistence, lease or race state changes as a consequence of the
+transport pressure.
+
 ### 10.11 Master refresh and reopen retention
 
 **Setup:** Bind `master-A` as Master, then close its Browser session and reopen
@@ -351,6 +381,10 @@ Evidence must confirm that:
 - no Browser, presentation backpressure, disconnection or reconnection blocks
   or alters P&P System Time, Input Module, Race Engine, Race Control or
   authoritative Noticeboard maintenance; and
+- a deliberately stalled page response cannot block ordinary HTTP, and a
+  deliberately stalled SSE stream cannot block ordinary HTTP or another
+  healthy SSE stream; bounded admission, async completion/release and
+  fd/generation protection are evidenced; and
 - current State reconstruction uses the established Noticeboard path rather
   than a new event-replay dependency.
 
@@ -367,6 +401,9 @@ For every automated test retain:
 - controlled race/input stimulus and resulting authoritative State where a
   race is active;
 - restart/disconnect/reconnect evidence; and
+- stalled-page/stalled-SSE isolation evidence, including ordinary-request
+  responsiveness, healthy-stream responsiveness, explicit failure/completion,
+  resource reclamation and no authority/race/persistence mutation; and
 - expected, actual and PASS/FAIL outcome.
 
 Retain raw evidence for bootstrap races, rejected spectator claims, colliding

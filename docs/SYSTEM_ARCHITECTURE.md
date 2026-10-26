@@ -810,6 +810,41 @@ The display clock is not an authoritative source for lap times, elapsed/remainin
 
 The transport, protocol and payload representation used to carry Requests, Request Results, State and Events/Facts remain implementation decisions.
 
+### 12.6 Browser transport isolation
+
+The Browser transport is non-authoritative presentation infrastructure. A slow,
+stalled or disconnected Browser page response must not block unrelated ordinary
+HTTP requests such as health, context, state or proposal acquisition. A slow or
+stalled SSE client must not block ordinary HTTP or another healthy SSE client.
+
+The implementation must use finite admission and explicit bounds for ordinary
+requests, page jobs, SSE sessions and queued work. It must retain capacity for
+ordinary requests when page/SSE work is admitted; a full page/SSE budget fails
+explicitly and does not silently truncate a valid page response. A complete page
+still includes its terminating response chunk.
+
+Where an asynchronous request/session is used, ownership is explicit from begin
+through success, failure, disconnect, replacement and server shutdown. Every
+request has exactly one completion/release path. Session identity is protected
+by the file descriptor together with a generation/session identity so an old
+queued operation cannot send to a later client that reuses the descriptor.
+Close requests and close-request failures are handled explicitly. No network
+send, queue wait or potentially blocking transport operation may hold a
+Race-Engine, Race-Control, persistence, authority or other race-critical
+product lock.
+
+`httpd_queue_work()` means execution in the ESP-IDF HTTPD task; it is not an
+independent blocking-send worker. It may be used for short non-blocking control
+work, but a potentially blocking page or SSE send requires the supported async
+request ownership and a bounded worker context outside the HTTPD task.
+
+This transport boundary does not add Browser authority or a second State owner.
+After a liveness/synchronisation loss, cached Browser State is untrusted,
+authoritative controls remain unavailable, and reconnect must reacquire current
+`/state`, `/proposal` and `/context` before presentation is synchronised again.
+Race Engine, Race Control, persistence, lease/authority, AP+STA and Browser
+product semantics remain unchanged.
+
 ## 13. Memory Module
 
 The **Memory Module** owns information that P&P deliberately retains across power cycles. Its internal storage technology may be flash, SD card, files, a database or another suitable implementation; other modules do not depend on that choice.

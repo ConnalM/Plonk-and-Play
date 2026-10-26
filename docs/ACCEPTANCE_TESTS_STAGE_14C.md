@@ -32,7 +32,7 @@ Before final stage acceptance, the resource evidence must include one product-pr
 | 14C.18 | Interrupted active Endurance remains volatile under the existing controller-restart boundary and is not reconstructed as a completed result. |
 | 14C.19 | Valid completed Endurance laps update PB/Track Record data, including a valid final Finish-Current-Lap lap; partial laps do not; Practice remains excluded. |
 | 14C.20 | Browser disconnect/reconnect reconstructs live Endurance State, remaining time, PAUSED state, expiry and overtime without Fact replay. |
-| 14C.21 | Presentation pressure, delayed polling and Browser absence do not alter authoritative duration, crossings, classification or expiry. |
+| 14C.21 | Presentation pressure, delayed polling and Browser absence do not alter authoritative duration, crossings, classification or expiry. The shared Browser transport must also preserve ordinary HTTP and healthy-client service under a deliberately stalled page/SSE client; the focused transport proof is defined by Stage 10 test 10.10a and NET15.14. |
 | 14C.22 | Taster TIMED selection maps to Endurance for 1–999 minutes while preserving the established simple Taster interaction and existing Lap behaviour. |
 | 14C.23 | Detailed-lap retention is bounded safely without imposing a 16-lap Endurance limit; authoritative lap totals and required statistics remain correct beyond the current 16-record capacity. |
 | 14C.24 | Persistence/result format versioning and incompatible-version handling are safe and reconstruct all required Endurance data. |

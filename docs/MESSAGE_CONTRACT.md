@@ -175,6 +175,21 @@ There is no sender-selected universal Priority field in the generic envelope.
 
 Timing-critical requirements belong to the Message Contract and bus implementation. Browser, storage, audio or other slow/non-critical work must not block timing-critical race processing.
 
+The same non-blocking boundary applies to the Browser HTTP transport itself. A
+stalled page response must not prevent unrelated ordinary HTTP requests, and a
+stalled SSE client must not prevent ordinary HTTP or another healthy SSE client.
+Page/SSE admission and queued work are finite, ordinary-request capacity remains
+reserved, and asynchronous request/session ownership has one explicit completion
+path with file-descriptor/generation protection across disconnect and replacement.
+No network send may hold a race-critical or product-authority lock. These are
+transport requirements only: reconnect still discards stale cached Browser State
+and reacquires current authoritative State through the existing state/proposal/
+context path before controls are restored.
+
+The ESP-IDF `httpd_queue_work()` API queues a callback in the HTTPD task; it does
+not provide an independent worker for a blocking socket send. Implementations
+must not use it as the isolation boundary for page or SSE sends.
+
 ## 13. First concrete Message Types
 
 These are semantic contracts. Names are fixed for the first implementation; exact packet/structure encoding remains deferred.
