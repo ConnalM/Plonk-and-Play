@@ -73,7 +73,10 @@ global.EventSource = class {
 vm.runInThisContext(script, { filename: 'embedded-normal-browser.js' });
 
 const expect = (value, message) => { if (!value) throw new Error(message); };
-const settle = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+// Recovery deliberately fetches state, proposal, then context in separate
+// awaits. Allow each response/json microtask to settle before asserting the
+// post-recovery synchronisation state.
+const settle = async () => { for (let i = 0; i < 32; i++) await Promise.resolve(); };
 
 (async () => {
   await settle();

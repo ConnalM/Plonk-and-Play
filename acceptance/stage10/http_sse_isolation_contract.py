@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 BROWSER = (ROOT / "firmware/include/pp/browser_interface.h").read_text(encoding="utf-8")
 EMBED = (ROOT / "firmware/browser/embed_normal.py").read_text(encoding="utf-8")
+EMBED_PAGE = (ROOT / "firmware/include/pp/normal_browser_page.inc").read_text(encoding="utf-8")
 
 
 def require(condition: bool, message: str) -> None:
@@ -108,12 +109,27 @@ require("stream.close()" in EMBED and "stream.onerror=()=>" in EMBED,
         "Browser does not retire failed EventSource instances deterministically")
 require("eventStreamRetryMaxMs=16000" in EMBED and "eventStreamRetryBaseMs=2000" in EMBED,
         "Browser SSE backoff is not bounded")
+require("const recoveryAcquisition=trigger==='reconnect'||trigger==='recovery'" in EMBED_PAGE,
+        "Browser recovery acquisition has no explicit recovery branch")
+recovery_start = EMBED_PAGE.index("const recoveryAcquisition=trigger==='reconnect'||trigger==='recovery'")
+recovery_end = EMBED_PAGE.index("const nextS=timedS.value", recovery_start)
+recovery_body = EMBED_PAGE[recovery_start:recovery_end]
+require(recovery_body.index("readTimedState(trace,observation)") <
+        recovery_body.index("tracedGet('/proposal','proposal',trace") <
+        recovery_body.index("tracedGet('/context','context',trace"),
+        "Browser recovery acquisition is not sequential state/proposal/context")
+recovery_branch_start = recovery_body.index("if(recoveryAcquisition){")
+recovery_branch_end = recovery_body.index("}else if(activeBefore)")
+require("Promise.all" not in recovery_body[recovery_branch_start:recovery_branch_end],
+        "Browser recovery acquisition still launches concurrent requests")
 require("connectionState==='OFFLINE'&&!['bootstrap','reconnect','recovery'].includes(trigger)" in EMBED,
         "offline Browser still permits normal acquisition polling")
 require("!['reconnect','recovery'].includes(trigger)" in EMBED,
         "recovery does not force fresh authoritative reconstruction")
 require("browser_sse_admission_recovery_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
         "deterministic single-owner SSE recovery runtime is not in the Stage 14C suite")
+require("browser_reboot_recovery_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
+        "deterministic two-Browser reboot recovery runtime is not in the Stage 14C suite")
 
 
 # A deliberately stalled page occupies one worker; a second page can still be

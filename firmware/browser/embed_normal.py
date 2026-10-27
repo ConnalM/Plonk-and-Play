@@ -102,6 +102,10 @@ replace_once(
     "const activeBefore=!!(S&&(['STARTING','RACING','PAUSED','RESTARTING'].includes(S.lifecycle)||S.finishDisplay?.active))&&!['reconnect','recovery'].includes(trigger);",
     "fresh reconnect reconstruction")
 replace_once(
+    "polling=true;try{const activeBefore=!!(S&&(['STARTING','RACING','PAUSED','RESTARTING'].includes(S.lifecycle)||S.finishDisplay?.active))&&!['reconnect','recovery'].includes(trigger);let timedS,nextP,nextC;if(activeBefore){timedS=await readTimedState(trace,observation)}else{[timedS,nextP,nextC]=await Promise.all([readTimedState(trace,observation),tracedGet('/proposal','proposal',trace),tracedGet('/context','context',trace)])}",
+    "polling=true;try{const activeBefore=!!(S&&(['STARTING','RACING','PAUSED','RESTARTING'].includes(S.lifecycle)||S.finishDisplay?.active))&&!['reconnect','recovery'].includes(trigger);const recoveryAcquisition=trigger==='reconnect'||trigger==='recovery';let timedS,nextP,nextC;if(recoveryAcquisition){timedS=await readTimedState(trace,observation);nextP=await tracedGet('/proposal','proposal',trace);nextC=await tracedGet('/context','context',trace)}else if(activeBefore){timedS=await readTimedState(trace,observation)}else{[timedS,nextP,nextC]=await Promise.all([readTimedState(trace,observation),tracedGet('/proposal','proposal',trace),tracedGet('/context','context',trace)])}",
+    "sequential recovery acquisition")
+replace_once(
     "setInterval(()=>{if(!eventStreamIsOpen()){if(eventStream&&eventStream.readyState!==EventSource.CONNECTING)retireEventStream();openEventStream();poll('recovery')}},15000);",
     "setInterval(()=>{if(!eventStreamIsOpen()&&!eventStreamRetryTimer&&!eventStreamRecoveryInFlight)scheduleEventStreamRecovery('interval')},15000);",
     "single EventSource recovery scheduler")

@@ -74,6 +74,8 @@ checks = {
     "normal_browser_sse_liveness": "eventStreamLivenessTimeoutMs" in embedded_normal and "liveness_timeout" in embedded_normal and "addEventListener('heartbeat'" in embedded_normal,
     "normal_browser_sse_liveness_runtime": "browser_sse_liveness_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
     "normal_browser_sse_admission_recovery_runtime": "browser_sse_admission_recovery_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
+    "normal_browser_reboot_recovery_runtime": "browser_reboot_recovery_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
+    "normal_browser_sequential_recovery_marker": "const recoveryAcquisition=trigger==='reconnect'||trigger==='recovery'" in embedded_normal,
     "http_sse_notification_boundary": '"/events", HTTP_GET, events, nullptr' in browser and "struct SseSession" in browser and "struct PageJob" in browser and "httpd_req_async_handler_begin" in browser and "httpd_req_async_handler_complete" in browser and "httpd_resp_send_chunk(session->asyncRequest" in browser and "freeSseSession" in browser and "httpd_sess_get_ctx" in browser and "session->notifyPending" in browser and "queuedGeneration" in browser and "session->sentRevision" in browser and "event: heartbeat" in browser and "PageWorkerCount = 2" in browser and "PP_HTTP_ORDINARY_REQUEST_RESERVE" in browser and "serverGeneration" in browser and "httpd_queue_work(server_, &BrowserInterface::eventWork, work)" not in browser and "httpd_socket_send" not in browser,
     "notification_runtime_regression": "browser_notification_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
     "normal_browser_runtime_regression": "browser_normal_poll_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
@@ -104,6 +106,21 @@ checks = {
     "no_connected_browser_timer_poll": "setInterval(poll,1000)" not in normal,
     "presentation_boundary_fixtures": all(token in facilities for token in ("14C.P7", "14C.P8", "14C.P9", "14C.P10", "redLightsLit")),
 }
+
+recovery_marker = "const recoveryAcquisition=trigger==='reconnect'||trigger==='recovery'"
+recovery_start = embedded_normal.index(recovery_marker)
+recovery_branch_start = embedded_normal.index("if(recoveryAcquisition){", recovery_start)
+recovery_branch_end = embedded_normal.index("}else if(activeBefore)", recovery_branch_start)
+recovery_branch = embedded_normal[recovery_branch_start:recovery_branch_end]
+checks["normal_browser_sequential_recovery_order"] = all(
+    recovery_branch.find(token) >= 0
+    for token in (
+        "timedS=await readTimedState",
+        "nextP=await tracedGet('/proposal'",
+        "nextC=await tracedGet('/context'",
+    )
+)
+checks["normal_browser_recovery_has_no_concurrent_batch"] = "Promise.all" not in recovery_branch
 failed = [name for name, ok in checks.items() if not ok]
 if failed:
     print("Stage 14C Browser integration review FAIL:", ", ".join(failed))
