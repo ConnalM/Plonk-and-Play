@@ -1261,8 +1261,8 @@ private:
   void recordSseStack(SseSession* session, SseStackStage stage, volatile uint16_t& lowWater) {
 #if PP_HTTP_TRANSPORT_DIAGNOSTICS
     if (!session) return;
-    const UBaseType_t words = uxTaskGetStackHighWaterMark(nullptr);
-    const uint16_t measured = words > UINT16_MAX ? UINT16_MAX : static_cast<uint16_t>(words);
+    const UBaseType_t freeBytes = uxTaskGetStackHighWaterMark(nullptr);
+    const uint16_t measured = freeBytes > UINT16_MAX ? UINT16_MAX : static_cast<uint16_t>(freeBytes);
     if (measured < lowWater) lowWater = measured;
     for (;;) {
       uint32_t head = __atomic_load_n(&sseTelemetryHead_, __ATOMIC_RELAXED);
