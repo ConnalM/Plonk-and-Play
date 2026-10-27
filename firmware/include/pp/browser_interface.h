@@ -1570,37 +1570,55 @@ private:
       if (sseSessions_[i] == session) { sseSessions_[i] = nullptr; return; }
     }
   }
-  SseSession* allocateSseSession(uint64_t token) {
+  SseSession* availableSseSession() {
     for (size_t i = 0; i < MaxSseClients; ++i) {
       SseSession* session = &sseStorage_[i];
-      if (!session->inUse && !session->workerBusy && !session->asyncRequest) {
-        session->owner = this;
-        session->server = server_;
-        session->serverGeneration = serverGeneration_;
-        session->clientToken = token;
-        session->generation = ++nextEventGeneration_;
-        if (!session->generation) session->generation = ++nextEventGeneration_;
-        session->valid = true;
-        session->inUse = true;
-        session->transportClosed = false;
-        session->cleanupReason = SseCleanupReason::None;
-        session->stackHwmIdleBytes = UINT16_MAX;
-        session->stackHwmInitialBytes = UINT16_MAX;
-        session->stackHwmNotificationBytes = UINT16_MAX;
-        session->stackHwmKeepaliveBytes = UINT16_MAX;
-        session->stackHwmStalledBytes = UINT16_MAX;
-        session->stackHwmFailureBytes = UINT16_MAX;
-        session->stackHwmDisconnectBytes = UINT16_MAX;
-        session->stackHwmReplacementBytes = UINT16_MAX;
-        session->stackHwmShutdownBytes = UINT16_MAX;
-        session->completionStarted = false;
-        session->notifyPending = false;
-        session->queuedGeneration = 0;
-        sseSessions_[i] = session;
-        return session;
-      }
+      if (!session->inUse && !session->workerBusy && !session->asyncRequest &&
+#if PP_HTTP_ASYNC_RUNTIME
+          session->worker
+#else
+          true
+#endif
+      ) return session;
     }
     return nullptr;
+  }
+  void activateSseSession(SseSession* session, uint64_t token) {
+    if (!session) return;
+    session->owner = this;
+    session->server = server_;
+    session->serverGeneration = serverGeneration_;
+    session->clientToken = token;
+    session->generation = ++nextEventGeneration_;
+    if (!session->generation) session->generation = ++nextEventGeneration_;
+    session->valid = true;
+    session->inUse = true;
+    session->transportClosed = false;
+    session->cleanupReason = SseCleanupReason::None;
+    session->stackHwmIdleBytes = UINT16_MAX;
+    session->stackHwmInitialBytes = UINT16_MAX;
+    session->stackHwmNotificationBytes = UINT16_MAX;
+    session->stackHwmKeepaliveBytes = UINT16_MAX;
+    session->stackHwmStalledBytes = UINT16_MAX;
+    session->stackHwmFailureBytes = UINT16_MAX;
+    session->stackHwmDisconnectBytes = UINT16_MAX;
+    session->stackHwmReplacementBytes = UINT16_MAX;
+    session->stackHwmShutdownBytes = UINT16_MAX;
+    session->completionStarted = false;
+    session->notifyPending = false;
+    session->queuedGeneration = 0;
+    sseSessions_[session - sseStorage_] = session;
+  }
+  static esp_err_t rejectSseAdmission(httpd_req_t* request, RequestTrace& trace,
+                                      esp_err_t reason, const char* message) {
+    httpd_resp_set_status(request, "503 Service Unavailable");
+    httpd_resp_set_type(request, "text/plain; charset=utf-8");
+    httpd_resp_set_hdr(request, "Connection", "close");
+    const esp_err_t sent = httpd_resp_sendstr(request, message ? message : "SSE unavailable");
+    trace.complete(sent == ESP_OK ? reason : sent);
+    // ESP-IDF closes a URI-handler socket when the handler returns ESP_FAIL.
+    // The explicit Connection header makes the wire-level intent clear too.
+    return ESP_FAIL;
   }
   void invalidateSseSession(SseSession* session, bool closeSocket, bool disconnectOwner = true,
                             SseCleanupReason reason = SseCleanupReason::SendFailure) {
@@ -1820,41 +1838,25 @@ private:
     if (clientListResult != ESP_OK || fdsCapacity >= MaxHttpClientSockets - OrdinaryRequestReserve) {
       browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0,
                                        clientListResult == ESP_OK ? "ordinary_capacity_exhausted" : "client_list_failed");
-      httpd_resp_set_status(request, "503 Service Unavailable");
-      trace.complete(clientListResult == ESP_OK ? ESP_ERR_NO_MEM : clientListResult);
-      return ESP_FAIL;
+      return rejectSseAdmission(request, trace,
+                                clientListResult == ESP_OK ? ESP_ERR_NO_MEM : clientListResult,
+                                "SSE capacity unavailable");
     }
     if (slotCount >= MaxSseClients) {
       browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0, "sse_slots_exhausted");
-      httpd_resp_set_status(request, "503 Service Unavailable");
-      trace.complete(ESP_ERR_NO_MEM);
-      return ESP_FAIL;
+      return rejectSseAdmission(request, trace, ESP_ERR_NO_MEM, "SSE slots unavailable");
     }
-    auto* session = browser->allocateSseSession(browserToken);
+    auto* session = browser->availableSseSession();
     if (!session) {
       browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0, "session_allocation_failed");
-      trace.complete(ESP_ERR_NO_MEM); return ESP_FAIL;
+      return rejectSseAdmission(request, trace, ESP_ERR_NO_MEM, "SSE session unavailable");
     }
-#if PP_HTTP_ASYNC_RUNTIME
-    if (!session->worker) {
-      browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0, "worker_unavailable");
-      browser->removeSseSession(session);
-      browser->completeSseRequest(session);
-      httpd_resp_set_status(request, "503 Service Unavailable");
-      trace.complete(ESP_ERR_NO_MEM);
-      return ESP_FAIL;
-    }
-#endif
     httpd_req_t* asyncRequest = nullptr;
 #if PP_HTTP_ASYNC_RUNTIME
     const esp_err_t asyncResult = httpd_req_async_handler_begin(request, &asyncRequest);
     if (asyncResult != ESP_OK || !asyncRequest) {
       browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0, "async_begin_failed");
-      browser->removeSseSession(session);
-      browser->completeSseRequest(session);
-      httpd_resp_set_status(request, "503 Service Unavailable");
-      trace.complete(asyncResult);
-      return ESP_FAIL;
+      return rejectSseAdmission(request, trace, asyncResult, "SSE request unavailable");
     }
 #else
     // IDF 4.x has no async-request ownership API. Preserve the historical
@@ -1862,6 +1864,7 @@ private:
     // migrated IDF 5.x production path never enters this branch.
     asyncRequest = request;
 #endif
+    browser->activateSseSession(session, browserToken);
     httpd_resp_set_type(asyncRequest, "text/event-stream");
     httpd_resp_set_hdr(asyncRequest, "Cache-Control", "no-cache");
     httpd_resp_set_hdr(asyncRequest, "Connection", "keep-alive");

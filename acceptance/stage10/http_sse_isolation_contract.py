@@ -26,6 +26,25 @@ require("PageQueueDepth = 2" in BROWSER, "page queue must be bounded")
 require("MaxSseClients = PP_MAX_SSE_CLIENTS" in BROWSER, "SSE limit is not explicit")
 require("PP_HTTP_ORDINARY_REQUEST_RESERVE" in BROWSER, "ordinary request reserve is missing")
 require("httpd_get_client_list" in BROWSER, "socket admission accounting is missing")
+require("static esp_err_t rejectSseAdmission" in BROWSER, "SSE rejection has no single terminal helper")
+require('httpd_resp_set_status(request, "503 Service Unavailable")' in BROWSER, "SSE rejection is not an explicit 503")
+require('httpd_resp_set_hdr(request, "Connection", "close")' in BROWSER, "SSE rejection does not require connection close")
+require('httpd_resp_sendstr(request, message ? message : "SSE unavailable")' in BROWSER, "SSE rejection has no bounded response body")
+require("return ESP_FAIL;" in BROWSER[BROWSER.index("static esp_err_t rejectSseAdmission"):BROWSER.index("void invalidateSseSession")], "SSE rejection does not hand the socket to HTTPD's close path")
+require("availableSseSession" in BROWSER and "activateSseSession" in BROWSER, "SSE admission allocates before rejection/async ownership is settled")
+require("allocateSseSession" not in BROWSER, "legacy SSE admission can mutate a session before rejection")
+events_start = BROWSER.index("static esp_err_t events(httpd_req_t* request)")
+events_end = BROWSER.index("static esp_err_t", events_start + 20)
+events_body = BROWSER[events_start:events_end]
+require(events_body.count("return rejectSseAdmission") >= 4,
+        "all bounded SSE rejection branches do not share one terminal response/close path")
+async_begin = events_body.index("httpd_req_async_handler_begin")
+for branch in ("ordinary_capacity_exhausted", "sse_slots_exhausted", "session_allocation_failed", "async_begin_failed"):
+    branch_pos = events_body.index(branch)
+    require(events_body.find("return rejectSseAdmission", branch_pos) >= branch_pos,
+            f"{branch} does not terminate through the explicit 503/close helper")
+require(events_body.find("activateSseSession") > async_begin,
+        "SSE session became active before async ownership was established")
 require("httpd_sess_get_ctx(handle, fd) != session" in BROWSER, "fd/session reuse guard is missing")
 require("findSseSessionExact(session)" in BROWSER, "generation/session identity guard is missing")
 require("queuedGeneration" in BROWSER, "stale queued generation is not tracked")
@@ -72,6 +91,21 @@ require('{"/", HTTP_GET, page, nullptr},\\n      {"/normal", HTTP_GET, page, nul
         "root and /normal do not both use bounded page admission")
 require("normalPage" not in EMBED,
         "generated Normal Browser still contains a synchronous normalPage route")
+require("scheduleEventStreamRecovery" in EMBED, "Browser has no single SSE recovery scheduler")
+require("eventStreamRetryTimer" in EMBED and "eventStreamRecoveryInFlight" in EMBED,
+        "Browser recovery has no bounded timer/in-flight guard")
+require("eventStreamRecoveryWaitTimer" in EMBED and "if(polling)" in EMBED,
+        "Browser reconnect can race an existing acquisition without a bounded wait")
+require("stream.close()" in EMBED and "stream.onerror=()=>" in EMBED,
+        "Browser does not retire failed EventSource instances deterministically")
+require("eventStreamRetryMaxMs=16000" in EMBED and "eventStreamRetryBaseMs=2000" in EMBED,
+        "Browser SSE backoff is not bounded")
+require("connectionState==='OFFLINE'&&!['bootstrap','reconnect','recovery'].includes(trigger)" in EMBED,
+        "offline Browser still permits normal acquisition polling")
+require("!['reconnect','recovery'].includes(trigger)" in EMBED,
+        "recovery does not force fresh authoritative reconstruction")
+require("browser_sse_admission_recovery_runtime.js" in (ROOT / "acceptance/stage14c/run.ps1").read_text(encoding="utf-8"),
+        "deterministic single-owner SSE recovery runtime is not in the Stage 14C suite")
 
 
 # A deliberately stalled page occupies one worker; a second page can still be
