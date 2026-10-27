@@ -644,10 +644,10 @@ private:
   static constexpr size_t OrdinaryRequestReserve = PP_HTTP_ORDINARY_REQUEST_RESERVE;
   static constexpr size_t PageWorkerCount = 2;
   static constexpr size_t PageQueueDepth = 2;
-  static constexpr uint32_t PageWorkerStackWords = 2048; // 8192 bytes per worker
+  static constexpr uint32_t PageWorkerStackBytes = 8192;
   // Diagnostic starting point: the 4096-byte allocation overflowed in the
   // initial IDF response path. Final product sizing remains evidence-led.
-  static constexpr uint32_t SseWorkerStackWords = 2048;  // 8192 bytes per stream
+  static constexpr uint32_t SseWorkerStackBytes = 8192;
   static constexpr size_t SseInitialFrameCapacity = 128;
   static constexpr size_t SsePayloadCapacity = 192;
   static constexpr uint32_t SseStalledSendThresholdMs = 250;
@@ -656,7 +656,7 @@ private:
   struct SseStackTelemetry {
     uint32_t generation = 0;
     int fd = -1;
-    uint16_t hwmWords = UINT16_MAX;
+    uint16_t hwmBytes = UINT16_MAX;
     uint8_t stage = 0;
     uint8_t cleanup = 0;
   };
@@ -687,15 +687,15 @@ private:
     char initialFrame[SseInitialFrameCapacity]{};
     char payloadFrame[SsePayloadCapacity]{};
     volatile SseCleanupReason cleanupReason = SseCleanupReason::None;
-    uint16_t stackHwmIdle = UINT16_MAX;
-    uint16_t stackHwmInitial = UINT16_MAX;
-    uint16_t stackHwmNotification = UINT16_MAX;
-    uint16_t stackHwmKeepalive = UINT16_MAX;
-    uint16_t stackHwmStalled = UINT16_MAX;
-    uint16_t stackHwmFailure = UINT16_MAX;
-    uint16_t stackHwmDisconnect = UINT16_MAX;
-    uint16_t stackHwmReplacement = UINT16_MAX;
-    uint16_t stackHwmShutdown = UINT16_MAX;
+    uint16_t stackHwmIdleBytes = UINT16_MAX;
+    uint16_t stackHwmInitialBytes = UINT16_MAX;
+    uint16_t stackHwmNotificationBytes = UINT16_MAX;
+    uint16_t stackHwmKeepaliveBytes = UINT16_MAX;
+    uint16_t stackHwmStalledBytes = UINT16_MAX;
+    uint16_t stackHwmFailureBytes = UINT16_MAX;
+    uint16_t stackHwmDisconnectBytes = UINT16_MAX;
+    uint16_t stackHwmReplacementBytes = UINT16_MAX;
+    uint16_t stackHwmShutdownBytes = UINT16_MAX;
 #if PP_HTTP_ASYNC_RUNTIME
     TaskHandle_t worker = nullptr;
 #endif
@@ -1273,7 +1273,7 @@ private:
       SseStackTelemetry& record = sseTelemetry_[head % SseTelemetryDepth];
       record.generation = session->generation;
       record.fd = session->fd;
-      record.hwmWords = measured;
+      record.hwmBytes = measured;
       record.stage = sseStackStageValue(stage);
       record.cleanup = static_cast<uint8_t>(session->cleanupReason);
       return;
@@ -1288,10 +1288,10 @@ private:
     const uint32_t head = __atomic_load_n(&sseTelemetryHead_, __ATOMIC_ACQUIRE);
     while (tail != head) {
       const SseStackTelemetry record = sseTelemetry_[tail % SseTelemetryDepth];
-      Serial.printf("[SSE_STACK] generation=%lu fd=%d stage=%s hwm_words=%u stack_words=%lu cleanup=%s\n",
+      Serial.printf("[SSE_STACK] generation=%lu fd=%d stage=%s hwm_bytes=%u stack_bytes=%lu cleanup=%s\n",
                     static_cast<unsigned long>(record.generation), record.fd,
                     sseStackStageText(static_cast<SseStackStage>(record.stage)),
-                    static_cast<unsigned>(record.hwmWords), static_cast<unsigned long>(SseWorkerStackWords),
+                    static_cast<unsigned>(record.hwmBytes), static_cast<unsigned long>(SseWorkerStackBytes),
                     sseCleanupText(static_cast<SseCleanupReason>(record.cleanup)));
       ++tail;
       __atomic_store_n(&sseTelemetryTail_, tail, __ATOMIC_RELEASE);
@@ -1335,7 +1335,7 @@ private:
   static void sseWorkerTask(void* argument) {
     auto* session = static_cast<SseSession*>(argument);
     if (!session || !session->owner) vTaskDelete(nullptr);
-    session->owner->recordSseStack(session, SseStackStage::Idle, session->stackHwmIdle);
+    session->owner->recordSseStack(session, SseStackStage::Idle, session->stackHwmIdleBytes);
     for (;;) {
       (void)ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
       const uint32_t workGeneration = session->queuedGeneration;
@@ -1410,13 +1410,13 @@ private:
     if (!session) return;
     if (!session->inUse || session->generation != workGeneration) {
       if (session->cleanupReason == SseCleanupReason::Replacement) {
-        recordSseStack(session, SseStackStage::Replacement, session->stackHwmReplacement);
+        recordSseStack(session, SseStackStage::Replacement, session->stackHwmReplacementBytes);
       } else if (session->cleanupReason == SseCleanupReason::SendFailure) {
-        recordSseStack(session, SseStackStage::SendFailure, session->stackHwmFailure);
+        recordSseStack(session, SseStackStage::SendFailure, session->stackHwmFailureBytes);
       } else if (session->cleanupReason == SseCleanupReason::Shutdown) {
-        recordSseStack(session, SseStackStage::Shutdown, session->stackHwmShutdown);
+        recordSseStack(session, SseStackStage::Shutdown, session->stackHwmShutdownBytes);
       } else {
-        recordSseStack(session, SseStackStage::Disconnect, session->stackHwmDisconnect);
+        recordSseStack(session, SseStackStage::Disconnect, session->stackHwmDisconnectBytes);
       }
       return;
     }
@@ -1434,13 +1434,13 @@ private:
                            !session->asyncRequest ||
                            findSseSessionExact(session) != session)) {
       if (session->cleanupReason == SseCleanupReason::Replacement) {
-        recordSseStack(session, SseStackStage::Replacement, session->stackHwmReplacement);
+        recordSseStack(session, SseStackStage::Replacement, session->stackHwmReplacementBytes);
       } else if (session->cleanupReason == SseCleanupReason::SendFailure) {
-        recordSseStack(session, SseStackStage::SendFailure, session->stackHwmFailure);
+        recordSseStack(session, SseStackStage::SendFailure, session->stackHwmFailureBytes);
       } else if (session->cleanupReason == SseCleanupReason::Shutdown) {
-        recordSseStack(session, SseStackStage::Shutdown, session->stackHwmShutdown);
+        recordSseStack(session, SseStackStage::Shutdown, session->stackHwmShutdownBytes);
       } else {
-        recordSseStack(session, SseStackStage::Disconnect, session->stackHwmDisconnect);
+        recordSseStack(session, SseStackStage::Disconnect, session->stackHwmDisconnectBytes);
       }
       session->valid = false;
       session->transportClosed = true;
@@ -1453,7 +1453,7 @@ private:
     if (!session || session->worker) return;
     char name[16];
     snprintf(name, sizeof(name), "pp_sse_%u", static_cast<unsigned>(session - sseStorage_));
-    if (xTaskCreate(&BrowserInterface::sseWorkerTask, name, SseWorkerStackWords,
+    if (xTaskCreate(&BrowserInterface::sseWorkerTask, name, SseWorkerStackBytes,
                     session, 1, &session->worker) != pdPASS) {
       session->worker = nullptr;
     }
@@ -1470,7 +1470,7 @@ private:
     for (size_t i = 0; i < PageWorkerCount; ++i) {
       char name[16];
       snprintf(name, sizeof(name), "pp_page_%u", static_cast<unsigned>(i));
-      if (xTaskCreate(&BrowserInterface::pageWorkerTask, name, PageWorkerStackWords,
+      if (xTaskCreate(&BrowserInterface::pageWorkerTask, name, PageWorkerStackBytes,
                       this, 1, &pageWorkers_[i]) != pdPASS) {
         for (size_t j = 0; j < pageStarted; ++j) vTaskDelete(pageWorkers_[j]);
         for (size_t j = 0; j < MaxSseClients; ++j) sseStorage_[j].worker = nullptr;
@@ -1512,7 +1512,7 @@ private:
           job.serverGeneration == serverGeneration_) completeAsyncRequest(request);
       return;
     }
-    // sendNormalPage owns the request trace; keeping it in the worker avoids
+    // sendEmbeddedNormalPage owns the request trace; keeping it in the worker avoids
     // double-counting a page while preserving the existing route diagnostics.
     (void)sendNormalPage(request);
     completeAsyncRequest(request);
@@ -1584,15 +1584,15 @@ private:
         session->inUse = true;
         session->transportClosed = false;
         session->cleanupReason = SseCleanupReason::None;
-        session->stackHwmIdle = UINT16_MAX;
-        session->stackHwmInitial = UINT16_MAX;
-        session->stackHwmNotification = UINT16_MAX;
-        session->stackHwmKeepalive = UINT16_MAX;
-        session->stackHwmStalled = UINT16_MAX;
-        session->stackHwmFailure = UINT16_MAX;
-        session->stackHwmDisconnect = UINT16_MAX;
-        session->stackHwmReplacement = UINT16_MAX;
-        session->stackHwmShutdown = UINT16_MAX;
+        session->stackHwmIdleBytes = UINT16_MAX;
+        session->stackHwmInitialBytes = UINT16_MAX;
+        session->stackHwmNotificationBytes = UINT16_MAX;
+        session->stackHwmKeepaliveBytes = UINT16_MAX;
+        session->stackHwmStalledBytes = UINT16_MAX;
+        session->stackHwmFailureBytes = UINT16_MAX;
+        session->stackHwmDisconnectBytes = UINT16_MAX;
+        session->stackHwmReplacementBytes = UINT16_MAX;
+        session->stackHwmShutdownBytes = UINT16_MAX;
         session->completionStarted = false;
         session->notifyPending = false;
         session->queuedGeneration = 0;
@@ -1681,7 +1681,7 @@ private:
       return;
     }
     if (session->initialPending) {
-      recordSseStack(session, SseStackStage::Initial, session->stackHwmInitial);
+      recordSseStack(session, SseStackStage::Initial, session->stackHwmInitialBytes);
       const int initialLength = snprintf(session->initialFrame, sizeof(session->initialFrame),
         "retry: 2000\ndata: {\"revision\":%lu}\n\n",
         static_cast<unsigned long>(noticeRevision_));
@@ -1690,10 +1690,10 @@ private:
         ? httpd_resp_send_chunk(session->asyncRequest, session->initialFrame, size_t(initialLength))
         : ESP_FAIL;
       const uint32_t sendElapsed = static_cast<uint32_t>(millis() - sendStarted);
-      recordSseStack(session, SseStackStage::Initial, session->stackHwmInitial);
-      if (sendElapsed >= SseStalledSendThresholdMs) recordSseStack(session, SseStackStage::StalledSend, session->stackHwmStalled);
+      recordSseStack(session, SseStackStage::Initial, session->stackHwmInitialBytes);
+      if (sendElapsed >= SseStalledSendThresholdMs) recordSseStack(session, SseStackStage::StalledSend, session->stackHwmStalledBytes);
       if (initialResult != ESP_OK) {
-        recordSseStack(session, SseStackStage::SendFailure, session->stackHwmFailure);
+        recordSseStack(session, SseStackStage::SendFailure, session->stackHwmFailureBytes);
         invalidateSseSession(session, true);
       } else {
         session->initialPending = false;
@@ -1721,7 +1721,7 @@ private:
     const uint32_t payloadEventId = 0;
 #endif
     int length = 0;
-    volatile uint16_t& frameHwm = keepalive ? session->stackHwmKeepalive : session->stackHwmNotification;
+    volatile uint16_t& frameHwm = keepalive ? session->stackHwmKeepaliveBytes : session->stackHwmNotificationBytes;
     recordSseStack(session, keepalive ? SseStackStage::Keepalive : SseStackStage::Notification, frameHwm);
     if (keepalive) {
       // Keep the existing ten-second idle cadence, but make the liveness
@@ -1757,9 +1757,9 @@ private:
       : ESP_FAIL;
     const uint32_t sendElapsed = static_cast<uint32_t>(millis() - sendStarted);
     recordSseStack(session, keepalive ? SseStackStage::Keepalive : SseStackStage::Notification, frameHwm);
-    if (sendElapsed >= SseStalledSendThresholdMs) recordSseStack(session, SseStackStage::StalledSend, session->stackHwmStalled);
+    if (sendElapsed >= SseStalledSendThresholdMs) recordSseStack(session, SseStackStage::StalledSend, session->stackHwmStalledBytes);
     if (sent != ESP_OK) {
-      recordSseStack(session, SseStackStage::SendFailure, session->stackHwmFailure);
+      recordSseStack(session, SseStackStage::SendFailure, session->stackHwmFailureBytes);
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
       Serial.printf("[SSE] send_failed revision=%lu lap_entry=%lu event_id=%lu at_us=%llu result=%d\n",
         static_cast<unsigned long>(revision),

@@ -115,26 +115,43 @@ if "devPass(lane){let r=await fetch('/fixture'" not in html:
 page_inc.write_text('static const char kNormalBrowserHtml[] = R"PPHTML(' + html + ')PPHTML";\n', encoding="utf-8")
 
 # Preserve the checked-in Development Browser. Build a generated copy of
-# BrowserInterface with one additional presentation-only /normal route.
+# BrowserInterface with the current Normal Browser on both product entry
+# points. Both routes must use the bounded asynchronous page admission path.
 source = root / "include" / "pp" / "browser_interface.h"
 generated_root = root / ".pio" / "generated_normal_browser"
 generated_pp = generated_root / "pp"
 generated_pp.mkdir(parents=True, exist_ok=True)
 text = source.read_text(encoding="utf-8")
 text = text.replace('#include "system_time.h"', '#include "system_time.h"\n#include "normal_browser_page.h"', 1)
+embedded_page = '''  static esp_err_t sendEmbeddedNormalPage(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/");
+    client(request);
+    httpd_resp_set_type(request, "text/html; charset=utf-8");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    constexpr size_t NormalBrowserChunkSize = 4096;
+    const size_t length = strlen(kNormalBrowserHtml);
+    for (size_t offset = 0; offset < length; offset += NormalBrowserChunkSize) {
+      const size_t count = (length - offset) < NormalBrowserChunkSize
+        ? (length - offset) : NormalBrowserChunkSize;
+      const esp_err_t result = httpd_resp_send_chunk(request, kNormalBrowserHtml + offset, count);
+      if (result != ESP_OK) { trace.complete(result); return result; }
+    }
+    const esp_err_t result = httpd_resp_send_chunk(request, nullptr, 0);
+    trace.complete(result);
+    return result;
+  }
+'''
 needle = '  static esp_err_t health(httpd_req_t* request) {'
-route = '''  static esp_err_t normalPage(httpd_req_t* request) {\n    RequestTrace trace(instance(), "/normal");\n    client(request);\n    httpd_resp_set_type(request, "text/html; charset=utf-8");\n    httpd_resp_set_hdr(request, "Cache-Control", "no-store");\n    constexpr size_t NormalBrowserChunkSize = 4096;\n    const size_t length = strlen(kNormalBrowserHtml);\n    for (size_t offset = 0; offset < length; offset += NormalBrowserChunkSize) {\n      const size_t count = (length - offset) < NormalBrowserChunkSize ? (length - offset) : NormalBrowserChunkSize;\n      const esp_err_t chunkResult = httpd_resp_send_chunk(request, kNormalBrowserHtml + offset, count);\n      if (chunkResult != ESP_OK) {\n        trace.complete(chunkResult);\n        return chunkResult;\n      }\n    }\n    const esp_err_t sent = httpd_resp_send_chunk(request, nullptr, 0);\n    trace.complete(sent);\n    return sent;\n  }\n'''
 if needle not in text:
     raise RuntimeError("BrowserInterface health route anchor not found")
-text = text.replace(needle, route + needle, 1)
+text = text.replace(needle, embedded_page + needle, 1)
+text = text.replace('(void)sendNormalPage(request);', '(void)sendEmbeddedNormalPage(request);', 1)
 anchor = '{"/", HTTP_GET, page, nullptr},'
 if anchor not in text:
     raise RuntimeError("BrowserInterface root route anchor not found")
-# The customer-facing entry point is the Normal Browser.  Keep the legacy
-# diagnostic page implementation available for source compatibility, but do
-# not let it masquerade as the shipped product Browser at `/`.  `/normal`
-# remains an explicit equivalent route for development and acceptance tools.
-text = text.replace(anchor, '{"/", HTTP_GET, normalPage, nullptr},\n      {"/normal", HTTP_GET, normalPage, nullptr},', 1)
+# The customer-facing entry point is the Normal Browser. Keep the explicit
+# acceptance alias, but route both through the existing bounded page worker.
+text = text.replace(anchor, '{"/", HTTP_GET, page, nullptr},\n      {"/normal", HTTP_GET, page, nullptr},', 1)
 generated_interface = generated_pp / "browser_interface.h"
 generated_interface.write_text(text, encoding="utf-8")
 project_pp = root / "include" / "pp"

@@ -22,7 +22,7 @@ def require(condition: bool, message: str) -> None:
 for marker in (
     "PageWorkerCount = 2",
     "PageQueueDepth = 2",
-    "SseWorkerStackWords = 2048",
+    "SseWorkerStackBytes = 8192",
     "initialFrame[SseInitialFrameCapacity]",
     "payloadFrame[SsePayloadCapacity]",
     "httpd_req_async_handler_begin",
@@ -87,6 +87,38 @@ for route, elapsed_ms in ordinary.items():
 healthy_sse_elapsed_ms = 140
 require(healthy_sse_elapsed_ms <= ORDINARY_BUDGET_MS,
         "healthy SSE was delayed by a stalled stream")
+
+
+# HTTP/1.1 responses are complete at their framing boundary, not when the
+# peer closes a keep-alive connection.  This is the harness rule used by the
+# deterministic transport checks below.
+def framed_body(headers: dict[str, str], body: bytes) -> bytes:
+    if "content-length" in headers:
+        length = int(headers["content-length"])
+        require(len(body) >= length, "Content-Length response body is incomplete")
+        return body[:length]
+    if headers.get("transfer-encoding", "").lower() == "chunked":
+        output = bytearray()
+        offset = 0
+        while True:
+            line_end = body.find(b"\r\n", offset)
+            require(line_end >= 0, "chunked response has an incomplete size line")
+            size = int(body[offset:line_end].split(b";", 1)[0], 16)
+            offset = line_end + 2
+            if size == 0:
+                require(body[offset:offset + 2] == b"\r\n", "chunked response has no terminating CRLF")
+                return bytes(output)
+            require(len(body) >= offset + size + 2, "chunked response body is incomplete")
+            output.extend(body[offset:offset + size])
+            require(body[offset + size:offset + size + 2] == b"\r\n", "chunked response chunk is not terminated")
+            offset += size + 2
+    raise AssertionError("HTTP response has no supported framing")
+
+
+keep_alive_body = framed_body({"content-length": "7", "connection": "keep-alive"}, b"context")
+require(keep_alive_body == b"context", "keep-alive Content-Length framing was misparsed")
+chunked_body = framed_body({"transfer-encoding": "chunked"}, b"3\r\nabc\r\n0\r\n\r\n")
+require(chunked_body == b"abc", "chunked terminating boundary was not recognised")
 
 
 # A stale queued job with a recycled fd must be discarded by generation and

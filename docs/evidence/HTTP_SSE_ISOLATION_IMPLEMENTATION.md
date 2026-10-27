@@ -33,13 +33,34 @@ production migrated environment uses the async path.
 | ordinary-request reserve | 4 client sockets |
 | page workers | 2 tasks, 8,192-byte stack each |
 | page queue | 2 jobs (two active plus two queued maximum) |
-| SSE workers | 4 tasks, 4,096-byte stack each |
+| SSE workers | 4 tasks, 8,192-byte diagnostic stack each |
 | SSE sessions | 4 (unchanged product limit) |
 
-The dedicated worker stack reservation is 32,768 bytes total, before FreeRTOS
-TCBs and the small queue/session records. The clean build reports 87,148 bytes
-static RAM used and 1,446,843 bytes application flash used; the pre-isolation
-same-framework build was 87,116 bytes RAM and 1,445,859 bytes flash.
+The dedicated SSE worker stack reservation is 32,768 bytes total, before
+FreeRTOS TCBs and the small queue/session records. This is a diagnostic starting
+allocation; the final production value remains evidence-led and must be based
+on measured worst-case free bytes plus an explicit margin.
+
+## Thread-safety boundary
+
+The installed ESP-IDF 5.5.5 header defines `httpd_req_async_handler_begin()` as
+the supported way to obtain a request copy usable on an asynchronous thread and
+requires one matching `httpd_req_async_handler_complete()` on every terminal
+path. The same HTTPD API documentation warns that the general server APIs are
+not thread-safe. P&P therefore gives each async request copy to one exclusive
+per-client worker: no request copy or fd is sent by two workers, and every send
+and release checks server generation, fd, generation and registered session
+identity. There is no global send mutex, because that would recreate
+cross-client blocking. Session mutation and completion remain lifecycle
+operations owned by the generation-bound session path; arbitrary concurrent use
+of one request/session is not permitted.
+
+## Product routes
+
+The generated Normal Browser routes both `/` and `/normal` to the bounded `page`
+admission handler. The page worker sends the complete embedded Normal Browser in
+capped 4096-byte chunks and the terminating chunk; the old synchronous
+`normalPage` route is no longer installed.
 
 ## Verification
 

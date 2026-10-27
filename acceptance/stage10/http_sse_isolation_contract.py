@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BROWSER = (ROOT / "firmware/include/pp/browser_interface.h").read_text(encoding="utf-8")
+EMBED = (ROOT / "firmware/browser/embed_normal.py").read_text(encoding="utf-8")
 
 
 def require(condition: bool, message: str) -> None:
@@ -36,7 +37,7 @@ require("close_failed" in BROWSER, "close failure is not observable")
 require("httpd_queue_work(server_, &BrowserInterface::eventWork, work)" not in BROWSER,
         "blocking SSE sends remain on the HTTPD work queue")
 require("httpd_socket_send" not in BROWSER, "SSE still uses a shared raw socket send")
-require("SseWorkerStackWords = 2048" in BROWSER,
+require("SseWorkerStackBytes = 8192" in BROWSER,
         "diagnostic SSE worker stack is not the approved 8192-byte starting point")
 require("initialFrame[SseInitialFrameCapacity]" in BROWSER,
         "initial SSE frame is still worker-stack storage")
@@ -65,6 +66,12 @@ require("[HTTP_ADMISSION]" in BROWSER,
 for route in ("health", "context", "state", "proposal"):
     require(f'RequestTrace trace(instance(), "/{route}", request, true)' in BROWSER,
             f"/{route} does not use detailed transport tracing")
+require('static esp_err_t page(httpd_req_t* request)' in BROWSER,
+        "bounded page admission handler is missing")
+require('{"/", HTTP_GET, page, nullptr},\\n      {"/normal", HTTP_GET, page, nullptr}' in EMBED,
+        "root and /normal do not both use bounded page admission")
+require("normalPage" not in EMBED,
+        "generated Normal Browser still contains a synchronous normalPage route")
 
 
 # A deliberately stalled page occupies one worker; a second page can still be

@@ -77,13 +77,12 @@ if ($browser -notmatch "const configureLabel='CONNECT'") { throw 'Network creden
 if ($browser -match "configureLabel=sta\.configured\?'RECONFIGURE':'CONFIGURE NETWORK'") { throw 'Network page retains the old Configure/Reconfigure label.' }
 if ($browser -match 'press RECONFIGURE') { throw 'Network selection help text still instructs the user to press RECONFIGURE.' }
 if ($browser -match 'until Connect/Reconfigure or reboot') { throw 'Network suppression help text still uses the old Reconfigure vocabulary.' }
-if ($embed -notlike '*{"/", HTTP_GET, normalPage, nullptr}*' -or
-    $embed -notlike '*{"/normal", HTTP_GET, normalPage, nullptr}*' -or
-    $embed -like '*anchor + `n      {"/normal", HTTP_GET, normalPage, nullptr}*') {
-  throw 'Normal Browser embed does not make the root entry point serve the current Normal Browser.'
+if ($embed -notmatch '(?s)\{"/", HTTP_GET, page, nullptr\}.*\{"/normal", HTTP_GET, page, nullptr\}' -or
+    $embed -match 'HTTP_GET, normalPage, nullptr') {
+  throw 'Normal Browser routes do not use the bounded page worker path.'
 }
 Write-Host 'Normal Browser root-entry contract: PASS'
-if ($embed -notmatch 'const size_t count = .*NormalBrowserChunkSize.*:.*NormalBrowserChunkSize') {
+if ($embed -notmatch '(?s)const size_t count = .*NormalBrowserChunkSize.*:.*NormalBrowserChunkSize') {
   throw 'Normal Browser implementation does not cap each response chunk at NormalBrowserChunkSize.'
 }
 function Invoke-NormalBrowserChunkModel([int]$length, [int]$chunkSize, [int]$failAt) {
