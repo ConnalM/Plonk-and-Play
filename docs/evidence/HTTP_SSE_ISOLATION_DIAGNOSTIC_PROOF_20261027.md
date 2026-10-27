@@ -1,6 +1,7 @@
 # HTTP/SSE isolation diagnostic/proof candidate
 
 Candidate branch: `codex/http-sse-isolation`  
+Implementation commit: `56ee14a0fba4b4f9549ee0dc4ee8cd43be4f11f1`  
 Baseline approved implementation: `c20a45211fcc46681d438ad44dc3d4636dd41eed`  
 Scope: diagnostic correction only; no Browser product, authority, race,
 persistence, AP+STA or display semantics are changed.
@@ -54,8 +55,8 @@ Clean PlatformIO build: `stage8bp1s3sd`, Espressif32 8.0.0, Arduino-ESP32
 
 | Artifact | Size | SHA-256 |
 |---|---:|---|
-| `firmware.bin` | 1,478,656 bytes | `9DD58B9D73E84904EF2E75EFDEFC18FD20ABBAB6B4BF60A9E047D675DECAF07A` |
-| `firmware.elf` | 15,115,900 bytes | `884FA7E279E6328F35016A3908FAAF713EB46A3114FB069E5A394D3A105B94A2` |
+| `firmware.bin` | 1,478,656 bytes | `C53F29910C8B51FEBA0ECE1615A9ADB2C17934F2AA8163A3EC27D0CCD8D2FDB5` |
+| `firmware.elf` | 15,115,900 bytes | `57C353A7D930FDD9EC80B670972BBD23A2CA3EF7021B24315AC35BBAD2770CCA` |
 
 PlatformIO reports 88,492 bytes static RAM (27.0% of 327,680) and 1,450,431
 bytes application flash (22.1% of the 6,553,600-byte application region).
