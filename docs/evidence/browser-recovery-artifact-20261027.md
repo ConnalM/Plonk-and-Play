@@ -10,11 +10,14 @@ Path:
 
 - environment: `stage8bp1s3sd`
 - size: `1,465,840` bytes
-- SHA-256: `4D7346B813895775C2E36B727B38A160E3AB909A1110FFC7CED0448224C64213`
-- ELF SHA-256: `440125582EEEAE21277476FAF6DEA48347A5FDE7FB90C694EB8F776D370C3076`
+- SHA-256: `597BD42EE40A90B77BE18449C9811A0BDED64039ACDB33C08E8C57B7794B9E23`
+- ELF SHA-256: `7D8148CE9A58119DA4BCAD16293CF1BA58E5DAA03F25C97029E1CEA837F562DB`
 - flashed: no
 
-The preserved copy was hashed after copying and matched the manifest.
+The first artifact built from the evidence-commit checkout was rejected before
+acceptance because `/health` reported the wrong embedded source commit. The
+artifact was then rebuilt from detached implementation commit `88515b8` and
+the preserved copy was hashed after copying and matched this manifest.
 
 ## Build identity/resources
 
