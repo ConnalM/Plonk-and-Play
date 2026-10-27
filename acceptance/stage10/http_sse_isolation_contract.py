@@ -44,6 +44,16 @@ require("payloadFrame[SsePayloadCapacity]" in BROWSER,
         "SSE notification frame is still worker-stack storage")
 require("char initial[128]" not in BROWSER and "char payload[192]" not in BROWSER,
         "legacy automatic SSE frame buffers remain in the worker")
+telemetry_start = BROWSER.index("void recordSseStack(")
+telemetry_end = BROWSER.index("void drainSseStackTelemetry()", telemetry_start)
+telemetry_body = BROWSER[telemetry_start:telemetry_end]
+require("Serial.printf" not in telemetry_body and "snprintf" not in telemetry_body and "vsnprintf" not in telemetry_body,
+        "SSE worker telemetry still performs formatted output")
+worker_start = BROWSER.index("static void sseWorkerTask")
+worker_end = BROWSER.index("void onSseTransportClosed", worker_start)
+worker_body = BROWSER[worker_start:worker_end]
+require("Serial.printf" not in worker_body and "snprintf" not in worker_body and "vsnprintf" not in worker_body,
+        "SSE worker path still performs formatted output")
 for stage in ("idle", "initial", "notification", "keepalive", "stalled_send",
               "send_failure", "disconnect", "replacement"):
     require(f'"{stage}"' in BROWSER,
