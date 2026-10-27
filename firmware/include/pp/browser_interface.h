@@ -33,6 +33,9 @@
 #ifndef PP_HTTP_ORDINARY_REQUEST_RESERVE
 #define PP_HTTP_ORDINARY_REQUEST_RESERVE 4
 #endif
+#ifndef PP_HTTP_TRANSPORT_DIAGNOSTICS
+#define PP_HTTP_TRANSPORT_DIAGNOSTICS 0
+#endif
 namespace pp {
 // Browser identity and the retained Master binding are Browser Interface State.
 // Race Control receives only the logical ClientContext attached to a Bus message.
@@ -640,10 +643,14 @@ private:
   static constexpr size_t OrdinaryRequestReserve = PP_HTTP_ORDINARY_REQUEST_RESERVE;
   static constexpr size_t PageWorkerCount = 2;
   static constexpr size_t PageQueueDepth = 2;
-#if PP_HTTP_ASYNC_RUNTIME
   static constexpr uint32_t PageWorkerStackWords = 2048; // 8192 bytes per worker
-  static constexpr uint32_t SseWorkerStackWords = 1024;  // 4096 bytes per stream
-#endif
+  // Diagnostic starting point: the 4096-byte allocation overflowed in the
+  // initial IDF response path. Final product sizing remains evidence-led.
+  static constexpr uint32_t SseWorkerStackWords = 2048;  // 8192 bytes per stream
+  static constexpr size_t SseInitialFrameCapacity = 128;
+  static constexpr size_t SsePayloadCapacity = 192;
+  static constexpr uint32_t SseStalledSendThresholdMs = 250;
+  enum class SseCleanupReason : uint8_t { None=0, Disconnect=1, Replacement=2, SendFailure=3, Shutdown=4 };
   struct SseSession {
     BrowserInterface* owner = nullptr;
     httpd_handle_t server = nullptr;
@@ -666,6 +673,19 @@ private:
     volatile bool controlRefreshPending = false;
     volatile uint32_t controlRequestId = 0;
     httpd_req_t* asyncRequest = nullptr;
+    // Transport frames belong to the session, not to the worker stack.
+    char initialFrame[SseInitialFrameCapacity]{};
+    char payloadFrame[SsePayloadCapacity]{};
+    volatile SseCleanupReason cleanupReason = SseCleanupReason::None;
+    uint16_t stackHwmIdle = UINT16_MAX;
+    uint16_t stackHwmInitial = UINT16_MAX;
+    uint16_t stackHwmNotification = UINT16_MAX;
+    uint16_t stackHwmKeepalive = UINT16_MAX;
+    uint16_t stackHwmStalled = UINT16_MAX;
+    uint16_t stackHwmFailure = UINT16_MAX;
+    uint16_t stackHwmDisconnect = UINT16_MAX;
+    uint16_t stackHwmReplacement = UINT16_MAX;
+    uint16_t stackHwmShutdown = UINT16_MAX;
 #if PP_HTTP_ASYNC_RUNTIME
     TaskHandle_t worker = nullptr;
 #endif
@@ -738,11 +758,22 @@ private:
     BrowserInterface* browser;
     const char* route;
     uint32_t started;
+    int fd = -1;
+    bool transportDetailed = false;
     esp_err_t result = ESP_OK;
-    RequestTrace(BrowserInterface* value, const char* name)
-        : browser(value), route(name), started(millis()) { browser->requestEntered(route); browser->bootRequestEntered(route); }
-    ~RequestTrace() { browser->requestCompleted(route, result, static_cast<uint32_t>(millis() - started)); browser->bootRequestCompleted(route, result); }
+    RequestTrace(BrowserInterface* value, const char* name, httpd_req_t* request = nullptr, bool detailed = false)
+        : browser(value), route(name), started(millis()), fd(request ? httpd_req_to_sockfd(request) : -1), transportDetailed(detailed) {
+      browser->requestEntered(route); browser->bootRequestEntered(route);
+      if (transportDetailed) browser->transportTrace("enter", route, fd, ESP_OK, 0);
+    }
+    ~RequestTrace() {
+      const uint32_t elapsed = static_cast<uint32_t>(millis() - started);
+      browser->requestCompleted(route, result, elapsed); browser->bootRequestCompleted(route, result);
+      if (transportDetailed) browser->transportTrace("exit", route, fd, result, elapsed);
+    }
     void complete(esp_err_t value) { result = value; }
+    void sendBegin() { if (transportDetailed) browser->transportTrace("send_begin", route, fd, ESP_OK, 0); }
+    void sendComplete(esp_err_t value) { if (transportDetailed) browser->transportTrace("send_complete", route, fd, value, 0); }
   };
   void bootRequestEntered(const char* route) {
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
@@ -810,6 +841,33 @@ private:
                     static_cast<unsigned long>(ESP.getFreeHeap()),
                     static_cast<unsigned long>(ESP.getMinFreeHeap()));
     }
+  }
+  size_t httpClientCount() const {
+    if (!server_) return 0;
+    size_t capacity = MaxHttpClientSockets + 3;
+    int fds[MaxHttpClientSockets + 3]{};
+    return httpd_get_client_list(server_, &capacity, fds) == ESP_OK ? capacity : SIZE_MAX;
+  }
+  void transportTrace(const char* phase, const char* route, int fd, esp_err_t result, uint32_t elapsedMs) const {
+#if PP_HTTP_TRANSPORT_DIAGNOSTICS
+    const bool hasContext = server_ && fd >= 0 && httpd_sess_get_ctx(server_, fd) != nullptr;
+    Serial.printf("[HTTP_TRACE] phase=%s route=%s fd=%d session_ctx=%u clients=%u active=%lu result=%d elapsed_ms=%lu server_generation=%lu\n",
+                  phase, route, fd, hasContext ? 1u : 0u, static_cast<unsigned>(httpClientCount()),
+                  static_cast<unsigned long>(httpActiveHandlers_), static_cast<int>(result),
+                  static_cast<unsigned long>(elapsedMs), static_cast<unsigned long>(serverGeneration_));
+#else
+    (void)phase; (void)route; (void)fd; (void)result; (void)elapsedMs;
+#endif
+  }
+  void transportAdmissionTrace(const char* route, int fd, size_t clients, size_t sseSlots,
+                               size_t pageSpaces, const char* outcome) const {
+#if PP_HTTP_TRANSPORT_DIAGNOSTICS
+    Serial.printf("[HTTP_ADMISSION] route=%s fd=%d outcome=%s clients=%u sse_slots=%u page_spaces=%u server_generation=%lu\n",
+                  route, fd, outcome, static_cast<unsigned>(clients), static_cast<unsigned>(sseSlots),
+                  static_cast<unsigned>(pageSpaces), static_cast<unsigned long>(serverGeneration_));
+#else
+    (void)route; (void)fd; (void)clients; (void)sseSlots; (void)pageSpaces; (void)outcome;
+#endif
   }
   const RaceEngineModule::CompletedRaceResult& displayResult(RaceEngineModule::CompletedRaceResult& loaded) const {
     bool found=false; return displayResult(loaded,0,found);
@@ -1055,7 +1113,7 @@ private:
     ok=appendJson(out,cap,n,"]}")&&ok;if(owned)RaceEngineModule::clearResult(*loaded);if(owned)free(loaded);return ok;
   }
   static esp_err_t state(httpd_req_t* request) {
-    RequestTrace trace(instance(), "/state");
+    RequestTrace trace(instance(), "/state", request, true);
     client(request);
     const uint64_t traceEnterUs = systemTime();
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
@@ -1073,7 +1131,9 @@ private:
     const uint64_t serializeEndUs = systemTime();
     httpd_resp_set_type(request,"application/json"); httpd_resp_set_hdr(request,"Cache-Control","no-store");
     const uint64_t sendStartUs = systemTime();
+    trace.sendBegin();
     const esp_err_t sent=httpd_resp_sendstr(request,json);
+    trace.sendComplete(sent);
     const uint64_t sendEndUs = systemTime();
     free(json);trace.complete(sent);
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
@@ -1159,6 +1219,29 @@ private:
     if(!serializeRecords(browser->records_,browser->noticeboard_.current().entryCount,json,RecordsJsonCapacity,length)){free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"record entry count exceeds capacity");return ESP_FAIL;}
     httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);return sent;
   }
+  static const char* sseCleanupText(SseCleanupReason reason) {
+    switch (reason) {
+      case SseCleanupReason::Disconnect: return "disconnect";
+      case SseCleanupReason::Replacement: return "replacement";
+      case SseCleanupReason::SendFailure: return "send_failure";
+      case SseCleanupReason::Shutdown: return "shutdown";
+      default: return "none";
+    }
+  }
+  void recordSseStack(SseSession* session, const char* stage, volatile uint16_t& lowWater) {
+#if PP_HTTP_TRANSPORT_DIAGNOSTICS
+    if (!session) return;
+    const UBaseType_t words = uxTaskGetStackHighWaterMark(nullptr);
+    const uint16_t measured = words > UINT16_MAX ? UINT16_MAX : static_cast<uint16_t>(words);
+    if (measured < lowWater) lowWater = measured;
+    Serial.printf("[SSE_STACK] generation=%lu fd=%d stage=%s hwm_words=%u stack_words=%lu cleanup=%s\n",
+                  static_cast<unsigned long>(session->generation), session->fd, stage,
+                  static_cast<unsigned>(measured), static_cast<unsigned long>(SseWorkerStackWords),
+                  sseCleanupText(session->cleanupReason));
+#else
+    (void)session; (void)stage; (void)lowWater;
+#endif
+  }
   static esp_err_t notice(httpd_req_t* request) {
     RequestTrace trace(instance(), "/noticeboard");
     client(request);
@@ -1196,6 +1279,7 @@ private:
   static void sseWorkerTask(void* argument) {
     auto* session = static_cast<SseSession*>(argument);
     if (!session || !session->owner) vTaskDelete(nullptr);
+    session->owner->recordSseStack(session, "idle", session->stackHwmIdle);
     for (;;) {
       (void)ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
       const uint32_t workGeneration = session->queuedGeneration;
@@ -1207,6 +1291,7 @@ private:
     if (!session) return;
     session->valid = false;
     session->transportClosed = true;
+    session->cleanupReason = SseCleanupReason::Disconnect;
     if (findSseSessionExact(session) == session) {
       removeSseSession(session);
       controlDisconnected(session->clientToken);
@@ -1266,7 +1351,19 @@ private:
     session->controlRequestId = 0;
   }
   void runSseWorker(SseSession* session, uint32_t workGeneration) {
-    if (!session || !session->inUse || session->generation != workGeneration) return;
+    if (!session) return;
+    if (!session->inUse || session->generation != workGeneration) {
+      if (session->cleanupReason == SseCleanupReason::Replacement) {
+        recordSseStack(session, "replacement", session->stackHwmReplacement);
+      } else if (session->cleanupReason == SseCleanupReason::SendFailure) {
+        recordSseStack(session, "send_failure", session->stackHwmFailure);
+      } else if (session->cleanupReason == SseCleanupReason::Shutdown) {
+        recordSseStack(session, "shutdown", session->stackHwmShutdown);
+      } else {
+        recordSseStack(session, "disconnect", session->stackHwmDisconnect);
+      }
+      return;
+    }
     session->workerBusy = true;
     while (session->inUse && session->valid && !session->transportClosed) {
       session->notifyPending = false;
@@ -1280,6 +1377,15 @@ private:
                            session->generation != workGeneration ||
                            !session->asyncRequest ||
                            findSseSessionExact(session) != session)) {
+      if (session->cleanupReason == SseCleanupReason::Replacement) {
+        recordSseStack(session, "replacement", session->stackHwmReplacement);
+      } else if (session->cleanupReason == SseCleanupReason::SendFailure) {
+        recordSseStack(session, "send_failure", session->stackHwmFailure);
+      } else if (session->cleanupReason == SseCleanupReason::Shutdown) {
+        recordSseStack(session, "shutdown", session->stackHwmShutdown);
+      } else {
+        recordSseStack(session, "disconnect", session->stackHwmDisconnect);
+      }
       session->valid = false;
       session->transportClosed = true;
       completeSseRequest(session);
@@ -1421,6 +1527,16 @@ private:
         session->valid = true;
         session->inUse = true;
         session->transportClosed = false;
+        session->cleanupReason = SseCleanupReason::None;
+        session->stackHwmIdle = UINT16_MAX;
+        session->stackHwmInitial = UINT16_MAX;
+        session->stackHwmNotification = UINT16_MAX;
+        session->stackHwmKeepalive = UINT16_MAX;
+        session->stackHwmStalled = UINT16_MAX;
+        session->stackHwmFailure = UINT16_MAX;
+        session->stackHwmDisconnect = UINT16_MAX;
+        session->stackHwmReplacement = UINT16_MAX;
+        session->stackHwmShutdown = UINT16_MAX;
         session->completionStarted = false;
         session->notifyPending = false;
         session->queuedGeneration = 0;
@@ -1430,7 +1546,8 @@ private:
     }
     return nullptr;
   }
-  void invalidateSseSession(SseSession* session, bool closeSocket, bool disconnectOwner = true) {
+  void invalidateSseSession(SseSession* session, bool closeSocket, bool disconnectOwner = true,
+                            SseCleanupReason reason = SseCleanupReason::SendFailure) {
     if (!session) return;
     if (findSseSessionExact(session) == session) {
       removeSseSession(session);
@@ -1438,6 +1555,7 @@ private:
     }
     session->valid = false;
     session->transportClosed = true;
+    session->cleanupReason = reason;
     if (closeSocket && session->server && session->fd >= 0) {
       const esp_err_t closeResult = httpd_sess_trigger_close(session->server, session->fd);
       if (closeResult != ESP_OK && closeResult != ESP_ERR_NOT_FOUND) {
@@ -1503,18 +1621,23 @@ private:
         static_cast<unsigned long>(session->generation), fd,
         static_cast<unsigned long long>(systemTime()));
 #endif
-      invalidateSseSession(session, true);
+      invalidateSseSession(session, true, true, SseCleanupReason::Replacement);
       return;
     }
     if (session->initialPending) {
-      char initial[128];
-      const int initialLength = snprintf(initial, sizeof(initial),
+      recordSseStack(session, "initial", session->stackHwmInitial);
+      const int initialLength = snprintf(session->initialFrame, sizeof(session->initialFrame),
         "retry: 2000\ndata: {\"revision\":%lu}\n\n",
         static_cast<unsigned long>(noticeRevision_));
+      const uint32_t sendStarted = millis();
       const esp_err_t initialResult = initialLength > 0
-        ? httpd_resp_send_chunk(session->asyncRequest, initial, size_t(initialLength))
+        ? httpd_resp_send_chunk(session->asyncRequest, session->initialFrame, size_t(initialLength))
         : ESP_FAIL;
+      const uint32_t sendElapsed = static_cast<uint32_t>(millis() - sendStarted);
+      recordSseStack(session, "initial", session->stackHwmInitial);
+      if (sendElapsed >= SseStalledSendThresholdMs) recordSseStack(session, "stalled_send", session->stackHwmStalled);
       if (initialResult != ESP_OK) {
+        recordSseStack(session, "send_failure", session->stackHwmFailure);
         invalidateSseSession(session, true);
       } else {
         session->initialPending = false;
@@ -1524,7 +1647,6 @@ private:
       }
       return;
     }
-    char payload[192];
     const uint32_t revision = noticeRevision_;
     const bool noticePending = revision != session->sentRevision;
     const uint32_t presentationSequence = presentationSequence_;
@@ -1543,26 +1665,28 @@ private:
     const uint32_t payloadEventId = 0;
 #endif
     int length = 0;
+    volatile uint16_t& frameHwm = keepalive ? session->stackHwmKeepalive : session->stackHwmNotification;
+    recordSseStack(session, keepalive ? "keepalive" : "notification", frameHwm);
     if (keepalive) {
       // Keep the existing ten-second idle cadence, but make the liveness
       // frame visible to EventSource clients. SSE comment frames are not
       // delivered to Browser JavaScript and cannot drive its watchdog.
-      length = snprintf(payload, sizeof(payload),
+      length = snprintf(session->payloadFrame, sizeof(session->payloadFrame),
                         "event: heartbeat\ndata: {\"serverUs\":%llu}\n\n",
                         static_cast<unsigned long long>(systemTime()));
     } else if (noticePending) {
-      length = snprintf(payload, sizeof(payload), "data: {\"revision\":%lu,\"serverUs\":%llu,\"lapEntry\":%lu,\"lap\":%lu,\"eventId\":%lu}\n\n",
+      length = snprintf(session->payloadFrame, sizeof(session->payloadFrame), "data: {\"revision\":%lu,\"serverUs\":%llu,\"lapEntry\":%lu,\"lap\":%lu,\"eventId\":%lu}\n\n",
                         (unsigned long)revision, (unsigned long long)systemTime(),
                         static_cast<unsigned long>(payloadEntry), static_cast<unsigned long>(payloadLap),
                         static_cast<unsigned long>(payloadEventId));
     } else if (controlPending) {
-      length = snprintf(payload, sizeof(payload), "event: control\ndata: {\"kind\":\"TAKEOVER\",\"requestId\":%lu}\n\n",
+      length = snprintf(session->payloadFrame, sizeof(session->payloadFrame), "event: control\ndata: {\"kind\":\"TAKEOVER\",\"requestId\":%lu}\n\n",
                         static_cast<unsigned long>(controlRequestId));
     } else if (controlRefreshPending) {
-      length = snprintf(payload, sizeof(payload), "event: control\ndata: {\"kind\":\"CONTROL_CHANGED\"}\n\n");
+      length = snprintf(session->payloadFrame, sizeof(session->payloadFrame), "event: control\ndata: {\"kind\":\"CONTROL_CHANGED\"}\n\n");
     } else {
       const auto& p = presentation_;
-      length = snprintf(payload, sizeof(payload),
+      length = snprintf(session->payloadFrame, sizeof(session->payloadFrame),
         "event: presentation\ndata: {\"l\":\"%s\",\"m\":\"%s\",\"t\":%llu,\"r\":%llu,\"o\":%llu,\"x\":%s,\"p\":\"%s\",\"n\":%u,\"c\":%u,\"g\":%s}\n\n",
         lifecycle(p.lifecycle), setupMode(p.sessionMode),
         (unsigned long long)systemTime(),
@@ -1571,10 +1695,15 @@ private:
         unsigned(p.redLightsLit), unsigned(p.redLightCount),
         p.startLightsGreen ? "true" : "false");
     }
+    const uint32_t sendStarted = millis();
     const esp_err_t sent = length > 0
-      ? httpd_resp_send_chunk(session->asyncRequest, payload, size_t(length))
+      ? httpd_resp_send_chunk(session->asyncRequest, session->payloadFrame, size_t(length))
       : ESP_FAIL;
+    const uint32_t sendElapsed = static_cast<uint32_t>(millis() - sendStarted);
+    recordSseStack(session, keepalive ? "keepalive" : "notification", frameHwm);
+    if (sendElapsed >= SseStalledSendThresholdMs) recordSseStack(session, "stalled_send", session->stackHwmStalled);
     if (sent != ESP_OK) {
+      recordSseStack(session, "send_failure", session->stackHwmFailure);
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
       Serial.printf("[SSE] send_failed revision=%lu lap_entry=%lu event_id=%lu at_us=%llu result=%d\n",
         static_cast<unsigned long>(revision),
@@ -1610,7 +1739,7 @@ private:
     }
   }
   static esp_err_t events(httpd_req_t* request) {
-    RequestTrace trace(instance(), "/events");
+    RequestTrace trace(instance(), "/events", request, true);
     const uint64_t browserToken = client(request);
     BrowserInterface* browser = instance();
     const int fd = httpd_req_to_sockfd(request);
@@ -1619,9 +1748,9 @@ private:
       fd, static_cast<unsigned long>(browser ? browser->noticeRevision_ : 0),
       static_cast<unsigned long long>(systemTime()));
 #endif
-    if (!browser || fd < 0) { trace.complete(ESP_ERR_INVALID_ARG); return ESP_FAIL; }
+    if (!browser || fd < 0) { if (browser) browser->transportAdmissionTrace("/events", fd, 0, 0, 0, "invalid"); trace.complete(ESP_ERR_INVALID_ARG); return ESP_FAIL; }
     if (SseSession* previous = browser->findSseSession(browserToken)) {
-      browser->invalidateSseSession(previous, true, false);
+      browser->invalidateSseSession(previous, true, false, SseCleanupReason::Replacement);
     }
     size_t slotCount = 0;
     for (size_t i = 0; i < MaxSseClients; ++i) if (browser->sseSessions_[i]) ++slotCount;
@@ -1630,20 +1759,29 @@ private:
     const esp_err_t clientListResult = browser->server_
       ? httpd_get_client_list(browser->server_, &fdsCapacity, clientFds)
       : ESP_ERR_INVALID_STATE;
+    browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0,
+                                     clientListResult == ESP_OK ? "checked" : "client_list_failed");
     if (clientListResult != ESP_OK || fdsCapacity >= MaxHttpClientSockets - OrdinaryRequestReserve) {
+      browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0,
+                                       clientListResult == ESP_OK ? "ordinary_capacity_exhausted" : "client_list_failed");
       httpd_resp_set_status(request, "503 Service Unavailable");
       trace.complete(clientListResult == ESP_OK ? ESP_ERR_NO_MEM : clientListResult);
       return ESP_FAIL;
     }
     if (slotCount >= MaxSseClients) {
+      browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0, "sse_slots_exhausted");
       httpd_resp_set_status(request, "503 Service Unavailable");
       trace.complete(ESP_ERR_NO_MEM);
       return ESP_FAIL;
     }
     auto* session = browser->allocateSseSession(browserToken);
-    if (!session) { trace.complete(ESP_ERR_NO_MEM); return ESP_FAIL; }
+    if (!session) {
+      browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0, "session_allocation_failed");
+      trace.complete(ESP_ERR_NO_MEM); return ESP_FAIL;
+    }
 #if PP_HTTP_ASYNC_RUNTIME
     if (!session->worker) {
+      browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0, "worker_unavailable");
       browser->removeSseSession(session);
       browser->completeSseRequest(session);
       httpd_resp_set_status(request, "503 Service Unavailable");
@@ -1655,6 +1793,7 @@ private:
 #if PP_HTTP_ASYNC_RUNTIME
     const esp_err_t asyncResult = httpd_req_async_handler_begin(request, &asyncRequest);
     if (asyncResult != ESP_OK || !asyncRequest) {
+      browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0, "async_begin_failed");
       browser->removeSseSession(session);
       browser->completeSseRequest(session);
       httpd_resp_set_status(request, "503 Service Unavailable");
@@ -1679,6 +1818,7 @@ private:
     session->lastSendMs = millis();
     browser->controlConnected(browserToken);
     browser->queueEventWork(session);
+    browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount + 1, 0, "admitted");
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
     Serial.printf("[SSE] async_session fd=%d generation=%lu revision=%lu at_us=%llu\n", fd,
       static_cast<unsigned long>(session->generation),
@@ -2031,7 +2171,7 @@ private:
     return httpd_resp_sendstr(request, json);
   }
   static esp_err_t contextRoute(httpd_req_t* request) {
-    RequestTrace trace(instance(), "/context");
+    RequestTrace trace(instance(), "/context", request, true);
     const uint64_t owner = client(request);
     const uint32_t clientTag = instance()->contextClientTag(owner);
     char json[320];
@@ -2052,7 +2192,9 @@ private:
              controlResultText(result));
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    trace.sendBegin();
     const esp_err_t sent = httpd_resp_sendstr(request, json);
+    trace.sendComplete(sent);
     instance()->traceContextResponse(clientTag, hasMaster, isMaster, ownerConnected,
                                      takeoverPending, takeoverRequestedByThis,
                                      result, sent);
@@ -2078,8 +2220,8 @@ private:
     return httpd_resp_sendstr(request, json);
   }
   static esp_err_t proposalRoute(httpd_req_t* request){
-    RequestTrace trace(instance(), "/proposal");
-    client(request);BrowserInterface* browser=instance();char* json=static_cast<char*>(malloc(4096));size_t length=0;if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}if(!serializeProposal(browser->proposedRaceSetup(),browser->controllerEpoch_,browser->proposalRevision(),browser->readiness(),json,4096,length)){free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal unavailable");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);trace.complete(sent);return sent;
+    RequestTrace trace(instance(), "/proposal", request, true);
+    client(request);BrowserInterface* browser=instance();char* json=static_cast<char*>(malloc(4096));size_t length=0;if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}if(!serializeProposal(browser->proposedRaceSetup(),browser->controllerEpoch_,browser->proposalRevision(),browser->readiness(),json,4096,length)){free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal unavailable");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");trace.sendBegin();const esp_err_t sent=httpd_resp_sendstr(request,json);trace.sendComplete(sent);free(json);trace.complete(sent);return sent;
   }
   static esp_err_t practiceSummaryRoute(httpd_req_t* request){
     RequestTrace trace(instance(), "/practice-summary");client(request);BrowserInterface* browser=instance();char* json=static_cast<char*>(malloc(2048));size_t length=0;if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"practice summary buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}if(!serializePracticeSummary(browser->noticeboard_.practiceSummary(),json,2048,length)){free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"practice summary unavailable");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);trace.complete(sent);return sent;
@@ -2180,6 +2322,9 @@ private:
 #if PP_HTTP_ASYNC_RUNTIME
     BrowserInterface* browser = instance();
     if (!browser || !browser->asyncWorkersStarted_ || !browser->pageQueue_ || uxQueueSpacesAvailable(browser->pageQueue_) == 0) {
+      if (browser) browser->transportAdmissionTrace("/", httpd_req_to_sockfd(request), browser->httpClientCount(), 0,
+                                                     browser->pageQueue_ ? uxQueueSpacesAvailable(browser->pageQueue_) : 0,
+                                                     "page_queue_exhausted");
       httpd_resp_set_status(request, "503 Service Unavailable");
       return httpd_resp_sendstr(request, "page capacity unavailable");
     }
@@ -2193,12 +2338,18 @@ private:
       ? httpd_get_client_list(browser->server_, &fdsCapacity, clientFds)
       : ESP_ERR_INVALID_STATE;
     if (clientListResult != ESP_OK || fdsCapacity >= MaxHttpClientSockets - OrdinaryRequestReserve) {
+      browser->transportAdmissionTrace("/", httpd_req_to_sockfd(request), fdsCapacity, 0,
+                                       browser->pageQueue_ ? uxQueueSpacesAvailable(browser->pageQueue_) : 0,
+                                       clientListResult == ESP_OK ? "ordinary_capacity_exhausted" : "client_list_failed");
       httpd_resp_set_status(request, "503 Service Unavailable");
       return httpd_resp_sendstr(request, "page ordinary capacity unavailable");
     }
     httpd_req_t* asyncRequest = nullptr;
     const esp_err_t beginResult = httpd_req_async_handler_begin(request, &asyncRequest);
     if (beginResult != ESP_OK || !asyncRequest) {
+      browser->transportAdmissionTrace("/", httpd_req_to_sockfd(request), fdsCapacity, 0,
+                                       browser->pageQueue_ ? uxQueueSpacesAvailable(browser->pageQueue_) : 0,
+                                       "async_begin_failed");
       httpd_resp_set_status(request, "503 Service Unavailable");
       return httpd_resp_sendstr(request, "page request unavailable");
     }
@@ -2210,10 +2361,13 @@ private:
     job.generation = ++browser->nextPageGeneration_;
     job.serverGeneration = browser->serverGeneration_;
     if (xQueueSend(browser->pageQueue_, &job, 0) != pdTRUE) {
+      browser->transportAdmissionTrace("/", job.fd, fdsCapacity, 0, 0, "page_queue_full");
       browser->completeAsyncRequest(asyncRequest);
       httpd_resp_set_status(request, "503 Service Unavailable");
       return ESP_FAIL;
     }
+    browser->transportAdmissionTrace("/", job.fd, fdsCapacity, 0,
+                                     uxQueueSpacesAvailable(browser->pageQueue_), "admitted");
     return ESP_OK;
 #else
     return sendNormalPage(request);
@@ -2740,7 +2894,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     return sent;
   }
   static esp_err_t health(httpd_req_t* request) {
-    RequestTrace trace(instance(), "/health");
+    RequestTrace trace(instance(), "/health", request, true);
     httpd_resp_set_type(request, "application/json");
     char body[512]{};
     snprintf(body, sizeof(body),
@@ -2749,7 +2903,9 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
              "\"appElfSha256\":\"%s\"}",
              instance()->diagnosticBuildIdentity_, instance()->diagnosticSourceCommit_,
              instance()->diagnosticBuildEnvironment_, instance()->diagnosticAppElfSha256_);
-    const esp_err_t sent = httpd_resp_sendstr(request, body); trace.complete(sent); return sent;
+    trace.sendBegin();
+    const esp_err_t sent = httpd_resp_sendstr(request, body);
+    trace.sendComplete(sent); trace.complete(sent); return sent;
   }
   void startServer() {
     instance() = this;
@@ -2860,6 +3016,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       if (!session) continue;
       session->valid = false;
       session->transportClosed = true;
+      session->cleanupReason = SseCleanupReason::Shutdown;
       removeSseSession(session);
       controlDisconnected(session->clientToken);
       const esp_err_t closeResult = httpd_sess_trigger_close(session->server, session->fd);

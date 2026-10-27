@@ -36,6 +36,25 @@ require("close_failed" in BROWSER, "close failure is not observable")
 require("httpd_queue_work(server_, &BrowserInterface::eventWork, work)" not in BROWSER,
         "blocking SSE sends remain on the HTTPD work queue")
 require("httpd_socket_send" not in BROWSER, "SSE still uses a shared raw socket send")
+require("SseWorkerStackWords = 2048" in BROWSER,
+        "diagnostic SSE worker stack is not the approved 8192-byte starting point")
+require("initialFrame[SseInitialFrameCapacity]" in BROWSER,
+        "initial SSE frame is still worker-stack storage")
+require("payloadFrame[SsePayloadCapacity]" in BROWSER,
+        "SSE notification frame is still worker-stack storage")
+require("char initial[128]" not in BROWSER and "char payload[192]" not in BROWSER,
+        "legacy automatic SSE frame buffers remain in the worker")
+for stage in ("idle", "initial", "notification", "keepalive", "stalled_send",
+              "send_failure", "disconnect", "replacement"):
+    require(f'"{stage}"' in BROWSER,
+            f"SSE high-water lifecycle stage is not instrumented: {stage}")
+require("[HTTP_TRACE]" in BROWSER and "send_begin" in BROWSER and "send_complete" in BROWSER,
+        "detailed ordinary-route transport tracing is missing")
+require("[HTTP_ADMISSION]" in BROWSER,
+        "transport admission tracing is missing")
+for route in ("health", "context", "state", "proposal"):
+    require(f'RequestTrace trace(instance(), "/{route}", request, true)' in BROWSER,
+            f"/{route} does not use detailed transport tracing")
 
 
 # A deliberately stalled page occupies one worker; a second page can still be
