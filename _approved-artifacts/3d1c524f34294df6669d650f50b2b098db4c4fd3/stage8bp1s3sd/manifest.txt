@@ -1,0 +1,12 @@
+source_commit=3d1c524f34294df6669d650f50b2b098db4c4fd3
+environment=stage8bp1s3sd
+firmware_bin=firmware.bin
+firmware_size_bytes=1465584
+firmware_sha256=8DA5000384C37D9C6A3C3E8FEFFC7ACDA8EDB0A836830E29EC944449C29D9451
+application_elf_sha256=30D6B78839C49BE6E57675D2D95225DC4271AB504D5FE07EA675CCFEC3ACD92B
+static_ram_bytes=88884
+flash_used_bytes=1437303
+framework=arduino-esp32 3.3.12 / ESP-IDF 5.5.5
+platform=espressif32 8.0.0
+sse_worker_stack_bytes=8192
+sse_worker_stack_total_bytes=32768
