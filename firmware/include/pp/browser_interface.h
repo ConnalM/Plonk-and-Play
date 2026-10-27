@@ -640,7 +640,10 @@ private:
   // Provisional hardware/development capacity. This is intentionally a
   // build-time limit, not a frozen product maximum.
   static constexpr size_t MaxSseClients = PP_MAX_SSE_CLIENTS;
-  static constexpr size_t MaxHttpClientSockets = 10; // max_open_sockets(13) minus ESP-IDF's three internal sockets
+  // ESP-IDF's max_open_sockets value is the configured client-session
+  // capacity; HTTPD reserves its internal sockets within that limit. Keep the
+  // value shared by the HTTPD configuration and admission accounting.
+  static constexpr size_t HttpdMaxOpenSockets = 13;
   static constexpr size_t OrdinaryRequestReserve = PP_HTTP_ORDINARY_REQUEST_RESERVE;
   static constexpr size_t PageWorkerCount = 2;
   static constexpr size_t PageQueueDepth = 2;
@@ -857,8 +860,8 @@ private:
   }
   size_t httpClientCount() const {
     if (!server_) return 0;
-    size_t capacity = MaxHttpClientSockets + 3;
-    int fds[MaxHttpClientSockets + 3]{};
+    size_t capacity = HttpdMaxOpenSockets;
+    int fds[HttpdMaxOpenSockets]{};
     return httpd_get_client_list(server_, &capacity, fds) == ESP_OK ? capacity : SIZE_MAX;
   }
   void transportTrace(const char* phase, const char* route, int fd, esp_err_t result, uint32_t elapsedMs) const {
@@ -1828,14 +1831,14 @@ private:
     }
     size_t slotCount = 0;
     for (size_t i = 0; i < MaxSseClients; ++i) if (browser->sseSessions_[i]) ++slotCount;
-    size_t fdsCapacity = 13;
-    int clientFds[13]{};
+    size_t fdsCapacity = HttpdMaxOpenSockets;
+    int clientFds[HttpdMaxOpenSockets]{};
     const esp_err_t clientListResult = browser->server_
       ? httpd_get_client_list(browser->server_, &fdsCapacity, clientFds)
       : ESP_ERR_INVALID_STATE;
     browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0,
                                      clientListResult == ESP_OK ? "checked" : "client_list_failed");
-    if (clientListResult != ESP_OK || fdsCapacity >= MaxHttpClientSockets - OrdinaryRequestReserve) {
+    if (clientListResult != ESP_OK || fdsCapacity >= HttpdMaxOpenSockets - OrdinaryRequestReserve) {
       browser->transportAdmissionTrace("/events", fd, fdsCapacity, slotCount, 0,
                                        clientListResult == ESP_OK ? "ordinary_capacity_exhausted" : "client_list_failed");
       return rejectSseAdmission(request, trace,
@@ -2391,12 +2394,12 @@ private:
     // well as SSE.  The request itself is already present in the HTTPD client
     // list, so no more than (client capacity - reserve) clients may be in
     // admitted page/SSE work at once.
-    size_t fdsCapacity = 13;
-    int clientFds[13]{};
+    size_t fdsCapacity = HttpdMaxOpenSockets;
+    int clientFds[HttpdMaxOpenSockets]{};
     const esp_err_t clientListResult = browser->server_
       ? httpd_get_client_list(browser->server_, &fdsCapacity, clientFds)
       : ESP_ERR_INVALID_STATE;
-    if (clientListResult != ESP_OK || fdsCapacity >= MaxHttpClientSockets - OrdinaryRequestReserve) {
+    if (clientListResult != ESP_OK || fdsCapacity >= HttpdMaxOpenSockets - OrdinaryRequestReserve) {
       browser->transportAdmissionTrace("/", httpd_req_to_sockfd(request), fdsCapacity, 0,
                                        browser->pageQueue_ ? uxQueueSpacesAvailable(browser->pageQueue_) : 0,
                                        clientListResult == ESP_OK ? "ordinary_capacity_exhausted" : "client_list_failed");
@@ -3036,10 +3039,10 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     config.stack_size = 8192;
     config.recv_wait_timeout = 5;
     config.send_wait_timeout = 5;
-    // ESP32 Arduino's configured LWIP limit permits at most 13 sockets,
-    // including ESP-IDF's three internal sockets.  SSE admission reserves
-    // ordinary-request capacity; LRU eviction remains a last-resort policy.
-    config.max_open_sockets = 13;
+    // HTTPD's max_open_sockets value is the client-session capacity; ESP-IDF
+    // reserves its internal sockets within that implementation. SSE admission
+    // reserves ordinary-request capacity; LRU eviction remains a last resort.
+    config.max_open_sockets = static_cast<uint16_t>(HttpdMaxOpenSockets);
     config.lru_purge_enable = true;
     config.max_uri_handlers = static_cast<uint16_t>(sizeof(routes) / sizeof(routes[0]));
     const esp_err_t started = httpd_start(&server_, &config);

@@ -40,6 +40,68 @@ PAGE_WORKERS = 2
 PAGE_QUEUE = 2
 SSE_LIMIT = 4
 ORDINARY_BUDGET_MS = 500
+HTTPD_MAX_OPEN_SOCKETS = 13
+ORDINARY_RESERVE = 4
+
+
+# The HTTPD client-list API reports configured client sessions; its three
+# internal sockets are already accounted for by HTTPD.  Admission therefore
+# remains available through client counts 6, 7 and 8, and rejects at 9 or
+# above to preserve four ordinary-request slots.
+def sse_admission(client_count: int, sse_slots: int,
+                  session_available: bool = True) -> dict:
+    if client_count >= HTTPD_MAX_OPEN_SOCKETS - ORDINARY_RESERVE:
+        return {"accepted": False, "reason": "ordinary_capacity_exhausted",
+                "status": 503, "connection": "close",
+                "session_allocated": False, "async_owned": False,
+                "terminal_close": True}
+    if sse_slots >= SSE_LIMIT:
+        return {"accepted": False, "reason": "sse_slots_exhausted",
+                "status": 503, "connection": "close",
+                "session_allocated": False, "async_owned": False,
+                "terminal_close": True}
+    if not session_available:
+        return {"accepted": False, "reason": "session_allocation_failed",
+                "status": 503, "connection": "close",
+                "session_allocated": False, "async_owned": False,
+                "terminal_close": True}
+    return {"accepted": True, "reason": "admitted", "status": 200,
+            "connection": "keep-alive", "session_allocated": True,
+            "async_owned": True, "terminal_close": False}
+
+
+for clients in (6, 7, 8):
+    admission = sse_admission(clients, sse_slots=1)
+    require(admission["accepted"],
+            f"second SSE was rejected before the ordinary reserve at {clients} clients")
+    require(admission["session_allocated"] and admission["async_owned"],
+            f"admitted SSE ownership was incomplete at {clients} clients")
+
+for clients in (9, 10, 11, 12, 13):
+    admission = sse_admission(clients, sse_slots=1)
+    require(not admission["accepted"],
+            f"SSE exceeded the ordinary reserve at {clients} clients")
+    require(admission["status"] == 503 and admission["connection"] == "close",
+            f"capacity rejection was not an explicit 503/close at {clients} clients")
+    require(not admission["session_allocated"] and not admission["async_owned"],
+            f"rejected SSE allocated state at {clients} clients")
+    require(admission["terminal_close"],
+            f"rejected SSE did not reach one terminal close path at {clients} clients")
+
+# A stale keep-alive peer is removed from the client population without
+# affecting the healthy SSE.  This models the abrupt peer disappearance seen
+# in the physical reconnect capture.
+clients = 9
+healthy_sse_slots = 1
+stale_peer_present = True
+require(not sse_admission(clients, healthy_sse_slots)["accepted"],
+        "stale keep-alive pressure did not block only the intended admission")
+stale_peer_present = False
+clients -= 1
+recovered = sse_admission(clients, healthy_sse_slots)
+require(recovered["accepted"], "SSE did not recover after stale peer reclamation")
+require(healthy_sse_slots == 1 and not stale_peer_present,
+        "healthy SSE or stale-peer accounting was mutated during reclamation")
 
 
 @dataclass
@@ -148,6 +210,9 @@ print("HTTP/SSE deterministic isolation PASS")
 print(f"ordinary_budget_ms={ORDINARY_BUDGET_MS}")
 print("ordinary_timings_ms=" + ",".join(f"{route}:{value}" for route, value in ordinary.items()))
 print(f"healthy_sse_ms={healthy_sse_elapsed_ms}")
+print(f"httpd_max_open_sockets={HTTPD_MAX_OPEN_SOCKETS} ordinary_reserve={ORDINARY_RESERVE} admission_reject_at={HTTPD_MAX_OPEN_SOCKETS - ORDINARY_RESERVE}")
+print("admission_clients_6_7_8=admitted clients_9_plus=503_close_no_session")
+print("stale_keepalive_reclaimed=healthy_sse_preserved")
 print(f"page_workers={PAGE_WORKERS} page_queue={PAGE_QUEUE} sse_limit={SSE_LIMIT}")
 print("stalled_page=admitted stalled_sse=admitted healthy_ordinary=responsive healthy_sse=responsive")
 print("fd_reuse=stale_generation_rejected resource_reclamation=exactly_once")

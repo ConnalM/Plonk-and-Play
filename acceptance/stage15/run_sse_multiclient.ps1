@@ -24,6 +24,10 @@ Require $browser 'httpd_req_async_handler_complete' 'missing async request relea
 Require $browser 'PageWorkerCount = 2' 'missing bounded page worker capacity'
 Require $browser 'PP_HTTP_ORDINARY_REQUEST_RESERVE' 'missing ordinary request reservation'
 Require $browser 'httpd_get_client_list' 'missing socket-capacity admission check'
+Require $browser 'HttpdMaxOpenSockets = 13' 'missing shared HTTPD client capacity'
+if ($browser.Contains('MaxHttpClientSockets')) { throw 'legacy second-subtracted HTTPD capacity remains' }
+Require $browser 'config\.max_open_sockets = static_cast<uint16_t>\(HttpdMaxOpenSockets\)' 'HTTPD config does not use shared capacity'
+Require $browser 'fdsCapacity >= HttpdMaxOpenSockets - OrdinaryRequestReserve' 'admission boundary does not use shared capacity'
 if ($browser.Contains('httpd_queue_work(server_, &BrowserInterface::eventWork, work)')) { throw 'SSE still uses HTTPD queue work for sends' }
 if ($browser.Contains('httpd_socket_send')) { throw 'SSE still uses raw HTTPD socket sends' }
 Require $browser 'httpd_sess_get_ctx\(handle, fd\) != session' 'missing fd/session validation'

@@ -24,6 +24,14 @@ require("httpd_req_async_handler_complete" in BROWSER, "async request release is
 require("PageWorkerCount = 2" in BROWSER, "at least two page workers are required")
 require("PageQueueDepth = 2" in BROWSER, "page queue must be bounded")
 require("MaxSseClients = PP_MAX_SSE_CLIENTS" in BROWSER, "SSE limit is not explicit")
+require("HttpdMaxOpenSockets = 13" in BROWSER, "HTTPD client capacity is not a shared source of truth")
+require("MaxHttpClientSockets" not in BROWSER, "legacy second-subtracted HTTPD capacity remains")
+require("config.max_open_sockets = static_cast<uint16_t>(HttpdMaxOpenSockets)" in BROWSER,
+        "HTTPD configuration does not use the shared client capacity")
+require("size_t fdsCapacity = HttpdMaxOpenSockets" in BROWSER,
+        "client-list capacity does not use the shared HTTPD capacity")
+require("fdsCapacity >= HttpdMaxOpenSockets - OrdinaryRequestReserve" in BROWSER,
+        "admission boundary does not preserve the ordinary reserve against the shared capacity")
 require("PP_HTTP_ORDINARY_REQUEST_RESERVE" in BROWSER, "ordinary request reserve is missing")
 require("httpd_get_client_list" in BROWSER, "socket admission accounting is missing")
 require("static esp_err_t rejectSseAdmission" in BROWSER, "SSE rejection has no single terminal helper")
