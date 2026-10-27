@@ -1146,6 +1146,11 @@ private:
     if(!serializeState(value,systemTime(),json,StateJsonCapacity,length)){free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"state entry count exceeds capacity");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}
     const uint64_t serializeEndUs = systemTime();
     httpd_resp_set_type(request,"application/json"); httpd_resp_set_hdr(request,"Cache-Control","no-store");
+    // These small authoritative acquisition responses are deliberately
+    // non-persistent.  Browser recovery performs state -> proposal -> context
+    // sequentially; closing each completed response releases its HTTPD client
+    // session before the next acquisition or SSE replacement is admitted.
+    httpd_resp_set_hdr(request,"Connection","close");
     const uint64_t sendStartUs = systemTime();
     trace.sendBegin();
     const esp_err_t sent=httpd_resp_sendstr(request,json);
@@ -2254,6 +2259,9 @@ private:
              controlResultText(result));
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    // Do not leave completed recovery/context acquisitions resident as idle
+    // HTTP/1.1 clients while a second Browser is recovering.
+    httpd_resp_set_hdr(request, "Connection", "close");
     trace.sendBegin();
     const esp_err_t sent = httpd_resp_sendstr(request, json);
     trace.sendComplete(sent);
@@ -2283,7 +2291,7 @@ private:
   }
   static esp_err_t proposalRoute(httpd_req_t* request){
     RequestTrace trace(instance(), "/proposal", request, true);
-    client(request);BrowserInterface* browser=instance();char* json=static_cast<char*>(malloc(4096));size_t length=0;if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}if(!serializeProposal(browser->proposedRaceSetup(),browser->controllerEpoch_,browser->proposalRevision(),browser->readiness(),json,4096,length)){free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal unavailable");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");trace.sendBegin();const esp_err_t sent=httpd_resp_sendstr(request,json);trace.sendComplete(sent);free(json);trace.complete(sent);return sent;
+    client(request);BrowserInterface* browser=instance();char* json=static_cast<char*>(malloc(4096));size_t length=0;if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}if(!serializeProposal(browser->proposedRaceSetup(),browser->controllerEpoch_,browser->proposalRevision(),browser->readiness(),json,4096,length)){free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal unavailable");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");httpd_resp_set_hdr(request,"Connection","close");trace.sendBegin();const esp_err_t sent=httpd_resp_sendstr(request,json);trace.sendComplete(sent);free(json);trace.complete(sent);return sent;
   }
   static esp_err_t practiceSummaryRoute(httpd_req_t* request){
     RequestTrace trace(instance(), "/practice-summary");client(request);BrowserInterface* browser=instance();char* json=static_cast<char*>(malloc(2048));size_t length=0;if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"practice summary buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}if(!serializePracticeSummary(browser->noticeboard_.practiceSummary(),json,2048,length)){free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"practice summary unavailable");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);trace.complete(sent);return sent;

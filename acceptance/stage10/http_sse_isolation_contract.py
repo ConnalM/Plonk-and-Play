@@ -39,6 +39,14 @@ require("static esp_err_t rejectSseAdmission" in BROWSER, "SSE rejection has no 
 require('httpd_resp_set_status(request, "503 Service Unavailable")' in BROWSER, "SSE rejection is not an explicit 503")
 require('httpd_resp_set_hdr(request, "Connection", "close")' in BROWSER, "SSE rejection does not require connection close")
 require('httpd_resp_sendstr(request, message ? message : "SSE unavailable")' in BROWSER, "SSE rejection has no bounded response body")
+for route_name, route_marker in (("state", "static esp_err_t state("),
+                                  ("proposal", "static esp_err_t proposalRoute("),
+                                  ("context", "static esp_err_t contextRoute(")):
+    route_start = BROWSER.index(route_marker)
+    next_route = BROWSER.find("static esp_err_t ", route_start + len(route_marker))
+    route_body = BROWSER[route_start:next_route if next_route >= 0 else len(BROWSER)]
+    require('Connection' in route_body and 'close' in route_body,
+            f"/{route_name} does not close completed acquisition responses")
 require("return ESP_FAIL;" in BROWSER[BROWSER.index("static esp_err_t rejectSseAdmission"):BROWSER.index("void invalidateSseSession")], "SSE rejection does not hand the socket to HTTPD's close path")
 require("availableSseSession" in BROWSER and "activateSseSession" in BROWSER, "SSE admission allocates before rejection/async ownership is settled")
 require("allocateSseSession" not in BROWSER, "legacy SSE admission can mutate a session before rejection")

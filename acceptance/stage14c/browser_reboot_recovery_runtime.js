@@ -31,8 +31,10 @@ expect(!recoveryBranch.includes('Promise.all'),
 
 class Transport {
   constructor() {
-    this.clientCount = 8;
-    this.ordinarySessions = 8;
+    // Six ordinary baseline sessions leave room for two healthy SSE streams;
+    // the recovery regression then adds bounded pressure explicitly.
+    this.clientCount = 6;
+    this.ordinarySessions = 6;
     this.activeSse = new Map();
     this.inflight = new Map();
     this.maxInflight = new Map();
@@ -66,13 +68,24 @@ class Transport {
   }
 
   async ordinary(browser, route) {
+    // Recovery acquisition responses explicitly close their HTTP/1.1
+    // connection.  Model the session while the framed response is active, then
+    // release it before the next recovery step or SSE replacement.
+    this.ordinarySessions++;
+    this.clientCount++;
     const active = (this.inflight.get(browser) || 0) + 1;
     this.inflight.set(browser, active);
     this.maxInflight.set(browser, Math.max(active, this.maxInflight.get(browser) || 0));
-    this.events.push({ type: 'ordinary-enter', browser, route, active });
+    this.events.push({ type: 'ordinary-enter', browser, route, active,
+      clients: this.clientCount, connection: 'close' });
     await Promise.resolve();
-    this.events.push({ type: 'ordinary-complete', browser, route });
+    this.events.push({ type: 'ordinary-complete', browser, route,
+      clients: this.clientCount });
     this.inflight.set(browser, active - 1);
+    this.ordinarySessions--;
+    this.clientCount--;
+    this.events.push({ type: 'ordinary-close', browser, route,
+      clients: this.clientCount, connection: 'close' });
   }
 
   releaseOrdinary(count) {
@@ -144,42 +157,53 @@ class BrowserRecovery {
   expect(master.role === 'MASTER' && spectator.role === 'SPECTATOR',
     'controller loss changed authority roles');
 
-  // The healthy stream is restored first; the second stream is intentionally
-  // exercised at the 9-client boundary and must receive bounded 503/close.
-  expect(master.retireAndOpen(), 'first recovered SSE was not admitted at clients=8');
-  expect(!spectator.retireAndOpen(), 'second recovered SSE bypassed the clients=9 boundary');
-  const rejection = transport.events.find(e => e.type === 'sse-reject');
-  expect(rejection && rejection.count === 9 && rejection.status === 503 && rejection.close,
-    'clients=9 SSE rejection was not explicit 503/close');
+  // Both recovered streams are admitted below the reserve boundary, then each
+  // Browser performs its own sequential acquisition.  The two sequences may
+  // overlap across Browsers, but each response closes before the next route.
+  expect(master.retireAndOpen(), 'first recovered SSE was not admitted at clients=6');
+  expect(spectator.retireAndOpen(), 'second recovered SSE was not admitted at clients=7');
+  await Promise.all([master.acquireFresh(), spectator.acquireFresh()]);
+  const masterAcquisition = transport.events.filter(e => e.type === 'ordinary-enter' && e.browser === 'master');
+  const masterClosures = transport.events.filter(e => e.type === 'ordinary-close' && e.browser === 'master');
+  expect(masterAcquisition.length === 3 && masterClosures.length === 3,
+    'master recovery did not close each framed acquisition response');
+  const spectatorAcquisition = transport.events.filter(e => e.type === 'ordinary-enter' && e.browser === 'spectator');
+  const spectatorClosures = transport.events.filter(e => e.type === 'ordinary-close' && e.browser === 'spectator');
+  expect(spectatorAcquisition.length === 3 && spectatorClosures.length === 3,
+    'spectator recovery did not close each framed acquisition response');
+  expect(transport.clientCount === 8 && transport.ordinarySessions === 6,
+    'closed master recovery responses remained resident in the client population');
+  transport.deliverHealthy('master');
+  transport.deliverHealthy('spectator');
 
+  // Reproduce the physical pressure shape without weakening admission: two
+  // ordinary resident sessions push the population through 9 and 10, then one
+  // recovered SSE fails and its replacements are rejected until pressure is
+  // released.
   transport.addOrdinary();
-  expect(!spectator.retireAndOpen(), 'second recovered SSE bypassed the clients=10 boundary');
-  const highRejection = transport.events.find(e => e.type === 'sse-reject' && e.count === 10);
-  expect(highRejection && highRejection.status === 503 && highRejection.close,
-    'clients=10 SSE rejection was not explicit 503/close');
-
-  await master.acquireFresh();
-  transport.deliverHealthy('master');
-
-  // Capacity release permits the failed Browser to recover without changing
-  // the admission arithmetic or creating a second current EventSource.
-  transport.releaseOrdinary(2);
-  expect(spectator.retireAndOpen(), 'failed Browser did not recover when capacity permitted');
-  await spectator.acquireFresh();
-  transport.deliverHealthy('master');
+  transport.addOrdinary();
 
   // Model the transient send failure and a stale fd/generation work item.
   const failedEpoch = master.eventEpoch;
   transport.failSse('master', failedEpoch);
   master.currentStream.open = false;
+  expect(!master.retireAndOpen(), 'failed Browser bypassed the clients=9 reserve boundary');
+  const rejection = transport.events.find(e => e.type === 'sse-reject' && e.count === 9);
+  expect(rejection && rejection.status === 503 && rejection.close,
+    'clients=9 SSE rejection was not explicit 503/close');
+  transport.addOrdinary();
+  expect(!master.retireAndOpen(), 'failed Browser bypassed the clients=10 reserve boundary');
+  const highRejection = transport.events.find(e => e.type === 'sse-reject' && e.count === 10);
+  expect(highRejection && highRejection.status === 503 && highRejection.close,
+    'clients=10 SSE rejection was not explicit 503/close');
   const stale = { browser: 'master', epoch: failedEpoch, fd: 50 + failedEpoch };
   expect(stale.epoch !== master.eventEpoch || !master.currentStream.open,
     'stale generation remained eligible after send failure');
   expect(transport.activeSse.has('spectator'), 'healthy second SSE was affected by peer failure');
 
-  // The failed Browser can be replaced only after its old generation is
-  // retired; the transport returns to exactly the two-SSE baseline.
-  transport.releaseOrdinary(7);
+  // The failed Browser can be replaced only after the resident pressure is
+  // released; the transport then returns to exactly the two-SSE baseline.
+  transport.releaseOrdinary(3);
   expect(master.retireAndOpen(), 'failed Browser replacement was not admitted after reclamation');
   await master.acquireFresh();
   expect(master.synchronised && spectator.synchronised,
@@ -190,7 +214,7 @@ class BrowserRecovery {
     'a Browser had more than one recovery acquisition request in flight');
   expect(transport.inflight.get('master') === 0 && transport.inflight.get('spectator') === 0,
     'recovery left an ordinary request in flight');
-  expect(transport.activeSse.size === 2 && transport.clientCount === 2,
+  expect(transport.activeSse.size === 2 && transport.clientCount === 8 && transport.ordinarySessions === 6,
     'recovery resources did not return to the two-SSE baseline');
   expect(!transport.events.some(e => e.type === 'race' || e.type === 'persistence'),
     'recovery model mutated race or persistence state');
