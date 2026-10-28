@@ -1,0 +1,37 @@
+{
+  "source_commit": "579694a0443fd5d5c26779ddf2216e03d6b96c84",
+  "environment": "stage8bp1s3sd",
+  "firmware": {
+    "path": "firmware.bin",
+    "size": 1039072,
+    "sha256": "FE84F524B36EB015DBFB2571C4230A636BFBC06F080F35AF3C4587277D587F7F"
+  },
+  "elf_sha256": "123D845A7476C55B0950042879DE67A9E31DDCAA34DAB2BD38E6A81F3EC2A62C",
+  "ram": {
+    "static_used_bytes": 84464,
+    "static_capacity_bytes": 327680,
+    "usage_percent": 25.8
+  },
+  "flash": {
+    "used_bytes": 1038701,
+    "capacity_bytes": 6553600,
+    "usage_percent": 15.8
+  },
+  "platformio": {
+    "platform": "espressif32@6.9.0",
+    "arduino_esp32": "3.20017.241212+sha.dcc1105b",
+    "esp_idf": "4.4.7",
+    "arduino_gfx": "1.5.6+sha.58ac1d4",
+    "board": "esp32-8048s070",
+    "flash": "16MB"
+  },
+  "sse": {
+    "worker_stack_bytes": 8192,
+    "worker_count": 4
+  },
+  "verification": {
+    "artifact_hash_verified_after_copy": true,
+    "build_command": "pio run -e stage8bp1s3sd",
+    "physical_validation": false
+  }
+}
