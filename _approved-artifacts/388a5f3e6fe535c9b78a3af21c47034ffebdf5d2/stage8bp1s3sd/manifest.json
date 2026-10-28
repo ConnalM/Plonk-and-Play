@@ -1,0 +1,35 @@
+{
+  "source_commit": "388a5f3e6fe535c9b78a3af21c47034ffebdf5d2",
+  "environment": "stage8bp1s3sd",
+  "board": "esp32-8048s070 (ESP32-S3 N16R8)",
+  "platformio_core": "6.2.0",
+  "espressif32": "8.0.0",
+  "arduino_esp32": "3.3.12",
+  "esp_idf": "5.5.5",
+  "arduino_gfx": "1.6.5+sha.4c1d0a6",
+  "firmware_bin": {
+    "path": "firmware.bin",
+    "size_bytes": 1451024,
+    "sha256": "A58448AE3CBA76B05FC69FCBEBDEA8A39D8E6002AB7097CA12A796959A57A121"
+  },
+  "firmware_elf_sha256": "15CC7818ECE0CF45A782039825E89CFDB5D7BF70DEE0CF86560D03257475F867",
+  "ram": {
+    "used_bytes": 86652,
+    "available_bytes": 327680,
+    "percent": 26.4
+  },
+  "flash": {
+    "used_bytes": 1423171,
+    "available_bytes": 6553600,
+    "percent": 21.7
+  },
+  "sse_workers": {
+    "count": 4,
+    "stack_bytes_each": 8192,
+    "stack_bytes_total": 32768
+  },
+  "build": {
+    "clean": true,
+    "artifact_preserved_after_build": true
+  }
+}
