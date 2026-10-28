@@ -62,6 +62,7 @@ passes and do not grant final Stage 15 acceptance.
 | PS15.90 | A physical SD failure is reported distinctly from diagnostic logical health; Diagnostics uses its existing bounded RAM-only/degraded path where permitted and cannot alter Race Engine, HTTP or product authority. | Physical-owner failure-isolation test. |
 | PS15.91 | Reboot or explicit owner-controlled recovery reconstructs diagnostic evidence through the shared physical owner without losing valid retained evidence beyond documented failure semantics; logical consumers do not perform independent remounts. | Reboot/recovery and namespace reconstruction test. |
 | PS15.92 | Diagnostic physical recovery is deferred in `STARTING`, `RACING`, `PAUSED`, `RESTARTING` and before completion settlement reaches `FINISHED`; it becomes eligible only in `READY` or settled `FINISHED`, after which the shared owner mounts once and Diagnostics advertises durable health only after reconstruction succeeds. | Lifecycle recovery and shared-owner acceptance test. |
+| PS15.93 | The authorised controlling Race Director/Master `Retry storage` request is request-only, does no direct SD/filesystem work, creates at most one owner recovery attempt, rejects prohibited/healthy/already-pending requests, and advertises durable diagnostic health only after owner mount and diagnostic namespace reconstruction succeed. | Diagnostics recovery command and shared-owner acceptance test. |
 
 ## Control-lease acceptance requirements
 

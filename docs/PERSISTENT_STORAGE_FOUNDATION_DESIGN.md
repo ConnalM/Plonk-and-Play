@@ -79,6 +79,30 @@ has reached that state. A failed recovery leaves physical and logical health
 unavailable/degraded and does not affect racing or HTTP. No logical consumer
 may independently retry or remount at any lifecycle state.
 
+### Explicit production recovery request
+
+The production support/diagnostics boundary exposes one command/API action named
+`Retry storage`. It is a request only: it never calls `SD.begin()`, probes for a
+card, mounts, or performs filesystem work in the request handler. The request is
+forwarded through the Physical SD Owner boundary, which remains the sole
+authority capable of performing recovery.
+
+Only the controlling Race Director/Master may submit the action, and only while
+the authoritative lifecycle is `READY` or settled `FINISHED`. A request during
+`STARTING`, `RACING`, `PAUSED`, `RESTARTING` or unfinished settlement is rejected
+with no retained pending work. A request while storage is already healthy is a
+bounded no-op/rejection and performs no mount. If recovery is already pending,
+additional requests are rejected as already pending; they never create another
+attempt. One accepted request creates at most one pending owner recovery
+attempt.
+
+The owner consumes that request once. A successful physical mount is followed by
+the existing History, active-detail/Results, Diagnostics and History-count
+reconstruction sequence. Durable healthy state is advertised only after all
+required reconstruction succeeds. Failed recovery remains unavailable/degraded
+and is not retried automatically; another attempt requires another explicit
+`Retry storage` request. Reinsertion alone remains inert.
+
 ## Authority and storage boundary
 
 Race Engine remains authoritative for timing, laps, classification, integrity and completed results. It depends only on a persistence/storage boundary and not directly on SD, FATFS, NVS, filenames or filesystem layout.

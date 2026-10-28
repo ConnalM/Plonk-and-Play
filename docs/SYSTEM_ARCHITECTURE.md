@@ -871,6 +871,17 @@ deferred. Failed recovery leaves the physical and logical capabilities
 unavailable/degraded without affecting racing or HTTP; logical consumers never
 perform an independent remount.
 
+The production support/diagnostics boundary provides an authorised `Retry
+storage` request for the controlling Race Director/Master. This request crosses
+the owner boundary but performs no physical or filesystem work itself. It is
+accepted only in `READY` or settled `FINISHED`; requests during prohibited or
+unfinished states are rejected rather than retained. A healthy-storage request
+is a bounded no-op/rejection, and a request already pending is rejected without
+creating another attempt. The owner performs at most one mount for each accepted
+request, then reconstructs History, active-detail/Results and Diagnostics before
+advertising durable health. A failed request remains degraded and requires a
+new explicit request; card reinsertion alone does not trigger recovery.
+
 ## 13.1 Information ownership and delivery
 
 P&P may distribute information widely, but it must not distribute ownership. For each authoritative fact or state there is one owner and one truth. Other components may hold views, snapshots or derived presentation data without becoming another authority.

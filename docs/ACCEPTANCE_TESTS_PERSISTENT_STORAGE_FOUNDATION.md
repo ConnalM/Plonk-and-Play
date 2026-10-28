@@ -55,12 +55,25 @@ These tests verify the persistent-storage boundary without changing frozen Stage
 | PSF.35 | Slow or failing SD access cannot block or alter authoritative Race Engine timing, input processing, results or HTTP operation; failed History work remains uncommitted and diagnostic failure follows its existing bounded degraded/RAM-only rules. | Development and Hardware |
 | PSF.36 | Recovery is requested only through the physical owner boundary; logical consumers cannot retry `SD.begin()` independently at any lifecycle state. | Development and Hardware |
 | PSF.37 | Physical recovery is suppressed in `STARTING`, `RACING`, `PAUSED`, `RESTARTING` and before completion settlement reaches `FINISHED`; authoritative racing continues while deferred. Recovery becomes eligible in `READY` and settled `FINISHED`, performs exactly one owner-controlled mount, reconstructs each subordinate namespace before advertising durable health, and leaves racing/HTTP unaffected if it fails. | Development and Hardware |
+| PSF.38 | The controlling Race Director/Master can issue one authorised `Retry storage` request after the physical problem is corrected. The request performs no storage work itself, crosses the PhysicalSdOwner boundary, is accepted only in `READY`/settled `FINISHED`, creates at most one pending attempt, rejects prohibited/healthy/already-pending requests, and requires a new explicit request after failure. | Development and Hardware |
 
 ## Required evidence
 
 Each result retains the source/build manifest, persistence-format version, backend identity, predetermined stimulus, serialized-byte or checksum evidence, reconstructed State/Results/Details, Request Result and persistence status, and PASS/FAIL outcome.
 
 Capacity evidence distinguishes development-backend measurements from production SD capacity.
+
+### PSF.38 Retry-storage acceptance sequence
+
+The required physical sequence is: healthy mounted storage; physical SD removal;
+one genuine consumer I/O failure; authoritative owner `DEGRADED`/unavailable;
+reinsertion with no health restoration or mount; one authorised `Retry storage`
+request; exactly one owner mount; History, active-detail/Results, Diagnostics and
+History-count reconstruction; sequences 9, 10 and 11 retained and consistent;
+durable `HEALTHY` advertised only after reconstruction succeeds. The sequence
+must also cover duplicate/double requests, a request while recovery is pending,
+a request while storage is already healthy, failure followed by a later explicit
+retry, and rejection during prohibited lifecycle/authority states.
 
 ## Development acceptance boundary
 
