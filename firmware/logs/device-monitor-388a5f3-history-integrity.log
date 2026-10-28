@@ -1,0 +1,76 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0xfb0
+load:0x403c8700,len:0xaf4
+load:0x403cb700,len:0x2e24
+entry 0x403c8898
+[P8-P1] SD owner mount begin cs=10 mosi=11 sck=12 miso=13
+[P8-P1] SD owner mount OK
+[P8-P1] SD mount OK card=15931539456 total=15926558720 used=22347776
+[PERSIST] history_record_excluded index=2 sequence=9 reason=corrupt
+[PERSIST] history_record_excluded index=3 sequence=8 reason=corrupt
+[WIFI] STA_EVENT event=START
+[WIFI] mDNS STARTED host=plonk-and-play.local
+[WIFI] P&P AP STARTED ssid=Plonk-and-Play ip=192.168.4.1 clients=0
+[WIFI] external STA remembered configuration detected
+[DEV] P&P STAGE 8B-P1 REAL SD -- diagnostics are not product State[WIFI] STA_EVENT event=CONNECTED channel=3 authmode=3
+[DISPLAY] ESP32-8048S070 init OK
+[DISPLAY] P&P READY FOR WORK
+
+[INIT] System Time READY: monotonic 64-bit microseconds
+[INIT] Phase 8B-P1 SD owner READY; History storage boundary READY (namespace reconstruction lazy); NVS configuration READY=YES
+[INIT] Normal diagnostics recorder READY (bounded observation-only backend)
+[INIT] Normal diagnostics READY storage=2
+[INIT] Memory READY: NVS behind Memory boundary
+[INIT] Message Bus READY: bounded mailboxes; authority checked
+[TEST] PASS bus.authority.publish
+[TEST] PASS bus.authority.subscribe
+[TEST] PASS bus.fanout.publish
+[TEST] PASS bus.fanout.identical
+[TEST] PASS bus.no.duplicate
+[TEST] PASS bus.backpressure.atomic
+[TEST] PASS bus.fifo
+[TEST] PASS bus.recovery
+[BUS SELF-TEST] PASS
+[DEV] Browser WiFi CONNECTED ip=192.168.4.1 reconnect_attempts=0
+[DEV] Browser HTTP server STARTED error=0
+[INIT] Working configuration READY in RAM (factory: no saved configuration)
+[CONFIG] Lap Race proposed; lanes=2 laps=10 optional_features=off
+[INIT] Input Module READY: one simulated detector; Race Control / Race Engine / Output / Presentation dormant
+[INIT] No capabilities discovered or assigned; session readiness not claimed
+STAGE1_PASS skeleton initialised; no race behaviour
+STAGE2_PASS one simulated Input Device ready; no race behaviour
+STAGE3_PASS Message Bus delivery boundary ready; no race behaviour
+STAGE4_PASS Session Definition scaffold ready; no race behaviour
+[DEV] Serial: ? status, h HTTP/WiFi health, t bus self-test, q quiet, v diagnostics on
+[WIFI] STA_EVENT event=GOT_IP ip=192.168.68.102
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=11287022 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=51493030 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=61495037 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=71497034 dropped=0; authoritative race state is reported separately
+[WIFI] P&P AP clients=1
+[DEV] HTTP ERROR route=/normal duration_ms=141 result=45062 active=0 heap=195872 min_heap=185136
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=81499575 dropped=0; authoritative race state is reported separately
+[AUTH] CONTEXT response has_master=true is_master=true owner_connected=false takeover_pending=false requested_by_this=false result=NONE sent=0
+[AUTH] CONTEXT response has_master=true is_master=true owner_connected=true takeover_pending=false requested_by_this=false result=NONE sent=0
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=91501961 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=101504049 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=111506047 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=121507167 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=131509736 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=141510046 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=151513077 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=161513730 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=171514778 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=181516781 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=191518754 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=201520748 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=211522396 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=221523037 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=231524054 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=241527760 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=251529181 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=261530048 dropped=0; authoritative race state is reported separately
