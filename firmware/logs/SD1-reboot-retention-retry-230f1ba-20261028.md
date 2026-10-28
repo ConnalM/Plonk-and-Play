@@ -8,13 +8,12 @@ Capture SHA-256: `69F47E3EFA42A81FEBCA33EF1863642E8FC73B28C67FE0D2656F341589CE80
 
 ## Result
 
-**FAIL — Browser authority role restoration changed across RESET/EN.** This retry ruled out tablet sleep as the explanation for the previous missing-SSE observation: both Browser pages reconnected and completed fresh acquisition, but the Master/spectator roles were not preserved.
+**Transport recovery PASS; physical authority mapping inconclusive from Serial alone.** This retry ruled out tablet sleep as the explanation for the previous missing-SSE observation: both Browser pages reconnected and completed fresh acquisition. The capture shows one Master and one spectator after recovery, but `client_tag` is not a stable physical-device identity across reboot, so Serial alone cannot establish which page owns either tag.
 
 ## Pre-reset baseline
 
 - Two SSE sessions were healthy and settled (`generation=2` and `generation=3`).
-- Tablet was `client_tag=2`, Master/Race Director (`is_master=true`).
-- The laptop was the spectator.
+- The pre-reset physical roles were recorded by the operator; the Serial capture records only the assigned client tag.
 - Client population was stable at approximately 8.
 
 ## Post-reset evidence
@@ -35,8 +34,8 @@ Capture SHA-256: `69F47E3EFA42A81FEBCA33EF1863642E8FC73B28C67FE0D2656F341589CE80
   - `client_tag=1 ... is_master=true owner_connected=true`
   - `client_tag=2 ... is_master=false owner_connected=true`
 
-## First failure boundary
+## Evidence limitation
 
-The post-reset context made `client_tag=1` Master and `client_tag=2` spectator, reversing the pre-reset tablet-Master/laptop-spectator arrangement. Transport recovery and SD retention succeeded, but authority role restoration did not preserve the existing owner.
+The earlier report incorrectly treated client tags as stable laptop/tablet identities and therefore called this a role reversal. That inference is withdrawn. The retry proves automatic transport recovery, fresh acquisition and a settled Master/spectator state, but the capture alone does not prove physical-device role preservation. No Browser UI evidence was captured that maps the post-reset tags to the two devices.
 
 No race or persistence mutation was performed after reboot; no History record changed.
