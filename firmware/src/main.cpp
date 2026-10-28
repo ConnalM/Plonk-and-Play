@@ -85,6 +85,10 @@ pp::SdActiveDetailStore activeDetail(sdPersistence);
 pp::Esp32S3BoardDisplay boardDisplay;
 pp::SessionLifecycle physicalRecoveryLifecycle = pp::SessionLifecycle::Faulted;
 bool physicalRecoveryAttempted = false;
+// An explicitly requested attempt is consumed once.  If it fails, lifecycle
+// transitions must not silently turn it into an automatic retry; another
+// attempt requires another authorised Retry storage request.
+bool explicitRecoveryRequired = false;
 #endif
 class BrowserAuthorityStore final: public pp::AuthorityStore {
 public:
@@ -122,7 +126,13 @@ pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint,activeSession,&history,&r
 pp::OutputModule output{bus.attach(pp::Role::Output)};
 const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
 pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
-pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthority,&history,&records,&raceEngine);
+pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthority,&history,&records,&raceEngine,
+#if defined(PP_PHASE8B_REAL_SD)
+  &physicalSdOwner
+#else
+  nullptr
+#endif
+);
 #if defined(PP_STAGE8A_TASTER_WOKWI)
 pp::TasterRuntime taster(browser);
 #endif
@@ -168,18 +178,38 @@ void servicePhysicalSdRecovery() {
     physicalRecoveryLifecycle = lifecycle;
     physicalRecoveryAttempted = false;
   }
-  if ((lifecycle == pp::SessionLifecycle::Ready ||
-       lifecycle == pp::SessionLifecycle::Finished) &&
-      !physicalSdOwner.available() && !physicalRecoveryAttempted) {
-    physicalRecoveryAttempted = true;
-    if (physicalSdOwner.recover()) {
-      // The owner has completed the only physical mount. Consumers now
-      // reconstruct their own namespaces without touching the physical bus.
-      (void)sdPersistence.recover();
-      (void)activeDetail.recover();
-      (void)controllerTraceStorage.recover();
-      (void)rawHistory.count();
-    }
+  const bool eligible = lifecycle == pp::SessionLifecycle::Ready ||
+                        lifecycle == pp::SessionLifecycle::Finished;
+  if (!eligible || physicalSdOwner.available()) return;
+
+  const bool explicitRequest = physicalSdOwner.recoveryRequestPending();
+  const bool automaticRequest = !explicitRecoveryRequired && !physicalRecoveryAttempted;
+  if (!explicitRequest && !automaticRequest) return;
+
+  // Consume before touching the physical owner so every accepted request
+  // creates at most one mount attempt, including a failed attempt.
+  const bool consumedExplicit = explicitRequest && physicalSdOwner.consumeRecoveryRequest();
+  if (explicitRequest && !consumedExplicit) return;
+  physicalRecoveryAttempted = true;
+  if (!physicalSdOwner.recover()) {
+    explicitRecoveryRequired = consumedExplicit;
+    return;
+  }
+
+  // The owner has completed the only physical mount. Consumers now
+  // reconstruct their own namespaces without touching the physical bus.
+  const bool historyReady = sdPersistence.recover();
+  const bool detailReady = activeDetail.recover();
+  const bool diagnosticsReady = controllerTraceStorage.recover() == pp::diagnostic::StorageResult::Accepted;
+  (void)rawHistory.count();
+  if (historyReady && detailReady && diagnosticsReady) {
+    explicitRecoveryRequired = false;
+  } else {
+    // A mounted card is not advertised as durable until all namespaces have
+    // reconstructed successfully. The next attempt must be explicit if this
+    // was an explicit request.
+    physicalSdOwner.markRecoveryFailure();
+    explicitRecoveryRequired = consumedExplicit;
   }
 }
 #endif

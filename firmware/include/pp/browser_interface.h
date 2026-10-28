@@ -12,10 +12,14 @@
 #include "diagnostic_export.h"
 #include "control_lease.h"
 #include "external_wifi.h"
+#if defined(PP_PHASE8B_REAL_SD)
+#include "physical_sd_owner.h"
+#endif
 #ifndef PP_MAX_SSE_CLIENTS
 #define PP_MAX_SSE_CLIENTS 4
 #endif
 namespace pp {
+class PhysicalSdOwner;
 // Browser identity and the retained Master binding are Browser Interface State.
 // Race Control receives only the logical ClientContext attached to a Bus message.
 class AuthorityStore {
@@ -50,9 +54,11 @@ public:
   };
   BrowserInterface(Bus& bus, Bus::Endpoint endpoint, const Noticeboard& noticeboard,
                    AuthorityStore* authority = nullptr, HistoryStore* history = nullptr,
-                   TrackRecordStore* records = nullptr, const DetailSource* detailSource = nullptr)
+                   TrackRecordStore* records = nullptr, const DetailSource* detailSource = nullptr,
+                   PhysicalSdOwner* storageOwner = nullptr)
       : bus_(bus), endpoint_(endpoint), noticeboard_(noticeboard),
-        authority_(authority ? authority : &fallback_), history_(history), records_(records), detailSource_(detailSource) {
+        authority_(authority ? authority : &fallback_), history_(history), records_(records), detailSource_(detailSource),
+        storageOwner_(storageOwner) {
     controllerEpoch_ = newControllerEpoch();
   }
   uint64_t controllerEpoch() const { return controllerEpoch_; }
@@ -525,6 +531,7 @@ private:
   HistoryStore* history_ = nullptr;
   TrackRecordStore* records_ = nullptr;
   const DetailSource* detailSource_ = nullptr;
+  PhysicalSdOwner* storageOwner_ = nullptr;
   VolatileAuthorityStore fallback_;
   ExternalWifiManager network_{};
   httpd_handle_t server_ = nullptr;
@@ -2381,6 +2388,52 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     trace.complete(sent);
     return sent;
   }
+  static esp_err_t retryStorageRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/request/retry-storage");
+    BrowserInterface* browser = instance();
+    const uint64_t owner = client(request);
+    if (browser->context(owner) != ClientContext::RaceDirectorSmug) {
+      httpd_resp_set_type(request, "application/json");
+      httpd_resp_set_status(request, "403 Forbidden");
+      const esp_err_t sent = httpd_resp_sendstr(request,
+        "{\"accepted\":false,\"reason\":\"RACE_DIRECTOR_REQUIRED\"}");
+      trace.complete(sent);
+      return sent;
+    }
+    const SessionLifecycle lifecycle = browser->current().lifecycle;
+    if (lifecycle != SessionLifecycle::Ready && lifecycle != SessionLifecycle::Finished) {
+      httpd_resp_set_type(request, "application/json");
+      httpd_resp_set_status(request, "409 Conflict");
+      const esp_err_t sent = httpd_resp_sendstr(request,
+        "{\"accepted\":false,\"reason\":\"LIFECYCLE_NOT_ELIGIBLE\"}");
+      trace.complete(sent);
+      return sent;
+    }
+#if defined(PP_PHASE8B_REAL_SD)
+    const auto result = browser->storageOwner_
+      ? browser->storageOwner_->requestRecovery()
+      : PhysicalSdOwner::RecoveryRequestResult::LifecycleRejected;
+    const bool accepted = result == PhysicalSdOwner::RecoveryRequestResult::Accepted;
+    const char* reason = result == PhysicalSdOwner::RecoveryRequestResult::Accepted ? "RECOVERY_REQUESTED" :
+      result == PhysicalSdOwner::RecoveryRequestResult::AlreadyPending ? "RECOVERY_ALREADY_PENDING" :
+      result == PhysicalSdOwner::RecoveryRequestResult::AlreadyHealthy ? "STORAGE_ALREADY_HEALTHY" :
+      "LIFECYCLE_NOT_ELIGIBLE";
+    const char* status = accepted ? "202 Accepted" : "409 Conflict";
+#else
+    const bool accepted = false;
+    const char* reason = "STORAGE_UNAVAILABLE";
+    const char* status = "503 Service Unavailable";
+#endif
+    char json[128]{};
+    snprintf(json, sizeof(json), "{\"accepted\":%s,\"reason\":\"%s\"}",
+             accepted ? "true" : "false", reason);
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    httpd_resp_set_status(request, status);
+    const esp_err_t sent = httpd_resp_sendstr(request, json);
+    trace.complete(sent);
+    return sent;
+  }
   static const char* storageHealthName(diagnostic::StorageHealth value) {
     switch (value) {
       case diagnostic::StorageHealth::DurableSd: return "DURABLE_SD";
@@ -2443,6 +2496,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/request/take-control", HTTP_POST, takeControlRoute, nullptr},
       {"/request/take-control/allow", HTTP_POST, allowControlRoute, nullptr},
       {"/request/take-control/keep", HTTP_POST, keepControlRoute, nullptr},
+      {"/request/retry-storage", HTTP_POST, retryStorageRoute, nullptr},
       {"/request/start", HTTP_POST, startRoute, nullptr},
       {"/request/setup", HTTP_POST, setupRoute, nullptr},
       {"/request/pause", HTTP_POST, pauseRoute, nullptr},

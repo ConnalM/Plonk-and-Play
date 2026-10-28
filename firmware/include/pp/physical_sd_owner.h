@@ -24,6 +24,12 @@ public:
   static constexpr uint32_t SpiFrequency = 20000000U;
 
   enum class Health : uint8_t { Unavailable, Mounted, Fault };
+  enum class RecoveryRequestResult : uint8_t {
+    Accepted,
+    AlreadyPending,
+    AlreadyHealthy,
+    LifecycleRejected,
+  };
 
   class Lease final {
   public:
@@ -80,6 +86,33 @@ public:
     if (!lease || !recoveryAllowed()) return false;
     if (mounted_) return true;
     return mountLocked();
+  }
+
+  // This is only an owner request.  It never probes or mounts the card; the
+  // controller loop consumes the request and remains the sole recovery path.
+  RecoveryRequestResult requestRecovery() {
+    auto lease = lock();
+    if (!lease || !recoveryAllowed()) return RecoveryRequestResult::LifecycleRejected;
+    if (mounted_) return RecoveryRequestResult::AlreadyHealthy;
+    if (recoveryPending_) return RecoveryRequestResult::AlreadyPending;
+    recoveryPending_ = true;
+    return RecoveryRequestResult::Accepted;
+  }
+
+  bool recoveryRequestPending() const { return recoveryPending_; }
+
+  // Consumption is deliberately one-shot.  The caller must be the existing
+  // lifecycle-gated owner service, never a storage consumer.
+  bool consumeRecoveryRequest() {
+    auto lease = lock();
+    if (!lease || !recoveryPending_) return false;
+    recoveryPending_ = false;
+    return true;
+  }
+
+  void markRecoveryFailure() {
+    auto lease = lock();
+    if (lease) markIoFailureLocked();
   }
 
   void setLifecycle(SessionLifecycle lifecycle) { lifecycle_ = lifecycle; }
@@ -145,6 +178,7 @@ private:
   SemaphoreHandle_t mutex_ = nullptr;
   volatile bool mounted_ = false;
   volatile Health health_ = Health::Unavailable;
+  volatile bool recoveryPending_ = false;
   SessionLifecycle lifecycle_ = SessionLifecycle::Ready;
 };
 

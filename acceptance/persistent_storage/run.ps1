@@ -13,6 +13,7 @@ $semantic=Join-Path $env:TEMP 'pp-wp2f-semantic-test.exe'
 $reconstruction=Join-Path $env:TEMP 'pp-reconstruction-readiness-test.exe'
 $ownerContract=Join-Path $PSScriptRoot 'physical_sd_owner_contract.ps1'
 $healthContract=Join-Path $PSScriptRoot 'storage_health_propagation_contract.ps1'
+$retryStorageContract=Join-Path $PSScriptRoot 'retry_storage_contract.ps1'
 g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'foundation_test.cpp') -o $foundation
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage Foundation foundation compile failed: $LASTEXITCODE" }
 & $foundation
@@ -61,6 +62,8 @@ if ($LASTEXITCODE -ne 0) { throw "History reconstruction-readiness acceptance fa
 if ($LASTEXITCODE -ne 0) { throw "Physical SD owner contract acceptance failed: $LASTEXITCODE" }
 & $healthContract
 if ($LASTEXITCODE -ne 0) { throw "Storage health propagation contract acceptance failed: $LASTEXITCODE" }
+& $retryStorageContract
+if ($LASTEXITCODE -ne 0) { throw "Retry storage contract acceptance failed: $LASTEXITCODE" }
 $engine=Get-Content (Join-Path $root 'firmware\include\pp\race_engine.h') -Raw
 $codec=Get-Content (Join-Path $root 'firmware\include\pp\persistent_storage.h') -Raw
 $history=Get-Content (Join-Path $root 'firmware\include\pp\history_store.h') -Raw
