@@ -1,0 +1,286 @@
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=271261433 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=281262138 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=291264991 dropped=0; authoritative race state is reported separately
+[HTTP_TRACE] phase=enter route=/health fd=58 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=58 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=58 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=58 session_ctx=0 clients=8 active=0 result=0 elapsed_ms=27 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=58 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=58 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=58 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=58 session_ctx=0 clients=8 active=0 result=0 elapsed_ms=26 server_generation=1
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SESSION] start_request mode=NONE entries=2 lap_target=2 duration_min=10 finish=0 relevant_us=0[HTTP_TRACE] phase=enter route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=59 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=27 server_generation=1
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/proposal fd=58 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/proposal fd=58 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/proposal fd=58 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/proposal fd=58 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=27 server_generation=1
+[HTTP_TRACE] phase=enter route=/state fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=59 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=28 server_generation=1
+[HTTP_TRACE] phase=enter route=/state fd=52 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=52 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=52 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=52 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=30 server_generation=1
+[HTTP_TRACE] phase=enter route=/context fd=58 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/context fd=58 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/context fd=58 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[AUTH] CONTEXT response client_tag=1 has_master=true is_master=true owner_connected=true takeover_pending=false requested_by_this=false result=NONE sent=0
+[HTTP_TRACE] phase=exit route=/context fd=58 session_ctx=0 clients=8 active=0 result=0 elapsed_ms=38 server_generation=1
+[HTTP_TRACE] phase=enter route=/proposal fd=52 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/proposal fd=52 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/proposal fd=52 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/proposal fd=52 session_ctx=0 clients=8 active=0 result=0 elapsed_ms=31 server_generation=1
+[HTTP_TRACE] phase=enter route=/context fd=59 session_ctx=0 clients=7 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/context fd=59 session_ctx=0 clients=7 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/context fd=59 session_ctx=0 clients=7 active=1 result=0 elapsed_ms=0 server_generation=1
+[AUTH] CONTEXT response client_tag=2 has_master=true is_master=false owner_connected=true takeover_pending=false requested_by_this=false result=NONE sent=0
+[HTTP_TRACE] phase=exit route=/context fd=59 session_ctx=0 clients=7 active=0 result=0 elapsed_ms=40 server_generation=1
+[HTTP_TRACE] phase=enter route=/state fd=57 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=57 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=57 session_ctx=0 clients=8 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=57 session_ctx=0 clients=8 active=0 result=0 elapsed_ms=33 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=58 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=58 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=58 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=58 session_ctx=0 clients=10 active=0 result=0 elapsed_ms=27 server_generation=1
+
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[START] GO authoritative_scheduled_us=30[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+0792920[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+
+[SESSION] request_result correlation=1 result=ACCEPTED reason=NONE
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/health fd=57 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=57 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=57 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=57 session_ctx=0 clients=10 active=0 result=0 elapsed_ms=28 server_generation=1
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/state fd=52 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=52 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=52 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=52 session_ctx=0 clients=10 active=0 result=0 elapsed_ms=27 server_generation=1
+[HTTP_TRACE] phase=enter route=/state fd=58 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=58 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=58 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=58 session_ctx=0 clients=11 active=0 result=0 elapsed_ms=33 server_generation=1
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/health fd=59 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=59 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=59 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=59 session_ctx=0 clients=10 active=0 result=0 elapsed_ms=37 server_generation=1
+[DEV] P&P STAGE 8B-[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+P1 REAL SD BOOT_SELF_TEST=PASS system_us=302098457 dropped=0; authoritative race state is reported separately
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=10 active=0 result=0 elapsed_ms=25 server_generation=1
+[INPUT] fixture_pass lane=1 disposition=SOURCE_ASSERTED mode=1 release_us=304808878
+[P8-P1] history_payload_read slot=7 expected=45 open=1 file_size=41 bytes_read=0 result=size
+[P8-P1] history_payload_read slot=209 expected=45 open=0 file_size=0 bytes_read=0 result=open
+[HTTP_TRACE] phase=enter route=/state fd=57 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=57 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=57 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=57 session_ctx=0 clients=10 active=0 result=0 elapsed_ms=31 server_generation=1
+[HTTP_TRACE] phase=enter route=/state fd=52 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=52 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=52 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=52 session_ctx=0 clients=10 active=0 result=0 elapsed_ms=29 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=59 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=59 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=59 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=59 session_ctx=0 clients=12 active=0 result=0 elapsed_ms=27 server_generation=1
+[LAP] accepted entry=1 lap=1 factual_laps=1 lap_us=3890042 classified_laps=1 relevant_us=304682962[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+
+[INPUT EVENT] device=50500001 capability=1 relevant_us=304682962
+[INPUT] fixture_pass lane=2 disposition=SOURCE_ASSERTED mode=1 release_us=306861979
+[HTTP_TRACE] phase=enter route=/state fd=53 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=53 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=53 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=53 session_ctx=0 clients=12 active=0 result=0 elapsed_ms=29 server_generation=1
+[HTTP_TRACE] phase=enter route=/state fd=54 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=54 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=54 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=54 session_ctx=0 clients=12 active=0 result=0 elapsed_ms=30 server_generation=1
+[LAP] accepted entry=2 lap=1 factual_laps=1 lap_us=5942661 classified_laps=1 relevant_us=306735581[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+
+[INPUT EVENT] device=50500001 capability=2 relevant_us=306735581
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=11 active=0 result=0 elapsed_ms=27 server_generation=1
+[INPUT] fixture_pass lane=1 disposition=SOURCE_ASSERTED mode=1 release_us=309211163
+[LAP] accepted entry=1 lap=2 factual_laps=2 lap_us=4404901 classified_laps=2 relevant_us=309087863[HTTP_TRACE] phase=enter route=/state fd=61 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=61 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=61 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=61 session_ctx=0 clients=11 active=0 result=0 elapsed_ms=28 server_generation=1
+[HTTP_TRACE] phase=enter route=/state fd=57 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=57 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=57 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=57 session_ctx=0 clients=10 active=0 result=0 elapsed_ms=31 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=59 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=59 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=59 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=59 session_ctx=0 clients=10 active=0 result=0 elapsed_ms=28 server_generation=1
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[INPUT EVENT] device=50500001 capability=1 relevant_us=309087863[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/state fd=62 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=62 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=62 session_ctx=0 clients=10 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=62 session_ctx=0 clients=10 active=0 result=0 elapsed_ms=30 server_generation=1
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/state fd=62 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=62 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=send_complete route=/state fd=62 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=62 session_ctx=0 clients=12 active=0 result=0 elapsed_ms=46 server_generation=1
+[HTTP_TRACE] phase=enter route=/state fd=52 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=52 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=52 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=52 session_ctx=0 clients=12 active=0 result=0 elapsed_ms=31 server_generation=1
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/state fd=59 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=59 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=59 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[RESULT] finish_settled relevant_us=309087863[HTTP_TRACE] phase=exit route=/state fd=59 session_ctx=0 clients=12 active=0 result=0 elapsed_ms=31 server_generation=1
+
+[RESULT] sealed finish_relevant_us=309087863 winner_entry=1 valid=1 integrity=OK
+[RESULT] history_stored sequence=11 relevant_us=309087863
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=12 active=0 result=0 elapsed_ms=26 server_generation=1
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=312099181 dropped=0; authoritative race state is reported separately
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=12 active=0 result=0 elapsed_ms=26 server_generation=1
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=notification hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=notification hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/state fd=52 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=52 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=52 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=52 session_ctx=0 clients=12 active=0 result=0 elapsed_ms=30 server_generation=1
+[HTTP_TRACE] phase=enter route=/proposal fd=53 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/proposal fd=53 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/proposal fd=53 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/proposal fd=53 session_ctx=0 clients=11 active=0 result=0 elapsed_ms=28 server_generation=1
+[HTTP_TRACE] phase=enter route=/state fd=62 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/state fd=62 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/state fd=62 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/state fd=62 session_ctx=0 clients=11 active=0 result=0 elapsed_ms=31 server_generation=1
+[HTTP_TRACE] phase=enter route=/context fd=52 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/context fd=52 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/context fd=52 session_ctx=0 clients=12 active=1 result=0 elapsed_ms=0 server_generation=1
+[AUTH] CONTEXT response client_tag=1 has_master=true is_master=true owner_connected=true takeover_pending=false requested_by_this=false result=NONE sent=0
+[HTTP_TRACE] phase=exit route=/context fd=52 session_ctx=0 clients=12 active=0 result=0 elapsed_ms=38 server_generation=1
+[HTTP_TRACE] phase=enter route=/context fd=57 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/context fd=57 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/context fd=57 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[AUTH] CONTEXT response client_tag=2 has_master=true is_master=false owner_connected=true takeover_pending=false requested_by_this=false result=NONE sent=0
+[HTTP_TRACE] phase=exit route=/context fd=57 session_ctx=0 clients=11 active=0 result=0 elapsed_ms=51 server_generation=1
+[HTTP_TRACE] phase=enter route=/proposal fd=58 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/proposal fd=58 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/proposal fd=58 session_ctx=0 clients=11 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/proposal fd=58 session_ctx=0 clients=11 active=0 result=0 elapsed_ms=27 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=27 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=27 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=322103173 dropped=0; authoritative race state is reported separately
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=25 server_generation=1
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5980 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=59 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=28 server_generation=1
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=332106001 dropped=0; authoritative race state is reported separately
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
