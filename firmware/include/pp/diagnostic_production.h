@@ -272,6 +272,14 @@ public:
 
   bool status(SessionStatus& status) const override {
     status = normal_;
+    const StorageStatus current = storage_.status();
+    if (current.health != StorageHealth::DurableSd || !current.durable) {
+      status.storage = current.health;
+      status.evidenceVolatile = true;
+      status.evidenceIncomplete = true;
+      if (status.lastFailure == FailureReason::None)
+        status.lastFailure = current.lastFailure;
+    }
     return normal_.controllerEpoch.valid();
   }
 

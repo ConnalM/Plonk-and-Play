@@ -218,6 +218,11 @@ class Store {
 public:
   virtual bool available() const = 0;
   virtual bool read(unsigned slot, uint8_t* data, size_t size) = 0;
+  // A caller may distinguish a required, metadata-referenced object from an
+  // optional slot.  Legacy backends retain their existing read semantics.
+  virtual bool readRequired(unsigned slot, uint8_t* data, size_t size) {
+    return read(slot, data, size);
+  }
   virtual bool write(unsigned slot, const uint8_t* data, size_t size) = 0;
   virtual StoreHealth health() const { return available() ? StoreHealth::Healthy : StoreHealth::Unavailable; }
   virtual uint64_t totalBytes() const { return 0; }

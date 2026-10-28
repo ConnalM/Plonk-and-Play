@@ -47,6 +47,13 @@ public:
     ~Lease() { release(); }
     explicit operator bool() const { return held_; }
 
+    // A logical consumer may report a proven filesystem failure only while it
+    // still holds this lease.  The owner remains the sole authority that
+    // changes physical availability/health; this does not mount or recover.
+    void reportIoFailure() {
+      if (owner_ && held_) owner_->markIoFailureLocked();
+    }
+
   private:
     void release() {
       if (owner_ && held_) owner_->give();
@@ -118,6 +125,10 @@ private:
   }
   void give() {
     if (mutex_) xSemaphoreGiveRecursive(mutex_);
+  }
+  void markIoFailureLocked() {
+    mounted_ = false;
+    health_ = Health::Unavailable;
   }
   bool mountLocked() {
     mounted_ = false;

@@ -88,7 +88,7 @@ public:
     if (!bytes || !ensure() || index >= meta_.count) return false;
     const Entry& entry = meta_.entries[meta_.count - 1 - index];
     if (!entry.bytes || entry.bytes > capacity || entry.slot >= PhysicalSlots) return false;
-    if (!store_.read(DataSlot + entry.slot, bytes, entry.bytes)) return false;
+    if (!store_.readRequired(DataSlot + entry.slot, bytes, entry.bytes)) return false;
     length = entry.bytes; sequence = entry.sequence; return true;
   }
 

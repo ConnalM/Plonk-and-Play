@@ -92,12 +92,15 @@ public:
     // handles concurrently: the count can advance while the first read
     // fails.  A short-lived append handle keeps writes and reads independent.
     File output = owner_.open(FilePath, FILE_APPEND);
-    if (!output)
+    if (!output) {
+      reportPhysicalIoFailure(lease);
       return fail(StorageResult::WriteFailed, FailureReason::WriteFailure);
+    }
     const size_t written = output.write(bytes, pos);
     output.flush();
     output.close();
     if (written != pos) {
+      reportPhysicalIoFailure(lease);
       return fail(StorageResult::WriteFailed, FailureReason::WriteFailure);
     }
     ++recordCount_;
@@ -123,6 +126,7 @@ public:
     File input = owner_.open(FilePath, FILE_READ);
     if (!input || !input.seek(HeaderBytes)) {
       if (input) input.close();
+      reportPhysicalIoFailure(lease);
       return false;
     }
     uint8_t frame[RecordOverheadBytes + MaxPayloadBytes]{};
@@ -153,10 +157,10 @@ public:
 
   StorageStatus status() const override {
     StorageStatus value{};
-    value.health = health_;
+    value.health = owner_.available() ? health_ : StorageHealth::Fault;
     value.backend = BackendKind::ProductionSd;
-    value.lastFailure = lastFailure_;
-    value.durable = mounted_ && health_ == StorageHealth::DurableSd;
+    value.lastFailure = owner_.available() ? lastFailure_ : FailureReason::BackendUnavailable;
+    value.durable = owner_.available() && mounted_ && health_ == StorageHealth::DurableSd;
     return value;
   }
 
@@ -410,8 +414,13 @@ private:
   mutable size_t fileBytes_ = 0;
   mutable uint64_t lastSequence_ = 0;
   mutable uint64_t revision_ = 0;
-  bool mounted_ = false;
+  mutable bool mounted_ = false;
   bool open_ = false;
+
+  void reportPhysicalIoFailure(PhysicalSdOwner::Lease& lease) const {
+    if (lease) lease.reportIoFailure();
+    mounted_ = false;
+  }
 
   void closeReadCursor() const {
     if (readFile_)

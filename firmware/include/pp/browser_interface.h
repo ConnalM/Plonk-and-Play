@@ -2381,10 +2381,29 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     trace.complete(sent);
     return sent;
   }
+  static const char* storageHealthName(diagnostic::StorageHealth value) {
+    switch (value) {
+      case diagnostic::StorageHealth::DurableSd: return "DURABLE_SD";
+      case diagnostic::StorageHealth::RamOnly: return "RAM_ONLY";
+      case diagnostic::StorageHealth::Degraded: return "DEGRADED";
+      case diagnostic::StorageHealth::Fault: return "FAULT";
+    }
+    return "UNKNOWN";
+  }
   static esp_err_t health(httpd_req_t* request) {
     RequestTrace trace(instance(), "/health");
+    char json[192]{};
+    diagnostic::SessionStatus normal{};
+    diagnostic::StorageStatus storage{};
+    size_t retained = 0;
+    const bool storageKnown = instance()->diagnosticTrace_ &&
+      instance()->diagnosticTrace_->status(normal, storage, retained);
+    snprintf(json, sizeof(json),
+             "{\"ok\":true,\"browser\":\"stage13\",\"storage\":\"%s\",\"storageDurable\":%s}",
+             storageKnown ? storageHealthName(storage.health) : "UNKNOWN",
+             storageKnown && storage.durable ? "true" : "false");
     httpd_resp_set_type(request, "application/json");
-    const esp_err_t sent = httpd_resp_sendstr(request, "{\"ok\":true,\"browser\":\"stage13\"}"); trace.complete(sent); return sent;
+    const esp_err_t sent = httpd_resp_sendstr(request, json); trace.complete(sent); return sent;
   }
   void startServer() {
     instance() = this;
