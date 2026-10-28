@@ -1,0 +1,177 @@
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=442164243 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=452166792 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=25 server_generation=1
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=462169187 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=472169572 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=482172178 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=492174200 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=502176871 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=512180117 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=522183116 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=532184015 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=542187239 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=552189102 dropped=0; authoritative race state is reported separately
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=562190280 dropped=0; authoritative race state is reported separately
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=27 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=27 server_generation=1
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=27 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=25 server_generation=1
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=572192301 dropped=0; authoritative race state is reported separately
+[HTTP_TRACE] phase=enter route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=59 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=27 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=582195176 dropped=0; authoritative race state is reported separately
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=59 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=27 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=592197179 dropped=0; authoritative race state is reported separately
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=25 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=1 fd=51 stage=keepalive hwm_bytes=5988 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[SSE_STACK] generation=2 fd=55 stage=keepalive hwm_bytes=5772 stack_bytes=8192 cleanup=none
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=59 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=59 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=28 server_generation=1
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=26 server_generation=1
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=602199301 dropped=0; authoritative race state is reported separately
+[HTTP_TRACE] phase=enter route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_begin route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=send_complete route=/health fd=60 session_ctx=0 clients=9 active=1 result=0 elapsed_ms=0 server_generation=1
+[HTTP_TRACE] phase=exit route=/health fd=60 session_ctx=0 clients=9 active=0 result=0 elapsed_ms=27 server_generation=1
