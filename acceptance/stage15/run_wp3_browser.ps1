@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $browser = Get-Content -Raw (Join-Path $root 'firmware/browser/normal_browser.html')
+$browserEmbed = Get-Content -Raw (Join-Path $root 'firmware/browser/embed_normal.py')
 $interface = Get-Content -Raw (Join-Path $root 'firmware/include/pp/browser_interface.h')
 $production = Get-Content -Raw (Join-Path $root 'firmware/include/pp/diagnostic_production.h')
 $main = Get-Content -Raw (Join-Path $root 'firmware/src/main.cpp')
@@ -8,7 +9,10 @@ $main = Get-Content -Raw (Join-Path $root 'firmware/src/main.cpp')
 foreach ($marker in @(
   'Settings','Advanced','diagnosticsPage','DOWNLOAD DIAGNOSTICS',
   '/diag/status','/diag/download','DEVELOPMENT LOGGING')) {
-  if ($browser -notlike "*$marker*") { throw "Browser diagnostics marker missing: $marker" }
+  if ($browser -notlike "*$marker*" -and $browserEmbed -notlike "*$marker*") { throw "Browser diagnostics marker missing: $marker" }
+}
+foreach ($marker in @('Retry storage','/request/retry-storage','retryStoragePending','response.status===202&&body.accepted===true')) {
+  if ($browser -notlike "*$marker*" -and $browserEmbed -notlike "*$marker*") { throw "Retry storage Browser marker missing: $marker" }
 }
 foreach ($marker in @(
   'diagnosticStartRoute','diagnosticStopRoute','diagnosticStatusRoute',

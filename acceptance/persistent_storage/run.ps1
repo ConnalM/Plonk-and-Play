@@ -12,6 +12,7 @@ $housekeeping=Join-Path $env:TEMP 'pp-storage-housekeeping-test.exe'
 $semantic=Join-Path $env:TEMP 'pp-wp2f-semantic-test.exe'
 $reconstruction=Join-Path $env:TEMP 'pp-reconstruction-readiness-test.exe'
 $ownerContract=Join-Path $PSScriptRoot 'physical_sd_owner_contract.ps1'
+$retryStorageBrowserContract=Join-Path $PSScriptRoot 'retry_storage_browser_contract.ps1'
 $healthContract=Join-Path $PSScriptRoot 'storage_health_propagation_contract.ps1'
 $retryStorageContract=Join-Path $PSScriptRoot 'retry_storage_contract.ps1'
 $recoveryPolicy=Join-Path $env:TEMP 'pp-retry-storage-recovery-policy.exe'
@@ -65,6 +66,8 @@ if ($LASTEXITCODE -ne 0) { throw "Physical SD owner contract acceptance failed: 
 if ($LASTEXITCODE -ne 0) { throw "Storage health propagation contract acceptance failed: $LASTEXITCODE" }
 & $retryStorageContract
 if ($LASTEXITCODE -ne 0) { throw "Retry storage contract acceptance failed: $LASTEXITCODE" }
+& $retryStorageBrowserContract
+if ($LASTEXITCODE -ne 0) { throw "Retry storage Browser contract acceptance failed: $LASTEXITCODE" }
 g++ -std=c++17 -Wall -Wextra -Werror (Join-Path $PSScriptRoot 'recovery_policy_test.cpp') -o $recoveryPolicy
 if ($LASTEXITCODE -ne 0) { throw "Retry storage recovery-policy compile failed: $LASTEXITCODE" }
 & $recoveryPolicy
