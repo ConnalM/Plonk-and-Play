@@ -19,6 +19,41 @@ The classifications below distinguish implementation from acceptance. A host,
 Wokwi or structural test does not prove the corresponding physical product
 behaviour.
 
+## Current WP5 status addendum — 2026-10-28
+
+This addendum supersedes the older Browser/HTTP-SSE and multi-client status
+rows below where later accepted evidence exists. It does not reopen any
+accepted product behaviour.
+
+- **CLOSED — Browser HTTP/SSE transport and reboot recovery.** The approved
+  `230f1ba09465f3751aa9916624b78848f2457925` / `stage8bp1s3sd` candidate
+  passed the two-Browser RESET/EN acceptance: fresh sequential
+  `/state -> /proposal -> /context`, retained Master/spectator reconstruction,
+  two settled SSE generations, bounded client population and no authority,
+  race or persistence mutation. Durable evidence is commit
+  `4134080afcb92eaa2c5b0d48775d7d4161d71cf2`.
+- **CLOSED — P16/P17/P18 physical Lap finish policies.** The accepted Session 1
+  evidence records All Stop, Finish Current Lap and Complete Full Race Distance
+  physical passes.
+- **DEFERRED-BY-DEPENDENCY — Stage 14C Browser/Taster and Phase 8B
+  Browser/Taster coexistence.** The physical Taster/display implementation is
+  assigned to WP8; the frozen Stage 14C/Phase 8B semantics remain mandatory
+  WP8 acceptance and are not WP5 blockers.
+- **OPEN — production SD hardware acceptance.** The remaining WP5 SD scope is
+  reboot/second-race retention, controlled removal/remount/recovery and
+  degraded/unavailable diagnostics (the applicable PSF.27/PSF.31–37 and
+  PS15.78/PS15.84/PS15.90–PS15.92 evidence). The intermittent cold-boot mount
+  observation remains separately recorded and is not silently converted into
+  a firmware change.
+- **OPEN — PSF.28.** The frozen requirement for repeated real power
+  interruption during active SD persistence, followed by safe reboot/remount/
+  reconstruction, remains unexercised.
+
+Accordingly WP5 hardware acceptance remains **OPEN**. The next required
+bounded session is the SD recovery/retention and degraded-diagnostics session;
+PSF.28 remains the subsequent separate destructive-storage session. No new
+physical action is authorized by this documentation update.
+
 ## Consolidated requirement matrix
 
 | Area / requirement | Status | Completion area | Evidence or remaining obligation |
