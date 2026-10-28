@@ -199,7 +199,7 @@ void servicePhysicalSdRecovery() {
 
   // The owner has completed the only physical mount. Consumers now
   // reconstruct their own namespaces without touching the physical bus.
-  const bool historyReady = sdPersistence.recover() && rawHistory.reconstruct();
+  const bool historyReady = sdPersistence.recover() && rawHistory.reconstruct() && history.reconstruct();
   const bool detailReady = activeDetail.recover();
   const bool diagnosticsReady = controllerTraceStorage.recover() == pp::diagnostic::StorageResult::Accepted;
   if (historyReady && detailReady && diagnosticsReady) {
@@ -669,7 +669,7 @@ void setup(){
   diagnostics.log("[INIT] Normal diagnostics %s storage=%u", normalDiagnosticsReady ? "READY" : "DEGRADED",
                   static_cast<unsigned>(controllerTraceStorage.status().health));
 #if defined(PP_PHASE8B_REAL_SD)
-  const bool historyNamespaceReady = physicalSdReady && sdReady && rawHistory.reconstruct();
+  const bool historyNamespaceReady = physicalSdReady && sdReady && rawHistory.reconstruct() && history.reconstruct();
   const bool detailNamespaceReady = physicalSdReady && sdReady && activeDetail.recover();
   if (physicalSdReady && sdReady && normalDiagnosticsReady &&
       historyNamespaceReady && detailNamespaceReady) {

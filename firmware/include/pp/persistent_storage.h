@@ -119,7 +119,12 @@ public:
     size_t encodedLength=0;
     uint32_t storedSequence=0;
     const bool loaded=backend_.loadNewest(index,encoded,encodedCapacity,encodedLength,storedSequence);
-    const bool decodedOk=loaded&&VersionedResultCodec::decode(encoded,encodedLength,*reinterpret_cast<RaceEngineModule::CompletedRaceResult*>(bytes));
+    if (!loaded) {
+      if (backend_.available()) noteFault(index, storedSequence, backend_.health() == StoreHealth::Corrupt ? HistoryFaultReason::SizeMismatch : HistoryFaultReason::Corrupt);
+      free(encoded); return false;
+    }
+    const bool decodedOk=VersionedResultCodec::decode(encoded,encodedLength,*reinterpret_cast<RaceEngineModule::CompletedRaceResult*>(bytes));
+    if (!decodedOk) noteFault(index, storedSequence, unsupported(encoded, encodedLength) ? HistoryFaultReason::Unsupported : HistoryFaultReason::Corrupt);
     if(decodedOk){
       length=sizeof(RaceEngineModule::CompletedRaceResult);
       sequence=storedSequence;
@@ -128,19 +133,67 @@ public:
     return decodedOk;
   }
   uint8_t count() override{return backend_.count();}
+  bool reconstruct() override {
+    logicalHealth_ = StoreHealth::Unknown;
+    invalidCount_ = 0;
+    memset(faultReported_, 0, sizeof(faultReported_));
+    if (!backend_.reconstruct()) { logicalHealth_ = StoreHealth::Unavailable; return false; }
+    const uint8_t total = backend_.count();
+    auto* scratch = static_cast<RaceEngineModule::CompletedRaceResult*>(calloc(1, sizeof(RaceEngineModule::CompletedRaceResult)));
+    if (!scratch) return false;
+    for (uint8_t i = 0; i < total; ++i) {
+      size_t bytes = 0; uint32_t sequence = 0;
+      (void)loadNewest(i, reinterpret_cast<uint8_t*>(scratch), sizeof(*scratch), bytes, sequence);
+      if (!backend_.available()) { free(scratch); logicalHealth_ = StoreHealth::Unavailable; return false; }
+    }
+    free(scratch);
+    return true;
+  }
+  StoreHealth health() const override {
+    if (!backend_.available()) return StoreHealth::Unavailable;
+    if (logicalHealth_ == StoreHealth::Corrupt || logicalHealth_ == StoreHealth::Unsupported) return logicalHealth_;
+    const StoreHealth backendHealth = backend_.health();
+    return backendHealth == StoreHealth::Unavailable ? StoreHealth::Healthy : backendHealth;
+  }
+  uint8_t invalidCount() const override { return invalidCount_; }
   bool loadSequence(uint32_t wanted,uint8_t* bytes,size_t capacity,size_t& length,uint32_t& sequence) override {
     length=0; sequence=0; if(!bytes||capacity<sizeof(RaceEngineModule::CompletedRaceResult))return false;
-    const size_t encodedCapacity=backend_.maximumPayloadBytes()>VersionedResultCodec::MaxBytes?backend_.maximumPayloadBytes():VersionedResultCodec::MaxBytes;
-    auto* encoded=static_cast<uint8_t*>(malloc(encodedCapacity));
-    if(!encoded){free(encoded);return false;}
-    size_t encodedLength=0; uint32_t storedSequence=0;
-    const bool loaded=backend_.loadSequence(wanted,encoded,encodedCapacity,encodedLength,storedSequence);
-    const bool decodedOk=loaded&&storedSequence==wanted&&VersionedResultCodec::decode(encoded,encodedLength,*reinterpret_cast<RaceEngineModule::CompletedRaceResult*>(bytes));
-    if(decodedOk){length=sizeof(RaceEngineModule::CompletedRaceResult);sequence=storedSequence;}
-    free(encoded); return decodedOk;
+    const uint8_t total = count();
+    for (uint8_t i = 0; i < total; ++i) {
+      size_t candidateLength = 0; uint32_t candidateSequence = 0;
+      if (loadNewest(i, bytes, capacity, candidateLength, candidateSequence) && candidateSequence == wanted) {
+        length = candidateLength; sequence = candidateSequence; return true;
+      }
+    }
+    return false;
   }
   bool clear() override{return backend_.clear();}
-private: HistoryStore&backend_;
+private:
+  enum class HistoryFaultReason : uint8_t { SizeMismatch, Corrupt, Unsupported };
+  static bool unsupported(const uint8_t* bytes, size_t length) {
+    if (!bytes || length < 8) return false;
+    const uint32_t magic = uint32_t(bytes[0]) | (uint32_t(bytes[1]) << 8) | (uint32_t(bytes[2]) << 16) | (uint32_t(bytes[3]) << 24);
+    const uint16_t version = uint16_t(bytes[4]) | (uint16_t(bytes[5]) << 8);
+    return magic == VersionedResultCodec::Magic && version != 2 && version != VersionedResultCodec::Version;
+  }
+  static const char* faultReason(HistoryFaultReason reason) {
+    switch (reason) { case HistoryFaultReason::SizeMismatch: return "size"; case HistoryFaultReason::Unsupported: return "unsupported"; default: return "corrupt"; }
+  }
+  void noteFault(uint8_t index, uint32_t sequence, HistoryFaultReason reason) {
+    logicalHealth_ = reason == HistoryFaultReason::Unsupported ? StoreHealth::Unsupported : StoreHealth::Corrupt;
+    if (index < HistoryStore::Capacity && faultReported_[index]) return;
+    if (index < HistoryStore::Capacity) faultReported_[index] = true;
+    if (invalidCount_ < UINT8_MAX) ++invalidCount_;
+#ifdef ARDUINO
+    Serial.printf("[PERSIST] history_record_excluded index=%u sequence=%lu reason=%s\n", index, static_cast<unsigned long>(sequence), faultReason(reason));
+#else
+    (void)sequence;
+#endif
+  }
+  HistoryStore&backend_;
+  mutable StoreHealth logicalHealth_ = StoreHealth::Unknown;
+  uint8_t invalidCount_ = 0;
+  bool faultReported_[HistoryStore::Capacity]{};
 };
 
 // Versioned Track Record persistence for the development backend. It retains

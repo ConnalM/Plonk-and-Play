@@ -956,14 +956,16 @@ private:
     if(!loaded){length=0;return false;}
     if(history){
       const uint8_t total=history->count();
+      uint8_t emitted = 0;
       for(uint8_t i=0;i<total&&ok;++i){
         size_t bytes=0;uint32_t sequence=0;
-        if(!history->loadNewest(i,reinterpret_cast<uint8_t*>(loaded),sizeof(*loaded),bytes,sequence)||bytes!=sizeof(*loaded)||!loaded->sealed||loaded->formatVersion!=RaceEngineModule::ResultFormatVersion){ok=false;break;}
+        if(!history->loadNewest(i,reinterpret_cast<uint8_t*>(loaded),sizeof(*loaded),bytes,sequence)||bytes!=sizeof(*loaded)||!loaded->sealed||loaded->formatVersion!=RaceEngineModule::ResultFormatVersion)continue;
         const char* mode=loaded->mode==SessionMode::Endurance?"ENDURANCE":loaded->mode==SessionMode::OpenPractice?"OPEN_PRACTICE":"LAP_RACE";
-        const uint64_t overtimeUs=loaded->overtime&&loaded->finishTime>loaded->expiryTime?loaded->finishTime-loaded->expiryTime:0;ok=appendJson(out,cap,n,"%s{\"sequence\":%lu,\"sealed\":true,\"mode\":\"%s\",\"durationMinutes\":%u,\"lapTarget\":%lu,\"finishBehaviour\":\"%s\",\"winningTime\":%llu,\"finishTime\":%llu,\"expiryTime\":%llu,\"overtime\":%s,\"overtimeUs\":%llu,\"fastestLap\":%llu,\"entryCount\":%u,\"entries\":[",i?",":"",(unsigned long)sequence,mode,unsigned(loaded->durationMinutes),(unsigned long)loaded->lapTarget,finishBehaviour(loaded->behaviour),(unsigned long long)loaded->winningTime,(unsigned long long)loaded->finishTime,(unsigned long long)loaded->expiryTime,loaded->overtime?"true":"false",(unsigned long long)overtimeUs,(unsigned long long)loaded->fastestLap,unsigned(loaded->entryCount));
+        const uint64_t overtimeUs=loaded->overtime&&loaded->finishTime>loaded->expiryTime?loaded->finishTime-loaded->expiryTime:0;ok=appendJson(out,cap,n,"%s{\"sequence\":%lu,\"sealed\":true,\"mode\":\"%s\",\"durationMinutes\":%u,\"lapTarget\":%lu,\"finishBehaviour\":\"%s\",\"winningTime\":%llu,\"finishTime\":%llu,\"expiryTime\":%llu,\"overtime\":%s,\"overtimeUs\":%llu,\"fastestLap\":%llu,\"entryCount\":%u,\"entries\":[",emitted?",":"",(unsigned long)sequence,mode,unsigned(loaded->durationMinutes),(unsigned long)loaded->lapTarget,finishBehaviour(loaded->behaviour),(unsigned long long)loaded->winningTime,(unsigned long long)loaded->finishTime,(unsigned long long)loaded->expiryTime,loaded->overtime?"true":"false",(unsigned long long)overtimeUs,(unsigned long long)loaded->fastestLap,unsigned(loaded->entryCount));
         const uint8_t count=loaded->entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:loaded->entryCount;if(loaded->entryCount>PP_MAX_ENTRIES)ok=false;
         for(uint8_t j=0;j<count&&ok;++j){const auto&e=loaded->entries[j];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"lapsBehind\":%lu,\"completed\":%s}",j?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,(unsigned long)e.lapsBehind,e.completed?"true":"false");}
         ok=appendJson(out,cap,n,"]}");
+        if (ok) ++emitted;
       }
     }
     ok=appendJson(out,cap,n,"]}")&&ok;if(owned)RaceEngineModule::clearResult(*loaded);if(owned)free(loaded);return ok;
@@ -1040,18 +1042,30 @@ private:
     httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");
     esp_err_t sent=httpd_resp_send_chunk(request,"{\"entries\":[",HTTPD_RESP_USE_STRLEN);
     const uint8_t total=browser->history_?browser->history_->count():0;
+    uint8_t emitted=0;
     for(uint8_t i=0;i<total&&sent==ESP_OK;++i){
       size_t bytes=0;uint32_t sequence=0;
-      if(!browser->history_->loadNewest(i,reinterpret_cast<uint8_t*>(stored),sizeof(*stored),bytes,sequence)||bytes!=sizeof(*stored)||!stored->sealed||stored->formatVersion!=RaceEngineModule::ResultFormatVersion){sent=ESP_ERR_INVALID_SIZE;break;}
+      if(!browser->history_->loadNewest(i,reinterpret_cast<uint8_t*>(stored),sizeof(*stored),bytes,sequence)||bytes!=sizeof(*stored)||!stored->sealed||stored->formatVersion!=RaceEngineModule::ResultFormatVersion){
+        if (browser->history_->health() == StoreHealth::Unavailable) { sent=ESP_ERR_INVALID_STATE; break; }
+        continue;
+      }
       char chunk[1536];const char* mode=stored->mode==SessionMode::Endurance?"ENDURANCE":stored->mode==SessionMode::OpenPractice?"OPEN_PRACTICE":"LAP_RACE";
       const uint64_t overtimeUs=stored->overtime&&stored->finishTime>stored->expiryTime?stored->finishTime-stored->expiryTime:0;
-      const int n=snprintf(chunk,sizeof(chunk),"%s{\"sequence\":%lu,\"sealed\":true,\"mode\":\"%s\",\"durationMinutes\":%u,\"lapTarget\":%lu,\"finishBehaviour\":\"%s\",\"winningTime\":%llu,\"finishTime\":%llu,\"expiryTime\":%llu,\"overtime\":%s,\"overtimeUs\":%llu,\"fastestLap\":%llu,\"entryCount\":%u,\"entries\":[",i?",":"",(unsigned long)sequence,mode,unsigned(stored->durationMinutes),(unsigned long)stored->lapTarget,finishBehaviour(stored->behaviour),(unsigned long long)stored->winningTime,(unsigned long long)stored->finishTime,(unsigned long long)stored->expiryTime,stored->overtime?"true":"false",(unsigned long long)overtimeUs,(unsigned long long)stored->fastestLap,unsigned(stored->entryCount));
+      const int n=snprintf(chunk,sizeof(chunk),"%s{\"sequence\":%lu,\"sealed\":true,\"mode\":\"%s\",\"durationMinutes\":%u,\"lapTarget\":%lu,\"finishBehaviour\":\"%s\",\"winningTime\":%llu,\"finishTime\":%llu,\"expiryTime\":%llu,\"overtime\":%s,\"overtimeUs\":%llu,\"fastestLap\":%llu,\"entryCount\":%u,\"entries\":[",emitted?",":"",(unsigned long)sequence,mode,unsigned(stored->durationMinutes),(unsigned long)stored->lapTarget,finishBehaviour(stored->behaviour),(unsigned long long)stored->winningTime,(unsigned long long)stored->finishTime,(unsigned long long)stored->expiryTime,stored->overtime?"true":"false",(unsigned long long)overtimeUs,(unsigned long long)stored->fastestLap,unsigned(stored->entryCount));
       if(n<0||static_cast<size_t>(n)>=sizeof(chunk)){sent=ESP_ERR_INVALID_SIZE;break;}
       sent=httpd_resp_send_chunk(request,chunk,n);
       for(uint8_t j=0;j<stored->entryCount&&sent==ESP_OK;++j){const auto&e=stored->entries[j];const int m=snprintf(chunk,sizeof(chunk),"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"lapsBehind\":%lu,\"completed\":%s}",j?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,(unsigned long)e.lapsBehind,e.completed?"true":"false");if(m<0||static_cast<size_t>(m)>=sizeof(chunk)){sent=ESP_ERR_INVALID_SIZE;break;}sent=httpd_resp_send_chunk(request,chunk,m);}
-      if(sent==ESP_OK)sent=httpd_resp_send_chunk(request,"]}",2);
+      if(sent==ESP_OK){sent=httpd_resp_send_chunk(request,"]}",2);if(sent==ESP_OK)++emitted;}
     }
-    if(sent==ESP_OK)sent=httpd_resp_send_chunk(request,"]}",2);
+    if(sent==ESP_OK){
+      sent=httpd_resp_send_chunk(request,"]",1);
+      if(sent==ESP_OK){
+        const char* health = browser->history_ ? historyHealthName(browser->history_->health()) : "UNKNOWN";
+        char summary[96]{};
+        const int summaryLength=snprintf(summary,sizeof(summary),",\"historyHealth\":\"%s\",\"excludedCount\":%u}",health,browser->history_?unsigned(browser->history_->invalidCount()):0u);
+        sent = summaryLength > 0 && static_cast<size_t>(summaryLength) < sizeof(summary) ? httpd_resp_send_chunk(request,summary,summaryLength) : ESP_ERR_INVALID_SIZE;
+      }
+    }
     if(sent==ESP_OK)sent=httpd_resp_send_chunk(request,nullptr,0);
     RaceEngineModule::clearResult(*stored);free(stored);trace.complete(sent);return sent;
   }
@@ -2015,7 +2029,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       return ESP_FAIL;
     }
     const int length = snprintf(json, 1024,
-      "{\"formatVersion\":1,\"controllerEpoch\":%llu,\"session\":%llu,\"lifecycle\":%u,\"developmentSession\":%llu,\"developmentLifecycle\":%u,\"storageHealth\":%u,\"backend\":%u,\"lastFailure\":%u,\"nextSequence\":%llu,\"bytesRecorded\":%llu,\"retainedRecords\":%u,\"droppedRecords\":%llu,\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"exportCapability\":\"%s\",\"retrievalAvailable\":%s}",
+      "{\"formatVersion\":1,\"controllerEpoch\":%llu,\"session\":%llu,\"lifecycle\":%u,\"developmentSession\":%llu,\"developmentLifecycle\":%u,\"storageHealth\":%u,\"backend\":%u,\"lastFailure\":%u,\"nextSequence\":%llu,\"bytesRecorded\":%llu,\"retainedRecords\":%u,\"droppedRecords\":%llu,\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"exportCapability\":\"%s\",\"retrievalAvailable\":%s,\"historyHealth\":\"%s\",\"historyExcluded\":%u}",
       static_cast<unsigned long long>(normal.controllerEpoch.value),
       static_cast<unsigned long long>(normal.session.value),
       static_cast<unsigned>(normal.lifecycle),
@@ -2024,7 +2038,9 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       static_cast<unsigned long long>(normal.nextSequence), static_cast<unsigned long long>(normal.bytesRecorded), static_cast<unsigned>(retained),
       static_cast<unsigned long long>(normal.droppedRecords + session.droppedRecords), normal.evidenceVolatile ? "true" : "false",
       normal.evidenceIncomplete || session.evidenceIncomplete ? "true" : "false",
-      diagnosticExportCapability(storage, retained), retained ? "true" : "false");
+      diagnosticExportCapability(storage, retained), retained ? "true" : "false",
+      historyHealthName(browser->history_ ? browser->history_->health() : StoreHealth::Unknown),
+      browser->history_ ? unsigned(browser->history_->invalidCount()) : 0u);
     if (length < 0 || length >= 1024) {
       free(json);
       httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "diagnostic status serialization failed");
@@ -2443,18 +2459,36 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     }
     return "UNKNOWN";
   }
+  static const char* historyHealthName(StoreHealth value) {
+    switch (value) {
+      case StoreHealth::Healthy: return "HEALTHY";
+      case StoreHealth::Low: return "LOW";
+      case StoreHealth::Insufficient: return "INSUFFICIENT";
+      case StoreHealth::Unavailable: return "UNAVAILABLE";
+      case StoreHealth::Corrupt: return "CORRUPT";
+      case StoreHealth::Unsupported: return "UNSUPPORTED";
+      default: return "UNKNOWN";
+    }
+  }
   static esp_err_t health(httpd_req_t* request) {
     RequestTrace trace(instance(), "/health");
-    char json[192]{};
+    char json[256]{};
     diagnostic::SessionStatus normal{};
     diagnostic::StorageStatus storage{};
     size_t retained = 0;
     const bool storageKnown = instance()->diagnosticTrace_ &&
       instance()->diagnosticTrace_->status(normal, storage, retained);
+    const StoreHealth historyHealth = instance()->history_ ? instance()->history_->health() : StoreHealth::Unknown;
+    const bool historyFault = historyHealth == StoreHealth::Corrupt || historyHealth == StoreHealth::Unsupported || historyHealth == StoreHealth::Unavailable;
+    const char* overallStorage = storageKnown ? storageHealthName(storage.health) : "UNKNOWN";
+    if (historyFault && storageKnown) overallStorage = "DEGRADED";
     snprintf(json, sizeof(json),
-             "{\"ok\":true,\"browser\":\"stage13\",\"storage\":\"%s\",\"storageDurable\":%s}",
-             storageKnown ? storageHealthName(storage.health) : "UNKNOWN",
-             storageKnown && storage.durable ? "true" : "false");
+             "{\"ok\":true,\"browser\":\"stage13\",\"storage\":\"%s\",\"storageDurable\":%s,\"history\":\"%s\",\"historyDurable\":%s,\"historyExcluded\":%u}",
+             overallStorage,
+             storageKnown && storage.durable && !historyFault ? "true" : "false",
+             historyHealthName(historyHealth),
+             instance()->history_ && !historyFault ? "true" : "false",
+             instance()->history_ ? unsigned(instance()->history_->invalidCount()) : 0u);
     httpd_resp_set_type(request, "application/json");
     const esp_err_t sent = httpd_resp_sendstr(request, json); trace.complete(sent); return sent;
   }

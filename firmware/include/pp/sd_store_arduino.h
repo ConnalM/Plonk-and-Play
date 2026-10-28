@@ -57,6 +57,7 @@ public:
   }
   StoreHealth health() const override {
     if (!available()) return StoreHealth::Unavailable;
+    if (lastHealth_ == StoreHealth::Corrupt || lastHealth_ == StoreHealth::Unsupported) return lastHealth_;
     if (!owner_.durable()) return StoreHealth::Unavailable;
     if (lastHealth_ == StoreHealth::Insufficient) return lastHealth_;
     const uint64_t free = freeBytes();
@@ -112,9 +113,16 @@ private:
     }
     const size_t actual = file.size();
     if (actual != size) {
-      memset(data, 0, size);
       file.close();
-      return true;
+      lastHealth_ = StoreHealth::Corrupt;
+      const unsigned byte = slot >> 3;
+      const uint8_t bit = uint8_t(1u << (slot & 7u));
+      if (byte < sizeof(mismatchLogged_) && !(mismatchLogged_[byte] & bit)) {
+        mismatchLogged_[byte] |= bit;
+        Serial.printf("[PERSIST] history_payload_integrity slot=%u path=%s expected=%u observed=%u reason=size\n",
+                      slot, path(slot).c_str(), static_cast<unsigned>(size), static_cast<unsigned>(actual));
+      }
+      return false;
     }
     const size_t got = file.read(data, size);
     file.close();
@@ -192,6 +200,7 @@ private:
   PhysicalSdOwner& owner_;
   bool mounted_ = false;
   mutable StoreHealth lastHealth_ = StoreHealth::Unavailable;
+  uint8_t mismatchLogged_[26]{};
 
   StoreHealth healthAfterWrite() const {
     const uint64_t free = freeBytes();
