@@ -144,8 +144,9 @@ public:
     for (uint8_t i = 0; i < total; ++i) {
       size_t bytes = 0; uint32_t sequence = 0;
       (void)loadNewest(i, reinterpret_cast<uint8_t*>(scratch), sizeof(*scratch), bytes, sequence);
-      if (!backend_.available()) { free(scratch); logicalHealth_ = StoreHealth::Unavailable; return false; }
+      if (!backend_.available()) { RaceEngineModule::clearResult(*scratch); free(scratch); logicalHealth_ = StoreHealth::Unavailable; return false; }
     }
+    RaceEngineModule::clearResult(*scratch);
     free(scratch);
     return true;
   }
