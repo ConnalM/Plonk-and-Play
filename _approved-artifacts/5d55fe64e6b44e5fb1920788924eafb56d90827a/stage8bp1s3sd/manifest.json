@@ -1,0 +1,29 @@
+{
+  "source_commit": "5d55fe64e6b44e5fb1920788924eafb56d90827a",
+  "environment": "stage8bp1s3sd",
+  "platformio_core": "6.2.0",
+  "espressif32": "8.0.0",
+  "arduino_esp32": "3.3.12",
+  "esp_idf": "5.5.5",
+  "arduino_gfx": "1.6.5+sha.4c1d0a6",
+  "firmware_bin": {
+    "size_bytes": 1442448,
+    "sha256": "A7B86488AAF53B5AA0E484C00B5AC96F23FA750ED3A05B9FC46C1AA979AD11AC"
+  },
+  "firmware_elf_sha256": "BB43B1BD7D64727EFEF6A6B1CB62C0FA2C7FFF833FCA4CC6208A98BD6D307248",
+  "ram": {
+    "used_bytes": 86524,
+    "available_bytes": 327680,
+    "percent": 26.4
+  },
+  "flash": {
+    "used_bytes": 1414791,
+    "available_bytes": 6553600,
+    "percent": 21.6
+  },
+  "sse_workers": {
+    "count": 4,
+    "stack_bytes_each": 8192,
+    "total_stack_bytes": 32768
+  }
+}
