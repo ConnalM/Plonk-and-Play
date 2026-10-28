@@ -23,7 +23,10 @@ public:
   static constexpr int MisoPin = 13;
   static constexpr uint32_t SpiFrequency = 20000000U;
 
-  enum class Health : uint8_t { Unavailable, Mounted, Fault };
+  // Mounted means the physical device answered the SD mount call, but the logical
+  // namespaces are still being reconstructed. Healthy is committed only by
+  // commitRecovery() after that reconstruction succeeds.
+  enum class Health : uint8_t { Unavailable, Mounted, Healthy, Fault };
   enum class RecoveryRequestResult : uint8_t {
     Accepted,
     AlreadyPending,
@@ -93,7 +96,8 @@ public:
   RecoveryRequestResult requestRecovery() {
     auto lease = lock();
     if (!lease || !recoveryAllowed()) return RecoveryRequestResult::LifecycleRejected;
-    if (mounted_) return RecoveryRequestResult::AlreadyHealthy;
+    if (durable_) return RecoveryRequestResult::AlreadyHealthy;
+    if (mounted_ || recoveryInProgress_) return RecoveryRequestResult::AlreadyPending;
     if (recoveryPending_) return RecoveryRequestResult::AlreadyPending;
     recoveryPending_ = true;
     return RecoveryRequestResult::Accepted;
@@ -115,6 +119,17 @@ public:
     if (lease) markIoFailureLocked();
   }
 
+  // The controller recovery service calls this only after every required
+  // namespace has reconstructed successfully.
+  void commitRecovery() {
+    auto lease = lock();
+    if (lease && mounted_) {
+      recoveryInProgress_ = false;
+      durable_ = true;
+      health_ = Health::Healthy;
+    }
+  }
+
   void setLifecycle(SessionLifecycle lifecycle) { lifecycle_ = lifecycle; }
   SessionLifecycle lifecycle() const { return lifecycle_; }
   bool recoveryAllowed() const {
@@ -132,7 +147,9 @@ public:
     return false;
   }
 
+  // Physical availability is intentionally distinct from durable health.
   bool available() const { return mounted_; }
+  bool durable() const { return durable_; }
   Health health() const { return health_; }
 
   // Callers must hold Lease while using these wrappers.  The non-blocking
@@ -161,6 +178,8 @@ private:
   }
   void markIoFailureLocked() {
     mounted_ = false;
+    recoveryInProgress_ = false;
+    durable_ = false;
     health_ = Health::Unavailable;
   }
   bool mountLocked() {
@@ -169,6 +188,8 @@ private:
                   CsPin, MosiPin, SckPin, MisoPin);
     spi_.begin(SckPin, MisoPin, MosiPin, CsPin);
     mounted_ = SD.begin(CsPin, spi_, SpiFrequency);
+    recoveryInProgress_ = mounted_;
+    durable_ = false;
     health_ = mounted_ ? Health::Mounted : Health::Unavailable;
     Serial.printf("[P8-P1] SD owner mount %s\n", mounted_ ? "OK" : "FAILED");
     return mounted_;
@@ -177,6 +198,8 @@ private:
   SPIClass spi_{FSPI};
   SemaphoreHandle_t mutex_ = nullptr;
   volatile bool mounted_ = false;
+  volatile bool recoveryInProgress_ = false;
+  volatile bool durable_ = false;
   volatile Health health_ = Health::Unavailable;
   volatile bool recoveryPending_ = false;
   SessionLifecycle lifecycle_ = SessionLifecycle::Ready;

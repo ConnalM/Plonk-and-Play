@@ -10,7 +10,8 @@ $stage15 = Get-Content (Join-Path $root 'docs\ACCEPTANCE_TESTS_STAGE_15_LOGGING_
 foreach ($marker in @(
   'RecoveryRequestResult', 'Accepted', 'AlreadyPending', 'AlreadyHealthy',
   'LifecycleRejected', 'requestRecovery()', 'recoveryPending_',
-  'consumeRecoveryRequest()', 'markRecoveryFailure()')) {
+  'consumeRecoveryRequest()', 'markRecoveryFailure()', 'commitRecovery()',
+  'durable_', 'Health::Healthy')) {
   if ($owner -notmatch [regex]::Escape($marker)) { throw "owner recovery-request marker missing: $marker" }
 }
 if ($owner -notmatch 'requestRecovery\(\)[\s\S]{0,900}recoveryAllowed\(\)[\s\S]{0,900}mounted_[\s\S]{0,900}recoveryPending_') {
@@ -35,16 +36,16 @@ if ($route -match 'SD\.begin|SD\.open|mount|reconstruct|recover\(') {
 if ($browser -notmatch '"/request/retry-storage"') { throw 'Retry storage route is not registered' }
 
 foreach ($marker in @('recoveryRequestPending()', 'consumeRecoveryRequest()',
-                      'explicitRecoveryRequired', 'sdPersistence.recover()',
+                      'recoveryFailureLatched', 'commitRecovery()', 'sdPersistence.recover()',
                       'activeDetail.recover()', 'controllerTraceStorage.recover()',
-                      'markRecoveryFailure()')) {
+                      'markRecoveryFailure()', 'rawHistory.reconstruct()')) {
   if ($main -notmatch [regex]::Escape($marker)) { throw "owner service marker missing: $marker" }
 }
 if ($main -notmatch 'historyReady\s*&&\s*detailReady\s*&&\s*diagnosticsReady') {
   throw 'durable health is not gated on complete reconstruction'
 }
-if ($main -notmatch 'explicitRecoveryRequired\s*=\s*consumedExplicit') {
-  throw 'failed explicit recovery does not require a new explicit request'
+if ($main -notmatch 'recoveryFailureLatched\s*=\s*true') {
+  throw 'failed recovery does not latch automatic retry suppression'
 }
 
 if (($psf + $acceptance) -notmatch 'PSF\.38|Retry storage') { throw 'missing documented PSF.38 Retry storage contract' }

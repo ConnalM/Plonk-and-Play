@@ -57,6 +57,7 @@ public:
   }
   StoreHealth health() const override {
     if (!available()) return StoreHealth::Unavailable;
+    if (!owner_.durable()) return StoreHealth::Unavailable;
     if (lastHealth_ == StoreHealth::Insufficient) return lastHealth_;
     const uint64_t free = freeBytes();
     if (!free) return StoreHealth::Insufficient;

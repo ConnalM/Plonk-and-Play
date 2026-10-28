@@ -11,16 +11,23 @@ $main = Get-Content (Join-Path $root 'firmware\src\main.cpp') -Raw
 
 if ($owner -notmatch 'void reportIoFailure\(' -or
     $owner -notmatch 'markIoFailureLocked\(' -or
-    $owner -notmatch 'mounted_\s*=\s*false;\s*health_\s*=\s*Health::Unavailable') {
+    $owner -notmatch 'mounted_\s*=\s*false;[\s\S]{0,180}health_\s*=\s*Health::Unavailable') {
   throw 'Owner lacks the lease-bound physical I/O failure transition'
 }
 if ($owner -notmatch 'bool recover\(' -or $owner -notmatch 'recoveryAllowed\(' -or $owner -notmatch 'return mountLocked\(\);') {
   throw 'Owner recovery is no longer lifecycle-gated'
 }
+if ($owner -notmatch 'commitRecovery\(' -or $owner -notmatch 'durable_\s*=\s*true' -or
+    $owner -notmatch 'health_\s*=\s*Health::Healthy') {
+  throw 'Owner does not distinguish provisional mount from committed durable health'
+}
 if ($store -notmatch 'reportPhysicalIoFailure\(' -or
     $store -notmatch 'if \(!file\) \{ reportPhysicalIoFailure\(lease\); return false; \}' -or
     $store -notmatch 'lastHealth_\s*=\s*StoreHealth::Unavailable') {
   throw 'History store does not propagate physical read/write failures'
+}
+if ($store -notmatch '!owner_\.durable\(\)') {
+  throw 'History store can advertise healthy storage before owner recovery commit'
 }
 if ($core -notmatch 'readRequired\(' -or
     $store -notmatch 'readRequired\(unsigned' -or
@@ -28,12 +35,13 @@ if ($core -notmatch 'readRequired\(' -or
   throw 'Required History payload reads are not distinguished from optional slot reads'
 }
 if ($diagnostic -notmatch 'reportPhysicalIoFailure\(' -or
-    $diagnostic -notmatch 'owner_\.available\(\) \? health_ : StorageHealth::Fault' -or
-    $diagnostic -notmatch 'value\.durable\s*=\s*owner_\.available\(\)') {
+    $diagnostic -notmatch 'owner_\.durable\(\)' -or
+    $diagnostic -notmatch 'StorageHealth::Fault' -or
+    $diagnostic -notmatch 'value\.durable\s*=\s*owner_\.available\(\)\s*&&\s*owner_\.durable\(\)') {
   throw 'Diagnostics backend does not reflect owner physical unavailability'
 }
 if ($recorder -notmatch 'const StorageStatus current = storage_\.status\(\)' -or
-    $recorder -notmatch 'status\.evidenceVolatile\s*=\s*true') {
+    $recorder -notmatch 'status\.evidenceVolatile\s*=\s*!current\.durable') {
   throw 'Diagnostic session status does not refresh from backend health'
 }
 if ($browser -notmatch 'storageDurable' -or $browser -notmatch 'storageHealthName') {

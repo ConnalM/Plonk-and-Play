@@ -157,10 +157,13 @@ public:
 
   StorageStatus status() const override {
     StorageStatus value{};
-    value.health = owner_.available() ? health_ : StorageHealth::Fault;
+    value.health = !owner_.available() ? StorageHealth::Fault :
+                   (owner_.durable() ? health_ : StorageHealth::Degraded);
     value.backend = BackendKind::ProductionSd;
-    value.lastFailure = owner_.available() ? lastFailure_ : FailureReason::BackendUnavailable;
-    value.durable = owner_.available() && mounted_ && health_ == StorageHealth::DurableSd;
+    value.lastFailure = !owner_.available() ? FailureReason::BackendUnavailable :
+                        (owner_.durable() ? lastFailure_ : FailureReason::None);
+    value.durable = owner_.available() && owner_.durable() && mounted_ &&
+                    health_ == StorageHealth::DurableSd;
     return value;
   }
 

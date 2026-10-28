@@ -85,10 +85,10 @@ pp::SdActiveDetailStore activeDetail(sdPersistence);
 pp::Esp32S3BoardDisplay boardDisplay;
 pp::SessionLifecycle physicalRecoveryLifecycle = pp::SessionLifecycle::Faulted;
 bool physicalRecoveryAttempted = false;
-// An explicitly requested attempt is consumed once.  If it fails, lifecycle
-// transitions must not silently turn it into an automatic retry; another
-// attempt requires another authorised Retry storage request.
-bool explicitRecoveryRequired = false;
+// Once any recovery attempt fails, lifecycle transitions must not silently
+// retry it. A newly accepted Retry storage request is the only way to clear
+// this latch and permit the next attempt.
+bool recoveryFailureLatched = false;
 #endif
 class BrowserAuthorityStore final: public pp::AuthorityStore {
 public:
@@ -183,33 +183,34 @@ void servicePhysicalSdRecovery() {
   if (!eligible || physicalSdOwner.available()) return;
 
   const bool explicitRequest = physicalSdOwner.recoveryRequestPending();
-  const bool automaticRequest = !explicitRecoveryRequired && !physicalRecoveryAttempted;
+  const bool automaticRequest = !recoveryFailureLatched && !physicalRecoveryAttempted;
   if (!explicitRequest && !automaticRequest) return;
 
   // Consume before touching the physical owner so every accepted request
   // creates at most one mount attempt, including a failed attempt.
   const bool consumedExplicit = explicitRequest && physicalSdOwner.consumeRecoveryRequest();
   if (explicitRequest && !consumedExplicit) return;
+  if (consumedExplicit) recoveryFailureLatched = false;
   physicalRecoveryAttempted = true;
   if (!physicalSdOwner.recover()) {
-    explicitRecoveryRequired = consumedExplicit;
+    recoveryFailureLatched = true;
     return;
   }
 
   // The owner has completed the only physical mount. Consumers now
   // reconstruct their own namespaces without touching the physical bus.
-  const bool historyReady = sdPersistence.recover();
+  const bool historyReady = sdPersistence.recover() && rawHistory.reconstruct();
   const bool detailReady = activeDetail.recover();
   const bool diagnosticsReady = controllerTraceStorage.recover() == pp::diagnostic::StorageResult::Accepted;
-  (void)rawHistory.count();
   if (historyReady && detailReady && diagnosticsReady) {
-    explicitRecoveryRequired = false;
+    physicalSdOwner.commitRecovery();
+    recoveryFailureLatched = false;
   } else {
     // A mounted card is not advertised as durable until all namespaces have
     // reconstructed successfully. The next attempt must be explicit if this
     // was an explicit request.
     physicalSdOwner.markRecoveryFailure();
-    explicitRecoveryRequired = consumedExplicit;
+    recoveryFailureLatched = true;
   }
 }
 #endif
@@ -667,6 +668,17 @@ void setup(){
   const bool normalDiagnosticsReady = controllerTraceRecorder.beginNormal(diagnosticEpoch, diagnosticClient);
   diagnostics.log("[INIT] Normal diagnostics %s storage=%u", normalDiagnosticsReady ? "READY" : "DEGRADED",
                   static_cast<unsigned>(controllerTraceStorage.status().health));
+#if defined(PP_PHASE8B_REAL_SD)
+  const bool historyNamespaceReady = physicalSdReady && sdReady && rawHistory.reconstruct();
+  const bool detailNamespaceReady = physicalSdReady && sdReady && activeDetail.recover();
+  if (physicalSdReady && sdReady && normalDiagnosticsReady &&
+      historyNamespaceReady && detailNamespaceReady) {
+    physicalSdOwner.commitRecovery();
+  } else if (physicalSdReady) {
+    physicalSdOwner.markRecoveryFailure();
+    recoveryFailureLatched = true;
+  }
+#endif
   browser.setDiagnosticTrace(&controllerTrace);
   browser.setDiagnosticBuildIdentity(buildIdentity());
 #if defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)

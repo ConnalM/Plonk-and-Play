@@ -93,6 +93,9 @@ public:
   }
 
   uint8_t count() override { OperationGuard guard(operationBusy_); return guard && ensure() ? meta_.count : 0; }
+  // Explicit owner-recovery/startup boundary: load the committed metadata
+  // namespace without treating an empty valid History as a failure.
+  bool reconstruct() { OperationGuard guard(operationBusy_); return guard && ensure(); }
   size_t payloadSize(uint8_t index) override { OperationGuard guard(operationBusy_); return guard && ensure()&&index<meta_.count ? meta_.entries[meta_.count-1-index].bytes : 0; }
   size_t maximumPayloadBytes() override { OperationGuard guard(operationBusy_); if(!guard||!ensure())return 0;size_t max=0;for(uint8_t i=0;i<meta_.count;++i)if(meta_.entries[i].bytes>max)max=meta_.entries[i].bytes;return max; }
 
