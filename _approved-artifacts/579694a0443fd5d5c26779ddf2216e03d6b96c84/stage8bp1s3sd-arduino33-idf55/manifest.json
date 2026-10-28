@@ -1,0 +1,42 @@
+{
+  "source_commit": "579694a0443fd5d5c26779ddf2216e03d6b96c84",
+  "environment": "stage8bp1s3sd",
+  "artifact_candidate": "stage8bp1s3sd-arduino33-idf55",
+  "firmware": {
+    "path": "firmware.bin",
+    "size": 1439696,
+    "sha256": "BDA68390FBFE9ADFE4E3621F3CF5DFFC73792880EF488AF8335DB207D270F184"
+  },
+  "elf_sha256": "D562099EB42DE7136CFCC073D94D397B67DF49654A05D932D21A0932543D1B5E",
+  "ram": {
+    "static_used_bytes": 86524,
+    "static_capacity_bytes": 327680,
+    "usage_percent": 26.4
+  },
+  "flash": {
+    "used_bytes": 1412239,
+    "capacity_bytes": 6553600,
+    "usage_percent": 21.5
+  },
+  "platformio": {
+    "platform": "espressif32@8.0.0",
+    "arduino_esp32": "3.3.12",
+    "esp_idf": "5.5.5",
+    "arduino_gfx": "1.6.5+sha.4c1d0a6",
+    "board": "esp32-8048s070",
+    "flash": "16MB"
+  },
+  "sse": {
+    "worker_stack_bytes": 8192,
+    "worker_count": 4
+  },
+  "provenance": {
+    "embedded_source_commit": "579694a0443fd5d5c26779ddf2216e03d6b96c84",
+    "embedded_environment": "stage8bp1s3sd"
+  },
+  "verification": {
+    "artifact_hash_verified_after_copy": true,
+    "build_command": "pio run -e stage8bp1s3sd",
+    "physical_validation": false
+  }
+}
