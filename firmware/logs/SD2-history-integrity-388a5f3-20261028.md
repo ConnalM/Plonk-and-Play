@@ -10,8 +10,10 @@ Capture SHA-256: `F5069F9E0D6785DE238EBEB461A8C587E461C92E5D485CF08DD1B2F6C9913C
 
 **PASS — one production History request completed with valid siblings preserved.**
 
-Connal observed the tablet History screen displaying 11 races. The request did
-not present `result=260` or another whole-route failure.
+Connal observed the tablet History screen displaying 9 races. The indexed
+namespace contained 11 records; sequences 8 and 9 were excluded, leaving the
+9 valid races. The request did not present `result=260` or another whole-route
+failure.
 
 ## Integrity evidence
 
@@ -20,7 +22,7 @@ Startup/reconstruction emitted bounded exclusions, without repair or deletion:
 - index 2, sequence 9, reason `corrupt`;
 - index 3, sequence 8, reason `corrupt`.
 
-The valid retained records were returned to the tablet; the 11-race History
+The valid retained records were returned to the tablet; the 9-race History
 view is the physical proof that enumeration continued past the invalid entries.
 
 ## Storage and transport state
