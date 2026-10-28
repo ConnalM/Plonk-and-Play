@@ -74,3 +74,7 @@ STAGE4_PASS Session Definition scaffold ready; no race behaviour
 [DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=241527760 dropped=0; authoritative race state is reported separately
 [DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=251529181 dropped=0; authoritative race state is reported separately
 [DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=261530048 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=511584071 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=521586060 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=531589167 dropped=0; authoritative race state is reported separately
+[DEV] P&P STAGE 8B-P1 REAL SD BOOT_SELF_TEST=PASS system_us=541590037 dropped=0; authoritative race state is reported separately
