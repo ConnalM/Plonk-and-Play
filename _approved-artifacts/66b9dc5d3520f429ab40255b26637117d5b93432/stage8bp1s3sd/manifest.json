@@ -1,0 +1,32 @@
+{
+  "source_commit": "66b9dc5d3520f429ab40255b26637117d5b93432",
+  "environment": "stage8bp1s3sd",
+  "platform": "espressif32@8.0.0",
+  "arduino_esp32": "3.3.12",
+  "esp_idf": "5.5.5",
+  "arduino_gfx": "1.6.5+sha.4c1d0a6",
+  "board": "ESP32-S3 N16R8",
+  "flash_size": "16MB",
+  "firmware_bin": {
+    "size_bytes": 1444656,
+    "sha256": "FBFC851BA2E4B56AD23F57E7DDE59E835D71B591CA2A03A3866ACBE44A3692C8"
+  },
+  "firmware_elf": {
+    "sha256": "32ADDBDC84557B448BB921BE39F6CAC2CC3B95CC05DF3D31E201A86A5A916C2B"
+  },
+  "ram": {
+    "used_bytes": 86524,
+    "available_bytes": 327680,
+    "percent": 26.4
+  },
+  "flash": {
+    "used_bytes": 1416999,
+    "available_bytes": 6553600,
+    "percent": 21.6
+  },
+  "sse_workers": {
+    "count": 4,
+    "stack_bytes_each": 8192,
+    "total_stack_bytes": 32768
+  }
+}
