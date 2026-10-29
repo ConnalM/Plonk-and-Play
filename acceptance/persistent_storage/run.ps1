@@ -17,6 +17,7 @@ $healthContract=Join-Path $PSScriptRoot 'storage_health_propagation_contract.ps1
 $retryStorageContract=Join-Path $PSScriptRoot 'retry_storage_contract.ps1'
 $recoveryPolicy=Join-Path $env:TEMP 'pp-retry-storage-recovery-policy.exe'
 $historyIntegrity=Join-Path $PSScriptRoot 'history_integrity_contract.ps1'
+$checkStorageContract=Join-Path $root 'acceptance\stage15\check_storage_contract.ps1'
 g++ -std=c++17 -Wall -Wextra -I $include (Join-Path $PSScriptRoot 'foundation_test.cpp') -o $foundation
 if ($LASTEXITCODE -ne 0) { throw "Persistent Storage Foundation foundation compile failed: $LASTEXITCODE" }
 & $foundation
@@ -71,6 +72,8 @@ if ($LASTEXITCODE -ne 0) { throw "History integrity contract acceptance failed: 
 if ($LASTEXITCODE -ne 0) { throw "Retry storage contract acceptance failed: $LASTEXITCODE" }
 & $retryStorageBrowserContract
 if ($LASTEXITCODE -ne 0) { throw "Retry storage Browser contract acceptance failed: $LASTEXITCODE" }
+& $checkStorageContract
+if ($LASTEXITCODE -ne 0) { throw "Check storage contract acceptance failed: $LASTEXITCODE" }
 g++ -std=c++17 -Wall -Wextra -Werror (Join-Path $PSScriptRoot 'recovery_policy_test.cpp') -o $recoveryPolicy
 if ($LASTEXITCODE -ne 0) { throw "Retry storage recovery-policy compile failed: $LASTEXITCODE" }
 & $recoveryPolicy

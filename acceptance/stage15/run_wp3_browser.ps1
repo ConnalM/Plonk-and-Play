@@ -14,11 +14,23 @@ foreach ($marker in @(
 foreach ($marker in @('Retry storage','/request/retry-storage','retryStoragePending','response.status===202&&body.accepted===true')) {
   if ($browser -notlike "*$marker*" -and $browserEmbed -notlike "*$marker*") { throw "Retry storage Browser marker missing: $marker" }
 }
+foreach ($marker in @('Check storage','/request/check-storage','checkStoragePending','body.result===','ACCESSIBLE','physicalStorage','physicalDurable')) {
+  if ($browser -notlike "*$marker*" -and $browserEmbed -notlike "*$marker*" -and $interface -notlike "*$marker*") { throw "Check storage Browser marker missing: $marker" }
+}
+if ($browserEmbed -notmatch "C\?\.isMaster===true&&\['READY','FINISHED'\]\.includes\(S\?\.lifecycle\)") {
+  throw 'Check storage Browser action lacks controlling-authority/lifecycle gating'
+}
+if ($browserEmbed -notmatch 'if\(checkStoragePending\)return' -or $browserEmbed -notmatch "button\.disabled=!eligible\|\|checkStoragePending") {
+  throw 'Check storage Browser action lacks duplicate/in-flight bounding'
+}
 foreach ($marker in @(
   'diagnosticStartRoute','diagnosticStopRoute','diagnosticStatusRoute',
   'diagnosticRecordsRoute','diagnosticDownloadRoute','/diag/download',
   'application/x-ndjson','Content-Disposition')) {
   if ($interface -notlike "*$marker*") { throw "HTTP diagnostics marker missing: $marker" }
+}
+foreach ($marker in @('checkStorageRoute','/request/check-storage','RACE_DIRECTOR_REQUIRED','LIFECYCLE_NOT_ELIGIBLE','StorageCheckResult::PhysicalFailure','CHECK_ALREADY_PENDING')) {
+  if ($interface -notlike "*$marker*") { throw "Check storage request marker missing: $marker" }
 }
 $export = Get-Content -Raw (Join-Path $root 'firmware/include/pp/diagnostic_export.h')
 if ($export -notlike '*pp-diagnostics-v1*') { throw 'Diagnostic export schema marker missing' }

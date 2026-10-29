@@ -2029,7 +2029,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       return ESP_FAIL;
     }
     const int length = snprintf(json, 1024,
-      "{\"formatVersion\":1,\"controllerEpoch\":%llu,\"session\":%llu,\"lifecycle\":%u,\"developmentSession\":%llu,\"developmentLifecycle\":%u,\"storageHealth\":%u,\"backend\":%u,\"lastFailure\":%u,\"nextSequence\":%llu,\"bytesRecorded\":%llu,\"retainedRecords\":%u,\"droppedRecords\":%llu,\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"exportCapability\":\"%s\",\"retrievalAvailable\":%s,\"historyHealth\":\"%s\",\"historyExcluded\":%u}",
+      "{\"formatVersion\":1,\"controllerEpoch\":%llu,\"session\":%llu,\"lifecycle\":%u,\"developmentSession\":%llu,\"developmentLifecycle\":%u,\"storageHealth\":%u,\"backend\":%u,\"lastFailure\":%u,\"nextSequence\":%llu,\"bytesRecorded\":%llu,\"retainedRecords\":%u,\"droppedRecords\":%llu,\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"exportCapability\":\"%s\",\"retrievalAvailable\":%s,\"historyHealth\":\"%s\",\"historyExcluded\":%u,\"physicalStorage\":\"%s\",\"physicalDurable\":%s}",
       static_cast<unsigned long long>(normal.controllerEpoch.value),
       static_cast<unsigned long long>(normal.session.value),
       static_cast<unsigned>(normal.lifecycle),
@@ -2040,7 +2040,9 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       normal.evidenceIncomplete || session.evidenceIncomplete ? "true" : "false",
       diagnosticExportCapability(storage, retained), retained ? "true" : "false",
       historyHealthName(browser->history_ ? browser->history_->health() : StoreHealth::Unknown),
-      browser->history_ ? unsigned(browser->history_->invalidCount()) : 0u);
+      browser->history_ ? unsigned(browser->history_->invalidCount()) : 0u,
+      browser->physicalStorageHealthName(),
+      browser->physicalStorageDurable() ? "true" : "false");
     if (length < 0 || length >= 1024) {
       free(json);
       httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "diagnostic status serialization failed");
@@ -2450,6 +2452,94 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     trace.complete(sent);
     return sent;
   }
+  static esp_err_t checkStorageRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/request/check-storage");
+    BrowserInterface* browser = instance();
+    const uint64_t owner = client(request);
+    Serial.printf("[P8-P1] STORAGE_CHECK request=RECEIVED client=%llu lifecycle=%u\n",
+                  static_cast<unsigned long long>(owner),
+                  static_cast<unsigned>(browser->current().lifecycle));
+    if (browser->context(owner) != ClientContext::RaceDirectorSmug) {
+      Serial.println("[P8-P1] STORAGE_CHECK request=REJECTED reason=RACE_DIRECTOR_REQUIRED");
+      httpd_resp_set_type(request, "application/json");
+      httpd_resp_set_status(request, "403 Forbidden");
+      const esp_err_t sent = httpd_resp_sendstr(request,
+        "{\"accepted\":false,\"result\":\"UNAUTHORIZED\",\"reason\":\"RACE_DIRECTOR_REQUIRED\"}");
+      trace.complete(sent);
+      return sent;
+    }
+    const SessionLifecycle lifecycle = browser->current().lifecycle;
+    if (lifecycle != SessionLifecycle::Ready && lifecycle != SessionLifecycle::Finished) {
+      Serial.println("[P8-P1] STORAGE_CHECK request=REJECTED reason=LIFECYCLE_NOT_ELIGIBLE");
+      httpd_resp_set_type(request, "application/json");
+      httpd_resp_set_status(request, "409 Conflict");
+      const esp_err_t sent = httpd_resp_sendstr(request,
+        "{\"accepted\":false,\"result\":\"LIFECYCLE_REJECTED\",\"reason\":\"LIFECYCLE_NOT_ELIGIBLE\"}");
+      trace.complete(sent);
+      return sent;
+    }
+#if defined(PP_PHASE8B_REAL_SD)
+    const PhysicalSdOwner::StorageCheckResult result = browser->storageOwner_
+      ? browser->storageOwner_->checkStorage()
+      : PhysicalSdOwner::StorageCheckResult::Unavailable;
+    const bool success = result == PhysicalSdOwner::StorageCheckResult::Accessible;
+    const bool attempted = success || result == PhysicalSdOwner::StorageCheckResult::PhysicalFailure;
+    const bool duplicate = result == PhysicalSdOwner::StorageCheckResult::AlreadyPending ||
+                           result == PhysicalSdOwner::StorageCheckResult::Busy;
+    const char* resultName = success ? "ACCESSIBLE" :
+      result == PhysicalSdOwner::StorageCheckResult::PhysicalFailure ? "PHYSICAL_FAILURE" :
+      duplicate ? "ALREADY_PENDING" : "UNAVAILABLE";
+    const char* reason = success ? "STORAGE_ACCESSIBLE" :
+      result == PhysicalSdOwner::StorageCheckResult::PhysicalFailure ? "PHYSICAL_IO_FAILURE" :
+      duplicate ? "CHECK_ALREADY_PENDING" : "STORAGE_UNAVAILABLE";
+    const char* status = success ? "200 OK" :
+      result == PhysicalSdOwner::StorageCheckResult::PhysicalFailure ? "503 Service Unavailable" :
+      duplicate ? "409 Conflict" : "503 Service Unavailable";
+#else
+    const bool success = false;
+    const bool attempted = false;
+    const char* resultName = "UNAVAILABLE";
+    const char* reason = "STORAGE_UNAVAILABLE";
+    const char* status = "503 Service Unavailable";
+#endif
+    char json[256]{};
+    Serial.printf("[P8-P1] STORAGE_CHECK request=%s result=%s physical=%s durable=%u history=%s remount=0 recovery=0\n",
+                  attempted ? "ACCEPTED" : "REJECTED", resultName,
+                  browser->physicalStorageHealthName(), browser->physicalStorageDurable() ? 1U : 0U,
+                  historyHealthName(browser->history_ ? browser->history_->health() : StoreHealth::Unknown));
+    snprintf(json, sizeof(json), "{\"accepted\":%s,\"success\":%s,\"result\":\"%s\",\"reason\":\"%s\",\"physicalStorage\":\"%s\",\"physicalDurable\":%s,\"historyHealth\":\"%s\"}",
+             attempted ? "true" : "false", success ? "true" : "false", resultName, reason,
+             browser->physicalStorageHealthName(), browser->physicalStorageDurable() ? "true" : "false",
+             historyHealthName(browser->history_ ? browser->history_->health() : StoreHealth::Unknown));
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    httpd_resp_set_status(request, status);
+    const esp_err_t sent = httpd_resp_sendstr(request, json);
+    trace.complete(sent);
+    return sent;
+  }
+  static const char* physicalStorageHealthName(PhysicalSdOwner* owner) {
+#if defined(PP_PHASE8B_REAL_SD)
+    if (!owner) return "UNAVAILABLE";
+    switch (owner->health()) {
+      case PhysicalSdOwner::Health::Healthy: return "HEALTHY";
+      case PhysicalSdOwner::Health::Mounted: return "MOUNTED";
+      case PhysicalSdOwner::Health::Fault: return "FAULT";
+      case PhysicalSdOwner::Health::Unavailable: return "UNAVAILABLE";
+    }
+#else
+    (void)owner;
+#endif
+    return "UNKNOWN";
+  }
+  const char* physicalStorageHealthName() const { return physicalStorageHealthName(storageOwner_); }
+  bool physicalStorageDurable() const {
+#if defined(PP_PHASE8B_REAL_SD)
+    return storageOwner_ && storageOwner_->durable();
+#else
+    return false;
+#endif
+  }
   static const char* storageHealthName(diagnostic::StorageHealth value) {
     switch (value) {
       case diagnostic::StorageHealth::DurableSd: return "DURABLE_SD";
@@ -2531,6 +2621,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/request/take-control/allow", HTTP_POST, allowControlRoute, nullptr},
       {"/request/take-control/keep", HTTP_POST, keepControlRoute, nullptr},
       {"/request/retry-storage", HTTP_POST, retryStorageRoute, nullptr},
+      {"/request/check-storage", HTTP_POST, checkStorageRoute, nullptr},
       {"/request/start", HTTP_POST, startRoute, nullptr},
       {"/request/setup", HTTP_POST, setupRoute, nullptr},
       {"/request/pause", HTTP_POST, pauseRoute, nullptr},

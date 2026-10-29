@@ -22,7 +22,7 @@ if ($owner -notmatch 'consumeRecoveryRequest\(\)[\s\S]{0,500}recoveryPending_\s*
 }
 
 $routeStart = $browser.IndexOf('retryStorageRoute(')
-$routeEnd = $browser.IndexOf('static const char* storageHealthName', $routeStart)
+$routeEnd = $browser.IndexOf('checkStorageRoute(', $routeStart)
 if ($routeStart -lt 0 -or $routeEnd -le $routeStart) { throw 'Retry storage route is missing' }
 $route = $browser.Substring($routeStart, $routeEnd - $routeStart)
 foreach ($marker in @('RaceDirectorSmug', 'current().lifecycle', 'requestRecovery()', 'RECOVERY_REQUESTED',

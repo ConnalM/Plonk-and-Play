@@ -33,6 +33,13 @@ public:
     AlreadyHealthy,
     LifecycleRejected,
   };
+  enum class StorageCheckResult : uint8_t {
+    Accessible,
+    PhysicalFailure,
+    Unavailable,
+    AlreadyPending,
+    Busy,
+  };
 
   class Lease final {
   public:
@@ -104,6 +111,36 @@ public:
   }
 
   bool recoveryRequestPending() const { return recoveryPending_; }
+
+  // A support/diagnostic check is deliberately narrower than recovery.  It
+  // performs one read-only access to the production storage root, never calls
+  // physical mount initialization, and never changes the mount lifecycle
+  // except when the access proves that the mounted medium is no longer usable.
+  StorageCheckResult checkStorage() {
+    auto lease = lock();
+    if (!lease) return StorageCheckResult::Busy;
+    if (checkInProgress_) return StorageCheckResult::AlreadyPending;
+    checkInProgress_ = true;
+    StorageCheckResult result = StorageCheckResult::Unavailable;
+    if (mounted_) {
+      Serial.println("[P8-P1] STORAGE_CHECK attempt=1 path=/pp-p1 mode=READ_ONLY mount=0 recovery=0");
+      File root = open("/pp-p1", FILE_READ);
+      if (root && root.isDirectory()) {
+        root.close();
+        result = StorageCheckResult::Accessible;
+        Serial.println("[P8-P1] STORAGE_CHECK result=ACCESSIBLE");
+      } else {
+        if (root) root.close();
+        lease.reportIoFailure();
+        result = StorageCheckResult::PhysicalFailure;
+        Serial.println("[P8-P1] STORAGE_CHECK result=PHYSICAL_FAILURE health=UNAVAILABLE durable=0");
+      }
+    } else {
+      Serial.println("[P8-P1] STORAGE_CHECK result=UNAVAILABLE health=UNAVAILABLE durable=0");
+    }
+    checkInProgress_ = false;
+    return result;
+  }
 
   // Consumption is deliberately one-shot.  The caller must be the existing
   // lifecycle-gated owner service, never a storage consumer.
@@ -202,6 +239,7 @@ private:
   volatile bool durable_ = false;
   volatile Health health_ = Health::Unavailable;
   volatile bool recoveryPending_ = false;
+  volatile bool checkInProgress_ = false;
   SessionLifecycle lifecycle_ = SessionLifecycle::Ready;
 };
 
