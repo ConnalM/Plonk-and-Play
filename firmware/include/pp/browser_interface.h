@@ -2022,6 +2022,9 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       trace.complete(ESP_ERR_INVALID_STATE);
       return ESP_FAIL;
     }
+    const uint8_t historyIndexed = browser->history_ ? browser->history_->count() : 0u;
+    const uint8_t historyExcluded = browser->history_ ? browser->history_->invalidCount() : 0u;
+    const uint8_t historyValid = historyIndexed >= historyExcluded ? static_cast<uint8_t>(historyIndexed - historyExcluded) : 0u;
     char* json = static_cast<char*>(malloc(1024));
     if (!json) {
       httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "diagnostic status buffer unavailable");
@@ -2029,7 +2032,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       return ESP_FAIL;
     }
     const int length = snprintf(json, 1024,
-      "{\"formatVersion\":1,\"controllerEpoch\":%llu,\"session\":%llu,\"lifecycle\":%u,\"developmentSession\":%llu,\"developmentLifecycle\":%u,\"storageHealth\":%u,\"backend\":%u,\"lastFailure\":%u,\"nextSequence\":%llu,\"bytesRecorded\":%llu,\"retainedRecords\":%u,\"droppedRecords\":%llu,\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"exportCapability\":\"%s\",\"retrievalAvailable\":%s,\"historyHealth\":\"%s\",\"historyExcluded\":%u,\"physicalStorage\":\"%s\",\"physicalDurable\":%s}",
+      "{\"formatVersion\":1,\"controllerEpoch\":%llu,\"session\":%llu,\"lifecycle\":%u,\"developmentSession\":%llu,\"developmentLifecycle\":%u,\"storageHealth\":%u,\"backend\":%u,\"lastFailure\":%u,\"nextSequence\":%llu,\"bytesRecorded\":%llu,\"retainedRecords\":%u,\"droppedRecords\":%llu,\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"exportCapability\":\"%s\",\"retrievalAvailable\":%s,\"historyHealth\":\"%s\",\"historyExcluded\":%u,\"historyIndexed\":%u,\"historyValid\":%u,\"physicalStorage\":\"%s\",\"physicalDurable\":%s}",
       static_cast<unsigned long long>(normal.controllerEpoch.value),
       static_cast<unsigned long long>(normal.session.value),
       static_cast<unsigned>(normal.lifecycle),
@@ -2040,7 +2043,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       normal.evidenceIncomplete || session.evidenceIncomplete ? "true" : "false",
       diagnosticExportCapability(storage, retained), retained ? "true" : "false",
       historyHealthName(browser->history_ ? browser->history_->health() : StoreHealth::Unknown),
-      browser->history_ ? unsigned(browser->history_->invalidCount()) : 0u,
+      static_cast<unsigned>(historyExcluded), static_cast<unsigned>(historyIndexed), static_cast<unsigned>(historyValid),
       browser->physicalStorageHealthName(),
       browser->physicalStorageDurable() ? "true" : "false");
     if (length < 0 || length >= 1024) {
