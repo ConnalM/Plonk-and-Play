@@ -86,10 +86,13 @@ public:
     auto lease = lock();
     if (!lease) return false;
     if (mounted_) return true;
-    // A runtime filesystem failure is a hard boundary.  Boot may call begin()
-    // normally, but a later caller cannot use it to bypass an explicit retry.
+    // A runtime filesystem failure is a hard boundary. Boot gets exactly one
+    // normal mount attempt; a failed boot mount enters the same explicit-
+    // recovery-required state so the controller loop cannot retry it.
     if (explicitRecoveryRequired_) return false;
-    return mountLocked();
+    const bool mounted = mountLocked();
+    if (!mounted) markIoFailureLocked();
+    return mounted;
   }
 
   // Physical recovery is deliberately owner-controlled and non-blocking. A

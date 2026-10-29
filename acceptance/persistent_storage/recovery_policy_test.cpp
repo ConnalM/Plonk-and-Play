@@ -2,9 +2,9 @@
 #include <iostream>
 
 // Deterministic host model of the production owner-service policy. The
-// physical owner and controller loop use the same state transitions: mount
-// success is provisional, reconstruction commits health, and every failed
-// attempt latches until a new explicit request.
+// physical owner and controller loop use the same state transitions: boot gets
+// one normal mount attempt, mount success is provisional until reconstruction
+// commits health, and every failed attempt latches until a new explicit request.
 enum class Life { Ready, Finished, Racing };
 enum class Request { Accepted, Pending, Healthy, Rejected };
 
@@ -18,11 +18,31 @@ public:
     return Request::Accepted;
   }
 
+  bool boot(bool mountOk, bool historyOk, bool detailOk, bool diagnosticsOk) {
+    if (mounted_ || attempted_) return false;
+    attempted_ = true;
+    ++mountAttempts_;
+    if (!mountOk) {
+      failureLatched_ = true;
+      explicitRecoveryRequired_ = true;
+      return true;
+    }
+    mounted_ = true;
+    durable_ = false;
+    if (historyOk && detailOk && diagnosticsOk) {
+      durable_ = true;
+      return true;
+    }
+    mounted_ = false;
+    failureLatched_ = true;
+    explicitRecoveryRequired_ = true;
+    return true;
+  }
+
   bool service(Life life, bool mountOk, bool historyOk, bool detailOk, bool diagnosticsOk) {
     if (!eligible(life) || mounted_) return false;
     const bool explicitRequest = pending_;
-    const bool automaticRequest = !failureLatched_ && !attempted_ && !explicitRecoveryRequired_;
-    if (!explicitRequest && !automaticRequest) return false;
+    if (!explicitRequest) return false;
     pending_ = false;
     attempted_ = true;
     ++mountAttempts_;
@@ -74,12 +94,31 @@ static void check(bool value, const char* name) {
 }
 
 int main() {
+  RecoveryPolicy bootAbsent;
+  check(bootAbsent.boot(false, false, false, false), "absent-SD boot attempts one normal mount");
+  check(bootAbsent.mountAttempts() == 1 && bootAbsent.explicitRecoveryRequired() &&
+        !bootAbsent.mounted() && !bootAbsent.durable(),
+        "failed boot mount latches unavailable and explicit recovery");
+  check(!bootAbsent.service(Life::Ready, true, true, true, true),
+        "controller service performs no automatic recovery after boot failure");
+  check(bootAbsent.mountAttempts() == 1, "repeated service performs zero additional boot-failure mounts");
+  bootAbsent.lifecycleChanged();
+  check(!bootAbsent.service(Life::Finished, true, true, true, true) &&
+        bootAbsent.mountAttempts() == 1,
+        "lifecycle change and reinsertion-equivalent state remain inert");
+  check(bootAbsent.request(Life::Finished) == Request::Accepted,
+        "authorised retry permits recovery after failed boot");
+  check(bootAbsent.service(Life::Finished, true, true, true, true) &&
+        bootAbsent.mountAttempts() == 2,
+        "authorised retry performs exactly one later mount attempt");
+  check(bootAbsent.durable(), "successful retry restores durable health");
+
   RecoveryPolicy startup;
-  check(startup.service(Life::Ready, true, true, true, true), "initial automatic mount attempted once");
-  check(startup.mounted() && startup.durable(), "mount plus reconstruction commits durable health");
+  check(startup.boot(true, true, true, true), "SD-present boot attempts one normal mount");
+  check(startup.mounted() && startup.durable(), "successful boot reconstruction commits durable health");
 
   RecoveryPolicy checkFailure;
-  check(checkFailure.service(Life::Ready, true, true, true, true), "check-failure fixture has a mounted baseline");
+  check(checkFailure.boot(true, true, true, true), "check-failure fixture has a mounted baseline");
   checkFailure.physicalIoFailure();
   check(checkFailure.explicitRecoveryRequired() && !checkFailure.mounted() && !checkFailure.durable(),
         "runtime physical I/O failure latches unavailable and explicit recovery");
@@ -92,12 +131,12 @@ int main() {
         "lifecycle change and reinsertion-equivalent state do not recover automatically");
   check(checkFailure.request(Life::Finished) == Request::Accepted, "authorised retry permits recovery after failure");
   check(checkFailure.service(Life::Finished, true, true, true, true), "authorised retry performs one recovery attempt");
-  check(checkFailure.mountAttempts() == beforeService + 1 && checkFailure.teardownCount() == checkFailure.mountAttempts(),
-        "retry tears down stale mount state before each genuine attempt");
+  check(checkFailure.mountAttempts() == beforeService + 1 && checkFailure.teardownCount() == 1,
+        "retry tears down stale mount state before the genuine retry attempt");
   check(checkFailure.durable(), "successful retry restores durable health");
 
   RecoveryPolicy mountOnly;
-  check(mountOnly.service(Life::Ready, true, false, true, true), "mount-only recovery attempt runs");
+  check(mountOnly.boot(true, false, true, true), "mount-only boot attempt runs");
   check(!mountOnly.durable() && mountOnly.failureLatched(), "mount success alone is not durable and reconstruction failure latches");
   mountOnly.lifecycleChanged();
   check(!mountOnly.service(Life::Finished, true, true, true, true), "lifecycle change cannot retry failed automatic recovery");

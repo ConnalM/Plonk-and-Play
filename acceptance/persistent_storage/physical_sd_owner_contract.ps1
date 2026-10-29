@@ -14,6 +14,13 @@ if ($owner -notmatch 'explicitRecoveryRequired_' -or
     $owner -notmatch 'automaticRecoveryAllowed\(\)' -or
     $owner -notmatch 'recoveryPermit_' -or
     $owner -notmatch 'SD\.end\(\)') { throw 'Physical owner does not latch runtime failure and teardown cached SD state before retry' }
+$beginStart = $owner.IndexOf('bool begin()')
+$beginEnd = $owner.IndexOf('// Physical recovery', $beginStart)
+if ($beginStart -lt 0 -or $beginEnd -le $beginStart) { throw 'Physical owner boot boundary is missing' }
+$beginBody = $owner.Substring($beginStart, $beginEnd - $beginStart)
+if ($beginBody -notmatch 'const bool mounted = mountLocked\(\)' -or
+    $beginBody -notmatch 'if \(!mounted\) markIoFailureLocked\(\)' -or
+    $beginBody -notmatch 'return mounted') { throw 'Failed normal boot mount does not latch explicit recovery requirement' }
  $recoverStart = $owner.IndexOf('bool recover()')
  $recoverEnd = $owner.IndexOf('bool automaticRecoveryAllowed()', $recoverStart)
  if ($recoverStart -lt 0 -or $recoverEnd -le $recoverStart) { throw 'Physical owner recovery boundary is missing' }
