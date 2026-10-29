@@ -1,0 +1,35 @@
+{
+  "source_commit": "2277ffdb9a5f6153843b3f14a1c4f63d885a36e3",
+  "environment": "stage8bp1s3sd",
+  "board": "esp32-8048s070",
+  "chip": "ESP32-S3",
+  "flash": "16MB",
+  "psram": "8MB",
+  "platformio": "Espressif32 8.0.0",
+  "arduino_esp32": "3.3.12",
+  "esp_idf": "5.5.5",
+  "arduino_gfx": "1.6.5+sha.4c1d0a6",
+  "firmware": {
+    "path": "firmware.bin",
+    "size_bytes": 1453248,
+    "sha256": "CB8AF7DB0D459DEB339ADF17759253C924FF05FAFC9DE26119EA26A6A821634F"
+  },
+  "elf": {
+    "path": "firmware.elf",
+    "size_bytes": 15081316,
+    "sha256": "F9332FF730FA23F5DA404B343DD1E89DECA552DC43F44ED6BB321736ED1F1C4C"
+  },
+  "ram_usage": {
+    "used_bytes": 86660,
+    "available_bytes": 327680,
+    "percent": 26.4
+  },
+  "flash_usage": {
+    "used_bytes": 1425339,
+    "available_bytes": 6553600,
+    "percent": 21.7
+  },
+  "sse_workers": 4,
+  "sse_worker_stack_bytes": 8192,
+  "provenance": "clean stage8bp1s3sd build from the exact source commit; no rebuild after preservation"
+}
