@@ -183,7 +183,8 @@ void servicePhysicalSdRecovery() {
   if (!eligible || physicalSdOwner.available()) return;
 
   const bool explicitRequest = physicalSdOwner.recoveryRequestPending();
-  const bool automaticRequest = !recoveryFailureLatched && !physicalRecoveryAttempted;
+  const bool automaticRequest = !recoveryFailureLatched && !physicalRecoveryAttempted &&
+                                physicalSdOwner.automaticRecoveryAllowed();
   if (!explicitRequest && !automaticRequest) return;
 
   // Consume before touching the physical owner so every accepted request

@@ -86,6 +86,9 @@ public:
     auto lease = lock();
     if (!lease) return false;
     if (mounted_) return true;
+    // A runtime filesystem failure is a hard boundary.  Boot may call begin()
+    // normally, but a later caller cannot use it to bypass an explicit retry.
+    if (explicitRecoveryRequired_) return false;
     return mountLocked();
   }
 
@@ -95,8 +98,20 @@ public:
     auto lease = lock();
     if (!lease || !recoveryAllowed()) return false;
     if (mounted_) return true;
+    // Automatic recovery remains available only before a runtime I/O failure
+    // has been reported.  Once that boundary is crossed, the controller loop
+    // must have consumed one authorised Retry storage request first.
+    if (explicitRecoveryRequired_ && !recoveryPermit_) return false;
+    recoveryPermit_ = false;
+    // Arduino-ESP32's SD begin call returns true from its cached _pdrv state unless
+    // SD.end() has first invalidated the previous mount.  Teardown is kept in
+    // the physical owner so consumers never gain mount authority.
+    SD.end();
     return mountLocked();
   }
+
+  bool automaticRecoveryAllowed() const { return !explicitRecoveryRequired_; }
+  bool explicitRecoveryRequired() const { return explicitRecoveryRequired_; }
 
   // This is only an owner request.  It never probes or mounts the card; the
   // controller loop consumes the request and remains the sole recovery path.
@@ -148,6 +163,7 @@ public:
     auto lease = lock();
     if (!lease || !recoveryPending_) return false;
     recoveryPending_ = false;
+    recoveryPermit_ = true;
     return true;
   }
 
@@ -164,6 +180,8 @@ public:
       recoveryInProgress_ = false;
       durable_ = true;
       health_ = Health::Healthy;
+      explicitRecoveryRequired_ = false;
+      recoveryPermit_ = false;
     }
   }
 
@@ -218,6 +236,9 @@ private:
     recoveryInProgress_ = false;
     durable_ = false;
     health_ = Health::Unavailable;
+    recoveryPending_ = false;
+    recoveryPermit_ = false;
+    explicitRecoveryRequired_ = true;
   }
   bool mountLocked() {
     mounted_ = false;
@@ -239,6 +260,8 @@ private:
   volatile bool durable_ = false;
   volatile Health health_ = Health::Unavailable;
   volatile bool recoveryPending_ = false;
+  volatile bool recoveryPermit_ = false;
+  volatile bool explicitRecoveryRequired_ = false;
   volatile bool checkInProgress_ = false;
   SessionLifecycle lifecycle_ = SessionLifecycle::Ready;
 };

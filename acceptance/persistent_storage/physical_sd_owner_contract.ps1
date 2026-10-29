@@ -10,6 +10,18 @@ $psfAcceptance = Get-Content (Join-Path $root 'docs\ACCEPTANCE_TESTS_PERSISTENT_
 $stage15 = Get-Content (Join-Path $root 'docs\ACCEPTANCE_TESTS_STAGE_15_LOGGING_DIAGNOSTICS_FOUNDATION.md') -Raw
 
 if ($owner -notmatch 'SD\.begin\(' -or $owner -notmatch 'SPIClass\s+spi_') { throw 'Physical owner does not contain the sole physical SD/SPI initialization' }
+if ($owner -notmatch 'explicitRecoveryRequired_' -or
+    $owner -notmatch 'automaticRecoveryAllowed\(\)' -or
+    $owner -notmatch 'recoveryPermit_' -or
+    $owner -notmatch 'SD\.end\(\)') { throw 'Physical owner does not latch runtime failure and teardown cached SD state before retry' }
+ $recoverStart = $owner.IndexOf('bool recover()')
+ $recoverEnd = $owner.IndexOf('bool automaticRecoveryAllowed()', $recoverStart)
+ if ($recoverStart -lt 0 -or $recoverEnd -le $recoverStart) { throw 'Physical owner recovery boundary is missing' }
+ $recoverBody = $owner.Substring($recoverStart, $recoverEnd - $recoverStart)
+ if ($recoverBody.IndexOf('SD.end()') -lt 0 -or $recoverBody.IndexOf('mountLocked()') -lt $recoverBody.IndexOf('SD.end()')) {
+  throw 'Cached SD teardown does not precede the owner recovery mount attempt'
+ }
+if ($main -notmatch 'physicalSdOwner\.automaticRecoveryAllowed\(\)') { throw 'Controller recovery service can bypass the owner failure latch' }
 if ($history -match 'SD\.begin\(' -or $history -match 'SPIClass\s+spi_') { throw 'History/detail consumer still owns physical SD initialization' }
 if ($diagnostic -match 'SD\.begin\(' -or $diagnostic -match 'SPIClass\s+spi_') { throw 'Diagnostic consumer still owns physical SD initialization' }
 if ($history -match '(?m)^\s*SD\.' -or $diagnostic -match '(?m)^\s*SD\.') { throw 'Logical consumer bypasses the physical owner boundary' }
