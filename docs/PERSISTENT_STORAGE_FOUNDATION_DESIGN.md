@@ -103,6 +103,33 @@ required reconstruction succeeds. Failed recovery remains unavailable/degraded
 and is not retried automatically; another attempt requires another explicit
 `Retry storage` request. Reinsertion alone remains inert.
 
+### Explicit production storage check
+
+The support/diagnostics boundary also exposes one authorised, read-only
+`Check storage` action. It is a bounded support operation, not a recovery or
+test-only hook. Only the controlling Race Director/Master may request it, and
+only in `READY` or settled `FINISHED`. One accepted request performs exactly
+one owner-mediated filesystem check against an existing required storage
+object or metadata whose presence is deterministic when the medium is mounted.
+The request performs no `SD.begin()`, mount, remount, card probe, polling,
+retry loop, write, repair, migration, deletion or committed-data modification.
+
+The check crosses the Physical SD Owner boundary and uses the existing lease
+and `reportPhysicalIoFailure` path. A genuine open/read/I/O failure therefore
+transitions the owner to unavailable/non-durable and exposes the corresponding
+logical History/Diagnostics/storage health and explicit bounded result. A
+successful check reports physical accessibility but does not clear or conceal
+logical History corruption or unsupported-record degradation. Physical
+accessibility and logical namespace integrity remain separate facts.
+
+`Check storage` never performs recovery. Reinsertion alone remains inert, and
+the existing authorised `Retry storage` request remains the only explicit
+recovery action. After a failed check, a later reinsertion is followed by
+`Retry storage` under the existing lifecycle gate; no automatic retry is
+created. The request, attempt, result, resulting owner/logical health and
+absence of remount/retry/race/authority side effects are recorded in bounded
+diagnostic evidence suitable for support and WP5 acceptance.
+
 ## Authority and storage boundary
 
 Race Engine remains authoritative for timing, laps, classification, integrity and completed results. It depends only on a persistence/storage boundary and not directly on SD, FATFS, NVS, filenames or filesystem layout.

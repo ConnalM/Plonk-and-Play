@@ -882,6 +882,19 @@ request, then reconstructs History, active-detail/Results and Diagnostics before
 advertising durable health. A failed request remains degraded and requires a
 new explicit request; card reinsertion alone does not trigger recovery.
 
+The same authorised Settings → Diagnostics → System Health boundary provides a
+read-only `Check storage` request for the controlling Race Director/Master in
+`READY` or settled `FINISHED`. It performs exactly one bounded filesystem
+access through the Physical SD Owner against a required mounted storage object
+or metadata. It is not a recovery operation: it never calls `SD.begin()`,
+mounts/remounts, probes for a card, polls, retries, writes, repairs, migrates,
+deletes or changes committed data. Physical I/O failure uses the existing
+owner lease/report-failure boundary and makes physical health unavailable/
+non-durable; success reports accessibility without clearing a separate logical
+History corruption/unsupported state. The result and resulting owner/logical
+health are bounded diagnostic evidence. Reinsertion remains inert and only the
+existing `Retry storage` request can later recover the owner.
+
 ## 13.1 Information ownership and delivery
 
 P&P may distribute information widely, but it must not distribute ownership. For each authoritative fact or state there is one owner and one truth. Other components may hold views, snapshots or derived presentation data without becoming another authority.

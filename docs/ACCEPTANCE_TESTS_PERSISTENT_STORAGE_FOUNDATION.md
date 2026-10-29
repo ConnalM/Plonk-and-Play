@@ -56,6 +56,7 @@ These tests verify the persistent-storage boundary without changing frozen Stage
 | PSF.36 | Recovery is requested only through the physical owner boundary; logical consumers cannot retry `SD.begin()` independently at any lifecycle state. | Development and Hardware |
 | PSF.37 | Physical recovery is suppressed in `STARTING`, `RACING`, `PAUSED`, `RESTARTING` and before completion settlement reaches `FINISHED`; authoritative racing continues while deferred. Recovery becomes eligible in `READY` and settled `FINISHED`, performs exactly one owner-controlled mount, reconstructs each subordinate namespace before advertising durable health, and leaves racing/HTTP unaffected if it fails. | Development and Hardware |
 | PSF.38 | The controlling Race Director/Master can issue one authorised `Retry storage` request after the physical problem is corrected. The request performs no storage work itself, crosses the PhysicalSdOwner boundary, is accepted only in `READY`/settled `FINISHED`, creates at most one pending attempt, rejects prohibited/healthy/already-pending requests, and requires a new explicit request after failure. | Development and Hardware |
+| PSF.39 | The controlling Race Director/Master can issue one authorised read-only `Check storage` request in `READY`/settled `FINISHED`; it performs exactly one bounded owner-mediated filesystem check, reports physical success or failure explicitly, propagates genuine I/O failure through the owner, never mounts/remounts/retries or modifies committed data, and leaves logical History integrity distinct from physical accessibility. | Development and Hardware |
 
 ## Required evidence
 
@@ -74,6 +75,20 @@ durable `HEALTHY` advertised only after reconstruction succeeds. The sequence
 must also cover duplicate/double requests, a request while recovery is pending,
 a request while storage is already healthy, failure followed by a later explicit
 retry, and rejection during prohibited lifecycle/authority states.
+
+### PSF.39 Check-storage acceptance sequence
+
+The required physical sequence is: healthy mounted storage; physical SD removal;
+one authorised `Check storage` request from the controlling Race Director/Master
+in `READY` or settled `FINISHED`; exactly one bounded owner-mediated filesystem
+check; explicit physical success or I/O failure; owner and logical health
+reporting; reinsertion with no autonomous recovery; one authorised `Retry
+storage` request; exactly one owner mount/reconstruction; and durable health
+restored only after reconstruction succeeds. The check must not write, repair,
+migrate, delete, poll, retry, remount or alter race/authority state. Evidence
+must identify request receipt, attempt, result, health transition and absence
+of recovery or race side effects. A successful check must not conceal any
+independent logical History corruption/unsupported-record degradation.
 
 ## Development acceptance boundary
 

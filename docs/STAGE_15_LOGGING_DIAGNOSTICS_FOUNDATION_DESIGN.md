@@ -131,6 +131,17 @@ and CLEAR DIAGNOSTICS are not customer controls. Normal diagnostics has no
 customer Start/Stop. Development START/STOP is offered to the controlling
 SMUG. Any connected Browser may request the observation-only download.
 
+System Health also exposes the authorised `Check storage` support action to
+the controlling Race Director/Master only, and only in `READY` or settled
+`FINISHED`. It performs one bounded read-only owner-mediated filesystem check
+of an existing required storage object/metadata. It is not a Development
+Diagnostics control and never mounts, remounts, polls, retries, writes,
+repairs, migrates or deletes. Physical I/O failure is reported through the
+shared Physical SD Owner and its resulting physical/logical health is shown;
+success reports accessibility without masking logical History integrity
+degradation. `Check storage` does not recover storage: reinsertion remains
+inert and `Retry storage` remains the sole explicit recovery action.
+
 The same Advanced/Diagnostics area contains a **Network** section. Any
 connected Browser may view sanitized AP/STA status and request a Wi-Fi scan.
 Selecting an SSID is local presentation state. For a remembered but
