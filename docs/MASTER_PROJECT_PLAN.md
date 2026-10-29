@@ -139,6 +139,7 @@ Must close the remaining physical obligations for the base, including:
 - Browser/Taster coexistence required at this base checkpoint;
 - fresh Results check sufficient to close the historical missing-time concern if not already classified;
 - SD reboot reconstruction, second-race retention, removal/remount, failure/recovery and interruption obligations applicable here;
+- exactly one normal owner mount attempt at boot; a failed boot mount remains unavailable/non-durable with no autonomous loop or reinsertion recovery;
 - explicit authorised `Retry storage` recovery after reinsertion, including owner-only mount and namespace reconstruction;
 - authorised read-only `Check storage` support action proving the owner-mediated missing-medium failure boundary before recovery;
 - diagnostics download/degraded-storage physical path;

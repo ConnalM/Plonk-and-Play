@@ -856,9 +856,13 @@ report independent logical outcomes, but neither may claim durable SD-backed
 operation while the shared physical device is unavailable. Diagnostics may use
 its existing bounded RAM-only/degraded mode.
 
-On reboot, or at an explicit owner-controlled recovery boundary in an eligible
-non-active lifecycle state, the owner mounts once and logical consumers
-reconstruct their own namespaces through it. History commits, active-detail
+On reboot, the owner makes exactly one normal mount attempt. If that boot mount
+fails, the physical owner remains unavailable/non-durable and explicit recovery
+is required: controller loops and card reinsertion do not mount or reconstruct.
+Only an authorised `Retry storage` request may create the later owner-controlled
+recovery boundary in an eligible non-active lifecycle state; that request grants
+at most one mount attempt, after which logical consumers reconstruct their own
+namespaces through the owner. History commits, active-detail
 streams, diagnostic appends, rolling and export reads use bounded arbitration
 so one consumer cannot monopolize the medium.
 
@@ -868,8 +872,9 @@ or finishing has not yet reached `FINISHED`. It is eligible in `READY` and in
 `FINISHED` after normal completion settlement. During a prohibited state,
 racing continues with the existing failure-isolation rules and recovery is
 deferred. Failed recovery leaves the physical and logical capabilities
-unavailable/degraded without affecting racing or HTTP; logical consumers never
-perform an independent remount.
+unavailable/degraded without affecting racing or HTTP; another attempt requires
+another explicit request, and logical consumers never perform an independent
+remount.
 
 The production support/diagnostics boundary provides an authorised `Retry
 storage` request for the controlling Race Director/Master. This request crosses

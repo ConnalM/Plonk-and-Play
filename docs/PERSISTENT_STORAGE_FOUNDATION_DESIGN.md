@@ -70,14 +70,19 @@ rolling and diagnostic export reads share the owner's bounded arbitration. No
 one consumer may monopolise filesystem work or make another consumer's
 timing-critical authority path wait on SD latency.
 
-Physical recovery is prohibited while the authoritative session lifecycle is
+Normal boot performs exactly one PhysicalSdOwner mount attempt. A failed boot
+mount leaves the owner `UNAVAILABLE`/non-durable and explicit-recovery-required;
+the controller loop must not retry it, and SD reinsertion alone remains inert.
+Only the authorised `Retry storage` request described below may grant one later
+recovery attempt. Physical recovery is prohibited while the authoritative session lifecycle is
 `STARTING`, `RACING`, `PAUSED` or `RESTARTING`, and while the completion
 settlement/finishing boundary has not yet reached `FINISHED`. Racing continues
 under the existing failure-isolation rules while recovery is deferred. Recovery
 is eligible in `READY` and in `FINISHED` after the normal completion settlement
 has reached that state. A failed recovery leaves physical and logical health
-unavailable/degraded and does not affect racing or HTTP. No logical consumer
-may independently retry or remount at any lifecycle state.
+unavailable/degraded and does not affect racing or HTTP; another attempt requires
+another explicit request. No logical consumer or controller loop may independently
+retry or remount at any lifecycle state.
 
 ### Explicit production recovery request
 
