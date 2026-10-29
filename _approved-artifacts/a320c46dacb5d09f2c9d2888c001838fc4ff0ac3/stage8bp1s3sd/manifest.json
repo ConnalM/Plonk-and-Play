@@ -1,0 +1,45 @@
+{
+  "source_commit": "a320c46dacb5d09f2c9d2888c001838fc4ff0ac3",
+  "environment": "stage8bp1s3sd",
+  "board": "esp32-8048s070",
+  "chip": "ESP32-S3 N16R8",
+  "flash": "16MB",
+  "psram": "8MB",
+  "framework": "arduino",
+  "platformio_core": "6.2.0",
+  "espressif32": "8.0.0",
+  "arduino_esp32": "3.3.12",
+  "esp_idf": "5.5.5",
+  "arduino_gfx": "1.6.5+sha.4c1d0a6",
+  "clean_build": true,
+  "build_command": "pio run -e stage8bp1s3sd",
+  "firmware": {
+    "path": "firmware.bin",
+    "size_bytes": 1453936,
+    "sha256": "06666852B1DC6950564949C194C0BA4463149683B0FB961E550018157BBE1613"
+  },
+  "elf": {
+    "size_bytes": 15085628,
+    "sha256": "CFCBB331CD27BB41AA26FF39573336E2D22FF1CC353F6CB3A847019C87D6497D"
+  },
+  "memory_usage": {
+    "ram_used_bytes": 86652,
+    "ram_available_bytes": 327680,
+    "flash_used_bytes": 1426031,
+    "flash_available_bytes": 6553600
+  },
+  "display": {
+    "geometry": "800x480",
+    "pixel_clock_hz": 12000000,
+    "bounce_buffer_size_px": 16000,
+    "bounce_buffer_count": 2,
+    "bounce_buffer_bytes_each": 32000,
+    "bounce_buffer_total_bytes": 64000,
+    "framebuffer": "single PSRAM framebuffer"
+  },
+  "sse_workers": {
+    "count": 4,
+    "stack_bytes_each": 8192
+  },
+  "provenance": "Built once from a clean detached checkout at source_commit; no post-build source changes were made before preservation."
+}
