@@ -1,0 +1,61 @@
+{
+  "source_commit": "c964b6c88666169709241d2c1503660ef043a8a0",
+  "environment": "stage8bp1s3sd-psf28",
+  "base_environment": "stage8bp1s3sd",
+  "board": "esp32-8048s070",
+  "chip": "ESP32-S3",
+  "flash": "16MB",
+  "psram": "8MB",
+  "acceptance_flags": {
+    "PP_PSF28_ACCEPTANCE": true,
+    "PP_PSF28_WINDOW_MS": 15000
+  },
+  "toolchain": {
+    "platformio_core": "6.2.0",
+    "espressif32": "8.0.0",
+    "arduino_esp32": "3.3.12",
+    "esp_idf": "5.5.5",
+    "arduino_gfx": "1.6.5+sha.4c1d0a6",
+    "esptool": "5.4.0",
+    "toolchain": "14.2.0+20260121"
+  },
+  "firmware": {
+    "path": "firmware.bin",
+    "size_bytes": 1456016,
+    "sha256": "694C40C160E4961B7B4BCF76ED356BDA7A5E02D3A053C6F1DB9958317E21E09C"
+  },
+  "elf": {
+    "size_bytes": 15079224,
+    "sha256": "A68DC625BF787CD6D06E5ECACB8D62450AA538B6B348626AC652A3D373C2F594"
+  },
+  "resources": {
+    "ram_used_bytes": 86828,
+    "ram_total_bytes": 327680,
+    "ram_percent": 26.5,
+    "flash_used_bytes": 1428235,
+    "flash_total_bytes": 6553600,
+    "flash_percent": 21.8,
+    "sse_workers": 4,
+    "sse_worker_stack_bytes_each": 8192,
+    "sse_worker_stack_bytes_total": 32768
+  },
+  "display": {
+    "geometry": "800x480",
+    "pclk_hz": 12000000,
+    "rotation": 0,
+    "bounce_buffer_size_px": 16000,
+    "bounce_buffer_bytes_each": 32000,
+    "bounce_buffer_bytes_total": 64000,
+    "framebuffer": "single PSRAM framebuffer"
+  },
+  "provenance": {
+    "clean_source": true,
+    "build_once": true,
+    "normal_production_environment_unchanged": true,
+    "runtime_marker_strings_present": [
+      "PSF28_PERSISTENCE_BEGIN kind=history_payload",
+      "PSF28_POWER_CUT_WINDOW old_committed_state_preserved",
+      "RGB bounce buffers configured: bounce_buffer_size_px="
+    ]
+  }
+}
