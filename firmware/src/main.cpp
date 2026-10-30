@@ -19,6 +19,7 @@
 #endif
 #include "pp/verification.h"
 #include "pp/persistent_storage.h"
+#include "pp/esp32_firmware_update_adapter.h"
 #if defined(PP_PHASE8B_REAL_SD)
 #include "pp/physical_sd_owner.h"
 #include "pp/sd_store_arduino.h"
@@ -101,6 +102,10 @@ pp::Esp32S3BoardDisplay boardDisplay;
 pp::SessionLifecycle physicalRecoveryLifecycle = pp::SessionLifecycle::Faulted;
 bool physicalRecoveryAttempted = false;
 #endif
+pp::DefaultFirmwareValidationProvider firmwareValidationProvider("plonk-and-play", "esp32-8048s070");
+pp::FirmwareIdentity firmwareInitialIdentity{"plonk-and-play", "esp32-8048s070", "boot", 0};
+pp::FirmwareUpdateStateMachine firmwareUpdateState(firmwareInitialIdentity, firmwareValidationProvider);
+pp::Esp32FirmwareUpdateAdapter firmwareUpdateAdapter(&firmwareUpdateState);
 class BrowserAuthorityStore final: public pp::AuthorityStore {
 public:
   void begin(){ready=preferences.begin("pp-browser-auth",false);}
@@ -597,6 +602,9 @@ void observeControllerTrace(){
 }
 void setup(){
   Serial.begin(115200);
+  // Read-only OTA adapter discovery.  Staging, boot selection and health
+  // confirmation remain explicit WP6 boundaries; normal startup is unchanged.
+  firmwareUpdateAdapter.initialize();
 #ifdef PP_ACCEPTANCE
   acceptanceBeforeBoot();
 #endif
@@ -771,6 +779,14 @@ void setup(){
   pp::Message request;request.type=pp::Type::LoadConfiguration;request.correlation=1;
   if(bus.publish(lifecycle,request)!=pp::Delivery::Delivered){bootFailed=true;diagnostics.log("STAGE1_FAIL configuration request");}
 }
+void serviceFirmwareUpdateHealthGate() {
+  if (!firmwareUpdateAdapter.pendingBoot() || !ready || !browser.serverReady()) return;
+#if defined(PP_PHASE8B_REAL_SD)
+  if (!physicalSdOwner.available() || !sdPersistence.available()) return;
+#endif
+  const auto result = firmwareUpdateAdapter.confirmHealth(true);
+  diagnostics.log("[WP6 OTA] post-boot health=%s", result == pp::FirmwarePlatformResult::Ok ? "COMMITTED" : "FAILED");
+}
 void loop(){
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   const pp::Time loopStarted=systemTime();
@@ -795,6 +811,7 @@ void loop(){
   logLifecycleTransition();
 #endif
   browser.tick();
+  serviceFirmwareUpdateHealthGate();
 #if defined(PP_STAGE8A_TASTER_WOKWI)
   taster.tick();
 #endif

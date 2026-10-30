@@ -86,19 +86,26 @@ class DefaultFirmwareValidationProvider final : public FirmwareValidationProvide
   FirmwareValidationResult validate(const FirmwareCandidate& candidate,
                                     const FirmwareIdentity& knownGood,
                                     bool supportDowngrade) const override {
-    if (!candidate.authenticated) return {false, FirmwareValidationFailure::Unauthenticated};
-    if (!candidate.complete) return {false, FirmwareValidationFailure::Incomplete};
-    if (!candidate.integrityValid) return {false, FirmwareValidationFailure::IntegrityFailure};
+    if (!candidate.authenticated) return result(false, FirmwareValidationFailure::Unauthenticated);
+    if (!candidate.complete) return result(false, FirmwareValidationFailure::Incomplete);
+    if (!candidate.integrityValid) return result(false, FirmwareValidationFailure::IntegrityFailure);
     if (!same(candidate.identity.product, product_) || !same(candidate.identity.board, board_)) {
-      return {false, FirmwareValidationFailure::IncompatibleTarget};
+      return result(false, FirmwareValidationFailure::IncompatibleTarget);
     }
     if (!supportDowngrade && candidate.identity.version < knownGood.version) {
-      return {false, FirmwareValidationFailure::DowngradeRejected};
+      return result(false, FirmwareValidationFailure::DowngradeRejected);
     }
-    return {true, FirmwareValidationFailure::None};
+    return result(true, FirmwareValidationFailure::None);
   }
 
  private:
+  static FirmwareValidationResult result(bool accepted, FirmwareValidationFailure failure) {
+    FirmwareValidationResult value;
+    value.accepted = accepted;
+    value.failure = failure;
+    return value;
+  }
+
   static bool same(const char* a, const char* b) {
     return a && b && strcmp(a, b) == 0;
   }
@@ -118,6 +125,22 @@ class FirmwareUpdateStateMachine {
   FirmwareValidationFailure validationFailure() const { return validationFailure_; }
   FirmwareUpdateRejection lastRejection() const { return lastRejection_; }
   bool customerDataTouched() const { return false; }
+
+  // Platform adapters call these only while reconstructing the boot boundary;
+  // they do not perform any flash or filesystem work themselves.
+  bool setKnownGoodIdentity(const FirmwareIdentity& identity) {
+    if (state_ != FirmwareUpdateState::Idle) return false;
+    knownGood_ = identity;
+    return true;
+  }
+
+  bool restorePendingCandidate(const FirmwareCandidate& candidate) {
+    if (state_ != FirmwareUpdateState::Idle) return false;
+    candidate_ = candidate;
+    validationFailure_ = FirmwareValidationFailure::None;
+    state_ = FirmwareUpdateState::AwaitingHealthConfirmation;
+    return true;
+  }
 
   bool beginRequest(const FirmwareUpdateRequestContext& context) {
     lastRejection_ = FirmwareUpdateRejection::None;
