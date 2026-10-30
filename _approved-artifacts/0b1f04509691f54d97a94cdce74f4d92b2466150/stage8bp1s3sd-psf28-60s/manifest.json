@@ -1,0 +1,54 @@
+{
+  "source_commit": "0b1f04509691f54d97a94cdce74f4d92b2466150",
+  "environment": "stage8bp1s3sd-psf28",
+  "artifact_label": "stage8bp1s3sd-psf28-60s",
+  "build": {
+    "clean": true,
+    "command": "pio run -e stage8bp1s3sd-psf28",
+    "platform": "espressif32@8.0.0",
+    "framework": "Arduino-ESP32 3.3.12",
+    "esp_idf": "5.5.5",
+    "arduino_gfx": "1.6.5+sha.4c1d0a6",
+    "board": "esp32-8048s070 (ESP32-S3 N16R8)",
+    "flash_mode": "dio",
+    "flash_capacity_bytes": 16777216,
+    "psram": "8MB"
+  },
+  "firmware": {
+    "path": "firmware.bin",
+    "size_bytes": 1456496,
+    "sha256": "2CFFC3985734AA995776B10546729AA1D3A012BA58FF769D3AF2B7D48E13A7BA"
+  },
+  "elf": {
+    "path": "firmware.elf",
+    "size_bytes": 15081360,
+    "sha256": "995B5F9D309FB6B0C8CA22812C84166AB3A9553A45F894435F671C43C8E82085"
+  },
+  "resources": {
+    "ram_used_bytes": 86828,
+    "ram_capacity_bytes": 327680,
+    "flash_used_bytes": 1428623,
+    "flash_capacity_bytes": 6553600,
+    "sse_worker_count": 4,
+    "sse_worker_stack_bytes": 8192
+  },
+  "psf28": {
+    "acceptance_define": "PP_PSF28_ACCEPTANCE=1",
+    "window_ms": 60000,
+    "fixture_location_unchanged": true,
+    "production_persistence_semantics_unchanged": true
+  },
+  "display": {
+    "geometry": "800x480",
+    "pclk_hz": 12000000,
+    "bounce_buffer_size_px": 16000,
+    "bounce_buffer_bytes_each": 32000,
+    "bounce_buffer_total_bytes": 64000,
+    "framebuffer": "single PSRAM framebuffer"
+  },
+  "provenance": {
+    "source_clean_checkout": true,
+    "normal_environment_unchanged": true,
+    "artifact_verified_after_copy": true
+  }
+}
