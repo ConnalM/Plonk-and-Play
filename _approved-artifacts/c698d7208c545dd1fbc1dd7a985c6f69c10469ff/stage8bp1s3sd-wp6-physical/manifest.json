@@ -10,7 +10,7 @@
     "arduinoEsp32": "3.3.12",
     "espIdf": "5.5.5",
     "arduinoGfx": "1.6.5+sha.4c1d0a6",
-    "pio": "6.1.17"
+    "pio": "6.2.0"
   },
   "build": {
     "clean": true,
