@@ -36,5 +36,8 @@ metadata = HISTORY.index("publishMetadata(candidate)")
 check("begin_precedes_real_payload_write", begin < payload_write)
 check("window_follows_payload_verification", payload_verify < window)
 check("window_precedes_metadata_publication", window < metadata)
-check("normal_environment_does_not_enable_fixture", "PP_PSF28_ACCEPTANCE" not in PLATFORMIO)
+normal_section = PLATFORMIO.split("[env:stage8bp1s3sd]", 1)[1].split("[env:stage8bp1s3sd-psf28]", 1)[0]
+psf28_section = PLATFORMIO.split("[env:stage8bp1s3sd-psf28]", 1)[1]
+check("normal_environment_does_not_enable_fixture", "PP_PSF28_ACCEPTANCE" not in normal_section)
+check("dedicated_environment_enables_fixture", "-DPP_PSF28_ACCEPTANCE=1" in psf28_section)
 check("production_transaction_still_has_payload_then_metadata", "payloadVerified" in HISTORY and "publishMetadata(candidate)" in HISTORY)
