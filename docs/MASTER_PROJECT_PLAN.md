@@ -129,6 +129,13 @@ WP1–WP4 must all be closed. Archie performs a cross-WP semantic review. Al pro
 ---
 
 ### WP5 — Base-system hardware acceptance
+**Status: CLOSED / PASS (30 October 2026).** The applicable WP5 base-system
+hardware campaign, including the final PSF.28 power-interruption obligation,
+has been accepted against the recorded candidate evidence. The display/Taster
+items explicitly deferred by dependency remain assigned to WP8 and do not
+reopen this WP5 closure. The bounded Diagnostics-backend rollover observation
+is a separate follow-up, not a WP5 storage-acceptance blocker.
+
 **Purpose:** one concentrated physical campaign against the Gate-A candidate, crediting all existing evidence.
 
 Must close the remaining physical obligations for the base, including:

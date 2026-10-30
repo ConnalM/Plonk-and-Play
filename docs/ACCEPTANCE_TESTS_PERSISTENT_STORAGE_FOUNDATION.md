@@ -2,6 +2,31 @@
 
 **Status: ACCEPTED / FROZEN**
 
+## PSF.28 physical acceptance result — CLOSED / PASS
+
+The final PSF.28 hardware campaign was accepted on 30 October 2026 against the
+following exact candidate:
+
+- acceptance source: `0b1f04509691f54d97a94cdce74f4d92b2466150`;
+- artifact/evidence commit: `1edac88e0e3ff5f120117f2b268a76e213493fac`;
+- firmware SHA-256: `2CFFC3985734AA995776B10546729AA1D3A012BA58FF769D3AF2B7D48E13A7BA`.
+
+Three real USB power interruptions occurred after
+`PSF28_POWER_CUT_WINDOW` and before History metadata publication. Trials 1, 2
+and 3 each rebooted stably and excluded the interrupted result from official
+History. The uninterrupted control allowed the window to expire and committed
+one valid sealed result, sequence 14, exactly once, with no duplicate, History
+persistence fault or physical SD failure. Previously committed records and the
+PB/Track Record/Record Era state remained consistent.
+
+The System Health value `256` is the bounded Diagnostics backend
+`retainedRecords`/capacity, not the History count. `/history` result `260` is
+`ESP_ERR_INVALID_SIZE`, not 260 History records. Diagnostics storage values are
+`2 = Degraded` and `3 = Fault`; the observed `2 -> 3` transition belongs to the
+separate bounded Diagnostics backend rollover/append path and is not a PSF.28
+History or physical-SD failure. That observation is recorded as a separate
+non-WP5 follow-up and is not changed by this acceptance closure.
+
 ## Purpose
 
 These tests verify the persistent-storage boundary without changing frozen Stage 1–14C race, timing, authority or record semantics.
