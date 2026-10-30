@@ -67,10 +67,20 @@ int main() {
   {
     FirmwareUpdateStateMachine m(known, validator);
     if (!m.beginRequest(masterReady()) || !m.finishStaging(validCandidate()) || !m.beginInstall()) return fail("rollback-setup");
-    if (m.healthConfirmation(false) || m.state() != FirmwareUpdateState::RecoveryRequired || m.knownGood().version != 10) return fail("rollback");
+    if (m.healthConfirmation(false) || m.state() != FirmwareUpdateState::RollingBack || m.knownGood().version != 10) return fail("rollback");
+    if (m.completeRollback(false) || m.state() != FirmwareUpdateState::RecoveryRequired) return fail("rollback-failure");
     // RecoveryRequired is deliberately retryable only through a new explicit request.
     if (!m.beginRequest(masterReady()) || m.state() != FirmwareUpdateState::ReceivingStaging) return fail("recovery-retry");
     if (m.customerDataTouched()) return fail("rollback-data");
+  }
+
+  {
+    FirmwareUpdateStateMachine m(known, validator);
+    if (!m.beginRequest(masterReady()) || !m.finishStaging(validCandidate()) || !m.beginInstall()) return fail("successful-rollback-setup");
+    if (m.healthConfirmation(false) || m.state() != FirmwareUpdateState::RollingBack) return fail("candidate-health-failure");
+    if (!m.completeRollback(true) || m.state() != FirmwareUpdateState::KnownGoodRestored) return fail("successful-rollback");
+    if (m.knownGood().version != 10 || m.customerDataTouched()) return fail("successful-rollback-retention");
+    if (!m.beginRequest(masterReady()) || m.state() != FirmwareUpdateState::ReceivingStaging) return fail("post-rollback-update");
   }
 
   std::cout << "WP6_UPDATE_STATE_MACHINE_PASS\n";

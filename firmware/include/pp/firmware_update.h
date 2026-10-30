@@ -17,6 +17,7 @@ enum class FirmwareUpdateState : uint8_t {
   AwaitingHealthConfirmation,
   Committed,
   RollingBack,
+  KnownGoodRestored,
   RecoveryRequired,
   Failed,
 };
@@ -28,6 +29,7 @@ enum class FirmwareUpdateRejection : uint8_t {
   AlreadyPending,
   InvalidCandidateState,
   NotHealthConfirmation,
+  RollbackNotInProgress,
 };
 
 enum class FirmwareValidationFailure : uint8_t {
@@ -160,7 +162,7 @@ class FirmwareUpdateStateMachine {
     return true;
   }
 
-  bool healthConfirmation(bool healthy, bool rollbackSucceeded = true) {
+  bool healthConfirmation(bool healthy) {
     if (state_ != FirmwareUpdateState::AwaitingHealthConfirmation) {
       lastRejection_ = FirmwareUpdateRejection::NotHealthConfirmation;
       return false;
@@ -171,14 +173,26 @@ class FirmwareUpdateStateMachine {
       return true;
     }
     state_ = FirmwareUpdateState::RollingBack;
-    state_ = rollbackSucceeded ? FirmwareUpdateState::RecoveryRequired : FirmwareUpdateState::Failed;
     return false;
+  }
+
+  // The platform boot/update adapter calls this after attempting rollback. A
+  // successful rollback restores ordinary operation; support mode is reserved
+  // for the case where rollback itself cannot restore the known-good image.
+  bool completeRollback(bool rollbackSucceeded) {
+    if (state_ != FirmwareUpdateState::RollingBack) {
+      lastRejection_ = FirmwareUpdateRejection::RollbackNotInProgress;
+      return false;
+    }
+    state_ = rollbackSucceeded ? FirmwareUpdateState::KnownGoodRestored : FirmwareUpdateState::RecoveryRequired;
+    return rollbackSucceeded;
   }
 
  private:
   bool pending() const {
     return state_ != FirmwareUpdateState::Idle && state_ != FirmwareUpdateState::Failed &&
-           state_ != FirmwareUpdateState::RecoveryRequired && state_ != FirmwareUpdateState::Committed;
+           state_ != FirmwareUpdateState::RecoveryRequired && state_ != FirmwareUpdateState::Committed &&
+           state_ != FirmwareUpdateState::KnownGoodRestored;
   }
   bool reject(FirmwareUpdateRejection reason) {
     lastRejection_ = reason;
