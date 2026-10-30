@@ -18,8 +18,8 @@ PROJECT_NAME_OFFSET = APP_DESC_OFFSET + 0x30
 VALIDATION_HASH_BYTES = 32
 
 
-def patch_app_identity(source, target, environment):
-    del source, environment
+def patch_app_identity(source, target, env):
+    del source, env
     image = Path(str(target[0]))
     data = bytearray(image.read_bytes())
     if len(data) <= PROJECT_NAME_OFFSET + 32 + VALIDATION_HASH_BYTES:
