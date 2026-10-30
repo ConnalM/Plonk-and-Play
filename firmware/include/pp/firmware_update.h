@@ -46,6 +46,9 @@ struct FirmwareIdentity {
   const char* board = nullptr;
   const char* buildId = nullptr;
   uint32_t version = 0;
+  constexpr FirmwareIdentity(const char* productValue = nullptr, const char* boardValue = nullptr,
+                             const char* buildIdValue = nullptr, uint32_t versionValue = 0)
+      : product(productValue), board(boardValue), buildId(buildIdValue), version(versionValue) {}
 };
 
 struct FirmwareCandidate {
@@ -54,6 +57,11 @@ struct FirmwareCandidate {
   bool complete = false;
   bool integrityValid = false;
   bool authenticated = false;
+  constexpr FirmwareCandidate(FirmwareIdentity identityValue = {}, size_t imageSizeValue = 0,
+                              bool completeValue = false, bool integrityValidValue = false,
+                              bool authenticatedValue = false)
+      : identity(identityValue), imageSize(imageSizeValue), complete(completeValue),
+        integrityValid(integrityValidValue), authenticated(authenticatedValue) {}
 };
 
 struct FirmwareUpdateRequestContext {
@@ -61,6 +69,46 @@ struct FirmwareUpdateRequestContext {
   bool lifecycleSettled = false;
   // Only a separately controlled support/recovery path may set this true.
   bool supportDowngrade = false;
+};
+
+enum class FirmwareUpdateApiResult : uint8_t {
+  Accepted,
+  PermissionDenied,
+  LifecycleNotSettled,
+  AlreadyInProgress,
+  InvalidRequest,
+  TooLarge,
+  IncompleteUpload,
+  InvalidCandidate,
+  NotReady,
+  Rejected,
+};
+
+struct FirmwareUpdateStatusView {
+  FirmwareUpdateState state = FirmwareUpdateState::Idle;
+  FirmwareValidationFailure validationFailure = FirmwareValidationFailure::None;
+  FirmwareUpdateRejection lastRejection = FirmwareUpdateRejection::None;
+  size_t receivedBytes = 0;
+  size_t expectedBytes = 0;
+  uint32_t knownGoodVersion = 0;
+  bool pendingReboot = false;
+};
+
+// The Browser talks to this controller-side seam. It deliberately exposes no
+// storage, partition, or bootloader primitives; the platform adapter owns
+// those operations behind the seam.
+class FirmwareUpdateEndpoint {
+ public:
+  virtual ~FirmwareUpdateEndpoint() = default;
+  virtual FirmwareUpdateApiResult begin(uint64_t owner, const FirmwareUpdateRequestContext& context,
+                                        size_t expectedBytes) = 0;
+  virtual FirmwareUpdateApiResult upload(uint64_t owner, const uint8_t* data, size_t size) = 0;
+  virtual FirmwareUpdateApiResult validate(uint64_t owner) = 0;
+  virtual FirmwareUpdateApiResult install(uint64_t owner) = 0;
+  virtual void abort(uint64_t owner) = 0;
+  virtual bool owns(uint64_t owner) const = 0;
+  virtual FirmwareUpdateStatusView status() const = 0;
+  virtual bool consumeRebootRequest() = 0;
 };
 
 struct FirmwareValidationResult {
@@ -151,6 +199,13 @@ class FirmwareUpdateStateMachine {
     candidate_ = {};
     validationFailure_ = FirmwareValidationFailure::None;
     supportDowngrade_ = context.supportDowngrade;
+    return true;
+  }
+
+  bool abortRequest() {
+    if (state_ != FirmwareUpdateState::ReceivingStaging && state_ != FirmwareUpdateState::Validating) return false;
+    state_ = FirmwareUpdateState::Failed;
+    validationFailure_ = FirmwareValidationFailure::Incomplete;
     return true;
   }
 

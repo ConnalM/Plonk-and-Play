@@ -106,6 +106,7 @@ pp::DefaultFirmwareValidationProvider firmwareValidationProvider("plonk-and-play
 pp::FirmwareIdentity firmwareInitialIdentity{"plonk-and-play", "esp32-8048s070", "boot", 0};
 pp::FirmwareUpdateStateMachine firmwareUpdateState(firmwareInitialIdentity, firmwareValidationProvider);
 pp::Esp32FirmwareUpdateAdapter firmwareUpdateAdapter(&firmwareUpdateState);
+pp::Esp32FirmwareUpdateService firmwareUpdateService(firmwareUpdateState, firmwareUpdateAdapter);
 class BrowserAuthorityStore final: public pp::AuthorityStore {
 public:
   void begin(){ready=preferences.begin("pp-browser-auth",false);}
@@ -144,10 +145,11 @@ const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
 pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
 pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthority,&history,&records,&raceEngine,
 #if defined(PP_PHASE8B_REAL_SD)
-                             &physicalSdOwner
+                             &physicalSdOwner,
 #else
-                             nullptr
+                             nullptr,
 #endif
+                             &firmwareUpdateService
 );
 #if defined(PP_STAGE8A_TASTER_WOKWI)
 pp::TasterRuntime taster(browser);
@@ -746,6 +748,7 @@ void setup(){
   browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset);
 #endif
   browser.begin();
+  Serial.println("[WP6 OTA] Browser update API declared status/begin/upload/validate/install");
 #if defined(PP_STAGE8A_TASTER_WOKWI)
   taster.begin();
 #endif

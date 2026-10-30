@@ -12,6 +12,7 @@
 #include "diagnostic_export.h"
 #include "control_lease.h"
 #include "external_wifi.h"
+#include "firmware_update.h"
 #if defined(PP_PHASE8B_REAL_SD)
 #include "physical_sd_owner.h"
 #endif
@@ -55,10 +56,11 @@ public:
   BrowserInterface(Bus& bus, Bus::Endpoint endpoint, const Noticeboard& noticeboard,
                    AuthorityStore* authority = nullptr, HistoryStore* history = nullptr,
                    TrackRecordStore* records = nullptr, const DetailSource* detailSource = nullptr,
-                   PhysicalSdOwner* physicalOwner = nullptr)
+                   PhysicalSdOwner* physicalOwner = nullptr,
+                   FirmwareUpdateEndpoint* firmwareUpdate = nullptr)
       : bus_(bus), endpoint_(endpoint), noticeboard_(noticeboard),
         authority_(authority ? authority : &fallback_), history_(history), records_(records), detailSource_(detailSource),
-        physicalOwner_(physicalOwner) {
+        physicalOwner_(physicalOwner), firmwareUpdate_(firmwareUpdate) {
     controllerEpoch_ = newControllerEpoch();
   }
   uint64_t controllerEpoch() const { return controllerEpoch_; }
@@ -176,6 +178,10 @@ public:
 #endif
     if (!server_) startServer();
     updatePresentation(systemTime());
+    if (firmwareUpdate_ && firmwareUpdate_->consumeRebootRequest()) {
+      delay(25);
+      esp_restart();
+    }
     // Noticeboard and presentation changes are coalesced independently for
     // each bounded Browser SSE session.  A slow client cannot block another
     // client or any authoritative P&P work.
@@ -579,6 +585,7 @@ private:
   TrackRecordStore* records_ = nullptr;
   const DetailSource* detailSource_ = nullptr;
   PhysicalSdOwner* physicalOwner_ = nullptr;
+  FirmwareUpdateEndpoint* firmwareUpdate_ = nullptr;
   VolatileAuthorityStore fallback_;
   ExternalWifiManager network_{};
   httpd_handle_t server_ = nullptr;
@@ -2473,6 +2480,209 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     trace.complete(sent);
     return sent;
   }
+  static const char* firmwareUpdateStateText(FirmwareUpdateState state) {
+    switch (state) {
+      case FirmwareUpdateState::Idle: return "IDLE";
+      case FirmwareUpdateState::ReceivingStaging: return "RECEIVING_STAGING";
+      case FirmwareUpdateState::Validating: return "VALIDATING";
+      case FirmwareUpdateState::CandidateReady: return "CANDIDATE_READY";
+      case FirmwareUpdateState::InstallingPendingBoot: return "INSTALLING_PENDING_BOOT";
+      case FirmwareUpdateState::AwaitingHealthConfirmation: return "AWAITING_HEALTH_CONFIRMATION";
+      case FirmwareUpdateState::Committed: return "COMMITTED";
+      case FirmwareUpdateState::RollingBack: return "ROLLING_BACK";
+      case FirmwareUpdateState::KnownGoodRestored: return "KNOWN_GOOD_RESTORED";
+      case FirmwareUpdateState::RecoveryRequired: return "RECOVERY_REQUIRED";
+      case FirmwareUpdateState::Failed: return "FAILED";
+      default: return "UNKNOWN";
+    }
+  }
+  static const char* firmwareUpdateFailureText(FirmwareValidationFailure failure) {
+    switch (failure) {
+      case FirmwareValidationFailure::Unauthenticated: return "UNAUTHENTICATED";
+      case FirmwareValidationFailure::IncompatibleTarget: return "INCOMPATIBLE_TARGET";
+      case FirmwareValidationFailure::DowngradeRejected: return "DOWNGRADE_REJECTED";
+      case FirmwareValidationFailure::Incomplete: return "INCOMPLETE";
+      case FirmwareValidationFailure::IntegrityFailure: return "INTEGRITY_FAILURE";
+      default: return "NONE";
+    }
+  }
+  static const char* firmwareUpdateRejectionText(FirmwareUpdateRejection rejection) {
+    switch (rejection) {
+      case FirmwareUpdateRejection::PermissionDenied: return "PERMISSION_DENIED";
+      case FirmwareUpdateRejection::LifecycleNotSettled: return "LIFECYCLE_NOT_SETTLED";
+      case FirmwareUpdateRejection::AlreadyPending: return "ALREADY_PENDING";
+      case FirmwareUpdateRejection::InvalidCandidateState: return "INVALID_CANDIDATE_STATE";
+      case FirmwareUpdateRejection::NotHealthConfirmation: return "NOT_HEALTH_CONFIRMATION";
+      case FirmwareUpdateRejection::RollbackNotInProgress: return "ROLLBACK_NOT_IN_PROGRESS";
+      default: return "NONE";
+    }
+  }
+  static const char* firmwareUpdateReason(FirmwareUpdateApiResult result) {
+    switch (result) {
+      case FirmwareUpdateApiResult::PermissionDenied: return "CONTROLLING_RACE_DIRECTOR_REQUIRED";
+      case FirmwareUpdateApiResult::LifecycleNotSettled: return "LIFECYCLE_NOT_SETTLED";
+      case FirmwareUpdateApiResult::AlreadyInProgress: return "UPDATE_ALREADY_IN_PROGRESS";
+      case FirmwareUpdateApiResult::InvalidRequest: return "INVALID_REQUEST";
+      case FirmwareUpdateApiResult::TooLarge: return "IMAGE_TOO_LARGE";
+      case FirmwareUpdateApiResult::IncompleteUpload: return "INCOMPLETE_UPLOAD";
+      case FirmwareUpdateApiResult::InvalidCandidate: return "INVALID_CANDIDATE";
+      case FirmwareUpdateApiResult::NotReady: return "UPDATE_NOT_READY";
+      case FirmwareUpdateApiResult::Rejected: return "UPDATE_REJECTED";
+      default: return "UNKNOWN";
+    }
+  }
+  static int firmwareUpdateHttpStatus(FirmwareUpdateApiResult result) {
+    switch (result) {
+      case FirmwareUpdateApiResult::Accepted: return 202;
+      case FirmwareUpdateApiResult::PermissionDenied: return 403;
+      case FirmwareUpdateApiResult::LifecycleNotSettled: return 409;
+      case FirmwareUpdateApiResult::AlreadyInProgress: return 409;
+      case FirmwareUpdateApiResult::InvalidRequest: return 400;
+      case FirmwareUpdateApiResult::TooLarge: return 413;
+      case FirmwareUpdateApiResult::IncompleteUpload: return 400;
+      case FirmwareUpdateApiResult::InvalidCandidate: return 422;
+      case FirmwareUpdateApiResult::NotReady: return 409;
+      default: return 503;
+    }
+  }
+  static esp_err_t sendFirmwareUpdateResult(httpd_req_t* request, FirmwareUpdateApiResult result,
+                                            const char* operation, size_t received = 0, size_t expected = 0) {
+    char json[320]{};
+    if (result == FirmwareUpdateApiResult::Accepted) {
+      snprintf(json, sizeof(json), "{\"accepted\":true,\"operation\":\"%s\",\"receivedBytes\":%lu,\"expectedBytes\":%lu}",
+               operation ? operation : "update", static_cast<unsigned long>(received), static_cast<unsigned long>(expected));
+    } else {
+      snprintf(json, sizeof(json), "{\"accepted\":false,\"operation\":\"%s\",\"reason\":\"%s\"}",
+               operation ? operation : "update", firmwareUpdateReason(result));
+    }
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    char status[32];
+    snprintf(status, sizeof(status), "%d %s", firmwareUpdateHttpStatus(result),
+             result == FirmwareUpdateApiResult::Accepted ? "Accepted" : "Rejected");
+    httpd_resp_set_status(request, status);
+    return httpd_resp_sendstr(request, json);
+  }
+  static bool readUpdateBody(httpd_req_t* request, char* body, size_t capacity) {
+    if (!request || !body || !capacity || request->content_len <= 0 || request->content_len >= int(capacity)) return false;
+    size_t received = 0;
+    while (received < request->content_len) {
+      const int part = httpd_req_recv(request, body + received, request->content_len - received);
+      if (part <= 0) return false;
+      received += static_cast<size_t>(part);
+    }
+    body[received] = '\0';
+    return true;
+  }
+  static bool updateExpectedBytes(httpd_req_t* request, size_t& expected) {
+    expected = 0;
+    char body[96]{};
+    if (!readUpdateBody(request, body, sizeof(body))) return false;
+    const char* sizeField = strstr(body, "\"size\"");
+    if (!sizeField) return false;
+    char* end = nullptr;
+    const unsigned long long value = strtoull(sizeField + 7, &end, 10);
+    if (!end || end == sizeField + 7 || value == 0 || value > SIZE_MAX) return false;
+    expected = static_cast<size_t>(value);
+    return true;
+  }
+  static esp_err_t updateStatusRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/update/status");
+    BrowserInterface* browser = instance();
+    if (!browser->firmwareUpdate_) {
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::Rejected, "status");
+    }
+    const FirmwareUpdateStatusView status = browser->firmwareUpdate_->status();
+    char json[384]{};
+    snprintf(json, sizeof(json),
+             "{\"state\":\"%s\",\"validationFailure\":\"%s\",\"lastRejection\":\"%s\",\"receivedBytes\":%lu,\"expectedBytes\":%lu,\"knownGoodVersion\":%lu,\"pendingReboot\":%s}",
+             firmwareUpdateStateText(status.state), firmwareUpdateFailureText(status.validationFailure),
+             firmwareUpdateRejectionText(status.lastRejection),
+             static_cast<unsigned long>(status.receivedBytes), static_cast<unsigned long>(status.expectedBytes),
+             static_cast<unsigned long>(status.knownGoodVersion), status.pendingReboot ? "true" : "false");
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    const esp_err_t sent = httpd_resp_sendstr(request, json);
+    trace.complete(sent);
+    return sent;
+  }
+  static esp_err_t updateBeginRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/request/update/begin");
+    BrowserInterface* browser = instance();
+    if (!browser->firmwareUpdate_) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::Rejected, "begin");
+    const uint64_t owner = client(request);
+    const NoticeboardState state = browser->noticeboard_.current();
+    if (!browser->isControlOwner(owner)) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::PermissionDenied, "begin");
+    if (state.lifecycle != SessionLifecycle::Ready && state.lifecycle != SessionLifecycle::Finished) {
+      return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::LifecycleNotSettled, "begin");
+    }
+    size_t expected = 0;
+    if (!updateExpectedBytes(request, expected)) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::InvalidRequest, "begin");
+    FirmwareUpdateRequestContext context{};
+    context.controllingMaster = true;
+    context.lifecycleSettled = true;
+    const FirmwareUpdateApiResult result = browser->firmwareUpdate_->begin(owner, context, expected);
+    const FirmwareUpdateStatusView status = browser->firmwareUpdate_->status();
+    const esp_err_t sent = sendFirmwareUpdateResult(request, result, "begin", status.receivedBytes, status.expectedBytes);
+    trace.complete(result == FirmwareUpdateApiResult::Accepted ? sent : ESP_ERR_INVALID_STATE);
+    return sent;
+  }
+  static esp_err_t updateUploadRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/request/update/upload");
+    BrowserInterface* browser = instance();
+    if (!browser->firmwareUpdate_) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::Rejected, "upload");
+    const uint64_t owner = client(request);
+    if (!browser->firmwareUpdate_->owns(owner)) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::PermissionDenied, "upload");
+    if (request->content_len <= 0) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::InvalidRequest, "upload");
+    const FirmwareUpdateStatusView before = browser->firmwareUpdate_->status();
+    if (before.expectedBytes == 0 || static_cast<size_t>(request->content_len) != before.expectedBytes - before.receivedBytes) {
+      browser->firmwareUpdate_->abort(owner);
+      return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::IncompleteUpload, "upload");
+    }
+    uint8_t chunk[1024];
+    int remaining = request->content_len;
+    while (remaining > 0) {
+      const int wanted = remaining > int(sizeof(chunk)) ? int(sizeof(chunk)) : remaining;
+      const int part = httpd_req_recv(request, reinterpret_cast<char*>(chunk), wanted);
+      if (part <= 0) {
+        browser->firmwareUpdate_->abort(owner);
+        return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::IncompleteUpload, "upload");
+      }
+      const FirmwareUpdateApiResult result = browser->firmwareUpdate_->upload(owner, chunk, static_cast<size_t>(part));
+      if (result != FirmwareUpdateApiResult::Accepted) {
+        browser->firmwareUpdate_->abort(owner);
+        return sendFirmwareUpdateResult(request, result, "upload");
+      }
+      remaining -= part;
+    }
+    const FirmwareUpdateStatusView status = browser->firmwareUpdate_->status();
+    const esp_err_t sent = sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::Accepted, "upload", status.receivedBytes, status.expectedBytes);
+    trace.complete(sent);
+    return sent;
+  }
+  static esp_err_t updateValidateRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/request/update/validate");
+    BrowserInterface* browser = instance();
+    if (!browser->firmwareUpdate_) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::Rejected, "validate");
+    const uint64_t owner = client(request);
+    if (!browser->firmwareUpdate_->owns(owner)) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::PermissionDenied, "validate");
+    const FirmwareUpdateApiResult result = browser->firmwareUpdate_->validate(owner);
+    const esp_err_t sent = sendFirmwareUpdateResult(request, result, "validate");
+    trace.complete(result == FirmwareUpdateApiResult::Accepted ? sent : ESP_ERR_INVALID_STATE);
+    return sent;
+  }
+  static esp_err_t updateInstallRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/request/update/install");
+    BrowserInterface* browser = instance();
+    if (!browser->firmwareUpdate_) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::Rejected, "install");
+    const uint64_t owner = client(request);
+    if (!browser->firmwareUpdate_->owns(owner)) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::PermissionDenied, "install");
+    const FirmwareUpdateApiResult result = browser->firmwareUpdate_->install(owner);
+    const esp_err_t sent = sendFirmwareUpdateResult(request, result, "install");
+    trace.complete(result == FirmwareUpdateApiResult::Accepted ? sent : ESP_ERR_INVALID_STATE);
+    return sent;
+  }
   static esp_err_t health(httpd_req_t* request) {
     RequestTrace trace(instance(), "/health");
     httpd_resp_set_type(request, "application/json");
@@ -2500,6 +2710,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/diag/status", HTTP_GET, diagnosticStatusRoute, nullptr},
       {"/diag/records", HTTP_GET, diagnosticRecordsRoute, nullptr},
       {"/diag/download", HTTP_GET, diagnosticDownloadRoute, nullptr},
+      {"/update/status", HTTP_GET, updateStatusRoute, nullptr},
       {"/network/status", HTTP_GET, networkStatusRoute, nullptr},
       {"/network/scan", HTTP_POST, networkScanRoute, nullptr},
       {"/network/connect", HTTP_POST, networkConnectRoute, nullptr},
@@ -2547,6 +2758,10 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/request/clear-track-record/confirm", HTTP_POST, clearTrackRecordConfirmRoute, nullptr},
       {"/request/clear-all-records", HTTP_POST, clearAllRecordsRoute, nullptr},
       {"/request/clear-all-records/confirm", HTTP_POST, clearAllRecordsConfirmRoute, nullptr},
+      {"/request/update/begin", HTTP_POST, updateBeginRoute, nullptr},
+      {"/request/update/upload", HTTP_POST, updateUploadRoute, nullptr},
+      {"/request/update/validate", HTTP_POST, updateValidateRoute, nullptr},
+      {"/request/update/install", HTTP_POST, updateInstallRoute, nullptr},
       {"/fixture", HTTP_POST, fixtureRoute, nullptr},
       {"/request-result", HTTP_GET, resultRoute, nullptr},
     };

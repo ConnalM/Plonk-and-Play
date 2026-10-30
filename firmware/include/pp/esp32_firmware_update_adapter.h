@@ -98,6 +98,17 @@ class Esp32FirmwareUpdateAdapter final {
   const esp_partition_t* runningPartition() const { return running_; }
   const esp_partition_t* candidatePartition() const { return next_; }
   const esp_app_desc_t& knownGoodDescription() const { return knownGoodDescription_; }
+  size_t bytesWritten() const { return bytesWritten_; }
+  size_t candidateCapacity() const { return next_ ? next_->size : 0; }
+  bool stagingActive() const { return handleActive_; }
+
+  FirmwarePlatformResult abortStaging() {
+    if (!handleActive_) return FirmwarePlatformResult::InvalidState;
+    const esp_err_t result = esp_ota_abort(handle_);
+    handleActive_ = false;
+    handle_ = 0;
+    return result == ESP_OK ? FirmwarePlatformResult::Ok : FirmwarePlatformResult::WriteFailed;
+  }
 
   // Stage a complete candidate into the inactive OTA slot.  esp_ota_end is
   // the framework integrity/signature validation boundary; product identity,
@@ -226,6 +237,115 @@ class Esp32FirmwareUpdateAdapter final {
   esp_app_desc_t candidateDescription_{};
 };
 
+// Controller-owned Browser/update boundary. It coordinates the already
+// approved state machine with the ESP32 adapter but exposes no OTA primitives
+// to Browser code.
+class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
+ public:
+  Esp32FirmwareUpdateService(FirmwareUpdateStateMachine& stateMachine,
+                             Esp32FirmwareUpdateAdapter& adapter)
+      : stateMachine_(stateMachine), adapter_(adapter) {}
+
+  FirmwareUpdateApiResult begin(uint64_t owner, const FirmwareUpdateRequestContext& context,
+                                size_t expectedBytes) override {
+    if (!owner || !context.controllingMaster) return FirmwareUpdateApiResult::PermissionDenied;
+    if (!context.lifecycleSettled) return FirmwareUpdateApiResult::LifecycleNotSettled;
+    if (expectedBytes == 0) return FirmwareUpdateApiResult::InvalidRequest;
+    if (stateMachine_.state() != FirmwareUpdateState::Idle &&
+        stateMachine_.state() != FirmwareUpdateState::Failed &&
+        stateMachine_.state() != FirmwareUpdateState::Committed &&
+        stateMachine_.state() != FirmwareUpdateState::KnownGoodRestored &&
+        stateMachine_.state() != FirmwareUpdateState::RecoveryRequired) {
+      return FirmwareUpdateApiResult::AlreadyInProgress;
+    }
+    if (expectedBytes > adapter_.candidateCapacity()) return FirmwareUpdateApiResult::TooLarge;
+    if (!stateMachine_.beginRequest(context)) return FirmwareUpdateApiResult::Rejected;
+    const FirmwarePlatformResult result = adapter_.beginStaging(expectedBytes);
+    if (result != FirmwarePlatformResult::Ok) {
+      stateMachine_.abortRequest();
+      return result == FirmwarePlatformResult::Capacity ? FirmwareUpdateApiResult::TooLarge : FirmwareUpdateApiResult::Rejected;
+    }
+    owner_ = owner;
+    expectedBytes_ = expectedBytes;
+    receivedBytes_ = 0;
+    return FirmwareUpdateApiResult::Accepted;
+  }
+
+  FirmwareUpdateApiResult upload(uint64_t owner, const uint8_t* data, size_t size) override {
+    if (!ownerMatches(owner) || stateMachine_.state() != FirmwareUpdateState::ReceivingStaging) return FirmwareUpdateApiResult::NotReady;
+    if (!data || size == 0 || receivedBytes_ + size > expectedBytes_) return FirmwareUpdateApiResult::InvalidRequest;
+    const FirmwarePlatformResult result = adapter_.writeStaging(data, size);
+    if (result != FirmwarePlatformResult::Ok) {
+      adapter_.abortStaging();
+      stateMachine_.abortRequest();
+      return result == FirmwarePlatformResult::Capacity ? FirmwareUpdateApiResult::TooLarge : FirmwareUpdateApiResult::Rejected;
+    }
+    receivedBytes_ += size;
+    return FirmwareUpdateApiResult::Accepted;
+  }
+
+  FirmwareUpdateApiResult validate(uint64_t owner) override {
+    if (!ownerMatches(owner) || stateMachine_.state() != FirmwareUpdateState::ReceivingStaging) return FirmwareUpdateApiResult::NotReady;
+    if (receivedBytes_ != expectedBytes_) {
+      adapter_.abortStaging();
+      stateMachine_.abortRequest();
+      return FirmwareUpdateApiResult::IncompleteUpload;
+    }
+    FirmwareCandidate candidate{};
+    const FirmwarePlatformResult result = adapter_.finishStaging(candidate);
+    if (result != FirmwarePlatformResult::Ok) {
+      stateMachine_.abortRequest();
+      return FirmwareUpdateApiResult::InvalidCandidate;
+    }
+    return FirmwareUpdateApiResult::Accepted;
+  }
+
+  FirmwareUpdateApiResult install(uint64_t owner) override {
+    if (!ownerMatches(owner)) return FirmwareUpdateApiResult::PermissionDenied;
+    if (stateMachine_.state() != FirmwareUpdateState::CandidateReady) return FirmwareUpdateApiResult::InvalidCandidate;
+    if (adapter_.selectCandidate() != FirmwarePlatformResult::Ok) return FirmwareUpdateApiResult::Rejected;
+    rebootRequested_ = true;
+    return FirmwareUpdateApiResult::Accepted;
+  }
+
+  void abort(uint64_t owner) override {
+    if (!ownerMatches(owner)) return;
+    if (adapter_.stagingActive()) adapter_.abortStaging();
+    stateMachine_.abortRequest();
+    owner_ = 0;
+    expectedBytes_ = receivedBytes_ = 0;
+  }
+
+  bool owns(uint64_t owner) const override { return ownerMatches(owner); }
+
+  FirmwareUpdateStatusView status() const override {
+    FirmwareUpdateStatusView view;
+    view.state = stateMachine_.state();
+    view.validationFailure = stateMachine_.validationFailure();
+    view.lastRejection = stateMachine_.lastRejection();
+    view.receivedBytes = receivedBytes_;
+    view.expectedBytes = expectedBytes_;
+    view.knownGoodVersion = stateMachine_.knownGood().version;
+    view.pendingReboot = rebootRequested_;
+    return view;
+  }
+
+  bool consumeRebootRequest() override {
+    const bool pending = rebootRequested_;
+    rebootRequested_ = false;
+    return pending;
+  }
+
+ private:
+  bool ownerMatches(uint64_t owner) const { return owner != 0 && owner_ == owner; }
+  FirmwareUpdateStateMachine& stateMachine_;
+  Esp32FirmwareUpdateAdapter& adapter_;
+  uint64_t owner_ = 0;
+  size_t expectedBytes_ = 0;
+  size_t receivedBytes_ = 0;
+  bool rebootRequested_ = false;
+};
+
 }  // namespace pp
 
 #else
@@ -237,6 +357,18 @@ class Esp32FirmwareUpdateAdapter final {
  public:
   bool initialize() { return false; }
   bool initialized() const { return false; }
+};
+class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
+ public:
+  Esp32FirmwareUpdateService(FirmwareUpdateStateMachine&, Esp32FirmwareUpdateAdapter&) {}
+  FirmwareUpdateApiResult begin(uint64_t, const FirmwareUpdateRequestContext&, size_t) override { return FirmwareUpdateApiResult::Rejected; }
+  FirmwareUpdateApiResult upload(uint64_t, const uint8_t*, size_t) override { return FirmwareUpdateApiResult::Rejected; }
+  FirmwareUpdateApiResult validate(uint64_t) override { return FirmwareUpdateApiResult::Rejected; }
+  FirmwareUpdateApiResult install(uint64_t) override { return FirmwareUpdateApiResult::Rejected; }
+  void abort(uint64_t) override {}
+  bool owns(uint64_t) const override { return false; }
+  FirmwareUpdateStatusView status() const override { return {}; }
+  bool consumeRebootRequest() override { return false; }
 };
 }  // namespace pp
 
