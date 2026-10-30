@@ -140,6 +140,9 @@ class Esp32FirmwareUpdateAdapter final {
     // validation when secure boot/signing is enabled).  The higher-level
     // validator remains the authority for product identity and policy.
     candidate.authenticated = true;
+    if (stateMachine_ && !stateMachine_->finishStaging(candidate)) {
+      return FirmwarePlatformResult::ValidationFailed;
+    }
     return FirmwarePlatformResult::Ok;
   }
 
@@ -147,8 +150,13 @@ class Esp32FirmwareUpdateAdapter final {
   // post-reboot health-confirmation boundary.  This does not reboot.
   FirmwarePlatformResult selectCandidate() {
     if (!initialized_ || !next_ || !candidateDescription_.magic_word) return FirmwarePlatformResult::InvalidState;
-    if (stateMachine_ && !stateMachine_->beginInstall()) return FirmwarePlatformResult::InvalidState;
     if (esp_ota_set_boot_partition(next_) != ESP_OK) return FirmwarePlatformResult::WriteFailed;
+    if (stateMachine_ && !stateMachine_->beginInstall()) {
+      // Never leave a boot-selection side effect behind a rejected state
+      // transition; restore the previously running known-good slot.
+      esp_ota_set_boot_partition(running_);
+      return FirmwarePlatformResult::InvalidState;
+    }
     pendingBoot_ = true;
     return FirmwarePlatformResult::Ok;
   }
