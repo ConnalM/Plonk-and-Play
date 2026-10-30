@@ -56,6 +56,9 @@ public:
     length = 0; sequence = 0; return false;
   }
   virtual bool clear() = 0;
+  // Logical History health is intentionally separate from the physical SD
+  // owner. Backends without a more specific integrity state report Unknown.
+  virtual StoreHealth health() const { return StoreHealth::Unknown; }
 };
 
 // Transactional per-race HistoryStore.  Metadata is bounded while each race
@@ -135,6 +138,7 @@ public:
   }
 
   uint8_t count() override { OperationGuard guard(operationBusy_); return guard && ensure() ? meta_.count : 0; }
+  StoreHealth health() const override { return store_.health(); }
   size_t payloadSize(uint8_t index) override { OperationGuard guard(operationBusy_); return guard && ensure()&&index<meta_.count ? meta_.entries[meta_.count-1-index].bytes : 0; }
   size_t maximumPayloadBytes() override { OperationGuard guard(operationBusy_); if(!guard||!ensure())return 0;size_t max=0;for(uint8_t i=0;i<meta_.count;++i)if(meta_.entries[i].bytes>max)max=meta_.entries[i].bytes;return max; }
 

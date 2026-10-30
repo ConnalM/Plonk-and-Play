@@ -12,10 +12,14 @@
 #include "diagnostic_export.h"
 #include "control_lease.h"
 #include "external_wifi.h"
+#if defined(PP_PHASE8B_REAL_SD)
+#include "physical_sd_owner.h"
+#endif
 #ifndef PP_MAX_SSE_CLIENTS
 #define PP_MAX_SSE_CLIENTS 4
 #endif
 namespace pp {
+class PhysicalSdOwner;
 // Browser identity and the retained Master binding are Browser Interface State.
 // Race Control receives only the logical ClientContext attached to a Bus message.
 class AuthorityStore {
@@ -50,9 +54,11 @@ public:
   };
   BrowserInterface(Bus& bus, Bus::Endpoint endpoint, const Noticeboard& noticeboard,
                    AuthorityStore* authority = nullptr, HistoryStore* history = nullptr,
-                   TrackRecordStore* records = nullptr, const DetailSource* detailSource = nullptr)
+                   TrackRecordStore* records = nullptr, const DetailSource* detailSource = nullptr,
+                   PhysicalSdOwner* physicalOwner = nullptr)
       : bus_(bus), endpoint_(endpoint), noticeboard_(noticeboard),
-        authority_(authority ? authority : &fallback_), history_(history), records_(records), detailSource_(detailSource) {
+        authority_(authority ? authority : &fallback_), history_(history), records_(records), detailSource_(detailSource),
+        physicalOwner_(physicalOwner) {
     controllerEpoch_ = newControllerEpoch();
   }
   uint64_t controllerEpoch() const { return controllerEpoch_; }
@@ -454,6 +460,25 @@ public:
   static bool serializeDetailsForAcceptance(const RaceEngineModule::CompletedRaceResult& value,char*out,size_t cap,size_t&length){return serializeDetails(value,out,cap,length);}
   static bool serializeRecordsForAcceptance(TrackRecordStore* records,uint8_t count,char*out,size_t cap,size_t&length){return serializeRecords(records,count,out,cap,length);}
 private:
+  static const char* physicalStorageText(const PhysicalSdOwner* owner) {
+#if defined(PP_PHASE8B_REAL_SD)
+    if (!owner) return "UNKNOWN";
+    return owner->health() == PhysicalSdOwner::Health::Mounted ? "HEALTHY" : "UNAVAILABLE";
+#else
+    (void)owner;
+    return "UNKNOWN";
+#endif
+  }
+  static const char* historyHealthText(const HistoryStore* history) {
+    if (!history) return "UNKNOWN";
+    switch (history->health()) {
+      case StoreHealth::Healthy: return "HEALTHY";
+      case StoreHealth::Corrupt: return "CORRUPT";
+      case StoreHealth::Unsupported: return "UNSUPPORTED";
+      case StoreHealth::Unavailable: return "UNAVAILABLE";
+      default: return "UNKNOWN";
+    }
+  }
   static constexpr const char* Phase8bApSsid = "Plonk-and-Play";
   uint32_t contextClientTag(uint64_t owner) {
     const uint64_t value = fingerprint(owner);
@@ -553,6 +578,7 @@ private:
   HistoryStore* history_ = nullptr;
   TrackRecordStore* records_ = nullptr;
   const DetailSource* detailSource_ = nullptr;
+  PhysicalSdOwner* physicalOwner_ = nullptr;
   VolatileAuthorityStore fallback_;
   ExternalWifiManager network_{};
   httpd_handle_t server_ = nullptr;
@@ -2069,11 +2095,12 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       return ESP_FAIL;
     }
     const int length = snprintf(json, 1024,
-      "{\"formatVersion\":1,\"controllerEpoch\":%llu,\"session\":%llu,\"lifecycle\":%u,\"developmentSession\":%llu,\"developmentLifecycle\":%u,\"storageHealth\":%u,\"backend\":%u,\"lastFailure\":%u,\"nextSequence\":%llu,\"bytesRecorded\":%llu,\"retainedRecords\":%u,\"droppedRecords\":%llu,\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"exportCapability\":\"%s\",\"retrievalAvailable\":%s}",
+      "{\"formatVersion\":1,\"controllerEpoch\":%llu,\"session\":%llu,\"lifecycle\":%u,\"developmentSession\":%llu,\"developmentLifecycle\":%u,\"storageHealth\":%u,\"physicalStorage\":\"%s\",\"historyHealth\":\"%s\",\"backend\":%u,\"lastFailure\":%u,\"nextSequence\":%llu,\"bytesRecorded\":%llu,\"retainedRecords\":%u,\"droppedRecords\":%llu,\"evidenceVolatile\":%s,\"evidenceIncomplete\":%s,\"exportCapability\":\"%s\",\"retrievalAvailable\":%s}",
       static_cast<unsigned long long>(normal.controllerEpoch.value),
       static_cast<unsigned long long>(normal.session.value),
       static_cast<unsigned>(normal.lifecycle),
       static_cast<unsigned long long>(session.session.value), static_cast<unsigned>(session.lifecycle), static_cast<unsigned>(storage.health),
+      physicalStorageText(browser->physicalOwner_), historyHealthText(browser->history_),
       static_cast<unsigned>(storage.backend), static_cast<unsigned>(storage.lastFailure),
       static_cast<unsigned long long>(normal.nextSequence), static_cast<unsigned long long>(normal.bytesRecorded), static_cast<unsigned>(retained),
       static_cast<unsigned long long>(normal.droppedRecords + session.droppedRecords), normal.evidenceVolatile ? "true" : "false",

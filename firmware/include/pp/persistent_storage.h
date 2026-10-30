@@ -141,6 +141,7 @@ public:
     free(encoded); return decodedOk;
   }
   bool clear() override{return backend_.clear();}
+  StoreHealth health() const override { return backend_.health(); }
 private: HistoryStore&backend_;
 };
 
