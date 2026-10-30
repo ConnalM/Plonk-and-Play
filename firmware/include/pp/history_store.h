@@ -9,6 +9,15 @@
 
 namespace pp {
 
+#if defined(PP_PSF28_ACCEPTANCE) && defined(ARDUINO)
+// PSF.28 is a disposable hardware-acceptance fixture.  It is intentionally
+// absent from normal production builds and only delays the already-verified
+// payload transaction before metadata publication.
+#ifndef PP_PSF28_WINDOW_MS
+#define PP_PSF28_WINDOW_MS 15000UL
+#endif
+#endif
+
 inline void historyCommitTrace(const char* operation, const char* stage,
                                size_t valueA=0, size_t valueB=0, bool ok=false) {
 #ifdef ARDUINO
@@ -81,11 +90,18 @@ public:
     // may nevertheless be an orphan from an older/failed transaction. Use the
     // explicit payload replacement boundary; metadata writes must retain the
     // ordinary non-overwriting Store::write() semantics.
+#if defined(PP_PSF28_ACCEPTANCE) && defined(ARDUINO)
+    psf28PersistenceBegin(slot, length);
+#endif
     const bool payloadWritten = store_.writeUnreferenced(DataSlot + slot, bytes, length);
     const bool payloadVerified = payloadWritten && store_.read(DataSlot + slot, verify, length) &&
                                  memcmp(bytes, verify, length) == 0;
     free(verify);
     if (!payloadVerified) { historyCommitTrace("slot_append", "payload_verify", length, payloadWritten ? 1u : 0u); return false; }
+
+#if defined(PP_PSF28_ACCEPTANCE) && defined(ARDUINO)
+    psf28PowerCutWindow(slot, length);
+#endif
 
     MetadataState& candidate = workspace->candidate;
     candidate = meta_;
@@ -178,6 +194,31 @@ private:
   ReconstructionWorkspace* reconstructionWorkspace_ = nullptr;
   CommitWorkspace* commitWorkspace_ = nullptr;
   mutable std::atomic_flag operationBusy_ = ATOMIC_FLAG_INIT;
+
+#if defined(PP_PSF28_ACCEPTANCE) && defined(ARDUINO)
+  bool psf28WindowConsumed_ = false;
+
+  void psf28PersistenceBegin(uint8_t slot, size_t length) {
+    if (psf28WindowConsumed_) return;
+    Serial.printf("[PSF28] PSF28_PERSISTENCE_BEGIN kind=history_payload slot=%u bytes=%lu\n",
+                  static_cast<unsigned>(slot), static_cast<unsigned long>(length));
+  }
+
+  void psf28PowerCutWindow(uint8_t slot, size_t length) {
+    if (psf28WindowConsumed_) return;
+    psf28WindowConsumed_ = true;
+    Serial.printf("[PSF28] PSF28_POWER_CUT_WINDOW old_committed_state_preserved slot=%u bytes=%lu window_ms=%lu\n",
+                  static_cast<unsigned>(slot), static_cast<unsigned long>(length),
+                  static_cast<unsigned long>(PP_PSF28_WINDOW_MS));
+    Serial.flush();
+    const uint32_t started = millis();
+    while (static_cast<uint32_t>(millis() - started) < PP_PSF28_WINDOW_MS) {
+      delay(10);
+    }
+    Serial.printf("[PSF28] PSF28_POWER_CUT_WINDOW_EXPIRED slot=%u\n",
+                  static_cast<unsigned>(slot));
+  }
+#endif
 
   static uint32_t checksum(const uint8_t* p, size_t n) { uint32_t h=2166136261u; while(n--) h=(h^*p++)*16777619u; return h; }
   static uint32_t get32(const uint8_t* p) { return uint32_t(p[0])|(uint32_t(p[1])<<8)|(uint32_t(p[2])<<16)|(uint32_t(p[3])<<24); }
