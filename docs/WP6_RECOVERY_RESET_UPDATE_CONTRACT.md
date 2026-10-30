@@ -1,6 +1,6 @@
 # WP6 Recovery, Reset and Customer Firmware Update Contract
 
-**Status:** APPROVED PRODUCT CONTRACT — IMPLEMENTATION PENDING
+**Status:** APPROVED PRODUCT CONTRACT — SIGNED-ENVELOPE IMPLEMENTED; PRODUCTION KEY PROVISIONING PENDING
 
 **Purpose:** define the customer-safe recovery, reset, factory-reset and firmware-update
 boundary for WP6 without changing race, authority or persistent-record semantics.
@@ -67,6 +67,25 @@ must authenticate and validate legitimate, compatible P&P firmware. Ordinary
 customer operation rejects downgrades; a separately controlled support/recovery
 mechanism may permit an intentional downgrade when genuinely required. Normal
 racing remains independent of Internet availability.
+
+### Signed P&P update envelope
+
+Every local or online candidate is a versioned `PPU1` package containing a
+canonical manifest followed by the exact firmware image. The manifest binds the
+P&P product identity, ESP32-8048S070 target, firmware version/build identity,
+declared image size and SHA-256 digest. An asymmetric signature covers that
+manifest. The controller verifies the envelope structure, manifest fields,
+payload size/digest and signature before `CandidateReady`; only then may the
+candidate be marked authenticated and passed to the existing compatibility and
+downgrade policy. `esp_ota_end()` remains the ESP-IDF image-format/integrity
+boundary, while the envelope is the product-authenticity boundary.
+
+Production firmware contains only a separately supplied verification public key
+(`PP_UPDATE_PUBLIC_KEY_HEX`). A missing production key is a build-stopping
+configuration error. The repository has no production private key. A dedicated
+non-production Wokwi/acceptance build may use an explicitly marked test public
+key; its private signing material is generated ephemerally by test tooling and
+is never committed, embedded or shipped.
 
 ## 3. Failure and recovery contract
 

@@ -5,6 +5,7 @@
 // code remains outside this boundary.
 
 #include "pp/firmware_update.h"
+#include "pp/signed_update_envelope.h"
 
 #if defined(ARDUINO_ARCH_ESP32) || defined(ESP_PLATFORM)
 
@@ -100,41 +101,49 @@ class Esp32FirmwareUpdateAdapter final {
   const esp_app_desc_t& knownGoodDescription() const { return knownGoodDescription_; }
   size_t bytesWritten() const { return bytesWritten_; }
   size_t candidateCapacity() const { return next_ ? next_->size : 0; }
-  bool stagingActive() const { return handleActive_; }
+  bool stagingActive() const { return packageActive_; }
 
   FirmwarePlatformResult abortStaging() {
-    if (!handleActive_) return FirmwarePlatformResult::InvalidState;
-    const esp_err_t result = esp_ota_abort(handle_);
+    if (!packageActive_) return FirmwarePlatformResult::InvalidState;
+    const esp_err_t result = handleActive_ ? esp_ota_abort(handle_) : ESP_OK;
     handleActive_ = false;
     handle_ = 0;
+    packageActive_ = false;
+    verifier_.reset();
     return result == ESP_OK ? FirmwarePlatformResult::Ok : FirmwarePlatformResult::WriteFailed;
   }
 
   // Stage a complete candidate into the inactive OTA slot.  esp_ota_end is
   // the framework integrity/signature validation boundary; product identity,
   // board compatibility and version policy remain the state-machine validator.
-  FirmwarePlatformResult beginStaging(size_t imageSize = OTA_SIZE_UNKNOWN) {
-    if (!initialized_ || !next_ || handleActive_) return FirmwarePlatformResult::InvalidState;
-    if (imageSize != OTA_SIZE_UNKNOWN && imageSize > next_->size) return FirmwarePlatformResult::Capacity;
-    if (esp_ota_begin(next_, imageSize, &handle_) != ESP_OK) return FirmwarePlatformResult::WriteFailed;
-    handleActive_ = true;
+  FirmwarePlatformResult beginStaging(size_t packageSize = OTA_SIZE_UNKNOWN) {
+    if (!initialized_ || !next_ || packageActive_) return FirmwarePlatformResult::InvalidState;
+    if (packageSize == OTA_SIZE_UNKNOWN || packageSize > next_->size + 256u) return FirmwarePlatformResult::Capacity;
+    const SignedEnvelopeResult result = verifier_.begin(packageSize);
+    if (result != SignedEnvelopeResult::Ok) return FirmwarePlatformResult::ValidationFailed;
+    packageActive_ = true;
     bytesWritten_ = 0;
     return FirmwarePlatformResult::Ok;
   }
 
   FirmwarePlatformResult writeStaging(const uint8_t* data, size_t size) {
-    if (!handleActive_ || !data || !size) return FirmwarePlatformResult::InvalidState;
-    if (bytesWritten_ + size > next_->size) return FirmwarePlatformResult::Capacity;
-    if (esp_ota_write(handle_, data, size) != ESP_OK) return FirmwarePlatformResult::WriteFailed;
-    bytesWritten_ += size;
-    return FirmwarePlatformResult::Ok;
+    if (!packageActive_ || !data || !size) return FirmwarePlatformResult::InvalidState;
+    const SignedEnvelopeResult result = verifier_.consume(data, size, this, &beginPayloadThunk, &writePayloadThunk);
+    return result == SignedEnvelopeResult::Ok ? FirmwarePlatformResult::Ok : FirmwarePlatformResult::ValidationFailed;
   }
 
   FirmwarePlatformResult finishStaging(FirmwareCandidate& candidate) {
-    if (!handleActive_) return FirmwarePlatformResult::InvalidState;
+    if (!packageActive_ || !handleActive_) return FirmwarePlatformResult::InvalidState;
+    SignedEnvelopeIdentity envelope{};
+    const SignedEnvelopeResult envelopeResult = verifier_.finish(envelope);
+    if (envelopeResult != SignedEnvelopeResult::Ok) {
+      esp_ota_abort(handle_); handleActive_ = false; handle_ = 0; packageActive_ = false; verifier_.reset();
+      return FirmwarePlatformResult::ValidationFailed;
+    }
     const esp_err_t result = esp_ota_end(handle_);
     handleActive_ = false;
     handle_ = 0;
+    packageActive_ = false;
     if (result != ESP_OK) return FirmwarePlatformResult::ValidationFailed;
 
     esp_app_desc_t description{};
@@ -143,13 +152,14 @@ class Esp32FirmwareUpdateAdapter final {
     }
     candidateDescription_ = description;
     candidate = {};
-    candidate.identity = identityFromDescription(candidateDescription_);
+    candidate.identity = identityFromEnvelope(envelope);
+    const FirmwareIdentity imageIdentity = identityFromDescription(candidateDescription_);
+    if (!sameIdentity(candidate.identity, imageIdentity)) return FirmwarePlatformResult::ValidationFailed;
     candidate.imageSize = bytesWritten_;
     candidate.complete = true;
     candidate.integrityValid = true;
-    // esp_ota_end performs the platform's image validation (and signature
-    // validation when secure boot/signing is enabled).  The higher-level
-    // validator remains the authority for product identity and policy.
+    // esp_ota_end performs platform image-format/integrity validation. The
+    // signed P&P envelope is the product-authenticity boundary.
     candidate.authenticated = true;
     if (stateMachine_ && !stateMachine_->finishStaging(candidate)) {
       return FirmwarePlatformResult::ValidationFailed;
@@ -202,6 +212,31 @@ class Esp32FirmwareUpdateAdapter final {
   static const char* boardName() { return "esp32-8048s070"; }
 
  private:
+  static bool beginPayloadThunk(void* context, size_t imageSize) {
+    return static_cast<Esp32FirmwareUpdateAdapter*>(context)->beginPayload(imageSize);
+  }
+  static bool writePayloadThunk(void* context, const uint8_t* data, size_t size) {
+    return static_cast<Esp32FirmwareUpdateAdapter*>(context)->writePayload(data, size);
+  }
+  bool beginPayload(size_t imageSize) {
+    if (!imageSize || imageSize > next_->size || handleActive_) return false;
+    if (esp_ota_begin(next_, imageSize, &handle_) != ESP_OK) return false;
+    handleActive_ = true;
+    bytesWritten_ = 0;
+    return true;
+  }
+  bool writePayload(const uint8_t* data, size_t size) {
+    if (!handleActive_ || bytesWritten_ + size > next_->size || esp_ota_write(handle_, data, size) != ESP_OK) return false;
+    bytesWritten_ += size;
+    return true;
+  }
+  static FirmwareIdentity identityFromEnvelope(const SignedEnvelopeIdentity& identity) {
+    return FirmwareIdentity(identity.product, identity.board, identity.buildId, identity.version);
+  }
+  static bool sameIdentity(const FirmwareIdentity& a, const FirmwareIdentity& b) {
+    return a.version == b.version && a.product && b.product && strcmp(a.product, b.product) == 0 &&
+           a.board && b.board && strcmp(a.board, b.board) == 0 && a.buildId && b.buildId && strcmp(a.buildId, b.buildId) == 0;
+  }
   static FirmwareIdentity identityFromDescription(const esp_app_desc_t& description) {
     FirmwareIdentity identity;
     identity.product = description.project_name;
@@ -232,7 +267,9 @@ class Esp32FirmwareUpdateAdapter final {
   size_t bytesWritten_ = 0;
   bool initialized_ = false;
   bool handleActive_ = false;
+  bool packageActive_ = false;
   bool pendingBoot_ = false;
+  SignedFirmwareEnvelopeVerifier verifier_;
   esp_app_desc_t knownGoodDescription_{};
   esp_app_desc_t candidateDescription_{};
 };
@@ -259,7 +296,7 @@ class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
         stateMachine_.state() != FirmwareUpdateState::RecoveryRequired) {
       return FirmwareUpdateApiResult::AlreadyInProgress;
     }
-    if (expectedBytes > adapter_.candidateCapacity()) return FirmwareUpdateApiResult::TooLarge;
+    if (expectedBytes > adapter_.candidateCapacity() + 256u) return FirmwareUpdateApiResult::TooLarge;
     if (!stateMachine_.beginRequest(context)) return FirmwareUpdateApiResult::Rejected;
     const FirmwarePlatformResult result = adapter_.beginStaging(expectedBytes);
     if (result != FirmwarePlatformResult::Ok) {
