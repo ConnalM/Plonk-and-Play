@@ -1,0 +1,72 @@
+{
+  "schema": "wp6-physical-acceptance-artifact-v1",
+  "sourceCommit": "c698d7208c545dd1fbc1dd7a985c6f69c10469ff",
+  "environment": "stage8bp1s3sd",
+  "board": "esp32-8048s070 (ESP32-S3 N16R8)",
+  "flash": "16MB DIO 80MHz",
+  "psram": "8MB",
+  "toolchain": {
+    "platform": "espressif32@8.0.0",
+    "arduinoEsp32": "3.3.12",
+    "espIdf": "5.5.5",
+    "arduinoGfx": "1.6.5+sha.4c1d0a6",
+    "pio": "6.1.17"
+  },
+  "build": {
+    "clean": true,
+    "productionKeyInjected": true,
+    "normalSourceUnmodified": true,
+    "ramUsedBytes": 88116,
+    "ramCapacityBytes": 327680,
+    "flashUsedBytes": 1469351,
+    "flashCapacityBytes": 6553600,
+    "sseWorkers": 4,
+    "sseWorkerStackBytes": 8192
+  },
+  "display": {
+    "geometry": "800x480",
+    "pclkHz": 12000000,
+    "bounceBufferPixels": 16000,
+    "bounceBufferBytesEach": 32000,
+    "bounceBufferBytesTotal": 64000,
+    "psramFramebufferCount": 1
+  },
+  "signing": {
+    "algorithm": "ECDSA P-256 / SHA-256",
+    "publicKeyFingerprintSha256": "025DA350BC9D2B2ED7371CC6B5B4BD1801E008C3847A0BA43B9D5362CCFCE35C",
+    "privateKeyExcluded": true
+  },
+  "images": {
+    "knownGoodA": {
+      "version": 0,
+      "buildId": "6671d0b",
+      "product": "arduino-lib-builder",
+      "board": "esp32-8048s070",
+      "firmwarePath": "known-good-A/firmware.bin",
+      "firmwareSize": 1498816,
+      "firmwareSha256": "4F932777ECE8410513562292DC6293A2B1E2A8402641E7DAB20A4C4161C66C96",
+      "elfPath": "known-good-A/firmware.elf",
+      "elfSize": 15221964,
+      "elfSha256": "FEBD62B602AAA754F30949671E3FF8CFB31ED5AB6E13C8440C72C337529788F8",
+      "packagePath": "known-good-A/update.ppu",
+      "packageSize": 1498980,
+      "packageSha256": "900B5321EFD5D850324986B5D9A4DA71AF203FDEF8BE2C9885E2DBDA85CE29A4"
+    },
+    "candidateB": {
+      "version": 1,
+      "buildId": "wp6-physical-b",
+      "product": "arduino-lib-builder",
+      "board": "esp32-8048s070",
+      "firmwarePath": "candidate-B/firmware.bin",
+      "firmwareSize": 1498816,
+      "firmwareSha256": "83085D6BF5BAD6DDE94F5F5CBB7C09117237844E4093E851FC8B152B95D0355B",
+      "elfPath": "candidate-B/firmware.elf",
+      "elfSize": 15221964,
+      "elfSha256": "FEBD62B602AAA754F30949671E3FF8CFB31ED5AB6E13C8440C72C337529788F8",
+      "packagePath": "candidate-B/update.ppu",
+      "packageSize": 1498986,
+      "packageSha256": "69A8DCDF228A468C97716F2C27477F2F2E56585DD454B9A30A730EBDCE3F3736",
+      "derivation": "Candidate B is the exact A image with only esp_app_desc secure_version=1 and version string wp6-physical-b patched; ESP image validation hash recomputed; no executable code changed."
+    }
+  }
+}
