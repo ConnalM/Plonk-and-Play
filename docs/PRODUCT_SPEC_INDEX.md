@@ -52,3 +52,5 @@ A settled product decision should be written into GitHub before the design conve
 - `PP_TASTER_SPEC.md` — built-in two-sensor/two-lane standalone Taster, SMUG configuration, MINIMUG operation and browser boundary.
 
 - `BROWSER_FLOW_RESULTS_HISTORY_SPEC.md` — browser Home/mode setup flows, immediate results, rolling History and minimal v1 records.
+- `WP6_RECOVERY_RESET_UPDATE_CONTRACT.md` — WP6 customer recovery, reset, factory-reset and firmware-update contract; unresolved owner choices are explicit.
+- `WP6_FAILURE_RECOVERY_MATRIX.md` — deterministic software/Wokwi and later hardware failure/recovery proof matrix for WP6.
