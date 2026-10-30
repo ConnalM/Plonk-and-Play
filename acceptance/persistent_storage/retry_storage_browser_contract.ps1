@@ -54,4 +54,14 @@ if ($page -match 'SD\.begin|mount\(') {
     throw 'Browser source contains storage-owner operations'
 }
 
+# Parse the final generated inline payload, not just the source fragments.  A
+# prior wording correction left an extra brace/sentinel in the embedded page;
+# source-marker checks alone did not catch that runtime-breaking defect.
+$generatedPath = Join-Path $PSScriptRoot '..\..\firmware\include\pp\normal_browser_page.inc'
+$parseOutput = & node -e "const fs=require('fs'),vm=require('vm');const t=fs.readFileSync(process.argv[1],'utf8');const a=t.indexOf('<script>')+8,b=t.lastIndexOf('</script>');if(a<8||b<a)throw Error('embedded script boundary missing');new vm.Script(t.slice(a,b),{filename:'embedded-browser.js'});console.log('Generated Browser JavaScript parse: PASS');" $generatedPath 2>&1
+if ($LASTEXITCODE -ne 0) { throw "Generated Browser JavaScript parse failed: $parseOutput" }
+if ($generated -match 'button\.onclick=retryStorage\}\}async function practice\(\)\{') {
+    throw 'Generated Browser payload retained the malformed Retry-storage closure'
+}
+
 Write-Output 'Retry storage Browser contract: PASS'
