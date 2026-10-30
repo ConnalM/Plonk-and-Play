@@ -23,7 +23,7 @@ begin_guard = "#if defined(PP_PSF28_ACCEPTANCE) && defined(ARDUINO)"
 check("fixture_is_compile_time_acceptance_only", HISTORY.count(begin_guard) == 4)
 check("begin_marker_present", "PSF28_PERSISTENCE_BEGIN kind=history_payload" in HISTORY)
 check("window_marker_present", "PSF28_POWER_CUT_WINDOW old_committed_state_preserved" in HISTORY)
-check("bounded_window_constant", "PP_PSF28_WINDOW_MS 15000UL" in HISTORY)
+check("default_window_constant", "PP_PSF28_WINDOW_MS 15000UL" in HISTORY)
 check("one_shot_state", "psf28WindowConsumed_ = false" in HISTORY)
 check("flush_before_window", "Serial.flush();" in HISTORY)
 check("yielding_bounded_window", "while (static_cast<uint32_t>(millis() - started) < PP_PSF28_WINDOW_MS)" in HISTORY and "delay(10);" in HISTORY)
@@ -40,4 +40,5 @@ normal_section = PLATFORMIO.split("[env:stage8bp1s3sd]", 1)[1].split("[env:stage
 psf28_section = PLATFORMIO.split("[env:stage8bp1s3sd-psf28]", 1)[1]
 check("normal_environment_does_not_enable_fixture", "PP_PSF28_ACCEPTANCE" not in normal_section)
 check("dedicated_environment_enables_fixture", "-DPP_PSF28_ACCEPTANCE=1" in psf28_section)
+check("acceptance_window_override", "-DPP_PSF28_WINDOW_MS=60000UL" in psf28_section)
 check("production_transaction_still_has_payload_then_metadata", "payloadVerified" in HISTORY and "publishMetadata(candidate)" in HISTORY)
