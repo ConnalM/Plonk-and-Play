@@ -7,8 +7,8 @@ evidence. Physical proof is reserved for rows marked **Hardware**.
 | Case | Initial state | Action/fault | Expected boot/recovery state | Active firmware | Customer data | Evidence | Auto/Wokwi | Hardware |
 |---|---|---|---|---|---|---|---|---|
 | Restart | READY, known-good image | authorised restart | normal boot, READY | same | all committed data retained | request, reboot marker, provenance, reconstruction | Yes | Later |
-| Reset | READY, known-good image | authorised non-destructive reset | same as Restart | same | same | reset class and post-boot state | Yes | Later |
-| Factory reset | READY, settled | confirmed factory reset | commissioning/default state | same | per owner-selected scope | confirmation, erase report, first-boot marker | Yes | Later |
+| Reset settings | READY, settled | authorised confirmed settings reset | factory settings/default proposals, READY | same | committed race/record data retained | confirmation, settings-default report, first-boot marker | Yes | Later |
+| Erase everything | READY, settled | strongly confirmed destructive wipe | commissioning/default state | same | configuration and all customer race/record data erased | dual confirmation, erase report, first-boot marker | Yes | Later |
 | Invalid image | READY | upload invalid identity/format | reject before staging/install | old | unchanged | bounded rejection and unchanged provenance | Yes | No |
 | Incompatible image | READY | incompatible board/schema/version | reject before install | old | unchanged | compatibility reason | Yes | No |
 | Truncated/corrupt upload | READY | cut/corrupt transfer | staged candidate rejected | old | unchanged | transfer/integrity evidence | Yes | Later |
@@ -16,13 +16,13 @@ evidence. Physical proof is reserved for rows marked **Hardware**.
 | Power loss during upload | staging | interrupt transfer | old image boots | old | unchanged | incomplete upload ignored | Simulated; physical later | Yes |
 | Power loss before install | candidate staged | interrupt before commit | old image boots | old | unchanged | pending candidate not active | Yes | Later |
 | Power loss during install | install in progress | interrupt write/boot transition | old image or bootloader recovery | old/recovery | unchanged | boot-selection and rollback marker | Simulated; physical later | Yes |
-| New image fails to boot | candidate selected | boot failure/watchdog | rollback/recovery | old | unchanged | failure count and rollback | Yes | Later |
-| New image fails health | candidate boots | health confirmation fails | rollback/not committed | old | unchanged | health-gate failure | Yes | Later |
+| New image fails to boot | candidate selected | boot failure/watchdog | automatic rollback/recovery | old | unchanged | failure count and rollback | Yes | Later |
+| New image fails health | candidate boots | health confirmation fails | automatic rollback/not committed | old | unchanged | health-gate failure and customer notice | Yes | Later |
 | Repeated failures | repeated candidate faults | retry exhaustion | bounded support/recovery mode | known-good | unchanged | no retry storm; explicit state | Yes | Later |
 | Successful update | READY | valid candidate | candidate health-confirmed and committed | new | retained | old/new provenance and commit marker | Yes | Later |
 | Recovery/rollback | failed candidate | boot fallback | known-good READY | old | retained | rollback reason and reconstruction | Yes | Later |
 | Interrupted race after restart | RACING | uncontrolled reboot | READY or offered competition continuation | same | completed prior records retained; active race not official | no fabricated History | Yes | Later |
-| Factory reset confirmation failure | READY | cancel/unauthorised request | unchanged READY | same | unchanged | rejection and no erase | Yes | No |
+| Reset/erase confirmation failure | READY | cancel/unauthorised request | unchanged READY | same | unchanged | rejection and no erase | Yes | No |
 
 ## Required automated assertions
 

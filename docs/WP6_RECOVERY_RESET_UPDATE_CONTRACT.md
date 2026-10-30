@@ -1,6 +1,6 @@
 # WP6 Recovery, Reset and Customer Firmware Update Contract
 
-**Status:** DOCS-FIRST WORKING CONTRACT — OWNER DECISIONS MARKED
+**Status:** APPROVED PRODUCT CONTRACT — IMPLEMENTATION PENDING
 
 **Purpose:** define the customer-safe recovery, reset, factory-reset and firmware-update
 boundary for WP6 without changing race, authority or persistent-record semantics.
@@ -24,26 +24,30 @@ software health action, or an ordinary hardware reset/reboot boundary. Restart:
 These rules follow `SYSTEM_LIFECYCLE.md` and the accepted Persistent Storage
 Foundation design.
 
-### Reset
+### Reset settings
 
-Reset is a deliberate restart boundary distinguished from Factory Reset: it
-does not erase customer data or installed firmware. It must leave the same
-persistent state and data-retention outcome as Restart. The exact customer
-surface and whether the product exposes a separate named Reset action remain an
-owner decision (see §10); firmware must not silently make Reset destructive.
+Reset settings restores installation, configuration and settings to factory
+defaults while retaining committed race History/Results/Details, PB, Track
+Record and Record Era. It requires controlling authority and explicit
+confirmation. It is not a reboot and it is not a full customer-data wipe.
 
-### Factory Reset
+### Erase everything
 
-Factory Reset is destructive and requires controlling Race Director/Master
-authority plus explicit confirmation. It returns the controller to a safe
-first-boot/commissioning state. The exact deletion scope is **OWNER DECISION
-REQUIRED**; no implementation may assume it.
+Erase everything is the separate, genuinely destructive action intended for
+resale or a completely fresh start. It erases configuration/settings and all
+customer race/record data. It requires controlling authority and substantially
+stronger explicit confirmation, then returns to the safe first-boot/
+commissioning state. “Factory Reset” must not be used as an ambiguous label for
+both actions.
 
 ## 2. Customer firmware update
 
-The controller is the customer-facing update authority. A customer-initiated
-update must be available through the normal P&P interface without development
-tools. The update boundary is:
+The controller is the customer-facing update authority. Firmware update is a
+Browser-only function; the Taster is deliberately a MINIMUG-style race
+interface, not an alternative P&P administration, maintenance, Settings or
+diagnostics interface. A customer-initiated update must be available through
+the normal P&P Browser without development tools. Both supported sources use
+the same update boundary:
 
 ```text
 authorised request
@@ -57,9 +61,12 @@ authorised request
 ```
 
 The replacement must never destroy the only bootable known-good firmware before
-the candidate is validated. Normal racing remains independent of Internet
-availability. The exact initiation UX, image source/authentication policy,
-downgrade policy and confirmation timeout are **OWNER DECISION REQUIRED**.
+the candidate is validated. The Browser supports both normal online P&P update
+and local firmware-file upload for offline/support/recovery use. Both paths
+must authenticate and validate legitimate, compatible P&P firmware. Ordinary
+customer operation rejects downgrades; a separately controlled support/recovery
+mechanism may permit an intentional downgrade when genuinely required. Normal
+racing remains independent of Internet availability.
 
 ## 3. Failure and recovery contract
 
@@ -74,20 +81,22 @@ The following behaviours are fixed:
 - power loss during installation must boot the previous known-good image or a
   bootloader recovery path;
 - a candidate that fails to boot or fails post-boot health confirmation is not
-  committed as active;
+  committed as active; automatic rollback to the previous known-good firmware
+  is attempted first;
 - repeated failed attempts are bounded and retain a bootable known-good path;
 - recovery/rollback must not fabricate, delete or rewrite committed race data.
 
-The exact customer-visible recovery screen, retry count and service/manual
-fallback are **OWNER DECISION REQUIRED**.
+If automatic rollback cannot restore normal operation, P&P enters a
+customer-visible recovery/support mode. A failed update reports that the
+previous version was restored whenever rollback succeeds.
 
 ## 4. Authority and safety
 
 - Read-only status may be viewed by any connected Browser.
-- Restart/Reset requires the controlling Race Director/Master or an explicitly
-  authorised support path.
-- Factory Reset and firmware update require controlling authority, explicit
-  confirmation and a settled non-racing lifecycle. They are prohibited during
+- Restart, Reset settings, Erase everything and firmware update require the
+  controlling Race Director/Master or an explicitly authorised support path.
+- Reset settings, Erase everything and firmware update require controlling
+  authority, explicit confirmation and a settled non-racing lifecycle. They are prohibited during
   `STARTING`, `RACING`, `PAUSED`, `RESTARTING` and unfinished settlement.
 - Browser/UI code requests operations; it does not own reboot, update, storage,
   rollback or authority state.
@@ -96,13 +105,13 @@ fallback are **OWNER DECISION REQUIRED**.
 
 ## 5. Data-retention matrix
 
-| Data | Restart | Reset | Firmware update | Failed/interrupted update | Recovery/rollback | Factory Reset |
+| Data | Restart P&P | Reset settings | Firmware update | Failed/interrupted update | Recovery/rollback | Erase everything |
 |---|---|---|---|---|---|---|
-| Installed known-good firmware | retained | retained | replaced only after validation | retained | restored/retained | **OWNER DECISION REQUIRED** |
-| Network credentials | retained | retained | retained | retained | retained | **OWNER DECISION REQUIRED** |
-| Remembered setup/configuration | retained | retained | retained | retained | retained | **OWNER DECISION REQUIRED** |
-| Committed History/Results/Details | retained | retained | retained | retained | retained | **OWNER DECISION REQUIRED** |
-| PB / Track Record / Record Era | retained | retained | retained | retained | retained | **OWNER DECISION REQUIRED** |
+| Installed known-good firmware | retained | retained | replaced only after validation | retained | restored/retained | retained until the erase completes |
+| Network credentials | retained | factory defaults | retained | retained | retained | erased |
+| Remembered setup/configuration | retained | factory defaults | retained | retained | retained | erased |
+| Committed History/Results/Details | retained | retained | retained | retained | retained | erased |
+| PB / Track Record / Record Era | retained | retained | retained | retained | retained | erased |
 | Active individual race | not restored after uncontrolled interruption | same | same | same | same | not applicable |
 | Incomplete temporary transactions | ignored/reclaimed under PSF rules | same | same | same | same | not applicable |
 
@@ -110,27 +119,14 @@ fallback are **OWNER DECISION REQUIRED**.
 
 After a successful restart, update commit or rollback, P&P loads last-known-good
 configuration, reconstructs committed storage, reconciles equipment and returns
-to normal readiness. A first-ever or explicitly factory-reset boot uses the
-existing factory-default commissioning path. An interrupted individual race is
-not resumed automatically; an unfinished competition may be offered for
-continuation under `SYSTEM_LIFECYCLE.md`.
+to normal readiness. Reset settings uses the same first-boot/default-settings
+path while retaining customer records. Erase everything enters the existing
+factory-default commissioning path after the confirmed wipe. An interrupted
+individual race is not resumed automatically; an unfinished competition may be
+offered for continuation under `SYSTEM_LIFECYCLE.md`.
 
-## 7. Owner decisions required before implementation
-
-1. **Factory-reset scope:**
-   - A: erase installation/configuration only; retain race records (safer,
-     preserves customer history);
-   - B: erase configuration and all customer race records (true data reset,
-     destructive); or
-   - C: two separately confirmed actions (configuration reset vs full data
-     erasure).
-2. **Update initiation:** Browser Settings action, local Taster action, or both.
-3. **Image trust/source:** signed online image only, locally staged image, or
-   both; required version/compatibility and downgrade policy.
-4. **Recovery presentation:** automatic rollback with a bounded retry, or a
-   customer-visible recovery/support mode after the first failed candidate.
-5. **Reset naming:** whether “Reset” is exposed separately from “Restart” or is
-   an internal/support term only.
-
-No implementation should silently choose among these options.
+No product owner decisions remain open in this contract. Implementation must
+still define measurable image-authentication, compatibility and post-boot
+health checks within these boundaries and submit those details for technical
+review; they are not permission to change the product decisions above.
 
