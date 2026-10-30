@@ -92,6 +92,7 @@ public:
     return preferences.getBytes(key,data,n)==n;
   }
   bool write(unsigned s,const uint8_t* data,size_t n)override{char generated[16]{};const char* key=s==0?"config-a":s==1?"config-b":(snprintf(generated,sizeof(generated),"slot-%u",s),generated);return ready&&preferences.putBytes(key,data,n)==n;}
+  bool clear() override { return ready && preferences.clear(); }
 private: Preferences preferences;bool ready=false;
 } storage;
 #if defined(PP_PHASE8B_REAL_SD)
@@ -140,6 +141,56 @@ pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint,activeSession,&history,&r
   nullptr
 #endif
 );
+class CustomerMaintenanceService final : public pp::MaintenanceEndpoint {
+public:
+  CustomerMaintenanceService(pp::Memory& memory, pp::HistoryStore& history,
+                             pp::TrackRecordStore& records, pp::RaceControlModule& raceControl)
+      : memory_(memory), history_(history), records_(records), raceControl_(raceControl) {}
+  pp::MaintenanceApiResult restart(uint64_t owner, const pp::MaintenanceRequestContext& context) override {
+    if (!eligible(owner, context)) return context.controllingMaster ? pp::MaintenanceApiResult::LifecycleNotSettled : pp::MaintenanceApiResult::PermissionDenied;
+    if (!context.confirmed) return pp::MaintenanceApiResult::ConfirmationRequired;
+    if (rebootRequested_) return pp::MaintenanceApiResult::Busy;
+    Serial.println("[WP6 MAINT] restart requested");
+    rebootRequested_ = true;
+    return pp::MaintenanceApiResult::Accepted;
+  }
+  pp::MaintenanceApiResult resetSettings(uint64_t owner, const pp::MaintenanceRequestContext& context) override {
+    if (!eligible(owner, context)) return context.controllingMaster ? pp::MaintenanceApiResult::LifecycleNotSettled : pp::MaintenanceApiResult::PermissionDenied;
+    if (!context.confirmed) return pp::MaintenanceApiResult::ConfirmationRequired;
+    if (rebootRequested_) return pp::MaintenanceApiResult::Busy;
+    if (!memory_.resetToDefaults()) return pp::MaintenanceApiResult::Failed;
+    Serial.println("[WP6 MAINT] reset settings committed; customer records retained");
+    rebootRequested_ = true;
+    return pp::MaintenanceApiResult::Accepted;
+  }
+  pp::MaintenanceApiResult eraseEverything(uint64_t owner, const pp::MaintenanceRequestContext& context) override {
+    if (!eligible(owner, context)) return context.controllingMaster ? pp::MaintenanceApiResult::LifecycleNotSettled : pp::MaintenanceApiResult::PermissionDenied;
+    if (!context.confirmed || !context.strongConfirmation) return pp::MaintenanceApiResult::ConfirmationRequired;
+    if (rebootRequested_) return pp::MaintenanceApiResult::Busy;
+    if (!history_.clear() || !records_.clearAll() || !memory_.erase()) return pp::MaintenanceApiResult::Failed;
+    Serial.println("[WP6 MAINT] erase everything committed; firmware/update capability retained");
+    rebootRequested_ = true;
+    return pp::MaintenanceApiResult::Accepted;
+  }
+  bool consumeRebootRequest() override {
+    const bool pending = rebootRequested_;
+    rebootRequested_ = false;
+    return pending;
+  }
+private:
+  bool eligible(uint64_t owner, const pp::MaintenanceRequestContext& context) const {
+    (void)owner;
+    const auto lifecycle = raceControl_.state();
+    const bool settled = lifecycle == pp::SessionLifecycle::Ready || lifecycle == pp::SessionLifecycle::Finished;
+    return owner != 0 && context.controllingMaster && context.lifecycleSettled && settled;
+  }
+  pp::Memory& memory_;
+  pp::HistoryStore& history_;
+  pp::TrackRecordStore& records_;
+  pp::RaceControlModule& raceControl_;
+  bool rebootRequested_ = false;
+};
+CustomerMaintenanceService customerMaintenance(memory,history,records,raceControl);
 pp::OutputModule output{bus.attach(pp::Role::Output)};
 const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
 pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
@@ -149,7 +200,8 @@ pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthor
 #else
                              nullptr,
 #endif
-                             &firmwareUpdateService
+                             &firmwareUpdateService,
+                             &customerMaintenance
 );
 #if defined(PP_STAGE8A_TASTER_WOKWI)
 pp::TasterRuntime taster(browser);
@@ -749,6 +801,7 @@ void setup(){
 #endif
   browser.begin();
   Serial.println("[WP6 OTA] Browser update API declared status/begin/upload/validate/install");
+  Serial.println("[WP6 MAINT] Browser maintenance API declared restart/reset-settings/erase-everything online-check");
 #if defined(PP_STAGE8A_TASTER_WOKWI)
   taster.begin();
 #endif

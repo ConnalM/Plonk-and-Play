@@ -8,7 +8,7 @@ if ($LASTEXITCODE -ne 0) { throw 'WP6 update API contract compile failed' }
 & $out
 if ($LASTEXITCODE -ne 0) { throw 'WP6 update API contract failed' }
 $browser = Get-Content (Join-Path $root '..\firmware\include\pp\browser_interface.h') -Raw
-foreach ($route in @('/update/status','/request/update/begin','/request/update/upload','/request/update/validate','/request/update/install')) {
+foreach ($route in @('/update/status','/update/check-online','/request/update/begin','/request/update/upload','/request/update/validate','/request/update/install','/request/update/online','/request/restart','/request/reset-settings','/request/erase-everything')) {
   if ($browser.IndexOf($route, [System.StringComparison]::Ordinal) -lt 0) { throw "Missing update route: $route" }
 }
 if ($browser.IndexOf('FirmwareUpdateEndpoint', [System.StringComparison]::Ordinal) -lt 0) { throw 'Browser update endpoint seam missing' }

@@ -81,7 +81,29 @@ enum class FirmwareUpdateApiResult : uint8_t {
   IncompleteUpload,
   InvalidCandidate,
   NotReady,
+  NoUpdateAvailable,
+  OnlineProviderUnavailable,
+  OnlineDownloadFailed,
   Rejected,
+};
+
+struct FirmwareOnlineOffer {
+  FirmwareIdentity identity{};
+  size_t imageSize = 0;
+  bool available = false;
+};
+
+// Bounded production seam for the normal online update distribution service.
+// The deployed product binds this to a trusted HTTPS/provider implementation;
+// a null provider is an explicit, safe "not configured" state rather than an
+// imaginary update server.
+class OnlineFirmwareProvider {
+ public:
+  virtual ~OnlineFirmwareProvider() = default;
+  virtual FirmwareUpdateApiResult check(const FirmwareIdentity& current,
+                                        FirmwareOnlineOffer& offer) = 0;
+  virtual FirmwareUpdateApiResult beginDownload(const FirmwareOnlineOffer& offer) = 0;
+  virtual size_t read(uint8_t* buffer, size_t capacity) = 0;
 };
 
 struct FirmwareUpdateStatusView {
@@ -92,6 +114,7 @@ struct FirmwareUpdateStatusView {
   size_t expectedBytes = 0;
   uint32_t knownGoodVersion = 0;
   bool pendingReboot = false;
+  FirmwareOnlineOffer onlineOffer{};
 };
 
 // The Browser talks to this controller-side seam. It deliberately exposes no
@@ -108,6 +131,41 @@ class FirmwareUpdateEndpoint {
   virtual void abort(uint64_t owner) = 0;
   virtual bool owns(uint64_t owner) const = 0;
   virtual FirmwareUpdateStatusView status() const = 0;
+  virtual bool consumeRebootRequest() = 0;
+  virtual FirmwareUpdateApiResult checkOnline(uint64_t owner, const FirmwareUpdateRequestContext& context,
+                                              FirmwareOnlineOffer& offer) {
+    (void)owner; (void)context; offer = {}; return FirmwareUpdateApiResult::OnlineProviderUnavailable;
+  }
+  virtual FirmwareUpdateApiResult startOnline(uint64_t owner, const FirmwareUpdateRequestContext& context) {
+    (void)owner; (void)context; return FirmwareUpdateApiResult::OnlineProviderUnavailable;
+  }
+};
+
+enum class MaintenanceApiResult : uint8_t {
+  Accepted,
+  PermissionDenied,
+  LifecycleNotSettled,
+  ConfirmationRequired,
+  Busy,
+  Failed,
+};
+
+struct MaintenanceRequestContext {
+  bool controllingMaster = false;
+  bool lifecycleSettled = false;
+  bool confirmed = false;
+  bool strongConfirmation = false;
+};
+
+// Customer maintenance actions cross this controller-side boundary. Browser
+// code only submits requests; persistence ownership and reboot scheduling stay
+// in the controller.
+class MaintenanceEndpoint {
+ public:
+  virtual ~MaintenanceEndpoint() = default;
+  virtual MaintenanceApiResult restart(uint64_t owner, const MaintenanceRequestContext& context) = 0;
+  virtual MaintenanceApiResult resetSettings(uint64_t owner, const MaintenanceRequestContext& context) = 0;
+  virtual MaintenanceApiResult eraseEverything(uint64_t owner, const MaintenanceRequestContext& context) = 0;
   virtual bool consumeRebootRequest() = 0;
 };
 

@@ -19,7 +19,7 @@ public:
   bool write(unsigned slot,const uint8_t* data,size_t size) override {
     if(!ready_||!data)return false;const String target=path(slot);const String temporary=target+".tmp";File f=SPIFFS.open(temporary,"w");if(!f)return false;const size_t written=f.write(data,size);f.flush();f.close();if(written!=size){SPIFFS.remove(temporary);return false;}SPIFFS.remove(target);if(!SPIFFS.rename(temporary,target)){SPIFFS.remove(temporary);return false;}return true;
   }
-  void clear() { if(!ready_)return;for(unsigned i=0;i<32;++i){SPIFFS.remove(path(i));SPIFFS.remove(path(i)+".tmp");} }
+  bool clear() override { if(!ready_)return false;for(unsigned i=0;i<32;++i){SPIFFS.remove(path(i));SPIFFS.remove(path(i)+".tmp");} return true; }
 private:
   const char* root_="/pp-dev";bool ready_=false;
   String path(unsigned slot) const {String p(root_);p+="-slot-";p+=String(slot);p+=".bin";return p;}

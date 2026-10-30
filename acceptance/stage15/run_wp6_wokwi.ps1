@@ -23,6 +23,7 @@ if (-not (Test-Path -LiteralPath $log)) { throw "Wokwi serial log missing: $log"
 $text = Get-Content -Raw -LiteralPath $log
 if ($text -notmatch '\[WP6 OTA\] adapter (initialized|initialization FAILED)') { throw 'Wokwi OTA adapter initialization marker missing' }
 if ($text -notmatch '\[WP6 OTA\] Browser update API declared') { throw 'Wokwi Browser update API marker missing' }
+if ($text -notmatch '\[WP6 MAINT\] Browser maintenance API declared') { throw 'Wokwi Browser maintenance API marker missing' }
 if ($text -notmatch 'STAGE1_PASS') { throw 'Wokwi normal boot marker missing' }
 Write-Host 'WP6_WOKWI_BOOT_ADAPTER_PASS'
 if ($text -match 'initialization FAILED no OTA slots') {

@@ -237,6 +237,9 @@ public:
   virtual bool writeTrackRecord(unsigned slot, const uint8_t* data, size_t size) {
     return write(slot, data, size);
   }
+  // Destructive settings erase. Backends opt in explicitly; legacy/fake
+  // stores remain source-compatible and report unsupported by default.
+  virtual bool clear() { return false; }
   virtual StoreHealth health() const { return available() ? StoreHealth::Healthy : StoreHealth::Unavailable; }
   virtual uint64_t totalBytes() const { return 0; }
   virtual uint64_t freeBytes() const { return 0; }
@@ -273,6 +276,8 @@ public:
     if (!store_.read(target,verify,sizeof(verify)) || memcmp(bytes,verify,sizeof(bytes))) return false;
     active_=target; ++generation_; return true;
   }
+  bool resetToDefaults() { return save(Configuration{}); }
+  bool erase() { return store_.available() && store_.clear(); }
   static void encode(const Configuration& c,uint32_t generation,uint8_t* p) {
     memset(p,0,RecordSize); put(p,0x31505043); put(p+4,generation);
     put(p+8,c.lanes); put(p+12,c.laps); put(p+16,c.optionalFeatures);

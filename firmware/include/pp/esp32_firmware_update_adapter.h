@@ -243,8 +243,9 @@ class Esp32FirmwareUpdateAdapter final {
 class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
  public:
   Esp32FirmwareUpdateService(FirmwareUpdateStateMachine& stateMachine,
-                             Esp32FirmwareUpdateAdapter& adapter)
-      : stateMachine_(stateMachine), adapter_(adapter) {}
+                             Esp32FirmwareUpdateAdapter& adapter,
+                             OnlineFirmwareProvider* onlineProvider = nullptr)
+      : stateMachine_(stateMachine), adapter_(adapter), onlineProvider_(onlineProvider) {}
 
   FirmwareUpdateApiResult begin(uint64_t owner, const FirmwareUpdateRequestContext& context,
                                 size_t expectedBytes) override {
@@ -327,7 +328,47 @@ class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
     view.expectedBytes = expectedBytes_;
     view.knownGoodVersion = stateMachine_.knownGood().version;
     view.pendingReboot = rebootRequested_;
+    view.onlineOffer = onlineOffer_;
     return view;
+  }
+
+  FirmwareUpdateApiResult checkOnline(uint64_t owner, const FirmwareUpdateRequestContext& context,
+                                      FirmwareOnlineOffer& offer) override {
+    offer = {};
+    if (!owner || !context.controllingMaster) return FirmwareUpdateApiResult::PermissionDenied;
+    if (!context.lifecycleSettled) return FirmwareUpdateApiResult::LifecycleNotSettled;
+    if (!onlineProvider_) return FirmwareUpdateApiResult::OnlineProviderUnavailable;
+    const FirmwareUpdateApiResult result = onlineProvider_->check(stateMachine_.knownGood(), offer);
+    if (result == FirmwareUpdateApiResult::Accepted) onlineOffer_ = offer;
+    return result;
+  }
+
+  FirmwareUpdateApiResult startOnline(uint64_t owner, const FirmwareUpdateRequestContext& context) override {
+    if (!onlineProvider_ || !onlineOffer_.available || !onlineOffer_.imageSize) {
+      return FirmwareUpdateApiResult::OnlineProviderUnavailable;
+    }
+    const FirmwareUpdateApiResult begun = begin(owner, context, onlineOffer_.imageSize);
+    if (begun != FirmwareUpdateApiResult::Accepted) return begun;
+    if (onlineProvider_->beginDownload(onlineOffer_) != FirmwareUpdateApiResult::Accepted) {
+      abort(owner);
+      return FirmwareUpdateApiResult::OnlineDownloadFailed;
+    }
+    uint8_t buffer[1024];
+    size_t total = 0;
+    while (total < onlineOffer_.imageSize) {
+      const size_t part = onlineProvider_->read(buffer, sizeof(buffer));
+      if (!part || part > sizeof(buffer) || total + part > onlineOffer_.imageSize) {
+        abort(owner);
+        return FirmwareUpdateApiResult::OnlineDownloadFailed;
+      }
+      const FirmwareUpdateApiResult uploaded = upload(owner, buffer, part);
+      if (uploaded != FirmwareUpdateApiResult::Accepted) {
+        abort(owner);
+        return FirmwareUpdateApiResult::OnlineDownloadFailed;
+      }
+      total += part;
+    }
+    return validate(owner);
   }
 
   bool consumeRebootRequest() override {
@@ -344,6 +385,8 @@ class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
   size_t expectedBytes_ = 0;
   size_t receivedBytes_ = 0;
   bool rebootRequested_ = false;
+  OnlineFirmwareProvider* onlineProvider_ = nullptr;
+  FirmwareOnlineOffer onlineOffer_{};
 };
 
 }  // namespace pp
@@ -360,7 +403,7 @@ class Esp32FirmwareUpdateAdapter final {
 };
 class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
  public:
-  Esp32FirmwareUpdateService(FirmwareUpdateStateMachine&, Esp32FirmwareUpdateAdapter&) {}
+  Esp32FirmwareUpdateService(FirmwareUpdateStateMachine&, Esp32FirmwareUpdateAdapter&, OnlineFirmwareProvider* = nullptr) {}
   FirmwareUpdateApiResult begin(uint64_t, const FirmwareUpdateRequestContext&, size_t) override { return FirmwareUpdateApiResult::Rejected; }
   FirmwareUpdateApiResult upload(uint64_t, const uint8_t*, size_t) override { return FirmwareUpdateApiResult::Rejected; }
   FirmwareUpdateApiResult validate(uint64_t) override { return FirmwareUpdateApiResult::Rejected; }
@@ -369,6 +412,8 @@ class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
   bool owns(uint64_t) const override { return false; }
   FirmwareUpdateStatusView status() const override { return {}; }
   bool consumeRebootRequest() override { return false; }
+  FirmwareUpdateApiResult checkOnline(uint64_t, const FirmwareUpdateRequestContext&, FirmwareOnlineOffer&) override { return FirmwareUpdateApiResult::OnlineProviderUnavailable; }
+  FirmwareUpdateApiResult startOnline(uint64_t, const FirmwareUpdateRequestContext&) override { return FirmwareUpdateApiResult::OnlineProviderUnavailable; }
 };
 }  // namespace pp
 

@@ -57,10 +57,11 @@ public:
                    AuthorityStore* authority = nullptr, HistoryStore* history = nullptr,
                    TrackRecordStore* records = nullptr, const DetailSource* detailSource = nullptr,
                    PhysicalSdOwner* physicalOwner = nullptr,
-                   FirmwareUpdateEndpoint* firmwareUpdate = nullptr)
+                   FirmwareUpdateEndpoint* firmwareUpdate = nullptr,
+                   MaintenanceEndpoint* maintenance = nullptr)
       : bus_(bus), endpoint_(endpoint), noticeboard_(noticeboard),
         authority_(authority ? authority : &fallback_), history_(history), records_(records), detailSource_(detailSource),
-        physicalOwner_(physicalOwner), firmwareUpdate_(firmwareUpdate) {
+        physicalOwner_(physicalOwner), firmwareUpdate_(firmwareUpdate), maintenance_(maintenance) {
     controllerEpoch_ = newControllerEpoch();
   }
   uint64_t controllerEpoch() const { return controllerEpoch_; }
@@ -179,6 +180,10 @@ public:
     if (!server_) startServer();
     updatePresentation(systemTime());
     if (firmwareUpdate_ && firmwareUpdate_->consumeRebootRequest()) {
+      delay(25);
+      esp_restart();
+    }
+    if (maintenance_ && maintenance_->consumeRebootRequest()) {
       delay(25);
       esp_restart();
     }
@@ -586,6 +591,7 @@ private:
   const DetailSource* detailSource_ = nullptr;
   PhysicalSdOwner* physicalOwner_ = nullptr;
   FirmwareUpdateEndpoint* firmwareUpdate_ = nullptr;
+  MaintenanceEndpoint* maintenance_ = nullptr;
   VolatileAuthorityStore fallback_;
   ExternalWifiManager network_{};
   httpd_handle_t server_ = nullptr;
@@ -2527,6 +2533,9 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       case FirmwareUpdateApiResult::IncompleteUpload: return "INCOMPLETE_UPLOAD";
       case FirmwareUpdateApiResult::InvalidCandidate: return "INVALID_CANDIDATE";
       case FirmwareUpdateApiResult::NotReady: return "UPDATE_NOT_READY";
+      case FirmwareUpdateApiResult::NoUpdateAvailable: return "NO_UPDATE_AVAILABLE";
+      case FirmwareUpdateApiResult::OnlineProviderUnavailable: return "ONLINE_UPDATE_UNAVAILABLE";
+      case FirmwareUpdateApiResult::OnlineDownloadFailed: return "ONLINE_DOWNLOAD_FAILED";
       case FirmwareUpdateApiResult::Rejected: return "UPDATE_REJECTED";
       default: return "UNKNOWN";
     }
@@ -2542,6 +2551,9 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       case FirmwareUpdateApiResult::IncompleteUpload: return 400;
       case FirmwareUpdateApiResult::InvalidCandidate: return 422;
       case FirmwareUpdateApiResult::NotReady: return 409;
+      case FirmwareUpdateApiResult::NoUpdateAvailable: return 200;
+      case FirmwareUpdateApiResult::OnlineProviderUnavailable: return 503;
+      case FirmwareUpdateApiResult::OnlineDownloadFailed: return 502;
       default: return 503;
     }
   }
@@ -2596,11 +2608,14 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     const FirmwareUpdateStatusView status = browser->firmwareUpdate_->status();
     char json[384]{};
     snprintf(json, sizeof(json),
-             "{\"state\":\"%s\",\"validationFailure\":\"%s\",\"lastRejection\":\"%s\",\"receivedBytes\":%lu,\"expectedBytes\":%lu,\"knownGoodVersion\":%lu,\"pendingReboot\":%s}",
+             "{\"state\":\"%s\",\"validationFailure\":\"%s\",\"lastRejection\":\"%s\",\"receivedBytes\":%lu,\"expectedBytes\":%lu,\"knownGoodVersion\":%lu,\"pendingReboot\":%s,\"onlineAvailable\":%s,\"onlineVersion\":%lu,\"onlineBuildId\":\"%s\"}",
              firmwareUpdateStateText(status.state), firmwareUpdateFailureText(status.validationFailure),
              firmwareUpdateRejectionText(status.lastRejection),
              static_cast<unsigned long>(status.receivedBytes), static_cast<unsigned long>(status.expectedBytes),
-             static_cast<unsigned long>(status.knownGoodVersion), status.pendingReboot ? "true" : "false");
+             static_cast<unsigned long>(status.knownGoodVersion), status.pendingReboot ? "true" : "false",
+             status.onlineOffer.available ? "true" : "false",
+             static_cast<unsigned long>(status.onlineOffer.identity.version),
+             status.onlineOffer.identity.buildId ? status.onlineOffer.identity.buildId : "");
     httpd_resp_set_type(request, "application/json");
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
     const esp_err_t sent = httpd_resp_sendstr(request, json);
@@ -2683,6 +2698,67 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     trace.complete(result == FirmwareUpdateApiResult::Accepted ? sent : ESP_ERR_INVALID_STATE);
     return sent;
   }
+  static esp_err_t updateOnlineCheckRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/update/check-online");
+    BrowserInterface* browser = instance();
+    if (!browser->firmwareUpdate_) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::OnlineProviderUnavailable, "online_check");
+    const uint64_t owner = client(request);
+    const NoticeboardState state = browser->noticeboard_.current();
+    if (!browser->isControlOwner(owner)) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::PermissionDenied, "online_check");
+    if (state.lifecycle != SessionLifecycle::Ready && state.lifecycle != SessionLifecycle::Finished) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::LifecycleNotSettled, "online_check");
+    FirmwareUpdateRequestContext context{}; context.controllingMaster = true; context.lifecycleSettled = true;
+    FirmwareOnlineOffer offer{};
+    const FirmwareUpdateApiResult result = browser->firmwareUpdate_->checkOnline(owner, context, offer);
+    char json[320]{};
+    snprintf(json, sizeof(json), "{\"accepted\":%s,\"available\":%s,\"reason\":\"%s\",\"version\":%lu,\"buildId\":\"%s\"}",
+             result == FirmwareUpdateApiResult::Accepted || result == FirmwareUpdateApiResult::NoUpdateAvailable ? "true" : "false",
+             offer.available ? "true" : "false", firmwareUpdateReason(result),
+             static_cast<unsigned long>(offer.identity.version), offer.identity.buildId ? offer.identity.buildId : "");
+    httpd_resp_set_type(request, "application/json"); httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    char status[32]; snprintf(status, sizeof(status), "%d %s", firmwareUpdateHttpStatus(result), result == FirmwareUpdateApiResult::Accepted || result == FirmwareUpdateApiResult::NoUpdateAvailable ? "OK" : "Rejected");
+    httpd_resp_set_status(request, status); const esp_err_t sent = httpd_resp_sendstr(request, json); trace.complete(sent); return sent;
+  }
+  static esp_err_t updateOnlineRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/request/update/online");
+    BrowserInterface* browser = instance();
+    if (!browser->firmwareUpdate_) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::OnlineProviderUnavailable, "online");
+    const uint64_t owner = client(request); const NoticeboardState state = browser->noticeboard_.current();
+    if (!browser->isControlOwner(owner)) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::PermissionDenied, "online");
+    if (state.lifecycle != SessionLifecycle::Ready && state.lifecycle != SessionLifecycle::Finished) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::LifecycleNotSettled, "online");
+    FirmwareUpdateRequestContext context{}; context.controllingMaster = true; context.lifecycleSettled = true;
+    const FirmwareUpdateApiResult result = browser->firmwareUpdate_->startOnline(owner, context);
+    const esp_err_t sent = sendFirmwareUpdateResult(request, result, "online"); trace.complete(result == FirmwareUpdateApiResult::Accepted ? sent : ESP_ERR_INVALID_STATE); return sent;
+  }
+  static bool maintenanceBody(httpd_req_t* request, bool& confirmed, bool& strong) {
+    confirmed = false; strong = false; if (request->content_len <= 0 || request->content_len >= 256) return false;
+    char body[256]{}; int received = 0; while (received < request->content_len) { const int part = httpd_req_recv(request, body + received, request->content_len - received); if (part <= 0) return false; received += part; }
+    confirmed = strstr(body, "\"confirmed\":true") != nullptr;
+    strong = strstr(body, "ERASE EVERYTHING") != nullptr;
+    return true;
+  }
+  static const char* maintenanceReason(MaintenanceApiResult result) {
+    switch (result) { case MaintenanceApiResult::PermissionDenied: return "CONTROLLING_RACE_DIRECTOR_REQUIRED"; case MaintenanceApiResult::LifecycleNotSettled: return "LIFECYCLE_NOT_SETTLED"; case MaintenanceApiResult::ConfirmationRequired: return "CONFIRMATION_REQUIRED"; case MaintenanceApiResult::Busy: return "MAINTENANCE_ALREADY_IN_PROGRESS"; case MaintenanceApiResult::Failed: return "MAINTENANCE_FAILED"; default: return "UNKNOWN"; }
+  }
+  static int maintenanceStatus(MaintenanceApiResult result) { switch (result) { case MaintenanceApiResult::Accepted: return 202; case MaintenanceApiResult::PermissionDenied: return 403; case MaintenanceApiResult::LifecycleNotSettled: case MaintenanceApiResult::Busy: return 409; case MaintenanceApiResult::ConfirmationRequired: return 400; default: return 503; } }
+  static esp_err_t maintenanceResult(httpd_req_t* request, MaintenanceApiResult result, const char* operation) {
+    char json[192]{}; snprintf(json, sizeof(json), "{\"accepted\":%s,\"operation\":\"%s\",\"reason\":\"%s\"}", result == MaintenanceApiResult::Accepted ? "true" : "false", operation, result == MaintenanceApiResult::Accepted ? "NONE" : maintenanceReason(result));
+    char status[32]; snprintf(status, sizeof(status), "%d %s", maintenanceStatus(result), result == MaintenanceApiResult::Accepted ? "Accepted" : "Rejected");
+    httpd_resp_set_type(request, "application/json"); httpd_resp_set_hdr(request, "Cache-Control", "no-store"); httpd_resp_set_status(request, status); return httpd_resp_sendstr(request, json);
+  }
+  static esp_err_t maintenanceRoute(httpd_req_t* request, const char* operation) {
+    RequestTrace trace(instance(), operation); BrowserInterface* browser = instance();
+    if (!browser->maintenance_) return maintenanceResult(request, MaintenanceApiResult::Failed, operation);
+    bool confirmed = false, strong = false; if (!maintenanceBody(request, confirmed, strong)) return maintenanceResult(request, MaintenanceApiResult::ConfirmationRequired, operation);
+    const uint64_t owner = client(request); const NoticeboardState state = browser->noticeboard_.current(); MaintenanceRequestContext context{}; context.controllingMaster = browser->isControlOwner(owner); context.lifecycleSettled = state.lifecycle == SessionLifecycle::Ready || state.lifecycle == SessionLifecycle::Finished; context.confirmed = confirmed; context.strongConfirmation = strong;
+    MaintenanceApiResult result = MaintenanceApiResult::Failed;
+    if (!strcmp(operation, "restart")) result = browser->maintenance_->restart(owner, context);
+    else if (!strcmp(operation, "reset-settings")) result = browser->maintenance_->resetSettings(owner, context);
+    else result = browser->maintenance_->eraseEverything(owner, context);
+    const esp_err_t sent = maintenanceResult(request, result, operation); trace.complete(result == MaintenanceApiResult::Accepted ? sent : ESP_ERR_INVALID_STATE); return sent;
+  }
+  static esp_err_t restartRoute(httpd_req_t* request) { return maintenanceRoute(request, "restart"); }
+  static esp_err_t resetSettingsRoute(httpd_req_t* request) { return maintenanceRoute(request, "reset-settings"); }
+  static esp_err_t eraseEverythingRoute(httpd_req_t* request) { return maintenanceRoute(request, "erase-everything"); }
   static esp_err_t health(httpd_req_t* request) {
     RequestTrace trace(instance(), "/health");
     httpd_resp_set_type(request, "application/json");
@@ -2711,6 +2787,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/diag/records", HTTP_GET, diagnosticRecordsRoute, nullptr},
       {"/diag/download", HTTP_GET, diagnosticDownloadRoute, nullptr},
       {"/update/status", HTTP_GET, updateStatusRoute, nullptr},
+      {"/update/check-online", HTTP_GET, updateOnlineCheckRoute, nullptr},
       {"/network/status", HTTP_GET, networkStatusRoute, nullptr},
       {"/network/scan", HTTP_POST, networkScanRoute, nullptr},
       {"/network/connect", HTTP_POST, networkConnectRoute, nullptr},
@@ -2762,6 +2839,10 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/request/update/upload", HTTP_POST, updateUploadRoute, nullptr},
       {"/request/update/validate", HTTP_POST, updateValidateRoute, nullptr},
       {"/request/update/install", HTTP_POST, updateInstallRoute, nullptr},
+      {"/request/update/online", HTTP_POST, updateOnlineRoute, nullptr},
+      {"/request/restart", HTTP_POST, restartRoute, nullptr},
+      {"/request/reset-settings", HTTP_POST, resetSettingsRoute, nullptr},
+      {"/request/erase-everything", HTTP_POST, eraseEverythingRoute, nullptr},
       {"/fixture", HTTP_POST, fixtureRoute, nullptr},
       {"/request-result", HTTP_GET, resultRoute, nullptr},
     };
