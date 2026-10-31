@@ -25,8 +25,8 @@ SECURE_VERSION_OFFSET = 0x04
 APP_DESC_SIZE = 256
 
 
-def patch_linked_app_descriptor(source, target, environment):
-    del source, environment
+def patch_linked_app_descriptor(source, target, env):
+    del source, env
     elf_path = Path(str(target[0]))
 
     with elf_path.open("rb") as stream:
