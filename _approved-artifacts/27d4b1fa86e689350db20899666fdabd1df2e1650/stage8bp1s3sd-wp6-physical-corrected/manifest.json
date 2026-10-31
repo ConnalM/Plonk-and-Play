@@ -1,0 +1,48 @@
+{
+  "source_commit": "27d4b1fa86e689350db20899666fdabd1df2e1650",
+  "environment": "stage8bp1s3sd",
+  "board": "esp32-8048s070 / ESP32-S3 N16R8",
+  "flash": "16MB",
+  "psram": "8MB",
+  "platformio": "Espressif32 8.0.0",
+  "arduino_esp32": "3.3.12",
+  "esp_idf": "5.5.5",
+  "arduino_gfx": "1.6.5+sha.4c1d0a6",
+  "public_key_fingerprint_sha256": "025DA350BC9D2B2ED7371CC6B5B4BD1801E008C3847A0BA43B9D5362CCFCE35C",
+  "private_key": "protected local signing path; never committed",
+  "elf2image": "official Espressif elf2image; no post-image mutation",
+  "elf_project_name": "plonk-and-play",
+  "firmware_size": 1498816,
+  "elf_size": 15221964,
+  "ram_used": 88116,
+  "flash_used": 1469351,
+  "known_good_A": {
+    "version": 100,
+    "build_id": "known-good-A",
+    "firmware_sha256": "A5F72AFB528061C9B411FD99BDC4EA5C1B3B9AE005A7E3A82A6FA44207D3D053",
+    "elf_sha256": "901A6468FBC0EDF8E720ED9A3EE132DCC23C36BE834A6A7444FAA7AC3B181A0E",
+    "package_sha256": "CC8B486C73FA06DA461C8EEAE26E443EBAFE674BF206150D29BD9FD9C7F42B5A",
+    "app_version": "6671d0b",
+    "image_checksum": "0x33 valid",
+    "validation_hash": "08ac7e955b0ba5ea4101dca172dfeeebfa247d19d5a1ba730aec6af5fbb57440 valid"
+  },
+  "candidate_B": {
+    "version": 101,
+    "build_id": "candidate-B",
+    "firmware_sha256": "CDF4167FF88B2A76A5E808690A16225AFC396702BDD59D290EE9C340D5ECA8E6",
+    "elf_sha256": "A5CA76A918062C9B0350B24F9A39098B072F7CB9DB79636D3F5B0B7A13781C2D",
+    "package_sha256": "6CC0D3793D03D655FAF415326967761E39A9CA46D834A560FA7F9C260F9E998B",
+    "app_version": "wp6-physical-b",
+    "secure_version": 1,
+    "image_checksum": "0xd5 valid",
+    "validation_hash": "f90473f663151e615ea56e819b5b99de65039d9c748669910f6ac8e934a1ae55 valid"
+  },
+  "display": {
+    "pclk_hz": 12000000,
+    "bounce_buffer_size_px": 16000,
+    "bounce_buffer_bytes_each": 32000,
+    "bounce_buffer_total_bytes": 64000,
+    "framebuffer": "single PSRAM"
+  },
+  "provenance": "clean source checkout; protected public-key injection only for artifact build; PP_UPDATE_PUBLIC_KEY_HEX is not committed"
+}
