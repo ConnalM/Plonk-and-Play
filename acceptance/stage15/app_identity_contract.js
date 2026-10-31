@@ -1,10 +1,13 @@
 const fs = require('fs');
 
 const ini = fs.readFileSync('firmware/platformio.ini', 'utf8');
-const script = fs.readFileSync('firmware/postbuild_app_identity.py', 'utf8');
-if (!ini.includes('post:postbuild_app_identity.py')) throw new Error('production post-build identity hook missing');
+const script = fs.readFileSync('firmware/app_descriptor_preimage.py', 'utf8');
+if (!ini.includes('post:app_descriptor_preimage.py')) throw new Error('pre-image identity hook missing');
+if (ini.includes('post:postbuild_app_identity.py')) throw new Error('completed-binary identity mutation remains configured');
 if (!script.includes('CANONICAL_PRODUCT = b"plonk-and-play"')) throw new Error('canonical product constant missing');
-if (!script.includes('ABCD5432') || !script.includes('hashlib.sha256')) throw new Error('ESP image assertion/hash repair missing');
+if (!script.includes('.flash.appdesc') || !script.includes('AddPostAction("$BUILD_DIR/${PROGNAME}.elf"')) {
+  throw new Error('ELF app-descriptor pre-image hook missing');
+}
 
 const image = process.argv[2] || 'firmware/.pio/build/stage8bp1s3sd/firmware.bin';
 if (fs.existsSync(image)) {
