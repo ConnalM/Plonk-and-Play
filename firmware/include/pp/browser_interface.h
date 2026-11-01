@@ -2690,10 +2690,34 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
   static esp_err_t updateInstallRoute(httpd_req_t* request) {
     RequestTrace trace(instance(), "/request/update/install");
     BrowserInterface* browser = instance();
-    if (!browser->firmwareUpdate_) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::Rejected, "install");
+    if (!browser->firmwareUpdate_) {
+      Serial.println("[WP6 OTA] install request rejected reason=UPDATE_UNAVAILABLE");
+      return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::Rejected, "install");
+    }
     const uint64_t owner = client(request);
-    if (!browser->firmwareUpdate_->owns(owner)) return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::PermissionDenied, "install");
-    const FirmwareUpdateApiResult result = browser->firmwareUpdate_->install(owner);
+    const NoticeboardState state = browser->noticeboard_.current();
+    const bool controlling = browser->isControlOwner(owner);
+    const bool settled = state.lifecycle == SessionLifecycle::Ready || state.lifecycle == SessionLifecycle::Finished;
+    const FirmwareUpdateStatusView status = browser->firmwareUpdate_->status();
+    Serial.printf("[WP6 OTA] install request received authority=%s lifecycle=%s state=%s\n",
+                  controlling ? "CONTROLLING" : "NOT_CONTROLLING",
+                  settled ? "SETTLED" : "UNSETTLED",
+                  firmwareUpdateStateText(status.state));
+    if (!controlling) {
+      Serial.println("[WP6 OTA] install request rejected reason=CONTROLLING_RACE_DIRECTOR_REQUIRED");
+      return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::PermissionDenied, "install");
+    }
+    if (!settled) {
+      Serial.println("[WP6 OTA] install request rejected reason=LIFECYCLE_NOT_SETTLED");
+      return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::LifecycleNotSettled, "install");
+    }
+    FirmwareUpdateRequestContext context{};
+    context.controllingMaster = true;
+    context.lifecycleSettled = true;
+    const FirmwareUpdateApiResult result = browser->firmwareUpdate_->install(owner, context);
+    Serial.printf("[WP6 OTA] install request %s reason=%s\n",
+                  result == FirmwareUpdateApiResult::Accepted ? "accepted" : "rejected",
+                  firmwareUpdateReason(result));
     const esp_err_t sent = sendFirmwareUpdateResult(request, result, "install");
     trace.complete(result == FirmwareUpdateApiResult::Accepted ? sent : ESP_ERR_INVALID_STATE);
     return sent;

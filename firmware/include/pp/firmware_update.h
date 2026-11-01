@@ -127,7 +127,10 @@ class FirmwareUpdateEndpoint {
                                         size_t expectedBytes) = 0;
   virtual FirmwareUpdateApiResult upload(uint64_t owner, const uint8_t* data, size_t size) = 0;
   virtual FirmwareUpdateApiResult validate(uint64_t owner) = 0;
-  virtual FirmwareUpdateApiResult install(uint64_t owner) = 0;
+  // Installation is a fresh authorised action, not a continuation implicitly
+  // authorised by the earlier upload. The controller supplies current
+  // authority/lifecycle truth at this boundary.
+  virtual FirmwareUpdateApiResult install(uint64_t owner, const FirmwareUpdateRequestContext& context) = 0;
   virtual void abort(uint64_t owner) = 0;
   virtual bool owns(uint64_t owner) const = 0;
   virtual FirmwareUpdateStatusView status() const = 0;

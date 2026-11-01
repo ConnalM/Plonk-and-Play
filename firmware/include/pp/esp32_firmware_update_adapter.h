@@ -179,15 +179,25 @@ class Esp32FirmwareUpdateAdapter final {
   // Select the validated inactive slot and move the state machine to its
   // post-reboot health-confirmation boundary.  This does not reboot.
   FirmwarePlatformResult selectCandidate() {
-    if (!initialized_ || !next_ || !candidateDescription_.magic_word) return FirmwarePlatformResult::InvalidState;
-    if (esp_ota_set_boot_partition(next_) != ESP_OK) return FirmwarePlatformResult::WriteFailed;
+    if (!initialized_ || !next_ || !candidateDescription_.magic_word) {
+      Serial.println("[WP6 OTA] install boot-select rejected reason=INVALID_STATE");
+      return FirmwarePlatformResult::InvalidState;
+    }
+    Serial.printf("[WP6 OTA] install boot-select attempted target=%s\n", next_->label);
+    const esp_err_t selected = esp_ota_set_boot_partition(next_);
+    if (selected != ESP_OK) {
+      Serial.printf("[WP6 OTA] install boot-select failed result=%d\n", static_cast<int>(selected));
+      return FirmwarePlatformResult::WriteFailed;
+    }
     if (stateMachine_ && !stateMachine_->beginInstall()) {
       // Never leave a boot-selection side effect behind a rejected state
       // transition; restore the previously running known-good slot.
       esp_ota_set_boot_partition(running_);
+      Serial.println("[WP6 OTA] install boot-select reverted reason=STATE_REJECTED");
       return FirmwarePlatformResult::InvalidState;
     }
     pendingBoot_ = true;
+    Serial.println("[WP6 OTA] install boot-select accepted");
     return FirmwarePlatformResult::Ok;
   }
 
@@ -347,11 +357,14 @@ class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
     return FirmwareUpdateApiResult::Accepted;
   }
 
-  FirmwareUpdateApiResult install(uint64_t owner) override {
+  FirmwareUpdateApiResult install(uint64_t owner, const FirmwareUpdateRequestContext& context) override {
+    if (!owner || !context.controllingMaster) return FirmwareUpdateApiResult::PermissionDenied;
+    if (!context.lifecycleSettled) return FirmwareUpdateApiResult::LifecycleNotSettled;
     if (!ownerMatches(owner)) return FirmwareUpdateApiResult::PermissionDenied;
     if (stateMachine_.state() != FirmwareUpdateState::CandidateReady) return FirmwareUpdateApiResult::InvalidCandidate;
     if (adapter_.selectCandidate() != FirmwarePlatformResult::Ok) return FirmwareUpdateApiResult::Rejected;
     rebootRequested_ = true;
+    Serial.println("[WP6 OTA] install restart requested");
     return FirmwareUpdateApiResult::Accepted;
   }
 
@@ -453,7 +466,7 @@ class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
   FirmwareUpdateApiResult begin(uint64_t, const FirmwareUpdateRequestContext&, size_t) override { return FirmwareUpdateApiResult::Rejected; }
   FirmwareUpdateApiResult upload(uint64_t, const uint8_t*, size_t) override { return FirmwareUpdateApiResult::Rejected; }
   FirmwareUpdateApiResult validate(uint64_t) override { return FirmwareUpdateApiResult::Rejected; }
-  FirmwareUpdateApiResult install(uint64_t) override { return FirmwareUpdateApiResult::Rejected; }
+  FirmwareUpdateApiResult install(uint64_t, const FirmwareUpdateRequestContext&) override { return FirmwareUpdateApiResult::Rejected; }
   void abort(uint64_t) override {}
   bool owns(uint64_t) const override { return false; }
   FirmwareUpdateStatusView status() const override { return {}; }

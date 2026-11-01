@@ -34,8 +34,11 @@ class FakeUpdateEndpoint final : public FirmwareUpdateEndpoint {
     if (!machine_.finishStaging(candidate)) return FirmwareUpdateApiResult::InvalidCandidate;
     return FirmwareUpdateApiResult::Accepted;
   }
-  FirmwareUpdateApiResult install(uint64_t owner) override {
+  FirmwareUpdateApiResult install(uint64_t owner, const FirmwareUpdateRequestContext& context) override {
+    if (!owner || !context.controllingMaster) return FirmwareUpdateApiResult::PermissionDenied;
+    if (!context.lifecycleSettled) return FirmwareUpdateApiResult::LifecycleNotSettled;
     if (!owns(owner)) return FirmwareUpdateApiResult::PermissionDenied;
+    ++bootSelectionAttempts_;
     if (!machine_.beginInstall()) return FirmwareUpdateApiResult::InvalidCandidate;
     reboot_ = true; return FirmwareUpdateApiResult::Accepted;
   }
@@ -48,6 +51,7 @@ class FakeUpdateEndpoint final : public FirmwareUpdateEndpoint {
   bool consumeRebootRequest() override { const bool result = reboot_; reboot_ = false; return result; }
   void setCandidate(FirmwareCandidate candidate) { candidate_ = candidate; }
   const FirmwareUpdateStateMachine& machine() const { return machine_; }
+  unsigned bootSelectionAttempts() const { return bootSelectionAttempts_; }
  private:
   static constexpr size_t Capacity = 1024;
   FirmwareIdentity known_{"plonk-and-play", "esp32-8048s070", "known", 10};
@@ -55,6 +59,7 @@ class FakeUpdateEndpoint final : public FirmwareUpdateEndpoint {
   FirmwareUpdateStateMachine machine_;
   FirmwareCandidate candidate_{{"plonk-and-play", "esp32-8048s070", "candidate", 11}, 0, true, true, true};
   uint64_t owner_ = 0; size_t expected_ = 0; size_t received_ = 0; bool reboot_ = false;
+  unsigned bootSelectionAttempts_ = 0;
 };
 
 static int fail(const char* name) { std::cerr << "FAIL " << name << "\n"; return 1; }
@@ -89,8 +94,12 @@ int main() {
   if (api.upload(7, bytes, sizeof(bytes)) != FirmwareUpdateApiResult::Accepted) return fail("complete-upload");
   if (api.validate(7) != FirmwareUpdateApiResult::Accepted) return fail("validate");
   if (api.status().state != FirmwareUpdateState::CandidateReady) return fail("candidate-ready");
-  if (api.install(8) != FirmwareUpdateApiResult::PermissionDenied) return fail("install-ownership");
-  if (api.install(7) != FirmwareUpdateApiResult::Accepted || !api.consumeRebootRequest()) return fail("install");
+  if (api.install(7, {false, true, false}) != FirmwareUpdateApiResult::PermissionDenied) return fail("install-lost-authority");
+  if (api.install(7, {true, false, false}) != FirmwareUpdateApiResult::LifecycleNotSettled) return fail("install-unsettled");
+  if (api.install(8, {true, true, false}) != FirmwareUpdateApiResult::PermissionDenied) return fail("install-ownership");
+  if (api.bootSelectionAttempts() != 0) return fail("install-rejections-do-not-select-boot");
+  if (api.install(7, {true, true, false}) != FirmwareUpdateApiResult::Accepted || !api.consumeRebootRequest()) return fail("install");
+  if (api.bootSelectionAttempts() != 1) return fail("install-selects-boot-once");
   if (api.machine().knownGood().version != 10 || api.machine().customerDataTouched()) return fail("known-good-after-install");
   std::cout << "WP6_UPDATE_API_PASS\n";
 }

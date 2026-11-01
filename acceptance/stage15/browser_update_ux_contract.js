@@ -47,6 +47,22 @@ for (const marker of ['XMLHttpRequest', 'onabort', 'UPDATE_ALREADY_IN_PROGRESS',
   'INCOMPATIBLE_TARGET', 'The upload was interrupted. The current firmware is unchanged.']) {
   if (!match[1].includes(marker)) throw new Error(`customer update workflow missing ${marker}`);
 }
+if (!match[1].includes("const installAllowed=candidateReady&&canControl&&!updateUiBusy")) {
+  throw new Error('install control is not gated by current authority/lifecycle and candidate readiness');
+}
+if (!match[1].includes("${installAllowed?'<button class=\"btn primary\" id=\"updateInstall\">INSTALL AND RESTART</button>':''}")) {
+  throw new Error('install control can be shown without the install-authority gate');
+}
+const installStart = match[1].indexOf('async function updateInstall(){');
+const installEnd = match[1].indexOf('let onlineOffer=', installStart);
+if (installStart < 0 || installEnd < 0) throw new Error('install action missing');
+const install = match[1].slice(installStart, installEnd);
+for (const marker of ["if(!C?.isMaster)", "if(!['READY','FINISHED'].includes(S?.lifecycle))", "if(!window.confirm('Install the validated update and restart P&P now?'))return", "/request/update/install"]) {
+  if (!install.includes(marker)) throw new Error(`install action missing ${marker}`);
+}
+if (!(install.indexOf("if(!window.confirm('Install the validated update and restart P&P now?'))return") < install.indexOf("/request/update/install"))) {
+  throw new Error('confirmation dismissal could send an install POST');
+}
 if (!match[1].includes("if(V==='settings')return settingsPage();")) {
   throw new Error('Settings route does not use the customer update workflow');
 }
