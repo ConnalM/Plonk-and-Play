@@ -14,12 +14,12 @@ import sys
 
 from elftools.elf.elffile import ELFFile
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+Import("env")
+
+SCRIPT_DIR = Path(env["PROJECT_DIR"])
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 from update_identity import CANONICAL_PRODUCT as IDENTITY_PRODUCT, load_update_identity_from_environment
-
-Import("env")
 
 CANONICAL_PRODUCT = IDENTITY_PRODUCT.encode("ascii")
 APP_DESC_MAGIC = 0xABCD5432
