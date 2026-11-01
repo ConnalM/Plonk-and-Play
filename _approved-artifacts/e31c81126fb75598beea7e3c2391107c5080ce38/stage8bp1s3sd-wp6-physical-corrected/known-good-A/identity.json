@@ -1,0 +1,6 @@
+{
+  "product": "plonk-and-play",
+  "board": "esp32-8048s070",
+  "build_id": "known-good-A",
+  "version": 100
+}

@@ -1,0 +1,59 @@
+{
+  "artifactPurpose": "WP6 corrected physical-update A/B acceptance set",
+  "sourceCommit": "e31c81126fb75598beea7e3c2391107c5080ce38",
+  "environment": "stage8bp1s3sd",
+  "board": "ESP32-8048S070 (ESP32-S3 N16R8)",
+  "flash": "16MB dio 80MHz",
+  "psram": "8MB enabled",
+  "toolchain": {
+    "platform": "espressif32 8.0.0",
+    "arduinoEsp32": "3.3.12",
+    "espIdf": "5.5.5",
+    "esptool": "5.4.0",
+    "arduinoGfx": "1.6.5+sha.4c1d0a6"
+  },
+  "display": {
+    "pclkMHz": 12,
+    "bounceBufferPixels": 16000,
+    "bounceBufferBytesEach": 32000,
+    "bounceBufferBytesTotal": 64000,
+    "framebuffer": "single PSRAM RGB framebuffer"
+  },
+  "updateSigning": {
+    "packageFormat": "PPU1 v1",
+    "algorithm": "ECDSA P-256 with SHA-256",
+    "publicKeySha256": "025DA350BC9D2B2ED7371CC6B5B4BD1801E008C3847A0BA43B9D5362CCFCE35C",
+    "privateKey": "outside repository and artifacts"
+  },
+  "finalImageGates": [
+    "ELF descriptor product=plonk-and-play",
+    "ESP checksum valid",
+    "ESP validation hash valid",
+    "PPU1 signature valid",
+    "PPU1 payload digest valid",
+    "PPU1 product/board/build/version exactly equal final image descriptor"
+  ],
+  "resourceUsage": {
+    "ramUsedBytes": 88116,
+    "ramCapacityBytes": 327680,
+    "ramPercent": 26.9,
+    "flashUsedBytes": 1469559,
+    "flashCapacityBytes": 6553600,
+    "flashPercent": 22.4
+  },
+  "artifacts": {
+    "knownGoodA": {
+      "identity": { "product": "plonk-and-play", "board": "esp32-8048s070", "buildId": "known-good-A", "version": 100, "secureVersion": 100 },
+      "firmware": { "path": "known-good-A/firmware.bin", "bytes": 1499024, "sha256": "83B85AF849228226CC329FC027F74F6CFC3BECE3907BBCEF6EEE34876D2B6B3C" },
+      "elf": { "path": "known-good-A/firmware.elf", "bytes": 15222108, "sha256": "6B5C6340D065EC6B5EF4F9C56148496DAC7A8770A10040A4671D9ECE720A9232" },
+      "package": { "path": "known-good-A/update.ppu", "bytes": 1499188, "sha256": "4786A51123FF104D362CDE64E3845779DFBD93F1553307F5C4435B8A776953E5" }
+    },
+    "candidateB": {
+      "identity": { "product": "plonk-and-play", "board": "esp32-8048s070", "buildId": "candidate-B", "version": 101, "secureVersion": 101 },
+      "firmware": { "path": "candidate-B/firmware.bin", "bytes": 1499024, "sha256": "94FEC6A4C483E79AA6AFECA1C1F8673E0323B7CA130FE9EF1622FF78FCA69B21" },
+      "elf": { "path": "candidate-B/firmware.elf", "bytes": 15222108, "sha256": "9C5F158F4A04A1752926E8178EB3EC3FEA8CCB244D366556EE4D0A7783FF88B0" },
+      "package": { "path": "candidate-B/update.ppu", "bytes": 1499186, "sha256": "7D8B8C1FE7F7E08EFFF4EBFBBBDFDBF22179FCBC7AB0ABA79EA67BBA836D6E79" }
+    }
+  },
+  "buildProvenance": "Known-Good A and Candidate B were independently clean-built from the same source with controlled identity JSON supplied to both descriptor generation and PPU1 packaging. The former 27d4b1f physical A/B set is revoked because its PPU1 and ESP image identities disagreed."
+}
