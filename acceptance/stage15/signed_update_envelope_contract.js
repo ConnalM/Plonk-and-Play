@@ -4,10 +4,14 @@ const fs = require('fs');
 const root = process.cwd();
 const envelopeSource = fs.readFileSync('firmware/include/pp/signed_update_envelope.h', 'utf8');
 const adapterSource = fs.readFileSync('firmware/include/pp/esp32_firmware_update_adapter.h', 'utf8');
+const prebuildSource = fs.readFileSync('firmware/prebuild.py', 'utf8');
 if (!envelopeSource.includes('PPU1') || !envelopeSource.includes('mbedtls_pk_verify')) throw new Error('signed envelope verifier missing');
 if (!adapterSource.includes('verifier_.consume') || !adapterSource.includes('verifier_.finish')) throw new Error('adapter bypasses signed envelope');
 if (!adapterSource.includes('const SignedEnvelopeResult envelopeResult = verifier_.finish(envelope)') ||
     !adapterSource.includes('candidate.authenticated = true')) throw new Error('adapter does not gate authenticity on envelope verification');
+if (!prebuildSource.includes('PP_UPDATE_PUBLIC_KEY_HEX') || !prebuildSource.includes('CPPDEFINES')) {
+  throw new Error('protected production verification-key injection is missing');
+}
 for (const path of ['firmware', 'acceptance', 'docs']) {
   const text = fs.readdirSync(path, { withFileTypes: true }).filter(e => e.isFile()).map(e => fs.readFileSync(`${path}/${e.name}`, 'utf8')).join('\n');
   if (text.includes('BEGIN EC PRIVATE KEY') || text.includes('BEGIN PRIVATE KEY')) throw new Error(`private key material committed under ${path}`);
