@@ -4,9 +4,15 @@ const ini = fs.readFileSync('firmware/platformio.ini', 'utf8');
 const script = fs.readFileSync('firmware/app_descriptor_preimage.py', 'utf8');
 if (!ini.includes('post:app_descriptor_preimage.py')) throw new Error('pre-image identity hook missing');
 if (ini.includes('post:postbuild_app_identity.py')) throw new Error('completed-binary identity mutation remains configured');
-if (!script.includes('CANONICAL_PRODUCT = b"plonk-and-play"')) throw new Error('canonical product constant missing');
+if (!script.includes('IDENTITY_PRODUCT.encode("ascii")')) throw new Error('canonical product identity binding missing');
 if (!script.includes('.flash.appdesc') || !script.includes('AddPostAction("$BUILD_DIR/${PROGNAME}.elf"')) {
   throw new Error('ELF app-descriptor pre-image hook missing');
+}
+if (!script.includes('load_update_identity_from_environment') || !script.includes('identity.version')) {
+  throw new Error('update descriptor identity is not driven by the shared identity input');
+}
+if (script.includes('SECURE_VERSION_OFFSET, 1')) {
+  throw new Error('obsolete hard-coded secure version remains');
 }
 
 const image = process.argv[2] || 'firmware/.pio/build/stage8bp1s3sd/firmware.bin';

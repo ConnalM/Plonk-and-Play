@@ -9,14 +9,19 @@ the canonical ELF contents.
 """
 
 from pathlib import Path
-import os
 import struct
+import sys
 
 from elftools.elf.elffile import ELFFile
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+from update_identity import CANONICAL_PRODUCT as IDENTITY_PRODUCT, load_update_identity_from_environment
+
 Import("env")
 
-CANONICAL_PRODUCT = b"plonk-and-play"
+CANONICAL_PRODUCT = IDENTITY_PRODUCT.encode("ascii")
 APP_DESC_MAGIC = 0xABCD5432
 APP_DESC_SECTION = ".flash.appdesc"
 PROJECT_NAME_OFFSET = 0x30
@@ -45,13 +50,12 @@ def patch_linked_app_descriptor(source, target, env):
     image = bytearray(elf_path.read_bytes())
     field_offset = section_offset + PROJECT_NAME_OFFSET
     image[field_offset : field_offset + 32] = name
-    candidate_version = os.environ.get("PP_APP_DESCRIPTOR_VERSION", "").encode("ascii")
-    if len(candidate_version) > 31:
-        raise RuntimeError("PP_APP_DESCRIPTOR_VERSION exceeds ESP descriptor capacity")
-    if candidate_version:
+    identity = load_update_identity_from_environment()
+    if identity:
+        candidate_version = identity.build_id.encode("ascii")
         version_offset = section_offset + VERSION_OFFSET
         image[version_offset : version_offset + 32] = candidate_version + b"\0" * (32 - len(candidate_version))
-        struct.pack_into("<I", image, section_offset + SECURE_VERSION_OFFSET, 1)
+        struct.pack_into("<I", image, section_offset + SECURE_VERSION_OFFSET, identity.version)
     elf_path.write_bytes(image)
 
     with elf_path.open("rb") as stream:
@@ -61,8 +65,9 @@ def patch_linked_app_descriptor(source, target, env):
     if observed != name:
         raise RuntimeError("canonical ESP app product was not written to the ELF")
     print("[BUILD] linked_elf_app_descriptor_product=plonk-and-play")
-    if candidate_version:
-        print(f"[BUILD] linked_elf_app_descriptor_version={candidate_version.decode('ascii')}")
+    if identity:
+        print(f"[BUILD] linked_elf_app_descriptor_build_id={identity.build_id}")
+        print(f"[BUILD] linked_elf_app_descriptor_secure_version={identity.version}")
 
 
 env.AddPostAction("$BUILD_DIR/${PROGNAME}.elf", patch_linked_app_descriptor)

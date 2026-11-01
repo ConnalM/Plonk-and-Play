@@ -154,7 +154,16 @@ class Esp32FirmwareUpdateAdapter final {
     candidate = {};
     candidate.identity = identityFromEnvelope(envelope);
     const FirmwareIdentity imageIdentity = identityFromDescription(candidateDescription_);
-    if (!sameIdentity(candidate.identity, imageIdentity)) return FirmwarePlatformResult::ValidationFailed;
+    if (!sameIdentity(candidate.identity, imageIdentity)) {
+      // Bounded development/acceptance evidence. It contains only public image
+      // identity fields, never package bytes or signing material.
+      Serial.printf("[WP6 OTA] validation rejected stage=image_identity manifest_build=%s image_build=%s manifest_version=%lu image_secure_version=%lu\n",
+                    candidate.identity.buildId ? candidate.identity.buildId : "",
+                    imageIdentity.buildId ? imageIdentity.buildId : "",
+                    static_cast<unsigned long>(candidate.identity.version),
+                    static_cast<unsigned long>(imageIdentity.version));
+      return FirmwarePlatformResult::ValidationFailed;
+    }
     candidate.imageSize = bytesWritten_;
     candidate.complete = true;
     candidate.integrityValid = true;
