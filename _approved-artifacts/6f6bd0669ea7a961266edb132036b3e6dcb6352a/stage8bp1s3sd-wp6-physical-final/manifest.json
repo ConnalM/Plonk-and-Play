@@ -1,0 +1,113 @@
+{
+  "sourceCommit": "6f6bd0669ea7a961266edb132036b3e6dcb6352a",
+  "environment": "stage8bp1s3sd",
+  "board": "esp32-8048s070",
+  "chip": "ESP32-S3 N16R8",
+  "flash": "16MB",
+  "psram": "8MB",
+  "product": "plonk-and-play",
+  "toolchain": {
+    "platform": "espressif32@8.0.0",
+    "arduinoEsp32": "3.3.12",
+    "espIdf": "5.5.5",
+    "arduinoGfx": "1.6.5+sha.4c1d0a6",
+    "esptool": "5.4.0"
+  },
+  "buildProvenance": {
+    "sourceCheckout": "exact detached source 6f6bd0669ea7a961266edb132036b3e6dcb6352a",
+    "knownGoodACleanBoundary": "pio stage8bp1s3sd -t clean, then build with PP_UPDATE_IDENTITY_FILE=known-good-A.json",
+    "candidateBCleanBoundary": "pio stage8bp1s3sd -t clean, then build with PP_UPDATE_IDENTITY_FILE=candidate-B.json",
+    "postBuildMutation": false,
+    "normalElf2Image": true
+  },
+  "signing": {
+    "algorithm": "ECDSA P-256 / SHA-256",
+    "publicKeyFingerprintSha256": "025DA350BC9D2B2ED7371CC6B5B4BD1801E008C3847A0BA43B9D5362CCFCE35C",
+    "privateKeyCommitted": false
+  },
+  "display": {
+    "geometry": "800x480",
+    "pclkHz": 12000000,
+    "bounceBufferSizePx": 16000,
+    "bounceBufferBytesEach": 32000,
+    "bounceBufferTotalBytes": 64000,
+    "framebuffer": "one PSRAM framebuffer"
+  },
+  "runtimeResources": {
+    "ramUsedBytes": 88116,
+    "ramTotalBytes": 327680,
+    "ramPercent": 26.9,
+    "flashUsedBytes": 1471307,
+    "flashTotalBytes": 6553600,
+    "flashPercent": 22.5,
+    "sseWorkers": 4,
+    "sseWorkerStackBytes": 8192
+  },
+  "artifacts": {
+    "knownGoodA": {
+      "product": "plonk-and-play",
+      "board": "esp32-8048s070",
+      "buildId": "known-good-A",
+      "version": 100,
+      "secureVersion": 100,
+      "firmware": {
+        "path": "known-good-A/firmware.bin",
+        "size": 1500768,
+        "sha256": "BEF6D2A6638753B551D9BB460A88B14B9506D25D0C2839BFAB526240C37A2A80"
+      },
+      "elf": {
+        "path": "known-good-A/firmware.elf",
+        "size": 15275716,
+        "sha256": "3C0E08AA7E345FFEBB336798B928345CC6909F188C5336A57D27A180AA56FF35"
+      },
+      "package": {
+        "path": "known-good-A/update.ppu",
+        "size": 1500932,
+        "sha256": "B0E50102F1BBC65CAC67975AC0102E78EAA44B0B599749E4920ECAE89919DC1A"
+      },
+      "payloadSha256": "BEF6D2A6638753B551D9BB460A88B14B9506D25D0C2839BFAB526240C37A2A80"
+    },
+    "candidateB": {
+      "product": "plonk-and-play",
+      "board": "esp32-8048s070",
+      "buildId": "candidate-B",
+      "version": 101,
+      "secureVersion": 101,
+      "firmware": {
+        "path": "candidate-B/firmware.bin",
+        "size": 1500768,
+        "sha256": "8E9E1CF5A7BDE280F9C3531633EF9060D833904D0AFA47605FC53A49D19EEDEE"
+      },
+      "elf": {
+        "path": "candidate-B/firmware.elf",
+        "size": 15275716,
+        "sha256": "1CB42D3A1B29352FD0542202288A2BC9337083A988550ED9641D09A23DCCABC8"
+      },
+      "package": {
+        "path": "candidate-B/update.ppu",
+        "size": 1500931,
+        "sha256": "06AC0832534382E6829365C0EDB38D5BCF876C745FFF333CA4CEB21687CA9195"
+      },
+      "payloadSha256": "8E9E1CF5A7BDE280F9C3531633EF9060D833904D0AFA47605FC53A49D19EEDEE"
+    }
+  },
+  "offlineGates": {
+    "signedEnvelope": "PASS",
+    "packageImageIdentityA": "PASS",
+    "packageImageIdentityB": "PASS",
+    "elfProjectIdentityA": "PASS",
+    "elfProjectIdentityB": "PASS",
+    "espChecksumA": "PASS",
+    "espChecksumB": "PASS",
+    "espValidationHashA": "PASS",
+    "espValidationHashB": "PASS",
+    "displayBounceBuffer": "PASS",
+    "wp6StatePlatformApi": "PASS",
+    "wp6InstallAuthorityLifecycle": "PASS",
+    "wp6BrowserUx": "PASS",
+    "maintenanceRetention": "PASS",
+    "diagStatusSchema": "PASS"
+  },
+  "artifactStatus": "APPROVED-CANDIDATE-PENDING-ARCHIE-REVIEW",
+  "supersedes": "e31c81126fb75598beea7e3c2391107c5080ce38/stage8bp1s3sd-wp6-physical-corrected"
+}
