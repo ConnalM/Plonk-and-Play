@@ -50,6 +50,9 @@ for (const marker of ['XMLHttpRequest', 'onabort', 'UPDATE_ALREADY_IN_PROGRESS',
 if (!match[1].includes("const installAllowed=candidateReady&&canControl&&!updateUiBusy")) {
   throw new Error('install control is not gated by current authority/lifecycle and candidate readiness');
 }
+if (!match[1].includes('accept=".ppu,.bin,application/octet-stream"')) {
+  throw new Error('local update file chooser does not accept signed .ppu packages');
+}
 if (!match[1].includes("${installAllowed?'<button class=\"btn primary\" id=\"updateInstall\">INSTALL AND RESTART</button>':''}")) {
   throw new Error('install control can be shown without the install-authority gate');
 }
@@ -70,4 +73,70 @@ if (match[1].includes('esp_ota_') || match[1].includes('FirmwareUpdateStateMachi
   throw new Error('Browser payload contains platform update implementation details');
 }
 
-console.log('WP6_BROWSER_UPDATE_UX_PASS');
+// Execute the visible local-update control in a small browser seam. This catches
+// the failure mode where the chooser cannot select the signed package, leaving
+// the visible button disabled and never reaching the controller request.
+const localStart = match[1].indexOf('let updateSelectedFile=');
+const localEnd = match[1].indexOf('let onlineOffer=', localStart);
+if (localStart < 0 || localEnd < 0) throw new Error('local update workflow boundary missing');
+const localUpdate = match[1].slice(localStart, localEnd);
+const calls = [];
+const xhrCalls = [];
+const elements = {};
+const app = {};
+Object.defineProperty(app, 'innerHTML', {
+  set(value) {
+    this.html = value;
+    for (const id of ['updateFile', 'updateBegin', 'updateProgress', 'updateInstall', 'diagnosticsNav']) {
+      elements[id] = elements[id] || {};
+    }
+    elements.updateBegin.disabled = /id="updateBegin"\s+disabled/.test(value);
+  },
+  get() { return this.html || ''; },
+});
+class FakeXhr {
+  constructor() { this.upload = {}; }
+  open(method, url) { this.method = method; this.url = url; }
+  send() {
+    xhrCalls.push(this.url);
+    this.status = 202;
+    this.responseText = '{"accepted":true}';
+    queueMicrotask(() => this.onload());
+  }
+}
+const browserContext = {
+  console,
+  window: { confirm: () => true },
+  C: { isMaster: true },
+  S: { lifecycle: 'READY' },
+  A: app,
+  V: 'settings',
+  rememberView: () => {},
+  $: (selector) => elements[selector.slice(1)] || null,
+  G: async (path) => { calls.push(`GET ${path}`); return { state: 'IDLE' }; },
+  fetch: async (url) => {
+    calls.push(url);
+    return { ok: true, status: url.endsWith('/begin') ? 202 : 200,
+      json: async () => ({ accepted: true }) };
+  },
+  XMLHttpRequest: FakeXhr,
+  queueMicrotask,
+};
+vm.runInNewContext(`${localUpdate}\nthis.__runLocalUpdate = async () => {
+  updateSettingsRender(null, {state:'IDLE'});
+  const input = $('#updateFile');
+  const button = $('#updateBegin');
+  input.files = [{name:'candidate-B.ppu', size:1234}];
+  input.onchange();
+  if (button.disabled) throw new Error('signed package selection left UPDATE P&P disabled');
+  await button.onclick();
+};`, browserContext, {filename: `${payloadPath}#local-update-seam`});
+browserContext.__runLocalUpdate().then(() => {
+  if (calls[0] !== '/request/update/begin' || xhrCalls[0] !== '/request/update/upload' || calls[1] !== '/request/update/validate') {
+    throw new Error(`visible UPDATE P&P control did not reach the expected request path: ${JSON.stringify({calls, xhrCalls})}`);
+  }
+  console.log('WP6_BROWSER_UPDATE_UX_PASS');
+}).catch((error) => {
+  console.error(error.stack || error.message || error);
+  process.exitCode = 1;
+});
