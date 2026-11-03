@@ -20,7 +20,9 @@ const required = [
   ['Settings firmware identity', 'Current firmware:'],
   ['local file chooser', 'type="file"'],
   ['explicit update confirmation', 'Install this firmware update and restart P&P?'],
-  ['upload progress', 'Uploading…'],
+  ['transfer progress', 'Transferring update to P&P…'],
+  ['validation progress', 'Checking update…'],
+  ['reconnect progress', 'Restarting P&P… Reconnecting…'],
   ['begin endpoint', '/request/update/begin'],
   ['upload endpoint', '/request/update/upload'],
   ['validate endpoint', '/request/update/validate'],
@@ -33,7 +35,7 @@ const required = [
   ['ready-to-install state', 'The update is ready to install.'],
   ['rollback success message', 'The previous firmware was restored.'],
   ['rollback support message', 'Contact support.'],
-  ['settled authority gate', 'Only the controlling Race Director can update P&amp;P while the race is settled.'],
+  ['settled authority gate', 'Only the controlling Race Director can update P&P while the race is settled.'],
 ];
 for (const [label, marker] of required) {
   if (!match[1].includes(marker)) throw new Error(`${label}: missing generated-payload marker`);
@@ -44,23 +46,24 @@ if (order.some((offset) => offset < 0) || order[0] >= order[1] || order[1] >= or
   throw new Error('customer update workflow endpoint order is not begin -> upload -> validate -> install');
 }
 for (const marker of ['XMLHttpRequest', 'onabort', 'UPDATE_ALREADY_IN_PROGRESS', 'DOWNGRADE_REJECTED',
-  'INCOMPATIBLE_TARGET', 'The upload was interrupted. The current firmware is unchanged.']) {
+  'INCOMPATIBLE_TARGET', 'The upload was interrupted. The current firmware is unchanged.',
+  'updateInstallPending', 'updateLastKnownFirmware', 'id="updateControllerState"', 'id="updateNotice"']) {
   if (!match[1].includes(marker)) throw new Error(`customer update workflow missing ${marker}`);
 }
-if (!match[1].includes("const installAllowed=candidateReady&&canControl&&!updateUiBusy")) {
+if (!match[1].includes("const installAllowed=candidateReady&&canControl&&!updateUiBusy&&!updateInstallPending")) {
   throw new Error('install control is not gated by current authority/lifecycle and candidate readiness');
 }
 if (!match[1].includes('accept=".ppu,.bin,application/octet-stream"')) {
   throw new Error('local update file chooser does not accept signed .ppu packages');
 }
-if (!match[1].includes("${installAllowed?'<button class=\"btn primary\" id=\"updateInstall\">INSTALL AND RESTART</button>':''}")) {
-  throw new Error('install control can be shown without the install-authority gate');
+if (!match[1].includes('id="updateInstall"') || !match[1].includes('install.hidden=!installAllowed')) {
+  throw new Error('install control is not updated through the install-authority gate');
 }
 const installStart = match[1].indexOf('async function updateInstall(){');
 const installEnd = match[1].indexOf('let onlineOffer=', installStart);
 if (installStart < 0 || installEnd < 0) throw new Error('install action missing');
 const install = match[1].slice(installStart, installEnd);
-for (const marker of ["if(!C?.isMaster)", "if(!['READY','FINISHED'].includes(S?.lifecycle))", "if(!window.confirm('Install the validated update and restart P&P now?'))return", "/request/update/install"]) {
+for (const marker of ["if(updateUiBusy||updateInstallPending)return", "if(!C?.isMaster)", "if(!['READY','FINISHED'].includes(S?.lifecycle))", "if(!window.confirm('Install the validated update and restart P&P now?'))return", "/request/update/install"]) {
   if (!install.includes(marker)) throw new Error(`install action missing ${marker}`);
 }
 if (!(install.indexOf("if(!window.confirm('Install the validated update and restart P&P now?'))return") < install.indexOf("/request/update/install"))) {
@@ -84,12 +87,17 @@ const calls = [];
 const xhrCalls = [];
 const elements = {};
 const app = {};
+let renderCount = 0;
 Object.defineProperty(app, 'innerHTML', {
   set(value) {
+    renderCount++;
     this.html = value;
-    for (const id of ['updateFile', 'updateBegin', 'updateProgress', 'updateInstall', 'diagnosticsNav']) {
+    for (const id of ['updatePage', 'updatePanel', 'updateCurrentFirmware', 'updateControllerState', 'updateNotice',
+      'updateFile', 'updateFileName', 'updateBegin', 'updateProgress', 'updateInstall', 'diagnosticsNav']) {
       elements[id] = elements[id] || {};
     }
+    elements.updateFile.files = elements.updateFile.files || [];
+    elements.updateFile.value = elements.updateFile.value || '';
     elements.updateBegin.disabled = /id="updateBegin"\s+disabled/.test(value);
   },
   get() { return this.html || ''; },
@@ -121,10 +129,13 @@ const browserContext = {
   },
   XMLHttpRequest: FakeXhr,
   queueMicrotask,
+  setTimeout,
+  clearTimeout,
 };
 vm.runInNewContext(`${localUpdate}\nthis.__runLocalUpdate = async () => {
   updateSettingsRender(null, {state:'IDLE'});
   const input = $('#updateFile');
+  this.__initialInput = input;
   const button = $('#updateBegin');
   input.files = [{name:'candidate-B.ppu', size:1234}];
   input.onchange();
@@ -135,6 +146,38 @@ browserContext.__runLocalUpdate().then(() => {
   if (calls[0] !== '/request/update/begin' || xhrCalls[0] !== '/request/update/upload' || calls[1] !== '/request/update/validate') {
     throw new Error(`visible UPDATE P&P control did not reach the expected request path: ${JSON.stringify({calls, xhrCalls})}`);
   }
+  if (renderCount !== 1 || elements.updateFile !== browserContext.__initialInput) {
+    throw new Error('firmware panel or file input was rebuilt during selection/upload/validation');
+  }
+  browserContext.updateSettingsRender(null, {state:'FAILED', validationFailure:'INVALID_CANDIDATE'});
+  if (renderCount !== 1 || elements.updateFile !== browserContext.__initialInput) {
+    throw new Error('status refresh rebuilt the firmware panel or file input');
+  }
+  const sameInput = elements.updateFile;
+  sameInput.files = [{name:'replacement.ppu', size:2345}];
+  sameInput.onchange();
+  if (elements.updateFile !== sameInput || (elements.updateNotice.textContent || '').includes('could not validate')) {
+    throw new Error('selecting a new file did not clear the previous validation error');
+  }
+  let installCalls = 0;
+  browserContext.fetch = async (url) => {
+    calls.push(url);
+    if (url.endsWith('/install')) installCalls++;
+    return { ok: true, status: 202, json: async () => ({accepted: true}) };
+  };
+  browserContext.updateSettingsRender({firmwareBuild:'known-good-A', buildEnvironment:'stage8bp1s3sd'}, {state:'CANDIDATE_READY'});
+  const install = elements.updateInstall;
+  if (install.hidden) throw new Error('candidate-ready install control was not offered');
+  return Promise.all([install.onclick(), install.onclick()]).then(() => {
+    if (installCalls !== 1) throw new Error(`duplicate install was not bounded: ${installCalls}`);
+    if (!install.hidden) throw new Error('install control remained available while restart was pending');
+    browserContext.updateSettingsRender({firmwareBuild:'candidate-B', buildEnvironment:'stage8bp1s3sd'}, {state:'COMMITTED', pendingReboot:false});
+    if (!(elements.updateNotice.textContent || '').includes('Update complete') || (elements.updateCurrentFirmware.textContent || '').includes('Unknown')) {
+      throw new Error('authoritative post-reconnect success was not presented');
+    }
+    browserContext.updateClearReconnectTimer();
+  });
+}).then(() => {
   console.log('WP6_BROWSER_UPDATE_UX_PASS');
 }).catch((error) => {
   console.error(error.stack || error.message || error);
