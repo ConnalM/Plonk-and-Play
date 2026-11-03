@@ -1,0 +1,110 @@
+{
+  "artifactPurpose": "WP6 validation-diagnostics diagnostic B/101 replacement; no acceptance fixture",
+  "sourceCommit": "b0ab7aab547bc0b6c907ff1fdfcee344e5999d11",
+  "environment": "stage8bp1s3sd",
+  "board": "ESP32-8048S070 (ESP32-S3 N16R8)",
+  "flash": "16MB",
+  "psram": "8MB enabled",
+  "identity": {
+    "product": "plonk-and-play",
+    "board": "esp32-8048s070",
+    "buildId": "candidate-B",
+    "version": 101,
+    "secureVersion": 101
+  },
+  "toolchain": {
+    "platform": "Espressif32 8.0.0",
+    "arduinoEsp32": "3.3.12",
+    "espIdf": "5.5.5",
+    "arduinoGfx": "1.6.5+sha.4c1d0a6",
+    "esptool": "5.4.0"
+  },
+  "buildProvenance": {
+    "sourceCheckout": "exact source b0ab7aab547bc0b6c907ff1fdfcee344e5999d11",
+    "buildRoute": "external PlatformIO route using existing .pio-home-wp6; target clean followed by one -j 1 build",
+    "identityInput": "candidate-B / version 101 controlled identity",
+    "postBuildMutation": false,
+    "normalElf2Image": true,
+    "privateKeyCommitted": false,
+    "normalProductionEnvironment": true,
+    "rollbackAcceptanceFixture": false,
+    "psf28AcceptanceFixture": false
+  },
+  "sourceDelta": {
+    "scope": "bounded validation diagnostics correction only",
+    "changedFiles": [
+      "firmware/include/pp/firmware_update.h",
+      "firmware/include/pp/esp32_firmware_update_adapter.h",
+      "firmware/include/pp/browser_interface.h",
+      "acceptance/stage15/wp6_validation_diagnostics_test.cpp",
+      "acceptance/stage15/run_wp6_validation_diagnostics.ps1"
+    ],
+    "acceptanceFlags": [],
+    "productionFixtureGuard": "PASS"
+  },
+  "display": {
+    "geometry": "800x480",
+    "pclkHz": 12000000,
+    "bounceBufferSizePx": 16000,
+    "bounceBufferBytesEach": 32000,
+    "bounceBufferTotalBytes": 64000,
+    "framebuffer": "one PSRAM framebuffer"
+  },
+  "runtimeResources": {
+    "ramUsedBytes": 88132,
+    "ramTotalBytes": 327680,
+    "ramPercent": 26.9,
+    "flashUsedBytes": 1474591,
+    "flashTotalBytes": 6553600,
+    "flashPercent": 22.5,
+    "sseWorkers": 4,
+    "sseWorkerStackBytes": 8192
+  },
+  "artifacts": {
+    "diagnosticB": {
+      "firmware": {
+        "path": "diagnostic-B/firmware.bin",
+        "size": 1504096,
+        "sha256": "7A54AA239D6529067098AE4E86FC1C1FBCC61D1689566DA06F029FCB77BA9910"
+      },
+      "elf": {
+        "path": "diagnostic-B/firmware.elf",
+        "size": 15283188,
+        "sha256": "6403B33BEA187EC5D3EFF23EE24A07931C65D208F2BD89D5A14E937B23EC7DFF"
+      },
+      "package": {
+        "path": "diagnostic-B/update.ppu",
+        "format": "PPU1",
+        "size": 1504258,
+        "sha256": "66D963EFE7E97C297706BE63517BFCF5F52E88DF6A40400738F80CF1DD990649"
+      },
+      "payloadSha256": "7A54AA239D6529067098AE4E86FC1C1FBCC61D1689566DA06F029FCB77BA9910"
+    }
+  },
+  "finalImageGates": {
+    "elfDescriptor": "plonk-and-play / candidate-B / secure_version 101",
+    "espImageChecksum": "0x75 (valid)",
+    "espValidationHash": "088f9fdf1736b53efc443bf5ba3e6d0894152dbc038510bf6c0efdbccf49c5c4 (valid)",
+    "ppu1Signature": "valid",
+    "ppu1PayloadSha256": "valid",
+    "packageImageIdentity": "exact match",
+    "payloadEqualsPreservedFirmware": "PASS"
+  },
+  "signing": {
+    "algorithm": "ECDSA P-256 with SHA-256",
+    "publicKeyFingerprintSha256": "025DA350BC9D2B2ED7371CC6B5B4BD1801E008C3847A0BA43B9D5362CCFCE35C",
+    "privateKeyLocation": "external protected local signing environment; not recorded here",
+    "privateKeyCommitted": false
+  },
+  "tests": {
+    "signedUpdateEnvelope": "PASS",
+    "packageImageIdentity": "PASS",
+    "wp6UpdateStateMachine": "PASS",
+    "wp6UpdatePlatform": "PASS",
+    "wp6UpdateApi": "PASS",
+    "validationDiagnostics": "PASS",
+    "productionRollbackFixtureGuard": "PASS",
+    "displayBounceBufferGuard": "PASS"
+  },
+  "artifactStatus": "DIAGNOSTIC-CANDIDATE-PENDING-ARCHIE-REVIEW"
+}
