@@ -2512,6 +2512,35 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       default: return "NONE";
     }
   }
+  static const char* firmwareUpdateDiagnosticStageText(FirmwareValidationDiagnosticStage stage) {
+    switch (stage) {
+      case FirmwareValidationDiagnosticStage::Ppu1Verifier: return "PPU1_VERIFIER";
+      case FirmwareValidationDiagnosticStage::EspOtaEnd: return "ESP_OTA_END";
+      case FirmwareValidationDiagnosticStage::PartitionDescription: return "PARTITION_DESCRIPTION";
+      case FirmwareValidationDiagnosticStage::ImageIdentity: return "IMAGE_IDENTITY";
+      case FirmwareValidationDiagnosticStage::StateMachine: return "STATE_MACHINE";
+      default: return "NONE";
+    }
+  }
+  static const char* firmwareUpdateDiagnosticReasonText(FirmwareValidationDiagnosticReason reason) {
+    switch (reason) {
+      case FirmwareValidationDiagnosticReason::UnsupportedVersion: return "UNSUPPORTED_VERSION";
+      case FirmwareValidationDiagnosticReason::Malformed: return "MALFORMED";
+      case FirmwareValidationDiagnosticReason::Truncated: return "TRUNCATED";
+      case FirmwareValidationDiagnosticReason::SizeMismatch: return "SIZE_MISMATCH";
+      case FirmwareValidationDiagnosticReason::ProductMismatch: return "PRODUCT_MISMATCH";
+      case FirmwareValidationDiagnosticReason::BoardMismatch: return "BOARD_MISMATCH";
+      case FirmwareValidationDiagnosticReason::DigestMismatch: return "DIGEST_MISMATCH";
+      case FirmwareValidationDiagnosticReason::Unsigned: return "UNSIGNED";
+      case FirmwareValidationDiagnosticReason::InvalidSignature: return "INVALID_SIGNATURE";
+      case FirmwareValidationDiagnosticReason::VerificationUnavailable: return "VERIFICATION_UNAVAILABLE";
+      case FirmwareValidationDiagnosticReason::OtaEndFailed: return "OTA_END_FAILED";
+      case FirmwareValidationDiagnosticReason::PartitionDescriptionFailed: return "DESCRIPTION_READ_FAILED";
+      case FirmwareValidationDiagnosticReason::IdentityMismatch: return "IDENTITY_MISMATCH";
+      case FirmwareValidationDiagnosticReason::StateMachineRejected: return "STATE_MACHINE_REJECTED";
+      default: return "NONE";
+    }
+  }
   static const char* firmwareUpdateRejectionText(FirmwareUpdateRejection rejection) {
     switch (rejection) {
       case FirmwareUpdateRejection::PermissionDenied: return "PERMISSION_DENIED";
@@ -2606,10 +2635,13 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       return sendFirmwareUpdateResult(request, FirmwareUpdateApiResult::Rejected, "status");
     }
     const FirmwareUpdateStatusView status = browser->firmwareUpdate_->status();
-    char json[384]{};
+    char json[512]{};
     snprintf(json, sizeof(json),
-             "{\"state\":\"%s\",\"validationFailure\":\"%s\",\"lastRejection\":\"%s\",\"receivedBytes\":%lu,\"expectedBytes\":%lu,\"knownGoodVersion\":%lu,\"pendingReboot\":%s,\"onlineAvailable\":%s,\"onlineVersion\":%lu,\"onlineBuildId\":\"%s\"}",
+             "{\"state\":\"%s\",\"validationFailure\":\"%s\",\"validationStage\":\"%s\",\"validationReason\":\"%s\",\"validationCode\":%ld,\"lastRejection\":\"%s\",\"receivedBytes\":%lu,\"expectedBytes\":%lu,\"knownGoodVersion\":%lu,\"pendingReboot\":%s,\"onlineAvailable\":%s,\"onlineVersion\":%lu,\"onlineBuildId\":\"%s\"}",
              firmwareUpdateStateText(status.state), firmwareUpdateFailureText(status.validationFailure),
+             firmwareUpdateDiagnosticStageText(status.validationDiagnostic.stage),
+             firmwareUpdateDiagnosticReasonText(status.validationDiagnostic.reason),
+             static_cast<long>(status.validationDiagnostic.code),
              firmwareUpdateRejectionText(status.lastRejection),
              static_cast<unsigned long>(status.receivedBytes), static_cast<unsigned long>(status.expectedBytes),
              static_cast<unsigned long>(status.knownGoodVersion), status.pendingReboot ? "true" : "false",

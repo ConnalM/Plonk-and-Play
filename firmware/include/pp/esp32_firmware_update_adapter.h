@@ -99,6 +99,7 @@ class Esp32FirmwareUpdateAdapter final {
   const esp_partition_t* runningPartition() const { return running_; }
   const esp_partition_t* candidatePartition() const { return next_; }
   const esp_app_desc_t& knownGoodDescription() const { return knownGoodDescription_; }
+  const FirmwareValidationDiagnostic& validationDiagnostic() const { return validationDiagnostic_; }
   size_t bytesWritten() const { return bytesWritten_; }
   size_t candidateCapacity() const { return next_ ? next_->size : 0; }
   bool stagingActive() const { return packageActive_; }
@@ -119,8 +120,14 @@ class Esp32FirmwareUpdateAdapter final {
   FirmwarePlatformResult beginStaging(size_t packageSize = OTA_SIZE_UNKNOWN) {
     if (!initialized_ || !next_ || packageActive_) return FirmwarePlatformResult::InvalidState;
     if (packageSize == OTA_SIZE_UNKNOWN || packageSize > next_->size + 256u) return FirmwarePlatformResult::Capacity;
+    validationDiagnostic_ = {};
     const SignedEnvelopeResult result = verifier_.begin(packageSize);
-    if (result != SignedEnvelopeResult::Ok) return FirmwarePlatformResult::ValidationFailed;
+    if (result != SignedEnvelopeResult::Ok) {
+      recordValidationDiagnostic(FirmwareValidationDiagnosticStage::Ppu1Verifier,
+                                 firmwareValidationDiagnosticReason(result),
+                                 static_cast<int32_t>(result), firmwareValidationFailure(result));
+      return FirmwarePlatformResult::ValidationFailed;
+    }
     packageActive_ = true;
     bytesWritten_ = 0;
     return FirmwarePlatformResult::Ok;
@@ -129,6 +136,11 @@ class Esp32FirmwareUpdateAdapter final {
   FirmwarePlatformResult writeStaging(const uint8_t* data, size_t size) {
     if (!packageActive_ || !data || !size) return FirmwarePlatformResult::InvalidState;
     const SignedEnvelopeResult result = verifier_.consume(data, size, this, &beginPayloadThunk, &writePayloadThunk);
+    if (result != SignedEnvelopeResult::Ok) {
+      recordValidationDiagnostic(FirmwareValidationDiagnosticStage::Ppu1Verifier,
+                                 firmwareValidationDiagnosticReason(result),
+                                 static_cast<int32_t>(result), firmwareValidationFailure(result));
+    }
     return result == SignedEnvelopeResult::Ok ? FirmwarePlatformResult::Ok : FirmwarePlatformResult::ValidationFailed;
   }
 
@@ -137,6 +149,9 @@ class Esp32FirmwareUpdateAdapter final {
     SignedEnvelopeIdentity envelope{};
     const SignedEnvelopeResult envelopeResult = verifier_.finish(envelope);
     if (envelopeResult != SignedEnvelopeResult::Ok) {
+      recordValidationDiagnostic(FirmwareValidationDiagnosticStage::Ppu1Verifier,
+                                 firmwareValidationDiagnosticReason(envelopeResult),
+                                 static_cast<int32_t>(envelopeResult), firmwareValidationFailure(envelopeResult));
       esp_ota_abort(handle_); handleActive_ = false; handle_ = 0; packageActive_ = false; verifier_.reset();
       return FirmwarePlatformResult::ValidationFailed;
     }
@@ -144,10 +159,19 @@ class Esp32FirmwareUpdateAdapter final {
     handleActive_ = false;
     handle_ = 0;
     packageActive_ = false;
-    if (result != ESP_OK) return FirmwarePlatformResult::ValidationFailed;
+    if (result != ESP_OK) {
+      recordValidationDiagnostic(FirmwareValidationDiagnosticStage::EspOtaEnd,
+                                 FirmwareValidationDiagnosticReason::OtaEndFailed,
+                                 static_cast<int32_t>(result), FirmwareValidationFailure::IntegrityFailure);
+      return FirmwarePlatformResult::ValidationFailed;
+    }
 
     esp_app_desc_t description{};
-    if (esp_ota_get_partition_description(next_, &description) != ESP_OK) {
+    const esp_err_t descriptionResult = esp_ota_get_partition_description(next_, &description);
+    if (descriptionResult != ESP_OK) {
+      recordValidationDiagnostic(FirmwareValidationDiagnosticStage::PartitionDescription,
+                                 FirmwareValidationDiagnosticReason::PartitionDescriptionFailed,
+                                 static_cast<int32_t>(descriptionResult), FirmwareValidationFailure::IntegrityFailure);
       return FirmwarePlatformResult::ValidationFailed;
     }
     candidateDescription_ = description;
@@ -155,6 +179,9 @@ class Esp32FirmwareUpdateAdapter final {
     candidate.identity = identityFromEnvelope(envelope);
     const FirmwareIdentity imageIdentity = identityFromDescription(candidateDescription_);
     if (!sameIdentity(candidate.identity, imageIdentity)) {
+      recordValidationDiagnostic(FirmwareValidationDiagnosticStage::ImageIdentity,
+                                 FirmwareValidationDiagnosticReason::IdentityMismatch,
+                                 0, FirmwareValidationFailure::IncompatibleTarget);
       // Bounded development/acceptance evidence. It contains only public image
       // identity fields, never package bytes or signing material.
       Serial.printf("[WP6 OTA] validation rejected stage=image_identity manifest_build=%s image_build=%s manifest_version=%lu image_secure_version=%lu\n",
@@ -171,6 +198,10 @@ class Esp32FirmwareUpdateAdapter final {
     // signed P&P envelope is the product-authenticity boundary.
     candidate.authenticated = true;
     if (stateMachine_ && !stateMachine_->finishStaging(candidate)) {
+      const FirmwareValidationFailure failure = stateMachine_->validationFailure();
+      recordValidationDiagnostic(FirmwareValidationDiagnosticStage::StateMachine,
+                                 FirmwareValidationDiagnosticReason::StateMachineRejected,
+                                 static_cast<int32_t>(failure), failure);
       return FirmwarePlatformResult::ValidationFailed;
     }
     return FirmwarePlatformResult::Ok;
@@ -237,6 +268,45 @@ class Esp32FirmwareUpdateAdapter final {
   static bool writePayloadThunk(void* context, const uint8_t* data, size_t size) {
     return static_cast<Esp32FirmwareUpdateAdapter*>(context)->writePayload(data, size);
   }
+  static const char* validationDiagnosticStageText(FirmwareValidationDiagnosticStage stage) {
+    switch (stage) {
+      case FirmwareValidationDiagnosticStage::Ppu1Verifier: return "ppu1";
+      case FirmwareValidationDiagnosticStage::EspOtaEnd: return "esp_ota_end";
+      case FirmwareValidationDiagnosticStage::PartitionDescription: return "partition_description";
+      case FirmwareValidationDiagnosticStage::ImageIdentity: return "image_identity";
+      case FirmwareValidationDiagnosticStage::StateMachine: return "state_machine";
+      default: return "none";
+    }
+  }
+  static const char* validationDiagnosticReasonText(FirmwareValidationDiagnosticReason reason) {
+    switch (reason) {
+      case FirmwareValidationDiagnosticReason::UnsupportedVersion: return "unsupported_version";
+      case FirmwareValidationDiagnosticReason::Malformed: return "malformed";
+      case FirmwareValidationDiagnosticReason::Truncated: return "truncated";
+      case FirmwareValidationDiagnosticReason::SizeMismatch: return "size_mismatch";
+      case FirmwareValidationDiagnosticReason::ProductMismatch: return "product_mismatch";
+      case FirmwareValidationDiagnosticReason::BoardMismatch: return "board_mismatch";
+      case FirmwareValidationDiagnosticReason::DigestMismatch: return "digest_mismatch";
+      case FirmwareValidationDiagnosticReason::Unsigned: return "unsigned";
+      case FirmwareValidationDiagnosticReason::InvalidSignature: return "invalid_signature";
+      case FirmwareValidationDiagnosticReason::VerificationUnavailable: return "verification_unavailable";
+      case FirmwareValidationDiagnosticReason::OtaEndFailed: return "ota_end_failed";
+      case FirmwareValidationDiagnosticReason::PartitionDescriptionFailed: return "description_read_failed";
+      case FirmwareValidationDiagnosticReason::IdentityMismatch: return "identity_mismatch";
+      case FirmwareValidationDiagnosticReason::StateMachineRejected: return "state_machine_rejected";
+      default: return "none";
+    }
+  }
+  void recordValidationDiagnostic(FirmwareValidationDiagnosticStage stage,
+                                  FirmwareValidationDiagnosticReason reason,
+                                  int32_t code,
+                                  FirmwareValidationFailure failure) {
+    const FirmwareValidationDiagnostic value{stage, reason, code, failure};
+    if (!recordFirstFirmwareValidationDiagnostic(validationDiagnostic_, value)) return;
+    Serial.printf("[WP6 OTA] validation rejected stage=%s reason=%s code=%ld\n",
+                  validationDiagnosticStageText(stage), validationDiagnosticReasonText(reason),
+                  static_cast<long>(code));
+  }
   bool beginPayload(size_t imageSize) {
     if (!imageSize || imageSize > next_->size || handleActive_) return false;
     if (esp_ota_begin(next_, imageSize, &handle_) != ESP_OK) return false;
@@ -288,6 +358,7 @@ class Esp32FirmwareUpdateAdapter final {
   bool handleActive_ = false;
   bool packageActive_ = false;
   bool pendingBoot_ = false;
+  FirmwareValidationDiagnostic validationDiagnostic_{};
   SignedFirmwareEnvelopeVerifier verifier_;
   esp_app_desc_t knownGoodDescription_{};
   esp_app_desc_t candidateDescription_{};
@@ -319,7 +390,7 @@ class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
     if (!stateMachine_.beginRequest(context)) return FirmwareUpdateApiResult::Rejected;
     const FirmwarePlatformResult result = adapter_.beginStaging(expectedBytes);
     if (result != FirmwarePlatformResult::Ok) {
-      stateMachine_.abortRequest();
+      stateMachine_.abortRequest(adapterValidationFailure(FirmwareValidationFailure::Incomplete));
       return result == FirmwarePlatformResult::Capacity ? FirmwareUpdateApiResult::TooLarge : FirmwareUpdateApiResult::Rejected;
     }
     owner_ = owner;
@@ -334,7 +405,7 @@ class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
     const FirmwarePlatformResult result = adapter_.writeStaging(data, size);
     if (result != FirmwarePlatformResult::Ok) {
       adapter_.abortStaging();
-      stateMachine_.abortRequest();
+      stateMachine_.abortRequest(adapterValidationFailure(FirmwareValidationFailure::Incomplete));
       return result == FirmwarePlatformResult::Capacity ? FirmwareUpdateApiResult::TooLarge : FirmwareUpdateApiResult::Rejected;
     }
     receivedBytes_ += size;
@@ -351,7 +422,7 @@ class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
     FirmwareCandidate candidate{};
     const FirmwarePlatformResult result = adapter_.finishStaging(candidate);
     if (result != FirmwarePlatformResult::Ok) {
-      stateMachine_.abortRequest();
+      stateMachine_.abortRequest(adapterValidationFailure(FirmwareValidationFailure::IntegrityFailure));
       return FirmwareUpdateApiResult::InvalidCandidate;
     }
     return FirmwareUpdateApiResult::Accepted;
@@ -382,6 +453,7 @@ class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
     FirmwareUpdateStatusView view;
     view.state = stateMachine_.state();
     view.validationFailure = stateMachine_.validationFailure();
+    view.validationDiagnostic = adapter_.validationDiagnostic();
     view.lastRejection = stateMachine_.lastRejection();
     view.receivedBytes = receivedBytes_;
     view.expectedBytes = expectedBytes_;
@@ -437,6 +509,10 @@ class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
   }
 
  private:
+  FirmwareValidationFailure adapterValidationFailure(FirmwareValidationFailure fallback) const {
+    const FirmwareValidationFailure failure = adapter_.validationDiagnostic().validationFailure;
+    return failure == FirmwareValidationFailure::None ? fallback : failure;
+  }
   bool ownerMatches(uint64_t owner) const { return owner != 0 && owner_ == owner; }
   FirmwareUpdateStateMachine& stateMachine_;
   Esp32FirmwareUpdateAdapter& adapter_;
@@ -459,6 +535,9 @@ class Esp32FirmwareUpdateAdapter final {
  public:
   bool initialize() { return false; }
   bool initialized() const { return false; }
+  const FirmwareValidationDiagnostic& validationDiagnostic() const { return diagnostic_; }
+ private:
+  FirmwareValidationDiagnostic diagnostic_{};
 };
 class Esp32FirmwareUpdateService final : public FirmwareUpdateEndpoint {
  public:

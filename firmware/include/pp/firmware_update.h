@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "pp/signed_update_envelope.h"
+
 namespace pp {
 
 // WP6 update state is controller-side state. Browser/Taster code may request an
@@ -40,6 +42,83 @@ enum class FirmwareValidationFailure : uint8_t {
   Incomplete,
   IntegrityFailure,
 };
+
+// Bounded internal diagnostics for a completed candidate validation attempt.
+// These values are intentionally separate from the customer-facing
+// FirmwareUpdateApiResult so development/acceptance evidence can identify the
+// failed boundary without exposing package contents or signing material.
+enum class FirmwareValidationDiagnosticStage : uint8_t {
+  None,
+  Ppu1Verifier,
+  EspOtaEnd,
+  PartitionDescription,
+  ImageIdentity,
+  StateMachine,
+};
+
+enum class FirmwareValidationDiagnosticReason : uint8_t {
+  None,
+  UnsupportedVersion,
+  Malformed,
+  Truncated,
+  SizeMismatch,
+  ProductMismatch,
+  BoardMismatch,
+  DigestMismatch,
+  Unsigned,
+  InvalidSignature,
+  VerificationUnavailable,
+  OtaEndFailed,
+  PartitionDescriptionFailed,
+  IdentityMismatch,
+  StateMachineRejected,
+};
+
+struct FirmwareValidationDiagnostic {
+  FirmwareValidationDiagnosticStage stage = FirmwareValidationDiagnosticStage::None;
+  FirmwareValidationDiagnosticReason reason = FirmwareValidationDiagnosticReason::None;
+  int32_t code = 0;
+  FirmwareValidationFailure validationFailure = FirmwareValidationFailure::None;
+};
+
+inline bool recordFirstFirmwareValidationDiagnostic(FirmwareValidationDiagnostic& current,
+                                                    const FirmwareValidationDiagnostic& next) {
+  if (current.stage != FirmwareValidationDiagnosticStage::None) return false;
+  current = next;
+  return true;
+}
+
+inline FirmwareValidationDiagnosticReason firmwareValidationDiagnosticReason(SignedEnvelopeResult result) {
+  switch (result) {
+    case SignedEnvelopeResult::UnsupportedVersion: return FirmwareValidationDiagnosticReason::UnsupportedVersion;
+    case SignedEnvelopeResult::Malformed: return FirmwareValidationDiagnosticReason::Malformed;
+    case SignedEnvelopeResult::Truncated: return FirmwareValidationDiagnosticReason::Truncated;
+    case SignedEnvelopeResult::SizeMismatch: return FirmwareValidationDiagnosticReason::SizeMismatch;
+    case SignedEnvelopeResult::ProductMismatch: return FirmwareValidationDiagnosticReason::ProductMismatch;
+    case SignedEnvelopeResult::BoardMismatch: return FirmwareValidationDiagnosticReason::BoardMismatch;
+    case SignedEnvelopeResult::DigestMismatch: return FirmwareValidationDiagnosticReason::DigestMismatch;
+    case SignedEnvelopeResult::Unsigned: return FirmwareValidationDiagnosticReason::Unsigned;
+    case SignedEnvelopeResult::InvalidSignature: return FirmwareValidationDiagnosticReason::InvalidSignature;
+    case SignedEnvelopeResult::VerificationUnavailable: return FirmwareValidationDiagnosticReason::VerificationUnavailable;
+    case SignedEnvelopeResult::Ok: return FirmwareValidationDiagnosticReason::None;
+  }
+  return FirmwareValidationDiagnosticReason::Malformed;
+}
+
+inline FirmwareValidationFailure firmwareValidationFailure(SignedEnvelopeResult result) {
+  switch (result) {
+    case SignedEnvelopeResult::ProductMismatch:
+    case SignedEnvelopeResult::BoardMismatch:
+      return FirmwareValidationFailure::IncompatibleTarget;
+    case SignedEnvelopeResult::Unsigned:
+    case SignedEnvelopeResult::InvalidSignature:
+      return FirmwareValidationFailure::Unauthenticated;
+    case SignedEnvelopeResult::Ok:
+      return FirmwareValidationFailure::None;
+    default:
+      return FirmwareValidationFailure::IntegrityFailure;
+  }
+}
 
 struct FirmwareIdentity {
   const char* product = nullptr;
@@ -109,6 +188,7 @@ class OnlineFirmwareProvider {
 struct FirmwareUpdateStatusView {
   FirmwareUpdateState state = FirmwareUpdateState::Idle;
   FirmwareValidationFailure validationFailure = FirmwareValidationFailure::None;
+  FirmwareValidationDiagnostic validationDiagnostic{};
   FirmwareUpdateRejection lastRejection = FirmwareUpdateRejection::None;
   size_t receivedBytes = 0;
   size_t expectedBytes = 0;
@@ -263,10 +343,10 @@ class FirmwareUpdateStateMachine {
     return true;
   }
 
-  bool abortRequest() {
+  bool abortRequest(FirmwareValidationFailure failure = FirmwareValidationFailure::Incomplete) {
     if (state_ != FirmwareUpdateState::ReceivingStaging && state_ != FirmwareUpdateState::Validating) return false;
     state_ = FirmwareUpdateState::Failed;
-    validationFailure_ = FirmwareValidationFailure::Incomplete;
+    validationFailure_ = failure;
     return true;
   }
 
