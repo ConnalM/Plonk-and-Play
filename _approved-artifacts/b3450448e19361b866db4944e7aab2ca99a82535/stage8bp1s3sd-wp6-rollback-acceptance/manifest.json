@@ -1,0 +1,67 @@
+{
+  "artifactPurpose": "WP6 physical candidate-health rollback acceptance",
+  "sourceCommit": "b3450448e19361b866db4944e7aab2ca99a82535",
+  "environment": "stage8bp1s3sd-wp6-rollback-acceptance",
+  "board": "ESP32-8048S070 (ESP32-S3 N16R8)",
+  "flash": "16MB dio 80MHz",
+  "psram": "8MB enabled",
+  "toolchain": {
+    "platform": "Espressif32 8.0.0",
+    "arduinoEsp32": "3.3.12",
+    "espIdf": "5.5.5",
+    "esptool": "5.4.0",
+    "arduinoGfx": "1.6.5+sha.4c1d0a6"
+  },
+  "acceptanceFixture": {
+    "flag": "PP_WP6_ROLLBACK_ACCEPTANCE=1",
+    "environmentOnly": "stage8bp1s3sd-wp6-rollback-acceptance",
+    "verifyOta": "returns false",
+    "normalStage8FixtureAbsent": true,
+    "fixtureContract": "WP6 rollback fixture contract PASS"
+  },
+  "identity": {
+    "product": "plonk-and-play",
+    "board": "esp32-8048s070",
+    "buildId": "rollback-test-C",
+    "version": 102,
+    "secureVersion": 102
+  },
+  "artifacts": {
+    "firmware": {
+      "path": "candidate-C/firmware.bin",
+      "bytes": 1500848,
+      "sha256": "D85267294509403A5F92E050F6B1B5972748382CDA66A5CCBADE2EBA6663D8EB"
+    },
+    "elf": {
+      "path": "candidate-C/firmware.elf",
+      "bytes": 15276260,
+      "sha256": "37B7F10291606B8A8B0D649AB41956CE49B37C4DD1926ADEFD1659B1C7D93542"
+    },
+    "package": {
+      "path": "candidate-C/update.ppu",
+      "format": "PPU1",
+      "bytes": 1501014,
+      "sha256": "6FFDE171665F8AD85C7321C2F0A530A981BEB4332FD766CD064A341C9BD28C1A"
+    }
+  },
+  "finalImageGates": {
+    "elfProjectName": "plonk-and-play (valid)",
+    "espImageChecksum": "0xb6 (valid)",
+    "espValidationHash": "6d8c74e4958b920f4eec3d72d89925f5907be44aa1bc00b29a829911ccb3ba34 (valid)",
+    "ppu1Signature": "valid",
+    "ppu1PayloadSha256": "valid",
+    "packageImageIdentity": "exact match"
+  },
+  "resourceUsage": {
+    "ramUsedBytes": 88116,
+    "ramCapacityBytes": 327680,
+    "flashUsedBytes": 1471379,
+    "flashCapacityBytes": 6553600
+  },
+  "signing": {
+    "algorithm": "ECDSA P-256 with SHA-256",
+    "publicKeyFingerprintSha256": "025DA350BC9D2B2ED7371CC6B5B4BD1801E008C3847A0BA43B9D5362CCFCE35C",
+    "privateKeyCommitted": false
+  },
+  "provenance": "Built once from the approved worktree source state using the approved external PlatformIO route; final firmware was not post-image mutated; private signing key and temporary identity input remain outside repository/artifacts."
+}

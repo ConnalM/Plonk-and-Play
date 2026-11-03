@@ -29,6 +29,17 @@
 #include "pp/diagnostic_memory.h"
 #include "pp/diagnostic_trace.h"
 #include "pp/diagnostic_production.h"
+
+// WP6 rollback acceptance fixture only.  Arduino-ESP32's boot-time OTA
+// verification hook is deliberately overridden in the named acceptance
+// environment so the candidate is rejected before application health logic
+// runs.  The flag is absent from every production environment.
+#if defined(PP_WP6_ROLLBACK_ACCEPTANCE)
+extern "C" bool verifyOta() {
+  return false;
+}
+#endif
+
 #ifndef PP_DIAGNOSTICS
 #define PP_DIAGNOSTICS 1
 #endif
