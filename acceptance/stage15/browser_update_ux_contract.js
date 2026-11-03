@@ -88,6 +88,7 @@ const xhrCalls = [];
 const elements = {};
 const app = {};
 let renderCount = 0;
+let scheduledTimeout = null;
 Object.defineProperty(app, 'innerHTML', {
   set(value) {
     renderCount++;
@@ -129,8 +130,8 @@ const browserContext = {
   },
   XMLHttpRequest: FakeXhr,
   queueMicrotask,
-  setTimeout,
-  clearTimeout,
+  setTimeout: (callback) => { scheduledTimeout = callback; return 1; },
+  clearTimeout: () => { scheduledTimeout = null; },
 };
 vm.runInNewContext(`${localUpdate}\nthis.__runLocalUpdate = async () => {
   updateSettingsRender(null, {state:'IDLE'});
@@ -171,6 +172,15 @@ browserContext.__runLocalUpdate().then(() => {
   return Promise.all([install.onclick(), install.onclick()]).then(() => {
     if (installCalls !== 1) throw new Error(`duplicate install was not bounded: ${installCalls}`);
     if (!install.hidden) throw new Error('install control remained available while restart was pending');
+    browserContext.updateSettingsRender({firmwareBuild:'candidate-B', buildEnvironment:'stage8bp1s3sd'}, {state:'IDLE', pendingReboot:false});
+    if (!install.hidden || (elements.updateNotice.textContent || '').includes('Update complete')) {
+      throw new Error('changed firmware identity without COMMITTED was treated as success');
+    }
+    if (typeof scheduledTimeout !== 'function') throw new Error('reconnect timeout was not armed');
+    scheduledTimeout();
+    if (!install.hidden || !(elements.updateNotice.textContent || '').includes('has not confirmed')) {
+      throw new Error('unresolved reconnect released duplicate-install protection');
+    }
     browserContext.updateSettingsRender({firmwareBuild:'candidate-B', buildEnvironment:'stage8bp1s3sd'}, {state:'COMMITTED', pendingReboot:false});
     if (!(elements.updateNotice.textContent || '').includes('Update complete') || (elements.updateCurrentFirmware.textContent || '').includes('Unknown')) {
       throw new Error('authoritative post-reconnect success was not presented');
