@@ -1,6 +1,6 @@
 # WP6 Recovery, Reset and Customer Firmware Update Contract
 
-**Status:** APPROVED PRODUCT CONTRACT — SIGNED-ENVELOPE IMPLEMENTED; PRODUCTION KEY PROVISIONING PENDING
+**Status:** APPROVED PRODUCT CONTRACT — SIGNED-ENVELOPE IMPLEMENTED; PRODUCTION KEY PROVISIONED OUTSIDE THE REPOSITORY
 
 **Purpose:** define the customer-safe recovery, reset, factory-reset and firmware-update
 boundary for WP6 without changing race, authority or persistent-record semantics.

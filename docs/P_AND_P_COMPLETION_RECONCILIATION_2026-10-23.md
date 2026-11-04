@@ -19,6 +19,35 @@ The classifications below distinguish implementation from acceptance. A host,
 Wokwi or structural test does not prove the corresponding physical product
 behaviour.
 
+## Current project-control correction — 4 November 2026
+
+This dated addendum preserves the historical reconciliation below while
+superseding its stale status wording where later accepted evidence exists. The
+master plan remains the single live roadmap and outstanding-work tracker.
+
+- **WP1–WP4 — CLOSED / PASS:** the accepted G1–G4 software-closure evidence is
+  retained; any physical or qualification work is tracked under WP5, WP8 or
+  WP10 rather than reopening these packages.
+- **WP5 — CLOSED / PASS:** the accepted base-system campaign includes the final
+  PSF.28 result. The older WP5-open and PSF.28-open statements below are
+  historical snapshots, not current obligations. The Diagnostics-backend
+  rollover observation remains a separate follow-up.
+- **WP6 — OPEN:** the Browser UX correction is accepted offline. Signed firmware
+  validation rejection is **PARKED**. Automatic rollback acceptance is
+  **PARKED / NOT PASSED**.
+- **WP7 — OPEN:** real detector hardware, Track Setup, health/replacement
+  behaviour and expansion architecture remain to be implemented and proven.
+  The next proposed slice is WP7.1, the detector-provider boundary and
+  deterministic two-lane health seam.
+- **WP8 — FUTURE / NOT STARTED:** local display, Taster and audio work remains
+  later work and remains the dependency for the deferred Browser/Taster physical
+  obligations.
+
+The historical matrix row that says Track Setup remains in WP6 is corrected to
+WP7 by this addendum. The historical row that assigns reset/factory recovery and
+customer firmware update to WP5 is corrected to WP6. All other deferred,
+unfinished and post-v1 items retain their existing dispositions.
+
 ## Consolidated requirement matrix
 
 | Area / requirement | Status | Completion area | Evidence or remaining obligation |

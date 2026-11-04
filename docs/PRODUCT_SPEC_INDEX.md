@@ -1,6 +1,7 @@
 # Plonk & Play™ — Product Specification Index
 
-**Status:** Architecture baseline accepted — ready for Stage 1 implementation  
+**Status:** Architecture baseline accepted — implementation in progress; see
+`docs/MASTER_PROJECT_PLAN.md` for current WP status
 **Baseline accepted:** 30 September 2026
 
 The governing P&P architecture has completed its pre-implementation consistency review. No unresolved architecture blockers remain. Deferred implementation choices and future product detail remain deliberately deferred and do not prevent Stage 1 from beginning.
@@ -52,5 +53,7 @@ A settled product decision should be written into GitHub before the design conve
 - `PP_TASTER_SPEC.md` — built-in two-sensor/two-lane standalone Taster, SMUG configuration, MINIMUG operation and browser boundary.
 
 - `BROWSER_FLOW_RESULTS_HISTORY_SPEC.md` — browser Home/mode setup flows, immediate results, rolling History and minimal v1 records.
-- `WP6_RECOVERY_RESET_UPDATE_CONTRACT.md` — WP6 customer recovery, reset, factory-reset and firmware-update contract; unresolved owner choices are explicit.
+- `WP6_RECOVERY_RESET_UPDATE_CONTRACT.md` — approved WP6 customer recovery,
+  reset, factory-reset and firmware-update contract; physical signed-validation
+  and rollback acceptance status is tracked in the master plan.
 - `WP6_FAILURE_RECOVERY_MATRIX.md` — deterministic software/Wokwi and later hardware failure/recovery proof matrix for WP6.

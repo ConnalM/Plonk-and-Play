@@ -1,6 +1,6 @@
 # P&P Consolidated Completion Plan
 
-**Status:** Authoritative project-control plan — 23 October 2026  
+**Status:** Authoritative project-control plan — corrected 4 November 2026
 **Purpose:** One route from the present engineering system to a releasable P&P v1.
 
 This file supersedes the old Stage plan, the earlier WP0–WP12 execution plan and ad-hoc gap lists **as project roadmaps**. Those documents remain authoritative specifications and evidence where applicable. Nothing already proved is to be rerun merely because this plan is newer.
@@ -79,23 +79,28 @@ The repository, Stage/WP documents, implementation, tests, evidence, hardware in
 ---
 
 ### WP1 — Racing core
+**Status: CLOSED / PASS (G1 accepted).**
+
 **Scope:** Lap, Open Practice, Endurance, lifecycle, start/pause/resume/restart/abandon, all three Lap finish policies, authoritative race state and sporting semantics.
 
 **Already credited:** core architecture/timing/input abstraction; Stage 14A variable entries; Open Practice real-ESP32 acceptance; extensive Lap/Endurance automated coverage.
 
-**Remaining before closure:**
+**Historical closure notes (credited or transferred; not an open WP1 register):**
 - reconcile/fix only genuine software defects found by review;
 - close production-path semantics for P16/P17/P18: All Stop, Finish Current Lap, Complete Full Race Distance;
-- ensure Endurance software acceptance is complete; physical Browser/Taster proof belongs to WP5.
+- ensure Endurance software acceptance is complete; the related physical
+  Browser/Taster proof is credited or deferred to WP5/WP8 as recorded.
 
 **G1 closure:** all racing-core automated/Wokwi/spec acceptance passes; no known racing-core software defect remains. Physical proof is explicitly deferred to WP5 rather than blocking software closure.
 
 ### WP2 — Results, records and persistence
+**Status: CLOSED / PASS (G2 accepted).**
+
 **Scope:** Results/Details/History, PB, Track Record, Record Era, rolling retention, reconstruction, transactional/failure semantics and authoritative SD ownership.
 
 **Already credited:** WP2A–F software acceptance, versioning, reconstruction, rolling retention, active-detail streaming and failure-injection work.
 
-**Remaining before closure:**
+**Historical closure notes (credited or transferred; not an open WP2 register):**
 - classify the historical Lane 2 `1 lap`/missing-time anomaly as legacy or reproduce/fix it;
 - verify no unresolved software-only persistence/records obligation remains.
 
@@ -104,22 +109,26 @@ Real-card removal/remount, reboot reconstruction, interruption, coexistence and 
 **G2 closure:** software records/persistence matrix is clean; anomaly resolved/classified; no known software-only WP2 defect remains.
 
 ### WP3 — Browser, authority and networking
+**Status: CLOSED / PASS (G3 accepted).**
+
 **Scope:** normal Browser lifecycle/reconstruction, Race Director lease, spectators, multi-client SSE, KEEP/ALLOW, reconnect/reacquisition, AP+STA and LAN access.
 
 **Already credited:** Scan/CONNECT/AP+STA/LAN/DISCONNECT/reboot reconnect/FORGET/Forget+reboot hardware passes; `plonk-and-play.local` was physically resolved successfully on 23 October and is accepted evidence; no repeat mDNS test is required merely to create an artifact.
 
-**Remaining before closure:**
+**Historical closure notes (credited or transferred; not an open WP3 register):**
 - software/automated closure for live multi-client authority semantics;
 - retained Race Director identity/restoration path after controller/P&P restart must be software-correct before hardware proof.
 
 **G3 closure:** Browser/authority/network software suite and semantic review pass; networking behaviour remains frozen; no known software defect remains. Live multi-client/reboot authority proof belongs to WP5.
 
 ### WP4 — Diagnostics and support
+**Status: CLOSED / PASS (G4 accepted).**
+
 **Scope:** production recorder, privacy/redaction boundary, health/status/version, bounded/degraded storage behaviour and P&P → SD artifact → Browser DOWNLOAD support path.
 
 **Already credited:** recorder/export implementation and tests, successful real export, diagnostics Browser route and NDJSON support artifact.
 
-**Remaining before closure:** software-only privacy/redaction/capacity/recovery/storage-health obligations and support-artifact semantics.
+**Historical closure notes (credited or transferred; not an open WP4 register):** software-only privacy/redaction/capacity/recovery/storage-health obligations and support-artifact semantics were covered by the accepted G4 evidence; later physical/qualification obligations remain assigned below.
 
 **G4 closure:** end-to-end simulated/automated support path passes and diagnostic failure cannot affect racing or product authority. Physical SD/degraded-storage proof belongs to WP5.
 
@@ -136,34 +145,42 @@ items explicitly deferred by dependency remain assigned to WP8 and do not
 reopen this WP5 closure. The bounded Diagnostics-backend rollover observation
 is a separate follow-up, not a WP5 storage-acceptance blocker.
 
-**Purpose:** one concentrated physical campaign against the Gate-A candidate, crediting all existing evidence.
-
-Must close the remaining physical obligations for the base, including:
-- all three Lap finish policies with fresh Results/Details/History inspection (P16 already physically satisfied; P17 Finish Current Lap and P18 Complete Full Race Distance passed physically in Session 1 on candidate `031834d`);
-- multi-Browser controller/spectator fan-out, KEEP/ALLOW, reconnect/reacquisition and race continuity;
-- retained Race Director restoration after reboot;
-- Endurance physical checkpoint *(DEFERRED-BY-DEPENDENCY to WP8: the physical display/Taster implementation is assigned to WP8 and no pre-WP8 physical Taster exists; the Stage 14C criterion remains mandatory and is not waived)*;
-- Browser/Taster coexistence required at this base checkpoint *(DEFERRED-BY-DEPENDENCY to WP8 for the same reason; the Phase 8B criterion remains mandatory and is not waived)*;
-- fresh Results check sufficient to close the historical missing-time concern if not already classified;
-- SD reboot reconstruction, second-race retention, removal/remount, failure/recovery and interruption obligations applicable here;
-- diagnostics download/degraded-storage physical path;
-- resource/stability checks appropriate to this candidate.
+**Closure disposition:** The applicable base-system campaign is closed against the
+recorded accepted evidence. The former checklist is retained by the underlying
+acceptance documents, but is not an outstanding WP5 register. The only related
+work still visible in the roadmap is explicitly transferred: the deferred
+Browser/Taster and Endurance checkpoint belongs to WP8, and recurring resource
+and long-run qualification belongs to WP10. The bounded Diagnostics-backend
+rollover observation remains a separate follow-up.
 
 **GATE B — BASE PROVEN:** all applicable base hardware acceptance passes on a controlled candidate; failures are fixed and only affected tests plus necessary cumulative checks are rerun; evidence is recorded. The base is then frozen against casual redesign.
 
 ---
 
 ### WP6 — Recovery, Reset and customer firmware update
+**Status: OPEN.** The approved contract, state machine, platform/API slices and
+Browser UX correction (`ca70b1232a11476b509ba751e534d09e6c459795`) were accepted
+offline. The physical signed firmware validation rejection test is **PARKED**.
+Automatic rollback acceptance is **PARKED / NOT PASSED**. These items do not
+reopen WP5 and remain the reason G6 is not closed.
+
 Define and implement restart/reset/factory-reset/recovery semantics; customer firmware upload, validation, SD staging, installation, versioning, interrupted/bad-update recovery and customer-data retention.
 
-**G6 closure:** automated failure/recovery matrix passes and the candidate is ready for integrated hardware proof.
+**G6 closure:** the accepted software slices are ready for integrated hardware
+proof, but overall G6 remains OPEN until the parked physical validation and
+rollback obligations are resolved.
 
 ### WP7 — Track hardware system
+**Status: OPEN.** WP7.1 — the detector-provider boundary and deterministic
+two-lane health seam — is the proposed next implementation slice.
+
 Productise real detection: sensor addressing, lane assignment, health, Track Setup, minimum-lap/detection behaviour, connections/cabling, gantry and 4/8-lane expansion architecture. Final MCP23017/alternative choice is made here, not assumed by WP0.
 
 **G7 closure:** two-lane product-intent detection works reliably; setup/fault/replacement behaviour is defined and tested; expansion architecture is sufficiently proven for the v1 promise.
 
 ### WP8 — Local appliance: display, Taster and audio
+**Status: FUTURE / NOT STARTED.**
+
 Complete local 7-inch presentation, Taster/local controls, start lights, pause/resume/recovery/AP information, authoritative audio, volume/mute and coexistence with Browser authority.
 
 WP8 is an entry dependency for the deferred physical Taster obligations recorded
@@ -207,18 +224,19 @@ Complete instructions, first-start/access experience, firmware/release process, 
 
 ## 5. Current project position
 
-**Current activity: WP1–WP4 software closure against Gates G1–G4.**
+**Current activity: WP7 preparation and implementation.**
 
-WP0 is closed. Much of WP1–WP4 is already implemented and accepted; these packages are closure reviews, not rewrites. Connal should not be asked for routine physical testing until Gate A produces the deliberate WP5 hardware candidate.
+WP0–WP5 accepted completion evidence remains credited. WP6 is open only for the
+explicitly parked signed-validation and automatic-rollback physical obligations;
+WP7 is the next active package, while WP8 remains future work.
 
 Immediate technical order is:
 
-1. Archie/Al close WP1 software obligations.
-2. Close WP2 anomaly/software obligations.
-3. Close WP3 authority software obligations while retaining the already-passed networking evidence.
-4. Close WP4 software-only diagnostics obligations.
-5. Archie performs Gate A review; Al produces the hardware candidate.
-6. Connal performs the bounded WP5 physical campaign one focused test at a time.
+1. Resolve the already-identified WP7 sensor/interface and expansion decisions.
+2. Implement and test WP7.1's detector-provider boundary and two-lane health seam.
+3. Select and integrate the real detector hardware, wiring and gantry, then prove
+   two-lane product-intent detection and replacement/fault behaviour.
+4. Record the 4/8-lane expansion evidence and prepare the later WP8 appliance work.
 
 ## 6. Status reporting
 
