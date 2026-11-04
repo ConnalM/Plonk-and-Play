@@ -421,7 +421,6 @@ public:
   static constexpr size_t MaxDetectors=PP_MAX_ENTRIES;
   static constexpr InputIdentity simulatedDetectorIdentity(uint16_t index=0){return InputIdentity(0x50500001u,uint16_t(index+1));}
   static constexpr InputIdentity simulatedDetectorBIdentity(){return simulatedDetectorIdentity(1);}
-  InputModule(Bus& bus,Bus::Endpoint endpoint):endpoint(endpoint),bus_(bus),provider_(&defaultProvider()){}
   InputModule(Bus& bus,Bus::Endpoint endpoint,DetectorProvider& provider):endpoint(endpoint),bus_(bus),provider_(&provider){}
   Bus::Endpoint endpoint;
   void setSimulatedSource(bool active){setSimulatedSource(0,active);} void setSimulatedSourceB(bool active){setSimulatedSource(1,active);}
@@ -438,7 +437,6 @@ public:
   void drainOperations(){Message m;while(bus_.receive(endpoint,m)){if(m.type==Type::SessionOperation)sessionOperation(m);else if(m.type==Type::FinishSettlement){if(!finishSettlementPending_||m.relevantTime!=finishSettlementAt_)finishSettlementPublished_=false;finishSettlementPending_=true;finishSettlementAt_=m.relevantTime;}}} void finishSettleIfReady(){if(!finishSettlementPending_||size_||finishSettlementPublished_||faulted_)return;Message s{};s.type=Type::FinishSettled;s.relevantTime=finishSettlementAt_;if(bus_.publish(endpoint,s)==Delivery::Delivered){finishSettlementPublished_=true;finishSettlementPending_=false;}}
   uint32_t cleanTriggers()const{return cleanTriggers_;}Delivery lastDelivery()const{return lastDelivery_;}size_t protectedBacklogDepth()const{return size_;}size_t maximumProtectedBacklogDepth()const{return maxDepth_;}bool faulted()const{return faulted_;}
 private:
-  static SimulatedDetectorProvider& defaultProvider(){static SimulatedDetectorProvider provider;return provider;}
   void sampleDetector(uint8_t which,Time at){if(which>=MaxDetectors)return;Time trigger=0;if(!provider_->sample(which,at,trigger))return;const DetectorStatus state=provider_->status(which);if(!state.healthy())return;++cleanTriggers_;Message e{};e.type=Type::InputEvent;e.input=state.identity;e.relevantTime=trigger;e.eventId=++nextEventId_;enqueue(e);flush();}
   void enqueue(const Message&e){if(faulted_)return;if(size_==ProtectedDepth){fault(e.relevantTime);return;}backlog_[(head_+size_)%ProtectedDepth]=e;++size_;if(size_>maxDepth_)maxDepth_=size_;}
   void fault(Time at){if(faulted_)return;faulted_=true;Message f{};f.type=Type::RaceIntegrityFault;f.relevantTime=at;f.integrityReason=RaceIntegrityReason::InputEventDeliveryOverrun;bus_.publish(endpoint,f);}

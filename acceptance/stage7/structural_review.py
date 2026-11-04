@@ -6,6 +6,7 @@ core = (root / 'firmware/include/pp/core.h').read_text(encoding='utf-8')
 main = (root / 'firmware/src/main.cpp').read_text(encoding='utf-8')
 checks = {
     'provider boundary exists': 'class DetectorProvider' in core and 'DetectorProvider* provider_' in core,
+    'provider injection is mandatory': 'defaultProvider' not in core and 'InputModule(Bus& bus,Bus::Endpoint endpoint):' not in core,
     'simulated provider retained': 'class SimulatedDetectorProvider final' in core and 'SimulatedDetector detectors_[MaxDetectors]' in core,
     'two source identities/statuses': 'detectorCount() const override' in core and 'DetectorStatus statuses_[MaxDetectors]' in core,
     'role-neutral bus path preserved': 'e.type=Type::InputEvent' in core and 'e.input=state.identity' in core and 'bus_.publish(endpoint,backlog_[head_])' in core,
