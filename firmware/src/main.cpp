@@ -148,7 +148,7 @@ pp::SimulatedDetectorProvider simulatedDetectorProvider;
 pp::InputModule input(bus,bus.attach(pp::Role::Input),simulatedDetectorProvider);
 pp::ActiveSessionDefinition activeSession;
 const auto raceControlEndpoint=bus.attach(pp::Role::RaceControl);
-pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession,&history,&records,&simulatedDetectorProvider);
+pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession,&history,&records,&simulatedDetectorProvider,&trackConfigurationMemory);
 const auto raceEngineEndpoint=bus.attach(pp::Role::RaceEngine);
 pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint,activeSession,&history,&records,
 #if defined(PP_PHASE8B_REAL_SD)
@@ -244,31 +244,6 @@ void refreshRequiredDetectorReadiness() {
   const auto* setup = raceControl.proposedRaceSetup();
   const bool healthy = setup && pp::requiredDetectorCapabilitiesHealthy(*setup, simulatedDetectorProvider);
   raceControl.setRequiredCapabilityAvailable(healthy);
-}
-uint32_t persistedTrackProposalRevision = 0;
-uint32_t trackPersistenceFailureRevision = 0;
-void persistTrackConfigurationIfChanged() {
-  const ProposedRaceSetup* setup = raceControl.proposedRaceSetup();
-  if (!setup) return;
-  const uint32_t revision = raceControl.proposalRevision();
-  if (revision == persistedTrackProposalRevision || revision == trackPersistenceFailureRevision) return;
-  const pp::TrackConfiguration next = pp::TrackConfiguration::fromSetup(*setup);
-  if (!next.valid()) return;
-  if (next == workingTrackConfiguration) {
-    persistedTrackProposalRevision = revision;
-    return;
-  }
-  if (trackConfigurationMemory.save(next)) {
-    workingTrackConfiguration = next;
-    persistedTrackProposalRevision = revision;
-    diagnostics.log("[CONFIG] Track Setup persisted lanes=%u lane1=%lu/%u lane2=%lu/%u",
-                    unsigned(next.laneCount), static_cast<unsigned long>(next.lane1.device),
-                    unsigned(next.lane1.capability), static_cast<unsigned long>(next.lane2.device),
-                    unsigned(next.lane2.capability));
-  } else {
-    trackPersistenceFailureRevision = revision;
-    diagnostics.log("[CONFIG] Track Setup persistence unavailable");
-  }
 }
 bool ready=false,testsPassed=true,bootFailed=false;
 pp::Time nextStatus=0;
@@ -920,7 +895,6 @@ void loop(){
   // unassigned/optional provider entries non-blocking.
   refreshRequiredDetectorReadiness();
   raceControl.tick(systemTime());
-  persistTrackConfigurationIfChanged();
   input.tick(systemTime());
   raceEngine.tick();
 #if defined(PP_PHASE8B_REAL_SD)
@@ -1007,7 +981,6 @@ void loop(){
       proposedRaceSetup.startFinish = proposedRaceSetup.entries[0].startFinish;
       proposedRaceSetup.secondStartFinish = proposedRaceSetup.entries[1].startFinish;
       raceControl.setProposedRaceSetup(proposedRaceSetup);
-      persistedTrackProposalRevision = raceControl.proposalRevision();
       refreshRequiredDetectorReadiness();
 #ifdef PP_ACCEPTANCE
       acceptanceLoadStatus=unsigned(message.loadStatus);

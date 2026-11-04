@@ -11,14 +11,22 @@ bool require(bool value, const char* message) {
 
 class MemoryStore final : public pp::Store {
 public:
+  bool failWrite = false;
+  bool corruptNextRead = false;
+  uint32_t writeCalls = 0;
   bool available() const override { return true; }
   bool read(unsigned slot, uint8_t* data, size_t size) override {
     if (slot >= 4 || !present[slot] || size != sizeof(bytes[slot])) return false;
     std::memcpy(data, bytes[slot], size);
+    if (corruptNextRead) {
+      data[0] ^= 0xff;
+      corruptNextRead = false;
+    }
     return true;
   }
   bool write(unsigned slot, const uint8_t* data, size_t size) override {
-    if (slot >= 4 || size != sizeof(bytes[slot])) return false;
+    if (failWrite || slot >= 4 || size != sizeof(bytes[slot])) return false;
+    ++writeCalls;
     std::memcpy(bytes[slot], data, size);
     present[slot] = true;
     return true;
@@ -43,18 +51,21 @@ pp::ProposedRaceSetup twoLaneSetup() {
 }
 
 pp::Message setupRequest(uint32_t correlation, uint32_t revision,
-                         pp::InputIdentity lane1, pp::InputIdentity lane2) {
+                         pp::InputIdentity lane1, pp::InputIdentity lane2,
+                         bool includeAssignments = true, uint32_t lapTarget = 2) {
   pp::Message request{};
   request.type = pp::Type::SetupRequest;
   request.correlation = correlation;
   request.clientContext = pp::ClientContext::RaceDirectorSmug;
   request.sessionMode = pp::SessionMode::LapRace;
-  request.setupLapTarget = 2;
+  request.setupLapTarget = lapTarget;
   request.setupFinishPolicy = uint8_t(pp::LapFinishBehaviour::Immediate);
   request.proposalRevision = revision;
-  request.setupAssignmentMask = 0x03;
-  request.setupLane1 = lane1;
-  request.setupLane2 = lane2;
+  if (includeAssignments) {
+    request.setupAssignmentMask = 0x03;
+    request.setupLane1 = lane1;
+    request.setupLane2 = lane2;
+  }
   return request;
 }
 
@@ -68,8 +79,10 @@ bool receiveResult(pp::Bus& bus, pp::Bus::Endpoint presentation,
 
 bool submit(pp::Bus& bus, pp::Bus::Endpoint presentation, pp::RaceControlModule& control,
             pp::InputIdentity lane1, pp::InputIdentity lane2,
-            pp::RequestRejection expected, uint32_t correlation = 1) {
-  const pp::Message request = setupRequest(correlation, control.proposalRevision(), lane1, lane2);
+            pp::RequestRejection expected, uint32_t correlation = 1,
+            bool includeAssignments = true, uint32_t lapTarget = 2) {
+  const pp::Message request = setupRequest(correlation, control.proposalRevision(), lane1, lane2,
+                                           includeAssignments, lapTarget);
   if (bus.publish(presentation, request) != pp::Delivery::Delivered) return false;
   control.tick(1000);
   return receiveResult(bus, presentation,
@@ -84,13 +97,18 @@ int main() {
   SimulatedDetectorProvider provider;
   const InputIdentity detectorC = InputModule::simulatedDetectorIdentity(2);
   const InputIdentity detectorD = InputModule::simulatedDetectorIdentity(3);
+  const InputIdentity detectorE = InputModule::simulatedDetectorIdentity(4);
+  const InputIdentity detectorF = InputModule::simulatedDetectorIdentity(5);
+
+  MemoryStore store;
+  TrackConfigurationMemory remembered(store);
 
   Bus bus;
   const auto presentation = bus.attach(Role::Presentation);
   const auto controlEndpoint = bus.attach(Role::RaceControl);
   const auto engine = bus.attach(Role::RaceEngine);
   ActiveSessionDefinition active;
-  RaceControlModule control(bus, controlEndpoint, active, nullptr, nullptr, &provider);
+  RaceControlModule control(bus, controlEndpoint, active, nullptr, nullptr, &provider, &remembered);
   ok &= require(bus.subscribe(controlEndpoint, Type::SetupRequest), "Race Control subscribes to Track Setup requests");
   ok &= require(bus.subscribe(controlEndpoint, Type::StartRequest), "Race Control subscribes to START requests");
   ok &= require(bus.subscribe(presentation, Type::RequestResult), "presentation receives setup results");
@@ -107,29 +125,100 @@ int main() {
                 "accepted assignments feed the authoritative proposal");
   ok &= require(requiredDetectorCapabilitiesHealthy(*control.proposedRaceSetup(), provider),
                 "accepted assignments feed readiness evaluation");
+  TrackConfiguration loaded{};
+  ok &= require(remembered.load(loaded) == LoadStatus::Remembered &&
+                loaded.lane1 == detectorC && loaded.lane2 == detectorD,
+                "accepted assignment is persisted and verified before acceptance");
+
+  const uint32_t revisionBeforeOrdinary = control.proposalRevision();
+  const uint32_t writesBeforeOrdinary = store.writeCalls;
+  ok &= require(submit(bus, presentation, control, detectorC, detectorD,
+                       RequestRejection::None, 2, false, 3),
+                "ordinary race-setting change is accepted");
+  ok &= require(control.proposalRevision() == revisionBeforeOrdinary + 1,
+                "ordinary race-setting change advances the proposal revision");
+  ok &= require(store.writeCalls == writesBeforeOrdinary,
+                "ordinary race-setting change does not invoke Track Setup persistence");
+  ok &= require(remembered.load(loaded) == LoadStatus::Remembered &&
+                loaded.lane1 == detectorC && loaded.lane2 == detectorD,
+                "ordinary race-setting change does not overwrite Track Setup");
+
+  ok &= require(submit(bus, presentation, control, detectorE, detectorF,
+                       RequestRejection::None, 3),
+                "successive Track Setup assignment is accepted");
+  ok &= require(remembered.load(loaded) == LoadStatus::Remembered &&
+                loaded.lane1 == detectorE && loaded.lane2 == detectorF,
+                "newest successive assignment is remembered");
 
   ok &= require(submit(bus, presentation, control, detectorC, detectorC,
-                       RequestRejection::InvalidRaceSetup, 2),
+                       RequestRejection::InvalidRaceSetup, 4),
                 "duplicate detector assignment is rejected");
-  provider.setAvailable(2, false);
+  provider.setAvailable(4, false);
   ok &= require(!requiredDetectorCapabilitiesHealthy(*control.proposedRaceSetup(), provider),
                 "missing required detector blocks readiness");
-  ok &= require(submit(bus, presentation, control, detectorC, detectorD,
-                       RequestRejection::RequiredCapabilityUnavailable, 3),
-                "missing detector assignment is rejected");
-  provider.setAvailable(2, true);
-  provider.setFault(3, true);
-  ok &= require(submit(bus, presentation, control, detectorC, detectorD,
-                       RequestRejection::RequiredCapabilityUnavailable, 4),
-                "faulted detector assignment is rejected");
-  provider.setFault(3, false);
-  provider.markReplacement(2, InputIdentity(0x50500099u, 7));
-  ok &= require(submit(bus, presentation, control, detectorC, detectorD,
+  ok &= require(submit(bus, presentation, control, detectorE, detectorF,
                        RequestRejection::RequiredCapabilityUnavailable, 5),
+                "missing detector assignment is rejected");
+  provider.setAvailable(4, true);
+  provider.setFault(5, true);
+  ok &= require(submit(bus, presentation, control, detectorE, detectorF,
+                       RequestRejection::RequiredCapabilityUnavailable, 6),
+                "faulted detector assignment is rejected");
+  provider.setFault(5, false);
+  provider.markReplacement(4, InputIdentity(0x50500099u, 7));
+  ok &= require(submit(bus, presentation, control, detectorE, detectorF,
+                       RequestRejection::RequiredCapabilityUnavailable, 7),
                 "unreconciled replacement is rejected");
-  provider.markReplacement(2, detectorC);
+  provider.markReplacement(4, detectorE);
   ok &= require(requiredDetectorCapabilitiesHealthy(*control.proposedRaceSetup(), provider),
                 "reconciled detector restores readiness");
+
+  const ProposedRaceSetup proposalBeforeWriteFailure = *control.proposedRaceSetup();
+  const uint32_t revisionBeforeWriteFailure = control.proposalRevision();
+  store.failWrite = true;
+  ok &= require(submit(bus, presentation, control, detectorC, detectorD,
+                       RequestRejection::StorageUnavailable, 8),
+                "failed Track Setup write is rejected");
+  store.failWrite = false;
+  ok &= require(control.proposalRevision() == revisionBeforeWriteFailure &&
+                control.proposedRaceSetup()->entries[0].startFinish.input == proposalBeforeWriteFailure.entries[0].startFinish.input &&
+                control.proposedRaceSetup()->entries[1].startFinish.input == proposalBeforeWriteFailure.entries[1].startFinish.input,
+                "failed write preserves authoritative proposal and revision");
+  ok &= require(remembered.load(loaded) == LoadStatus::Remembered &&
+                loaded.lane1 == detectorE && loaded.lane2 == detectorF,
+                "failed write preserves previous remembered configuration");
+
+  const uint32_t revisionBeforeReadbackFailure = control.proposalRevision();
+  store.corruptNextRead = true;
+  ok &= require(submit(bus, presentation, control, detectorC, detectorD,
+                       RequestRejection::StorageUnavailable, 9),
+                "failed Track Setup read-back verification is rejected");
+  ok &= require(control.proposalRevision() == revisionBeforeReadbackFailure &&
+                control.proposedRaceSetup()->entries[0].startFinish.input == proposalBeforeWriteFailure.entries[0].startFinish.input &&
+                control.proposedRaceSetup()->entries[1].startFinish.input == proposalBeforeWriteFailure.entries[1].startFinish.input,
+                "failed read-back preserves authoritative proposal and revision");
+  ok &= require(remembered.load(loaded) == LoadStatus::Remembered &&
+                loaded.lane1 == detectorE && loaded.lane2 == detectorF,
+                "failed read-back preserves previous remembered configuration");
+
+  ok &= require(submit(bus, presentation, control, detectorC, detectorD,
+                       RequestRejection::None, 10),
+                "Track Setup recovers after a failed save");
+  ok &= require(remembered.load(loaded) == LoadStatus::Remembered &&
+                loaded.lane1 == detectorC && loaded.lane2 == detectorD,
+                "recovered save becomes the newest remembered configuration");
+
+  ok &= require(submit(bus, presentation, control, detectorE, detectorF,
+                       RequestRejection::None, 11),
+                "another successive assignment is accepted");
+  ok &= require(remembered.load(loaded) == LoadStatus::Remembered &&
+                loaded.lane1 == detectorE && loaded.lane2 == detectorF,
+                "latest assignment remains after recovery");
+  TrackConfigurationMemory restarted(store);
+  TrackConfiguration reconstructed{};
+  ok &= require(restarted.load(reconstructed) == LoadStatus::Remembered &&
+                reconstructed.lane1 == detectorE && reconstructed.lane2 == detectorF,
+                "restart reconstructs the newest valid installation configuration");
 
   pp::Message start{};
   start.type = Type::StartRequest;
@@ -140,16 +229,6 @@ int main() {
   control.tick(1000);
   ok &= require(receiveResult(bus, presentation, RequestResult::Accepted, RequestRejection::None),
                 "healthy configured lanes permit START through the existing path");
-
-  MemoryStore store;
-  TrackConfigurationMemory remembered(store);
-  TrackConfiguration saved{};
-  saved.lane1 = detectorC;
-  saved.lane2 = detectorD;
-  ok &= require(remembered.save(saved), "Track Setup persists through the Store boundary");
-  TrackConfiguration loaded{};
-  ok &= require(remembered.load(loaded) == LoadStatus::Remembered && loaded == saved,
-                "Track Setup reconstructs its latest remembered assignments");
 
   std::cout << (ok ? "WP7.3 Track Setup contract PASS\n" : "WP7.3 Track Setup contract FAIL\n");
   return ok ? 0 : 1;

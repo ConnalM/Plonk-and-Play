@@ -34,11 +34,21 @@ struct TrackConfiguration {
   }
 };
 
+// Race Control uses this narrow seam to make an installation assignment
+// durable before publishing the corresponding proposal. The production
+// implementation remains backed by the existing Store boundary; tests can
+// inject deterministic failures without involving Browser or hardware.
+class TrackConfigurationPersistence {
+public:
+  virtual ~TrackConfigurationPersistence() = default;
+  virtual bool save(const TrackConfiguration& configuration) = 0;
+};
+
 // A/B remembered Track Setup records.  Slots 2 and 3 are reserved for this
 // installation namespace and never overlap Memory's customer settings slots
 // 0 and 1.  Publication is the same write-then-read-verify pattern used by
 // Memory; the old record remains intact until its replacement is verified.
-class TrackConfigurationMemory {
+class TrackConfigurationMemory final : public TrackConfigurationPersistence {
 public:
   static constexpr size_t RecordSize = 32;
   static constexpr unsigned FirstSlot = 2;
@@ -66,14 +76,24 @@ public:
     return LoadStatus::Remembered;
   }
 
-  bool save(const TrackConfiguration& configuration) {
+  bool save(const TrackConfiguration& configuration) override {
     if (!store_.available() || !configuration.valid() || generation_ == UINT32_MAX) return false;
     uint8_t encoded[RecordSize]{};
     encode(configuration, generation_ + 1, encoded);
     const unsigned target = activeSlot_ == FirstSlot ? SecondSlot : FirstSlot;
-    if (!store_.write(target, encoded, sizeof(encoded))) return false;
+    // Track Setup is installation metadata. Use the Store's metadata boundary
+    // so an existing inactive copy can be replaced atomically by backends that
+    // require that distinction (NVS retains source compatibility).
+    if (!store_.writeMetadata(target, encoded, sizeof(encoded))) return false;
     uint8_t verify[RecordSize]{};
-    if (!store_.read(target, verify, sizeof(verify)) || memcmp(encoded, verify, sizeof(encoded)) != 0) return false;
+    if (!store_.read(target, verify, sizeof(verify)) || memcmp(encoded, verify, sizeof(encoded)) != 0) {
+      // A successful write followed by an unverified read must never become
+      // the remembered record after restart. Invalidate only the inactive
+      // target; the previous committed copy remains untouched.
+      uint8_t invalid[RecordSize]{};
+      (void)store_.writeMetadata(target, invalid, sizeof(invalid));
+      return false;
+    }
     activeSlot_ = target;
     ++generation_;
     return true;

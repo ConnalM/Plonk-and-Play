@@ -16,8 +16,9 @@ checks = {
     "Browser submits lane assignments through existing setup route": "lane1Device" in browser and "setupAssignmentMask" in interface and "setupLane1" in interface,
     "Browser gates editing on controlling READY state": "C?.isMaster===true&&S?.lifecycle==='READY'" in browser,
     "Race Control validates assignments and provider health": "requiredDetectorCapabilitiesHealthy(candidate, *detectorProvider_)" in control and "RequestRejection::RequiredCapabilityUnavailable" in control,
-    "Track configuration uses existing Store boundary": "class TrackConfigurationMemory" in track and "store_.write(target" in track and "store_.read(target" in track,
-    "Track configuration is wired into production startup": "trackConfigurationMemory.load" in main and "persistTrackConfigurationIfChanged" in main,
+    "Track Setup persistence is synchronous and failure-rejecting": "trackConfigurationPersistence_->save(configuration)" in control and "RequestRejection::StorageUnavailable" in control and "persistTrackConfigurationIfChanged" not in main,
+    "Track configuration uses existing Store boundary": "class TrackConfigurationMemory" in track and "store_.writeMetadata(target" in track and "store_.read(target" in track,
+    "Track configuration is wired into production startup": "trackConfigurationMemory.load" in main and "&trackConfigurationMemory" in main,
     "Input and Race Engine boundaries remain unchanged": "input.tick(systemTime())" in main and "raceEngine.tick()" in main,
 }
 for name, passed in checks.items():

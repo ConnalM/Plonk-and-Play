@@ -202,8 +202,11 @@ provider, presents identities and health, and lets the controlling Race
 Director request two-lane assignments through the existing `/request/setup`
 and Message Bus boundary. Race Control validates duplicate, missing, faulted
 and unreconciled assignments before publishing the authoritative proposal;
-accepted installation assignments are remembered through the existing Store
-boundary in an A/B Track Configuration record. Focused evidence is
+accepted installation assignments are synchronously written and read-verified
+through the existing Store boundary in an A/B Track Configuration record
+before the proposal is published; persistence failure returns the existing
+`StorageUnavailable` rejection and leaves the prior proposal unchanged.
+Focused evidence is
 `acceptance/stage7/track_setup_test.cpp`,
 `acceptance/stage7/run_track_setup_test.ps1`, and
 `acceptance/stage7/track_setup_structural.py`. This remains software-only:
