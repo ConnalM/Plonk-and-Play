@@ -276,6 +276,21 @@ Rename/archive Browser controls, Guest handling and historical name freezing
 outside this transaction remain deferred; no Race Engine or Message Bus
 architecture was changed.
 
+The complete keyboard/simulated two-lane racing journey is now implemented as
+a bounded development-only software slice (4 November 2026). A controller-owned
+simulated-session arm flag is frozen into the Session Definition; Race Engine
+continues to run the normal countdown, timing, live-gap, sealed-result and
+Race Again paths, while the authoritative eligibility boundary suppresses
+History, Personal Best and Track Record writes for the simulated session. The
+dedicated `stage8bp1s3sd-simulated-racing` environment exposes clearly labelled
+TEST ONLY keyboard/Lane 1/Lane 2 controls; the normal `stage8bp1s3sd` Browser
+payload contains none of those controls. Focused evidence is
+`acceptance/stage8/simulated_racing_journey_test.cpp`,
+`acceptance/stage8/run_simulated_racing_journey.ps1`, and
+`acceptance/stage8/simulated_racing_browser_contract.py`. This is software
+evidence only: it is not physical detector acceptance, Demo, Taster or WP8
+work.
+
 Productise real detection: sensor addressing, lane assignment, health, Track Setup, minimum-lap/detection behaviour, connections/cabling, gantry and 4/8-lane expansion architecture. Final MCP23017/alternative choice is made here, not assumed by WP0.
 
 **G7 closure:** two-lane product-intent detection works reliably; setup/fault/replacement behaviour is defined and tested; expansion architecture is sufficiently proven for the v1 promise.

@@ -19,6 +19,9 @@ struct ProposedRaceSetup {
   uint16_t durationMinutes=0;
   LapFinishBehaviour finish=LapFinishBehaviour::Immediate;
   bool startsBeforeStartFinish=true,optionalFeaturesEnabled=false;
+  // Controller-owned development/test boundary. Normal setup requests cannot
+  // set this value; the dedicated simulation fixture arms it before START.
+  bool simulatedSession=false;
   SessionMode mode=SessionMode::LapRace;
   // Legacy aliases remain source-compatible with accepted Stage 1–13
   // fixtures. Core code normalises them into entries[] before validation.
@@ -102,7 +105,7 @@ public:
   explicit SessionDefinition(SessionInputRole a,uint32_t id=1,uint32_t target=0,LapFinishBehaviour f=LapFinishBehaviour::Immediate):sessionId_(0),count_(1),lapTarget_(target),finish_(f) {
     roles_[0]=a; entries_[0]=RaceEntryDefinition{id,0,a.lane};
   }
-  SessionDefinition(const ProposedRaceSetup& original,uint32_t session,uint32_t firstId):sessionId_(session),lapTarget_(original.lapTarget),durationMinutes_(original.durationMinutes),finish_(original.finish),mode_(original.mode) {
+  SessionDefinition(const ProposedRaceSetup& original,uint32_t session,uint32_t firstId):sessionId_(session),lapTarget_(original.lapTarget),durationMinutes_(original.durationMinutes),finish_(original.finish),simulatedSession_(original.simulatedSession),mode_(original.mode) {
     const ProposedRaceSetup s=normalised(original); count_=s.activeLanes;
     redLightCount_=s.redLightCount; startSignal_=s.startSignal; startTiming_=s.startTiming; redIntervalUs_=s.redIntervalUs;
     fixedFinalDelayUs_=s.fixedFinalDelayUs; falseStartCapability_=s.falseStartCapability; falseStartPolicy_=s.falseStartPolicy;
@@ -128,9 +131,10 @@ public:
   Time fixedFinalDelayUs()const{return fixedFinalDelayUs_;}
   bool falseStartCapability()const{return falseStartCapability_;}
   uint8_t falseStartPolicy()const{return falseStartPolicy_;}
+  bool simulatedSession()const{return simulatedSession_;}
 private:
   SessionInputRole roles_[PP_MAX_ENTRIES]{}; RaceEntryDefinition entries_[PP_MAX_ENTRIES]{};
-  uint32_t sessionId_=0; uint8_t count_=1; uint32_t lapTarget_=0; uint16_t durationMinutes_=0; LapFinishBehaviour finish_=LapFinishBehaviour::Immediate; SessionMode mode_=SessionMode::LapRace;
+  uint32_t sessionId_=0; uint8_t count_=1; uint32_t lapTarget_=0; uint16_t durationMinutes_=0; LapFinishBehaviour finish_=LapFinishBehaviour::Immediate; bool simulatedSession_=false; SessionMode mode_=SessionMode::LapRace;
   uint8_t redLightCount_=5,startSignal_=0,startTiming_=2,falseStartPolicy_=0;
   Time redIntervalUs_=1000000,fixedFinalDelayUs_=1000000; bool falseStartCapability_=false;
 };

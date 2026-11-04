@@ -331,6 +331,12 @@ bool browserFixturePass(uint8_t lane){
     diagnostics.log("[INPUT] fixture_pass lane=%u disposition=REJECTED reason=NO_ACTIVE_RACING_SESSION",unsigned(lane));
     return false;
   }
+  #if defined(PP_SIMULATED_RACING_TEST)
+  if(!raceControl.simulatedSessionActive()){
+    diagnostics.log("[INPUT] fixture_pass lane=%u disposition=REJECTED reason=SIMULATED_SESSION_REQUIRED",unsigned(lane));
+    return false;
+  }
+  #endif
   const auto mode=raceControl.mode();
   if(mode!=pp::SessionMode::LapRace&&mode!=pp::SessionMode::OpenPractice&&mode!=pp::SessionMode::Endurance){
     diagnostics.log("[INPUT] fixture_pass lane=%u disposition=REJECTED reason=UNSUPPORTED_SESSION_MODE",unsigned(lane));
@@ -341,6 +347,11 @@ bool browserFixturePass(uint8_t lane){
   else { diagnostics.log("[INPUT] fixture_pass lane=%u disposition=REJECTED reason=INVALID_LANE",unsigned(lane)); return false; }
   diagnostics.log("[INPUT] fixture_pass lane=%u disposition=SOURCE_ASSERTED mode=%u release_us=%llu",unsigned(lane),unsigned(mode),static_cast<unsigned long long>(lane==1?simulatedARelease:simulatedBRelease));
   return true;
+}
+bool browserFixtureArm(){
+  const bool accepted=raceControl.armSimulatedSession();
+  diagnostics.log("[INPUT] fixture_arm disposition=%s",accepted?"ACCEPTED":"REJECTED");
+  return accepted;
 }
 void browserFixtureReset(){ activeSession.clearForFixture(); raceControl.resetRaceForFixture(); raceControl.setProposedRaceSetup(proposedRaceSetup); refreshRequiredDetectorReadiness(); raceEngine.resetForFixture(); browser.clearRaceForFixture(); diagnostics.log("[DEV] TEST RESET READY (Race Director retained)"); }
 #endif
@@ -854,7 +865,11 @@ void setup(){
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::StorageFault);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::EnduranceExpired);
 #if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+#if defined(PP_SIMULATED_RACING_TEST)
+  browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset,browserFixtureArm);
+#else
   browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset);
+#endif
 #endif
   browser.begin();
   Serial.println("[WP6 OTA] Browser update API declared status/begin/upload/validate/install");

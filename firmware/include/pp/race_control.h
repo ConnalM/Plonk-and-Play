@@ -35,6 +35,17 @@ public:
   void setRequiredCapabilityAvailable(bool available){requiredCapabilityAvailable_=available;}
   void setDetectorProvider(DetectorProvider& provider){detectorProvider_=&provider;}
   void setMugCatalog(MugCatalog& catalog){mugCatalog_=&catalog;}
+  // The simulated-racing fixture is armed before START through a dedicated
+  // test-only Browser action. The flag is carried by the controller-owned
+  // proposal and frozen into SessionDefinition; ordinary setup requests never
+  // set it.
+  bool armSimulatedSession(){
+    if(state_!=SessionLifecycle::Ready||startCommitted_||!setup_)return false;
+    if(proposedSetup_.simulatedSession)return true;
+    proposedSetup_.simulatedSession=true;setup_=&proposedSetup_;++proposalRevision_;changed();return true;
+  }
+  bool simulatedSessionArmed()const{return setup_&&setup_->simulatedSession;}
+  bool simulatedSessionActive()const{return definition_&&definition_->simulatedSession();}
   // Named-MUG creation is a controller-authoritative installation operation.
   // Browser supplies only its current logical context; lifecycle and storage
   // gates remain here beside the existing setup authority.
@@ -376,6 +387,7 @@ private:
     proposedSetup_.redLightCount=definition_->redLightCount(); proposedSetup_.startSignal=definition_->startSignal(); proposedSetup_.startTiming=definition_->startTiming();
     proposedSetup_.redIntervalUs=definition_->redIntervalUs(); proposedSetup_.fixedFinalDelayUs=definition_->fixedFinalDelayUs();
     proposedSetup_.falseStartCapability=definition_->falseStartCapability(); proposedSetup_.falseStartPolicy=definition_->falseStartPolicy();
+    proposedSetup_.simulatedSession=definition_->simulatedSession();
     for(uint8_t i=0;i<definition_->entryCount();++i){proposedSetup_.entries[i].startFinish=definition_->role(i);proposedSetup_.entries[i].mugId=definition_->entry(i).mugId;copyMugName(proposedSetup_.entries[i].mugName,definition_->entry(i).mugName,definition_->entry(i).mugId);}
     // Keep accepted source-level aliases synchronized for legacy fixtures and
     // two-entry Browser/demo compatibility; indexed entries are authoritative.
