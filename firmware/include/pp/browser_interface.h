@@ -233,13 +233,16 @@ public:
   bool submitSetup(uint32_t visibleCorrelation, ClientContext context, uint64_t owner,
                    SessionMode mode, uint32_t lapTarget, uint16_t durationMinutes,
                    uint8_t finishPolicy, uint32_t proposalRevision, uint64_t traceId=0,
-                   uint8_t assignmentMask=0, InputIdentity lane1={}, InputIdentity lane2={}) {
+                   uint8_t assignmentMask=0, InputIdentity lane1={}, InputIdentity lane2={},
+                   uint8_t racerAssignmentMask=0, uint32_t lane1MugId=0, uint32_t lane2MugId=0) {
     if (!visibleCorrelation) return false;
     Message request{}; request.type=Type::SetupRequest; request.correlation=nextInternalCorrelation();
     request.clientContext=context; request.sessionMode=mode; request.setupLapTarget=lapTarget;
     request.setupDurationMinutes=durationMinutes; request.setupFinishPolicy=finishPolicy;
     request.proposalRevision=proposalRevision;
     request.setupAssignmentMask=assignmentMask; request.setupLane1=lane1; request.setupLane2=lane2;
+    request.setupRacerAssignmentMask=racerAssignmentMask;
+    request.setupLane1MugId=lane1MugId; request.setupLane2MugId=lane2MugId;
     if (diagnosticTrace_) { diagnostic::ClientId clientId{}; clientId.value = owner; diagnosticTrace_->observeInterfaceRequest(diagnostic::OperationName::Setup, visibleCorrelation, request.correlation, clientId, traceId, systemTime()); }
     if(bus_.publish(endpoint_,request)!=Delivery::Delivered) return false;
     Pending& pending=pending_[nextPending_++ % ResultCapacity]; pending.internal=request.correlation;
@@ -967,6 +970,21 @@ private:
     for(uint8_t i=0;i<setup->activeLanes&&i<PP_MAX_ENTRIES;++i){const auto&e=setup->entries[i];ok=appendJson(out,cap,n,"%s{\"index\":%u,\"lane\":%u,\"inputDevice\":%lu,\"inputCapability\":%u,\"mugId\":%lu}",i?",":"",unsigned(i),unsigned(e.startFinish.lane),(unsigned long)e.startFinish.input.device,unsigned(e.startFinish.input.capability),(unsigned long)e.mugId)&&ok;}
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
   }
+  static bool serializeRacers(const ProposedRaceSetup* setup,uint32_t revision,char*out,size_t cap,size_t&length){
+    if(!setup)return false;
+    const ProposedRaceSetup normal=normalised(*setup);
+    uint32_t ids[4]={1,2,0,0}; uint8_t count=2;
+    for(uint8_t i=0;i<normal.activeLanes&&i<2;++i){
+      const uint32_t id=normal.entries[i].mugId;
+      bool known=false;for(uint8_t j=0;j<count;++j)if(ids[j]==id)known=true;
+      if(id&&!known&&count<4)ids[count++]=id;
+    }
+    size_t n=0;bool ok=appendJson(out,cap,n,"{\"formatVersion\":1,\"proposalRevision\":%lu,\"racers\":[",static_cast<unsigned long>(revision));
+    for(uint8_t i=0;i<count&&ok;++i)ok=appendJson(out,cap,n,"%s{\"id\":%lu,\"name\":\"MUG %lu\"}",i?",":"",static_cast<unsigned long>(ids[i]),static_cast<unsigned long>(ids[i]));
+    ok=appendJson(out,cap,n,"],\"assignments\":[")&&ok;
+    for(uint8_t i=0;i<normal.activeLanes&&i<2&&ok;++i)ok=appendJson(out,cap,n,"%s{\"lane\":%u,\"mugId\":%lu}",i?",":"",unsigned(i+1),static_cast<unsigned long>(normal.entries[i].mugId));
+    ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
+  }
   static const char* detectorAvailabilityText(DetectorAvailability value) {
     return value == DetectorAvailability::Available ? "AVAILABLE" : "MISSING";
   }
@@ -1662,7 +1680,7 @@ private:
     if(finishPolicy){const char* named=strstr(body,"COMPLETE_CURRENT_LAP");const char* full=strstr(body,"COMPLETE_FULL_RACE_DISTANCE");const char* raw=strstr(body,"finishPolicy");*finishPolicy=named?1:full?2:(raw?uint8_t(strtoul(strchr(raw,':')+1,nullptr,10)):0);}
     return true;
   }
-  static bool setupFromBody(httpd_req_t* request,uint32_t& correlation,SessionMode& mode,uint32_t& lapTarget,uint16_t& duration,uint8_t& finish,uint32_t& revision,uint64_t* traceId=nullptr,uint8_t* assignmentMask=nullptr,InputIdentity* lane1=nullptr,InputIdentity* lane2=nullptr){
+  static bool setupFromBody(httpd_req_t* request,uint32_t& correlation,SessionMode& mode,uint32_t& lapTarget,uint16_t& duration,uint8_t& finish,uint32_t& revision,uint64_t* traceId=nullptr,uint8_t* assignmentMask=nullptr,InputIdentity* lane1=nullptr,InputIdentity* lane2=nullptr,uint8_t* racerAssignmentMask=nullptr,uint32_t* lane1MugId=nullptr,uint32_t* lane2MugId=nullptr){
     if(request->content_len<=0||request->content_len>=512)return false;char body[512]{};int received=0;while(received<request->content_len){const int part=httpd_req_recv(request,body+received,request->content_len-received);if(part<=0)return false;received+=part;}
     const char* c=strstr(body,"\"correlationId\"");const char* cc=c?strchr(c,':'):nullptr;const char* m=strstr(body,"\"mode\"");const char* mc=m?strchr(m,':'):nullptr;const char* lp=strstr(body,"\"lapTarget\"");const char* lc=lp?strchr(lp,':'):nullptr;const char* du=strstr(body,"\"durationMinutes\"");const char* dc=du?strchr(du,':'):nullptr;const char* fp=strstr(body,"\"finishPolicy\"");const char* fc=fp?strchr(fp,':'):nullptr;const char* rv=strstr(body,"\"proposalRevision\"");const char* rc=rv?strchr(rv,':'):nullptr;
     if(!cc||!mc||!lc||!dc||!fc||!rc)return false;char* end=nullptr;const unsigned long cv=strtoul(cc+1,&end,10);if(!end||end==cc+1||cv==0||cv>UINT32_MAX)return false;correlation=uint32_t(cv);if(strstr(mc,"OPEN_PRACTICE"))mode=SessionMode::OpenPractice;else if(strstr(mc,"ENDURANCE"))mode=SessionMode::Endurance;else if(strstr(mc,"LAP_RACE"))mode=SessionMode::LapRace;else return false;lapTarget=uint32_t(strtoul(lc+1,nullptr,10));duration=uint16_t(strtoul(dc+1,nullptr,10));finish=uint8_t(strtoul(fc+1,nullptr,10));revision=uint32_t(strtoul(rc+1,nullptr,10));if(traceId){const char* t=strstr(body,"\"diagnosticTraceId\"");const char* tc=t?strchr(t,':'):nullptr;*traceId=tc?strtoull(tc+1,nullptr,10):0;}
@@ -1682,6 +1700,21 @@ private:
       };
       if (!parseIdentity("\"lane1Device\"", "\"lane1Capability\"", lane1, 0x01) ||
           !parseIdentity("\"lane2Device\"", "\"lane2Capability\"", lane2, 0x02)) return false;
+    }
+    if (racerAssignmentMask) {
+      *racerAssignmentMask = 0;
+      auto parseMug = [&](const char* key, uint32_t* value, uint8_t bit) {
+        const char* found = strstr(body, key); const char* colon = found ? strchr(found, ':') : nullptr;
+        if (!found) return true;
+        if (!colon || !value) return false;
+        const unsigned long mug = strtoul(colon + 1, nullptr, 10);
+        if (!mug || mug > UINT32_MAX) return false;
+        *value = static_cast<uint32_t>(mug);
+        *racerAssignmentMask = static_cast<uint8_t>(*racerAssignmentMask | bit);
+        return true;
+      };
+      if (!parseMug("\"lane1MugId\"", lane1MugId, 0x01) ||
+          !parseMug("\"lane2MugId\"", lane2MugId, 0x02)) return false;
     }
     return true;
   }
@@ -1959,6 +1992,15 @@ private:
     RequestTrace trace(instance(), "/proposal");
     client(request);BrowserInterface* browser=instance();char* json=static_cast<char*>(malloc(4096));size_t length=0;if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}if(!serializeProposal(browser->proposedRaceSetup(),browser->controllerEpoch_,browser->proposalRevision(),browser->readiness(),json,4096,length)){free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal unavailable");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);trace.complete(sent);return sent;
   }
+  static esp_err_t racersRoute(httpd_req_t* request){
+    RequestTrace trace(instance(), "/racers");
+    client(request); BrowserInterface* browser=instance(); char json[2048]{}; size_t length=0;
+    if(!serializeRacers(browser->proposedRaceSetup(),browser->proposalRevision(),json,sizeof(json),length)){
+      httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"racers unavailable"); trace.complete(ESP_ERR_INVALID_STATE); return ESP_FAIL;
+    }
+    httpd_resp_set_type(request,"application/json"); httpd_resp_set_hdr(request,"Cache-Control","no-store");
+    const esp_err_t sent=httpd_resp_sendstr(request,json); trace.complete(sent); return sent;
+  }
   static esp_err_t practiceSummaryRoute(httpd_req_t* request){
     RequestTrace trace(instance(), "/practice-summary");client(request);BrowserInterface* browser=instance();char* json=static_cast<char*>(malloc(2048));size_t length=0;if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"practice summary buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}if(!serializePracticeSummary(browser->noticeboard_.practiceSummary(),json,2048,length)){free(json);httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"practice summary unavailable");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);trace.complete(sent);return sent;
   }
@@ -1967,7 +2009,7 @@ private:
   }
   static esp_err_t finishDisplaySkipRoute(httpd_req_t* request){return operationRoute(request,SessionOperation::SkipFinishDisplay);}
   static esp_err_t setupRoute(httpd_req_t* request){
-    uint32_t correlation=0,lapTarget=0,revision=0;uint64_t traceId=0;SessionMode mode=SessionMode::None;uint16_t duration=0;uint8_t finish=0,assignmentMask=0;InputIdentity lane1{},lane2{};if(!setupFromBody(request,correlation,mode,lapTarget,duration,finish,revision,&traceId,&assignmentMask,&lane1,&lane2)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"complete proposal required");return ESP_FAIL;}const uint64_t owner=client(request);if(!instance()->submitSetup(correlation,instance()->context(owner),owner,mode,lapTarget,duration,finish,revision,traceId,assignmentMask,lane1,lane2)){httpd_resp_set_status(request,"503 Service Unavailable");return httpd_resp_sendstr(request,"request unavailable");}char json[96];snprintf(json,sizeof(json),"{\"submitted\":true,\"correlationId\":%lu}",(unsigned long)correlation);httpd_resp_set_status(request,"202 Accepted");httpd_resp_set_type(request,"application/json");return httpd_resp_sendstr(request,json);
+    uint32_t correlation=0,lapTarget=0,revision=0;uint64_t traceId=0;SessionMode mode=SessionMode::None;uint16_t duration=0;uint8_t finish=0,assignmentMask=0,racerAssignmentMask=0;uint32_t lane1MugId=0,lane2MugId=0;InputIdentity lane1{},lane2{};if(!setupFromBody(request,correlation,mode,lapTarget,duration,finish,revision,&traceId,&assignmentMask,&lane1,&lane2,&racerAssignmentMask,&lane1MugId,&lane2MugId)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"complete proposal required");return ESP_FAIL;}const uint64_t owner=client(request);if(!instance()->submitSetup(correlation,instance()->context(owner),owner,mode,lapTarget,duration,finish,revision,traceId,assignmentMask,lane1,lane2,racerAssignmentMask,lane1MugId,lane2MugId)){httpd_resp_set_status(request,"503 Service Unavailable");return httpd_resp_sendstr(request,"request unavailable");}char json[96];snprintf(json,sizeof(json),"{\"submitted\":true,\"correlationId\":%lu}",(unsigned long)correlation);httpd_resp_set_status(request,"202 Accepted");httpd_resp_set_type(request,"application/json");return httpd_resp_sendstr(request,json);
   }
   static esp_err_t operationRoute(httpd_req_t* request, SessionOperation operation, bool confirmed=false) {
     uint32_t correlation=0;uint64_t traceId=0;if(!correlationFromBody(request,correlation,nullptr,nullptr,nullptr,&traceId)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"correlationId required");return ESP_FAIL;}
@@ -2940,6 +2982,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/network/disconnect", HTTP_POST, networkDisconnectRoute, nullptr},
       {"/network/forget", HTTP_POST, networkForgetRoute, nullptr},
       {"/proposal", HTTP_GET, proposalRoute, nullptr},
+      {"/racers", HTTP_GET, racersRoute, nullptr},
       {"/practice-summary", HTTP_GET, practiceSummaryRoute, nullptr},
       {"/finish-display", HTTP_GET, finishDisplayRoute, nullptr},
       {"/results", HTTP_GET, resultsRoute, nullptr},

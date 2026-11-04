@@ -148,7 +148,7 @@ pp::SimulatedDetectorProvider simulatedDetectorProvider;
 pp::InputModule input(bus,bus.attach(pp::Role::Input),simulatedDetectorProvider);
 pp::ActiveSessionDefinition activeSession;
 const auto raceControlEndpoint=bus.attach(pp::Role::RaceControl);
-pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession,&history,&records,&simulatedDetectorProvider,&trackConfigurationMemory);
+pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession,&history,&records,&simulatedDetectorProvider,&trackConfigurationMemory,&memory);
 const auto raceEngineEndpoint=bus.attach(pp::Role::RaceEngine);
 pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint,activeSession,&history,&records,
 #if defined(PP_PHASE8B_REAL_SD)
@@ -972,6 +972,8 @@ void loop(){
 #endif
 #else
       proposedRaceSetup.lapTarget=workingConfiguration.laps;
+      proposedRaceSetup.selectedMugId=workingConfiguration.lane1MugId;
+      proposedRaceSetup.secondMugId=workingConfiguration.lane2MugId;
 #endif
       proposedRaceSetup.activeLanes = workingTrackConfiguration.laneCount;
       proposedRaceSetup.entries[0].startFinish = {workingTrackConfiguration.lane1, 1, pp::InputRole::StartFinish};

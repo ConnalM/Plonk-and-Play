@@ -213,6 +213,22 @@ Focused evidence is
 simulated detectors and keyboard-triggered racing are covered, while physical
 detector discovery/drivers and physical acceptance remain open.
 
+WP7.3 racer/MUG selection is now implemented as a bounded software-only
+extension (4 November 2026). The normal Browser exposes two lane selectors
+through the authoritative `/racers` and existing `/request/setup` boundaries;
+Race Control rejects duplicate/invalid identities, persists accepted lane
+selection through the existing `Memory`/`Store` configuration record, and
+reconstructs the latest accepted identities on restart. START freezes those
+identities into the existing Session Definition. Focused evidence is
+`acceptance/stage7/racer_selection_test.cpp`,
+`acceptance/stage7/run_racer_selection_test.ps1`,
+`acceptance/stage7/racer_browser_contract.py`, and
+`acceptance/stage7/run_racer_browser_contract.ps1`. The existing product
+defaults (MUG 1/MUG 2) and persisted internal IDs are selectable; profile
+creation, naming/editing and deletion remain outside this slice because no
+saved-MUG catalog exists in the current implementation and must not become a
+second configuration authority.
+
 Productise real detection: sensor addressing, lane assignment, health, Track Setup, minimum-lap/detection behaviour, connections/cabling, gantry and 4/8-lane expansion architecture. Final MCP23017/alternative choice is made here, not assumed by WP0.
 
 **G7 closure:** two-lane product-intent detection works reliably; setup/fault/replacement behaviour is defined and tested; expansion architecture is sufficiently proven for the v1 promise.

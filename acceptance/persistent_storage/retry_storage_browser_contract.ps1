@@ -47,7 +47,7 @@ if ((Get-Presentation 'HEALTHY' 'HEALTHY') -ne 'NO_RECOVERY_WARNING') { throw 'H
 if ((Get-Presentation 'MOUNTED' 'CORRUPT') -ne 'HISTORY_DEGRADED') { throw 'Logical History degradation must remain distinct' }
 if ((Get-Presentation 'UNKNOWN' 'UNKNOWN') -ne 'STORAGE_UNAVAILABLE') { throw 'Unavailable physical storage must show recovery state' }
 
-if ($embed -notmatch 'replace_once\("</script>", retry_storage_js') {
+if ($embed -notmatch 'inject_before_first_script_close\(retry_storage_js') {
     throw 'Retry storage UI is not injected into the generated production Browser page'
 }
 if ($page -match 'SD\.begin|mount\(') {

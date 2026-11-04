@@ -54,9 +54,18 @@ struct Configuration {
   bool powerIfAvailable = true;
   // Only Lap Race is implemented as proposed data, not executable race logic.
   uint8_t mode = 1;
+  // The remembered two-lane racer selection belongs to the same working
+  // configuration record as ordinary race settings.  These are stable MUG
+  // identities, not lane or detector identities.
+  uint32_t lane1MugId = 1;
+  uint32_t lane2MugId = 2;
 };
 inline bool valid(const Configuration& c) {
-  return c.lanes > 0 && c.laps > 0 && c.mode == 1 && c.optionalFeatures == 0;
+  return c.lanes > 0 && c.lanes <= PP_MAX_ENTRIES && c.laps > 0 &&
+         c.mode >= static_cast<uint8_t>(SessionMode::LapRace) &&
+         c.mode <= static_cast<uint8_t>(SessionMode::Endurance) &&
+         c.optionalFeatures == 0 && c.lane1MugId != 0 &&
+         (c.lanes < 2 || (c.lane2MugId != 0 && c.lane1MugId != c.lane2MugId));
 }
 enum class LoadStatus : uint8_t { Remembered, DefaultsMissing, DefaultsInvalid, DefaultsStorageError };
 struct Message {
@@ -74,6 +83,9 @@ struct Message {
   InputIdentity setupLane1{};
   InputIdentity setupLane2{};
   uint8_t setupAssignmentMask = 0;
+  uint32_t setupLane1MugId = 0;
+  uint32_t setupLane2MugId = 0;
+  uint8_t setupRacerAssignmentMask = 0;
   Configuration configuration{};
   LoadStatus loadStatus = LoadStatus::DefaultsMissing;
   uint32_t probe = 0;
@@ -259,7 +271,12 @@ public:
   virtual bool reclaim(unsigned slot) { (void)slot; return true; }
   virtual ~Store() = default;
 };
-class Memory {
+class RacerSelectionPersistence {
+public:
+  virtual ~RacerSelectionPersistence() = default;
+  virtual bool save(uint32_t lane1MugId, uint32_t lane2MugId) = 0;
+};
+class Memory : public RacerSelectionPersistence {
 public:
   static constexpr size_t RecordSize=32;
   explicit Memory(Store& s):store_(s) {}
@@ -270,9 +287,9 @@ public:
     const bool hasA=store_.read(0,a,sizeof(a)), hasB=store_.read(1,b,sizeof(b));
     Configuration ca,cb; uint32_t ga=0,gb=0;
     const bool va=hasA&&decode(a,ca,ga), vb=hasB&&decode(b,cb,gb);
-    if (!va&&!vb) return hasA||hasB ? LoadStatus::DefaultsInvalid : LoadStatus::DefaultsMissing;
+    if (!va&&!vb) { current_=c; loaded_=true; return hasA||hasB ? LoadStatus::DefaultsInvalid : LoadStatus::DefaultsMissing; }
     const bool useB=vb&&(!va || gb>ga);
-    c=useB?cb:ca; generation_=useB?gb:ga; active_=useB?1:0;
+    c=useB?cb:ca; generation_=useB?gb:ga; active_=useB?1:0; current_=c; loaded_=true;
     return LoadStatus::Remembered;
   }
   bool save(const Configuration& c) {
@@ -282,25 +299,42 @@ public:
     if (!store_.write(target,bytes,sizeof(bytes))) return false;
     uint8_t verify[RecordSize]{};
     if (!store_.read(target,verify,sizeof(verify)) || memcmp(bytes,verify,sizeof(bytes))) return false;
-    active_=target; ++generation_; return true;
+    active_=target; ++generation_; current_=c; loaded_=true; return true;
+  }
+  bool save(uint32_t lane1MugId, uint32_t lane2MugId) override {
+    if (!loaded_) { Configuration ignored{}; const LoadStatus status=load(ignored); if (status==LoadStatus::DefaultsStorageError) return false; }
+    Configuration candidate=current_;
+    candidate.lane1MugId=lane1MugId; candidate.lane2MugId=lane2MugId;
+    return save(candidate);
   }
   bool resetToDefaults() { return save(Configuration{}); }
   bool erase() { return store_.available() && store_.clear(); }
   static void encode(const Configuration& c,uint32_t generation,uint8_t* p) {
-    memset(p,0,RecordSize); put(p,0x31505043); put(p+4,generation);
-    put(p+8,c.lanes); put(p+12,c.laps); put(p+16,c.optionalFeatures);
-    p[20]=c.soundIfAvailable; p[21]=c.powerIfAvailable; p[22]=c.mode;
+    memset(p,0,RecordSize); put(p,0x32505043); put(p+4,generation);
+    p[8]=static_cast<uint8_t>(c.lanes); put(p+9,c.lane1MugId); put(p+13,c.laps);
+    put(p+17,c.optionalFeatures); p[21]=c.soundIfAvailable; p[22]=c.powerIfAvailable;
+    p[23]=c.mode; put(p+24,c.lane2MugId);
     put(p+28,checksum(p,28));
   }
 private:
-  Store& store_; uint32_t generation_=0; unsigned active_=1;
+  Store& store_; uint32_t generation_=0; unsigned active_=1; Configuration current_{}; bool loaded_=false;
   static void put(uint8_t* p,uint32_t v) { for(unsigned i=0;i<4;++i)p[i]=uint8_t(v>>(8*i)); }
   static uint32_t get(const uint8_t* p) { uint32_t v=0;for(unsigned i=0;i<4;++i)v|=uint32_t(p[i])<<(8*i);return v; }
   static uint32_t checksum(const uint8_t* p,size_t n) { uint32_t h=2166136261u;while(n--)h=(h^*p++)*16777619u;return h; }
   static bool decode(const uint8_t* p,Configuration& c,uint32_t& generation) {
-    if(get(p)!=0x31505043 || get(p+28)!=checksum(p,28) || get(p+8)>UINT16_MAX || p[20]>1 || p[21]>1) return false;
-    c.lanes=get(p+8);c.laps=get(p+12);c.optionalFeatures=get(p+16);
-    c.soundIfAvailable=p[20];c.powerIfAvailable=p[21];c.mode=p[22];generation=get(p+4);
+    const uint32_t magic=get(p);
+    if((magic!=0x31505043 && magic!=0x32505043) || get(p+28)!=checksum(p,28)) return false;
+    if(magic==0x31505043) {
+      if(p[20]>1 || p[21]>1) return false;
+      c.lanes=static_cast<uint16_t>(get(p+8)); c.laps=get(p+12); c.optionalFeatures=get(p+16);
+      c.soundIfAvailable=p[20]; c.powerIfAvailable=p[21]; c.mode=p[22];
+      c.lane1MugId=1; c.lane2MugId=2;
+    } else {
+      if(p[21]>1 || p[22]>1) return false;
+      c.lanes=p[8]; c.lane1MugId=get(p+9); c.laps=get(p+13); c.optionalFeatures=get(p+17);
+      c.soundIfAvailable=p[21]; c.powerIfAvailable=p[22]; c.mode=p[23]; c.lane2MugId=get(p+24);
+    }
+    generation=get(p+4);
     return generation>0&&valid(c);
   }
 };

@@ -19,7 +19,7 @@ public:
   static constexpr Time DefaultRedIntervalUs=1000000;
   static constexpr Time DefaultFinalDelayMinUs=500000;
   static constexpr Time DefaultFinalDelayMaxUs=2000000;
-  RaceControlModule(Bus& bus,Bus::Endpoint endpoint,ActiveSessionDefinition& active, HistoryStore* history=nullptr, TrackRecordStore* records=nullptr, DetectorProvider* detectorProvider=nullptr, TrackConfigurationPersistence* trackConfigurationPersistence=nullptr):bus_(bus),endpoint_(endpoint),active_(active),history_(history),records_(records),detectorProvider_(detectorProvider),trackConfigurationPersistence_(trackConfigurationPersistence) {}
+  RaceControlModule(Bus& bus,Bus::Endpoint endpoint,ActiveSessionDefinition& active, HistoryStore* history=nullptr, TrackRecordStore* records=nullptr, DetectorProvider* detectorProvider=nullptr, TrackConfigurationPersistence* trackConfigurationPersistence=nullptr, RacerSelectionPersistence* racerSelectionPersistence=nullptr):bus_(bus),endpoint_(endpoint),active_(active),history_(history),records_(records),detectorProvider_(detectorProvider),trackConfigurationPersistence_(trackConfigurationPersistence),racerSelectionPersistence_(racerSelectionPersistence) {}
   // Stage 6/7 preparation supplies an already-fixed external definition. It
   // does not exercise Browser START acceptance or create a competing path.
   void resetForFixture(){definition_=nullptr;setup_=nullptr;requiredCapabilityAvailable_=false;practiceSummaryPending_=false;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=goPresentationUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
@@ -267,6 +267,21 @@ private:
       candidate.startFinish = candidate.entries[0].startFinish;
       candidate.secondStartFinish = candidate.entries[1].startFinish;
     }
+    if (request.setupRacerAssignmentMask != 0) {
+      // Racer identity is a separate two-lane assignment from detector
+      // identity. Race Control validates and publishes both through the same
+      // authoritative proposal boundary; Browser values are never trusted.
+      if (request.setupRacerAssignmentMask != 0x03 || candidate.activeLanes != 2 ||
+          !request.setupLane1MugId || !request.setupLane2MugId ||
+          request.setupLane1MugId == request.setupLane2MugId) {
+        reject(request.correlation, RequestRejection::InvalidRaceSetup);
+        return;
+      }
+      candidate.entries[0].mugId = request.setupLane1MugId;
+      candidate.entries[1].mugId = request.setupLane2MugId;
+      candidate.selectedMugId = request.setupLane1MugId;
+      candidate.secondMugId = request.setupLane2MugId;
+    }
     if(!supportedMode(candidate.mode)||!valid(candidate)){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
     if (request.setupAssignmentMask != 0 &&
         (!detectorProvider_ || !requiredDetectorCapabilitiesHealthy(candidate, *detectorProvider_))) {
@@ -276,6 +291,13 @@ private:
     if (request.setupAssignmentMask != 0) {
       const TrackConfiguration configuration = TrackConfiguration::fromSetup(candidate);
       if (!trackConfigurationPersistence_ || !trackConfigurationPersistence_->save(configuration)) {
+        reject(request.correlation, RequestRejection::StorageUnavailable);
+        return;
+      }
+    }
+    if (request.setupRacerAssignmentMask != 0) {
+      if (!racerSelectionPersistence_ ||
+          !racerSelectionPersistence_->save(candidate.entries[0].mugId, candidate.entries[1].mugId)) {
         reject(request.correlation, RequestRejection::StorageUnavailable);
         return;
       }
@@ -319,7 +341,7 @@ private:
     if(definition_->entryCount()>1){proposedSetup_.secondStartFinish=definition_->role(1);proposedSetup_.secondMugId=definition_->entry(1).mugId;}
     proposedSetup_=normalised(proposedSetup_);setup_=&proposedSetup_;++proposalRevision_;
   }
-  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;DetectorProvider* detectorProvider_=nullptr;TrackConfigurationPersistence* trackConfigurationPersistence_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
+  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;DetectorProvider* detectorProvider_=nullptr;TrackConfigurationPersistence* trackConfigurationPersistence_=nullptr;RacerSelectionPersistence* racerSelectionPersistence_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
   SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0,finalDelay_=0,durationExpiry_=0,durationRemaining_=0,finishDisplayUntil_=0,goPresentationUntil_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=false,startCommitted_=false,integrityFaulted_=false,practiceSummaryPending_=false,pauseSettled_=false,durationExpired_=false,durationPublished_=false,resumeScheduled_=false,finishDisplayActive_=false;uint8_t finishDisplayDurationSeconds_=5;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
   uint32_t nextSessionId_=1,nextRaceEntryId_=1;
   ProposedRaceSetup proposedSetup_{}; uint32_t proposalRevision_=1;
