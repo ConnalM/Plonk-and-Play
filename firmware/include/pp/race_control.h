@@ -245,6 +245,14 @@ private:
     if(state_!=SessionLifecycle::Ready||startCommitted_){reject(request.correlation,RequestRejection::LifecycleNotStartable);return;}
     if(!setup_){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
     if(request.proposalRevision!=proposalRevision_){reject(request.correlation,RequestRejection::ProposalRevisionConflict);return;}
+    // Detector installation and racer identity persistence are independent
+    // Browser actions.  Refuse a hand-crafted combined mutation before either
+    // namespace can be committed; the generic Store boundary cannot atomically
+    // publish both records together.
+    if (request.setupAssignmentMask != 0 && request.setupRacerAssignmentMask != 0) {
+      reject(request.correlation, RequestRejection::InvalidRaceSetup);
+      return;
+    }
     ProposedRaceSetup candidate=*setup_;
     candidate.mode=request.sessionMode;
     candidate.lapTarget=request.setupLapTarget;

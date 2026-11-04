@@ -229,6 +229,20 @@ creation, naming/editing and deletion remain outside this slice because no
 saved-MUG catalog exists in the current implementation and must not become a
 second configuration authority.
 
+The racer-selection persistence boundary was tightened on 4 November 2026.
+Race Control now rejects a request that combines detector and racer assignment
+masks before either namespace is written. `Memory` stages racer configuration
+outside its remembered A/B slots, verifies it, publishes through the existing
+metadata boundary, and treats cleanup as non-authoritative housekeeping. A
+failed racer change therefore preserves the prior proposal and reconstruction
+state even when staging cleanup fails. Focused evidence now also covers staging
+write/read-back, publication and cleanup failures, restart after each rejected
+change, successful recovery, ordinary settings preservation and explicit
+reconstruction of a valid old-format record with MUG 1/MUG 2 defaults.
+Evidence remains in `acceptance/stage7/racer_selection_test.cpp` and
+`acceptance/stage7/run_racer_selection_test.ps1`; this does not implement the
+deferred saved-MUG catalog or profile management.
+
 Productise real detection: sensor addressing, lane assignment, health, Track Setup, minimum-lap/detection behaviour, connections/cabling, gantry and 4/8-lane expansion architecture. Final MCP23017/alternative choice is made here, not assumed by WP0.
 
 **G7 closure:** two-lane product-intent detection works reliably; setup/fault/replacement behaviour is defined and tested; expansion architecture is sufficiently proven for the v1 promise.

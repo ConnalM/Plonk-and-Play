@@ -279,6 +279,9 @@ public:
 class Memory : public RacerSelectionPersistence {
 public:
   static constexpr size_t RecordSize=32;
+  // Slot 5 is an unreferenced staging object.  Slots 0 and 1 remain the only
+  // remembered configuration namespace considered by load().
+  static constexpr unsigned StagingSlot=5;
   explicit Memory(Store& s):store_(s) {}
   LoadStatus load(Configuration& c) {
     c=Configuration{};
@@ -296,9 +299,25 @@ public:
     if (!store_.available() || !valid(c) || generation_==UINT32_MAX) return false;
     uint8_t bytes[RecordSize]{}; encode(c,generation_+1,bytes);
     const unsigned target=1-active_;
-    if (!store_.write(target,bytes,sizeof(bytes))) return false;
+    // Stage outside the remembered A/B namespace.  A failed write, read-back
+    // or cleanup can therefore never make a rejected racer selection win
+    // reconstruction after restart.
+    if (!store_.writeUnreferenced(StagingSlot,bytes,sizeof(bytes))) return false;
     uint8_t verify[RecordSize]{};
-    if (!store_.read(target,verify,sizeof(verify)) || memcmp(bytes,verify,sizeof(bytes))) return false;
+    if (!store_.read(StagingSlot,verify,sizeof(verify)) || memcmp(bytes,verify,sizeof(bytes))) {
+      (void)store_.reclaim(StagingSlot);
+      return false;
+    }
+    // This is the sole remembered-configuration publication boundary.  Store
+    // metadata semantics preserve the previous authoritative A/B state when
+    // publication reports failure.
+    if (!store_.writeMetadata(target,bytes,sizeof(bytes))) {
+      (void)store_.reclaim(StagingSlot);
+      return false;
+    }
+    // Cleanup is post-publication housekeeping; load() never considers the
+    // staging object authoritative, even if reclamation fails.
+    (void)store_.reclaim(StagingSlot);
     active_=target; ++generation_; current_=c; loaded_=true; return true;
   }
   bool save(uint32_t lane1MugId, uint32_t lane2MugId) override {
