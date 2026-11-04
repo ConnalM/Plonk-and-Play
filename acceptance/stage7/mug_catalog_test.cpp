@@ -19,6 +19,8 @@ public:
   bool failStagingRead = false;
   bool failPublication = false;
   bool failCleanup = false;
+  bool failCatalogReadA = false;
+  bool failCatalogReadB = false;
 
   bool available() const override { return available_; }
   bool read(unsigned slot, uint8_t* data, size_t size) override {
@@ -29,6 +31,11 @@ public:
       failStagingRead = false;
     }
     return true;
+  }
+  ReadResult readResult(unsigned slot, uint8_t* data, size_t size) override {
+    if ((slot == pp::MugCatalog::CatalogSlotA && failCatalogReadA) ||
+        (slot == pp::MugCatalog::CatalogSlotB && failCatalogReadB)) return ReadResult::Failed;
+    return Store::readResult(slot, data, size);
   }
   bool write(unsigned slot, const uint8_t* data, size_t size) override {
     if (!available_ || slot >= SlotCount || !data) return false;
@@ -72,6 +79,10 @@ bool restartHas(CatalogStore& store, uint32_t id, const char* expected,
 int main() {
   using namespace pp;
   bool ok = true;
+
+  ok &= require(MugCatalog::RecordSize == 16824 && MugCatalog::CatalogSlotA == 210 &&
+                MugCatalog::CatalogSlotB == 211 && MugCatalog::StagingSlot == 212,
+                "catalog record size and slots fit the dedicated SD namespace");
 
   CatalogStore store;
   MugCatalog catalog(store);
@@ -174,6 +185,20 @@ int main() {
   ok &= require(failureCatalog.rename(3, "Recovered") == MugCatalog::Result::Accepted &&
                 restartHas(failureStore, 3, "Recovered"),
                 "catalog recovers and accepts a later operation after failed saves");
+
+  CatalogStore readFailureStore;
+  MugCatalog readFailureBaseline(readFailureStore);
+  ok &= require(readFailureBaseline.load() == MugCatalog::LoadResult::Empty &&
+                readFailureBaseline.create("Retained", id) == MugCatalog::Result::Accepted,
+                "read-failure test has a committed catalog record");
+  readFailureStore.failCatalogReadA = true;
+  MugCatalog failedLoad(readFailureStore);
+  ok &= require(failedLoad.load() == MugCatalog::LoadResult::StorageUnavailable &&
+                failedLoad.create("MustNotOverwrite", id) == MugCatalog::Result::NotLoaded,
+                "an existing-slot read failure fails closed instead of commissioning empty state");
+  readFailureStore.failCatalogReadA = false;
+  ok &= require(restartHas(readFailureStore, 3, "Retained"),
+                "failed catalog load leaves the previously committed profile intact for restart");
 
   CatalogStore capacityStore;
   MugCatalog capacity(capacityStore);

@@ -6,6 +6,7 @@
 
 #include <Arduino.h>
 #include <FS.h>
+#include <errno.h>
 
 #include "core.h"
 #include "race_engine.h"
@@ -94,21 +95,33 @@ public:
     return mounted_;
   }
 
-  bool read(unsigned slot, uint8_t* data, size_t size) override {
-    if (!mounted_ || !data) return false;
+  ReadResult readResult(unsigned slot, uint8_t* data, size_t size) override {
+    if (!mounted_ || !data) return ReadResult::Failed;
     auto lease = owner_.lock();
-    if (!lease || !mounted_ || !data) return false;
-    File file = owner_.open(path(slot), FILE_READ);
-    if (!file) return false;
+    if (!lease || !mounted_ || !data) return ReadResult::Failed;
+    const String target = path(slot);
+    // Arduino-ESP32's VFS layer preserves the POSIX open/stat error. Missing
+    // paths report ENOENT/ENOTDIR; any other open error is a storage failure.
+    // This avoids collapsing an existing slot's I/O failure into first-use
+    // absence before the catalog can decide whether commissioning is safe.
+    errno = 0;
+    File file = owner_.open(target, FILE_READ);
+    if (!file) {
+      return (errno == ENOENT || errno == ENOTDIR) ? ReadResult::Missing : ReadResult::Failed;
+    }
     const size_t actual = file.size();
     if (actual != size) {
       memset(data, 0, size);
       file.close();
-      return true;
+      return ReadResult::Readable;
     }
     const size_t got = file.read(data, size);
     file.close();
-    return got == size;
+    return got == size ? ReadResult::Readable : ReadResult::Failed;
+  }
+
+  bool read(unsigned slot, uint8_t* data, size_t size) override {
+    return readResult(slot, data, size) == ReadResult::Readable;
   }
 
   bool write(unsigned slot, const uint8_t* data, size_t size) override {

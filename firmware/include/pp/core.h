@@ -236,8 +236,16 @@ private:
 enum class StoreHealth : uint8_t { Unknown, Healthy, Low, Insufficient, Unavailable, Corrupt, Unsupported };
 class Store {
 public:
+  enum class ReadResult : uint8_t { Missing, Readable, Failed };
   virtual bool available() const = 0;
   virtual bool read(unsigned slot, uint8_t* data, size_t size) = 0;
+  // A legacy Store may only expose the historical boolean read contract. Its
+  // false result remains a missing/invalid record for compatibility; the
+  // production SD backend overrides this seam so an I/O failure cannot be
+  // mistaken for a first-use empty namespace.
+  virtual ReadResult readResult(unsigned slot, uint8_t* data, size_t size) {
+    return read(slot, data, size) ? ReadResult::Readable : ReadResult::Missing;
+  }
   virtual bool write(unsigned slot, const uint8_t* data, size_t size) = 0;
   // Payload transactions may explicitly replace a slot that the caller has
   // proven is absent from committed metadata. Metadata writes continue to use

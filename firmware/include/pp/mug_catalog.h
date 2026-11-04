@@ -91,18 +91,29 @@ public:
     uint16_t firstCount = 0, secondCount = 0;
     uint32_t firstGeneration = 0, secondGeneration = 0;
     uint32_t firstNextId = FirstSavedId, secondNextId = FirstSavedId;
-    const bool hasFirst = store_.read(CatalogSlotA, first, RecordSize);
-    const bool hasSecond = store_.read(CatalogSlotB, second, RecordSize);
-    const bool firstValid = hasFirst && decode(first, firstEntries, firstCount,
-                                               firstGeneration, firstNextId);
-    const bool secondValid = hasSecond && decode(second, secondEntries, secondCount,
-                                                 secondGeneration, secondNextId);
-    const bool anyRecord = hasFirst || hasSecond;
-    if (!firstValid && !secondValid && anyRecord) {
-      free(first); free(second); free(firstEntries); free(secondEntries);
-      return LoadResult::Corrupt;
-    }
+    const Store::ReadResult firstRead = store_.readResult(CatalogSlotA, first, RecordSize);
+    const Store::ReadResult secondRead = store_.readResult(CatalogSlotB, second, RecordSize);
+    const bool firstReadable = firstRead == Store::ReadResult::Readable;
+    const bool secondReadable = secondRead == Store::ReadResult::Readable;
+    const bool firstValid = firstReadable && decode(first, firstEntries, firstCount,
+                                                    firstGeneration, firstNextId);
+    const bool secondValid = secondReadable && decode(second, secondEntries, secondCount,
+                                                      secondGeneration, secondNextId);
+    const bool anyRecord = firstReadable || secondReadable;
+    const bool readFailure = firstRead == Store::ReadResult::Failed ||
+                             secondRead == Store::ReadResult::Failed;
     if (!firstValid && !secondValid) {
+      if (readFailure) {
+        // Do not commission an empty in-memory catalog after an existing
+        // namespace could not be read. The caller must retain the previous
+        // authority and wait for storage to recover.
+        free(first); free(second); free(firstEntries); free(secondEntries);
+        return LoadResult::StorageUnavailable;
+      }
+      if (anyRecord) {
+        free(first); free(second); free(firstEntries); free(secondEntries);
+        return LoadResult::Corrupt;
+      }
       loaded_ = true;
       clearState();
       free(first); free(second); free(firstEntries); free(secondEntries);
