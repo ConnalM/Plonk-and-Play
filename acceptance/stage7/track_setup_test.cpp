@@ -12,11 +12,13 @@ bool require(bool value, const char* message) {
 class MemoryStore final : public pp::Store {
 public:
   bool failWrite = false;
+  bool failMetadataWrite = false;
+  bool failCleanup = false;
   bool corruptNextRead = false;
   uint32_t writeCalls = 0;
   bool available() const override { return true; }
   bool read(unsigned slot, uint8_t* data, size_t size) override {
-    if (slot >= 4 || !present[slot] || size != sizeof(bytes[slot])) return false;
+    if (slot >= 5 || !present[slot] || size != sizeof(bytes[slot])) return false;
     std::memcpy(data, bytes[slot], size);
     if (corruptNextRead) {
       data[0] ^= 0xff;
@@ -25,15 +27,20 @@ public:
     return true;
   }
   bool write(unsigned slot, const uint8_t* data, size_t size) override {
-    if (failWrite || slot >= 4 || size != sizeof(bytes[slot])) return false;
+    if (failWrite || slot >= 5 || size != sizeof(bytes[slot])) return false;
     ++writeCalls;
     std::memcpy(bytes[slot], data, size);
     present[slot] = true;
     return true;
   }
+  bool writeMetadata(unsigned slot, const uint8_t* data, size_t size) override {
+    if (failMetadataWrite) return false;
+    return write(slot, data, size);
+  }
+  bool reclaim(unsigned) override { return !failCleanup; }
 private:
-  bool present[4]{};
-  uint8_t bytes[4][pp::TrackConfigurationMemory::RecordSize]{};
+  bool present[5]{};
+  uint8_t bytes[5][pp::TrackConfigurationMemory::RecordSize]{};
 };
 
 pp::ProposedRaceSetup twoLaneSetup() {
@@ -190,26 +197,51 @@ int main() {
 
   const uint32_t revisionBeforeReadbackFailure = control.proposalRevision();
   store.corruptNextRead = true;
+  store.failCleanup = true;
   ok &= require(submit(bus, presentation, control, detectorC, detectorD,
                        RequestRejection::StorageUnavailable, 9),
-                "failed Track Setup read-back verification is rejected");
+                "failed Track Setup staged read-back verification is rejected");
   ok &= require(control.proposalRevision() == revisionBeforeReadbackFailure &&
                 control.proposedRaceSetup()->entries[0].startFinish.input == proposalBeforeWriteFailure.entries[0].startFinish.input &&
                 control.proposedRaceSetup()->entries[1].startFinish.input == proposalBeforeWriteFailure.entries[1].startFinish.input,
                 "failed read-back preserves authoritative proposal and revision");
   ok &= require(remembered.load(loaded) == LoadStatus::Remembered &&
                 loaded.lane1 == detectorE && loaded.lane2 == detectorF,
-                "failed read-back preserves previous remembered configuration");
+                "verification failure plus cleanup failure preserves previous remembered configuration");
+  TrackConfigurationMemory verificationFailureRestart(store);
+  TrackConfiguration reconstructedAfterVerificationFailure{};
+  ok &= require(verificationFailureRestart.load(reconstructedAfterVerificationFailure) == LoadStatus::Remembered &&
+                reconstructedAfterVerificationFailure.lane1 == detectorE &&
+                reconstructedAfterVerificationFailure.lane2 == detectorF,
+                "verification failure plus cleanup failure cannot become authoritative after restart");
+
+  store.failCleanup = false;
+  store.failMetadataWrite = true;
+  store.failCleanup = true;
+  ok &= require(submit(bus, presentation, control, detectorC, detectorD,
+                       RequestRejection::StorageUnavailable, 10),
+                "failed metadata publication is rejected");
+  store.failMetadataWrite = false;
+  ok &= require(remembered.load(loaded) == LoadStatus::Remembered &&
+                loaded.lane1 == detectorE && loaded.lane2 == detectorF,
+                "metadata publication failure plus cleanup failure preserves previous remembered configuration");
+  TrackConfigurationMemory publicationFailureRestart(store);
+  TrackConfiguration reconstructedAfterPublicationFailure{};
+  ok &= require(publicationFailureRestart.load(reconstructedAfterPublicationFailure) == LoadStatus::Remembered &&
+                reconstructedAfterPublicationFailure.lane1 == detectorE &&
+                reconstructedAfterPublicationFailure.lane2 == detectorF,
+                "metadata publication failure plus cleanup failure cannot become authoritative after restart");
+  store.failCleanup = false;
 
   ok &= require(submit(bus, presentation, control, detectorC, detectorD,
-                       RequestRejection::None, 10),
+                       RequestRejection::None, 11),
                 "Track Setup recovers after a failed save");
   ok &= require(remembered.load(loaded) == LoadStatus::Remembered &&
                 loaded.lane1 == detectorC && loaded.lane2 == detectorD,
                 "recovered save becomes the newest remembered configuration");
 
   ok &= require(submit(bus, presentation, control, detectorE, detectorF,
-                       RequestRejection::None, 11),
+                       RequestRejection::None, 12),
                 "another successive assignment is accepted");
   ok &= require(remembered.load(loaded) == LoadStatus::Remembered &&
                 loaded.lane1 == detectorE && loaded.lane2 == detectorF,

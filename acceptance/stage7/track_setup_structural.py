@@ -17,7 +17,7 @@ checks = {
     "Browser gates editing on controlling READY state": "C?.isMaster===true&&S?.lifecycle==='READY'" in browser,
     "Race Control validates assignments and provider health": "requiredDetectorCapabilitiesHealthy(candidate, *detectorProvider_)" in control and "RequestRejection::RequiredCapabilityUnavailable" in control,
     "Track Setup persistence is synchronous and failure-rejecting": "trackConfigurationPersistence_->save(configuration)" in control and "RequestRejection::StorageUnavailable" in control and "persistTrackConfigurationIfChanged" not in main,
-    "Track configuration uses existing Store boundary": "class TrackConfigurationMemory" in track and "store_.writeMetadata(target" in track and "store_.read(target" in track,
+    "Track configuration stages outside the authoritative namespace": "class TrackConfigurationMemory" in track and "StagingSlot = 4" in track and "store_.writeUnreferenced(StagingSlot" in track and "store_.read(StagingSlot" in track and "store_.writeMetadata(target" in track and "store_.read(target" not in track,
     "Track configuration is wired into production startup": "trackConfigurationMemory.load" in main and "&trackConfigurationMemory" in main,
     "Input and Race Engine boundaries remain unchanged": "input.tick(systemTime())" in main and "raceEngine.tick()" in main,
 }

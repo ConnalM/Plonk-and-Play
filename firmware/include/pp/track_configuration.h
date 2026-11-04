@@ -46,13 +46,17 @@ public:
 
 // A/B remembered Track Setup records.  Slots 2 and 3 are reserved for this
 // installation namespace and never overlap Memory's customer settings slots
-// 0 and 1.  Publication is the same write-then-read-verify pattern used by
-// Memory; the old record remains intact until its replacement is verified.
+// 0 and 1. Slot 4 is an unreferenced staging slot: load() deliberately never
+// considers it authoritative. A candidate is read-back verified there before
+// the Store metadata boundary publishes it to the inactive A/B record. This
+// makes cleanup best-effort without allowing an unverified candidate to win
+// reconstruction after a restart.
 class TrackConfigurationMemory final : public TrackConfigurationPersistence {
 public:
   static constexpr size_t RecordSize = 32;
   static constexpr unsigned FirstSlot = 2;
   static constexpr unsigned SecondSlot = 3;
+  static constexpr unsigned StagingSlot = 4;
 
   explicit TrackConfigurationMemory(Store& store) : store_(store) {}
 
@@ -81,19 +85,29 @@ public:
     uint8_t encoded[RecordSize]{};
     encode(configuration, generation_ + 1, encoded);
     const unsigned target = activeSlot_ == FirstSlot ? SecondSlot : FirstSlot;
-    // Track Setup is installation metadata. Use the Store's metadata boundary
-    // so an existing inactive copy can be replaced atomically by backends that
-    // require that distinction (NVS retains source compatibility).
-    if (!store_.writeMetadata(target, encoded, sizeof(encoded))) return false;
+    // Stage outside the remembered A/B namespace. Even if cleanup later fails,
+    // load() cannot mistake this object for an accepted installation change.
+    if (!store_.writeUnreferenced(StagingSlot, encoded, sizeof(encoded))) return false;
     uint8_t verify[RecordSize]{};
-    if (!store_.read(target, verify, sizeof(verify)) || memcmp(encoded, verify, sizeof(encoded)) != 0) {
-      // A successful write followed by an unverified read must never become
-      // the remembered record after restart. Invalidate only the inactive
-      // target; the previous committed copy remains untouched.
-      uint8_t invalid[RecordSize]{};
-      (void)store_.writeMetadata(target, invalid, sizeof(invalid));
+    if (!store_.read(StagingSlot, verify, sizeof(verify)) || memcmp(encoded, verify, sizeof(encoded)) != 0) {
+      // Cleanup is deliberately best-effort. The staged object is outside the
+      // load() namespace, so even a failed reclaim cannot become authoritative.
+      (void)store_.reclaim(StagingSlot);
       return false;
     }
+    // This is the sole publication boundary. Store::writeMetadata() is
+    // required to leave the prior inactive copy authoritative when it returns
+    // false; NVS putBytes() provides that key-level commit boundary and the SD
+    // backend stages/verifies before rename. No post-publication read-back is
+    // used: a failed read-back after publication cannot be safely rolled back
+    // through the generic Store contract.
+    if (!store_.writeMetadata(target, encoded, sizeof(encoded))) {
+      (void)store_.reclaim(StagingSlot);
+      return false;
+    }
+    // Reclamation is housekeeping only. A stale staging record is ignored by
+    // load() and therefore cannot change the accepted configuration.
+    (void)store_.reclaim(StagingSlot);
     activeSlot_ = target;
     ++generation_;
     return true;
