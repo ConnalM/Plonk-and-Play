@@ -172,7 +172,16 @@ rollback obligations are resolved.
 
 ### WP7 — Track hardware system
 **Status: OPEN.** WP7.1 — the detector-provider boundary and deterministic
-two-lane health seam — is the proposed next implementation slice.
+two-lane health seam — is implemented as a software-only slice in
+`e23e5fe` (no physical detector driver or physical acceptance claimed).
+
+The slice adds an injectable `DetectorProvider` boundary behind `InputModule`,
+retains the deterministic simulated provider, publishes stable role-neutral
+timestamped events for two independent sources, and exposes authoritative
+missing/fault/replacement status without silently changing detector identity.
+Focused evidence is `acceptance/stage7/detector_provider_test.cpp` and its
+structural review; the existing Stage 2–9/14A structural/regression guards
+remain passing.
 
 Productise real detection: sensor addressing, lane assignment, health, Track Setup, minimum-lap/detection behaviour, connections/cabling, gantry and 4/8-lane expansion architecture. Final MCP23017/alternative choice is made here, not assumed by WP0.
 
@@ -233,7 +242,9 @@ WP7 is the next active package, while WP8 remains future work.
 Immediate technical order is:
 
 1. Resolve the already-identified WP7 sensor/interface and expansion decisions.
-2. Implement and test WP7.1's detector-provider boundary and two-lane health seam.
+2. Extend WP7.1's software seam only as needed for the eventual real-provider
+   integration; its deterministic two-lane boundary is implemented and tested
+   in `e23e5fe`.
 3. Select and integrate the real detector hardware, wiring and gantry, then prove
    two-lane product-intent detection and replacement/fault behaviour.
 4. Record the 4/8-lane expansion evidence and prepare the later WP8 appliance work.
