@@ -68,6 +68,12 @@ struct Message {
   uint32_t raceEntryId = 0;
   Time lapTime = 0;
   InputIdentity input{};
+  // Pending Track Setup assignment request.  These fields are carried by the
+  // existing Presentation -> Race Control SetupRequest; they do not alter
+  // detector event semantics or create a second configuration authority.
+  InputIdentity setupLane1{};
+  InputIdentity setupLane2{};
+  uint8_t setupAssignmentMask = 0;
   Configuration configuration{};
   LoadStatus loadStatus = LoadStatus::DefaultsMissing;
   uint32_t probe = 0;

@@ -58,10 +58,11 @@ public:
                    TrackRecordStore* records = nullptr, const DetailSource* detailSource = nullptr,
                    PhysicalSdOwner* physicalOwner = nullptr,
                    FirmwareUpdateEndpoint* firmwareUpdate = nullptr,
-                   MaintenanceEndpoint* maintenance = nullptr)
+                   MaintenanceEndpoint* maintenance = nullptr,
+                   DetectorProvider* detectorProvider = nullptr)
       : bus_(bus), endpoint_(endpoint), noticeboard_(noticeboard),
         authority_(authority ? authority : &fallback_), history_(history), records_(records), detailSource_(detailSource),
-        physicalOwner_(physicalOwner), firmwareUpdate_(firmwareUpdate), maintenance_(maintenance) {
+        physicalOwner_(physicalOwner), firmwareUpdate_(firmwareUpdate), maintenance_(maintenance), detectorProvider_(detectorProvider) {
     controllerEpoch_ = newControllerEpoch();
   }
   uint64_t controllerEpoch() const { return controllerEpoch_; }
@@ -231,12 +232,14 @@ public:
   }
   bool submitSetup(uint32_t visibleCorrelation, ClientContext context, uint64_t owner,
                    SessionMode mode, uint32_t lapTarget, uint16_t durationMinutes,
-                   uint8_t finishPolicy, uint32_t proposalRevision, uint64_t traceId=0) {
+                   uint8_t finishPolicy, uint32_t proposalRevision, uint64_t traceId=0,
+                   uint8_t assignmentMask=0, InputIdentity lane1={}, InputIdentity lane2={}) {
     if (!visibleCorrelation) return false;
     Message request{}; request.type=Type::SetupRequest; request.correlation=nextInternalCorrelation();
     request.clientContext=context; request.sessionMode=mode; request.setupLapTarget=lapTarget;
     request.setupDurationMinutes=durationMinutes; request.setupFinishPolicy=finishPolicy;
     request.proposalRevision=proposalRevision;
+    request.setupAssignmentMask=assignmentMask; request.setupLane1=lane1; request.setupLane2=lane2;
     if (diagnosticTrace_) { diagnostic::ClientId clientId{}; clientId.value = owner; diagnosticTrace_->observeInterfaceRequest(diagnostic::OperationName::Setup, visibleCorrelation, request.correlation, clientId, traceId, systemTime()); }
     if(bus_.publish(endpoint_,request)!=Delivery::Delivered) return false;
     Pending& pending=pending_[nextPending_++ % ResultCapacity]; pending.internal=request.correlation;
@@ -592,6 +595,7 @@ private:
   PhysicalSdOwner* physicalOwner_ = nullptr;
   FirmwareUpdateEndpoint* firmwareUpdate_ = nullptr;
   MaintenanceEndpoint* maintenance_ = nullptr;
+  DetectorProvider* detectorProvider_ = nullptr;
   VolatileAuthorityStore fallback_;
   ExternalWifiManager network_{};
   httpd_handle_t server_ = nullptr;
@@ -962,6 +966,51 @@ private:
     if(!setup)return false;size_t n=0;const bool blocking=readiness!=StartReadiness::Ready;const char*severity=blocking?"BLOCKING":"NONE";bool ok=appendJson(out,cap,n,"{\"formatVersion\":1,\"controllerEpoch\":\"%llu\",\"proposalRevision\":%lu,\"startable\":%s,\"readiness\":\"%s\",\"readinessContext\":{\"version\":1,\"code\":\"%s\",\"severity\":\"%s\",\"blocking\":%s,\"lane\":0},\"mode\":\"%s\",\"lapTarget\":%lu,\"durationMinutes\":%u,\"finishBehaviour\":\"%s\",\"activeLanes\":%u,\"supportedModes\":[{\"mode\":\"LAP_RACE\",\"available\":true},{\"mode\":\"OPEN_PRACTICE\",\"available\":true},{\"mode\":\"ENDURANCE\",\"available\":true},{\"mode\":\"TIMED_STAGE\",\"available\":false},{\"mode\":\"DRAG\",\"available\":false}],\"entries\":[",(unsigned long long)epoch,(unsigned long)revision,readiness==StartReadiness::Ready?"true":"false",readinessText(readiness),readinessCode(readiness),severity,blocking?"true":"false",setupMode(setup->mode),(unsigned long)setup->lapTarget,unsigned(setup->durationMinutes),finishBehaviour(setup->finish),unsigned(setup->activeLanes));
     for(uint8_t i=0;i<setup->activeLanes&&i<PP_MAX_ENTRIES;++i){const auto&e=setup->entries[i];ok=appendJson(out,cap,n,"%s{\"index\":%u,\"lane\":%u,\"inputDevice\":%lu,\"inputCapability\":%u,\"mugId\":%lu}",i?",":"",unsigned(i),unsigned(e.startFinish.lane),(unsigned long)e.startFinish.input.device,unsigned(e.startFinish.input.capability),(unsigned long)e.mugId)&&ok;}
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
+  }
+  static const char* detectorAvailabilityText(DetectorAvailability value) {
+    return value == DetectorAvailability::Available ? "AVAILABLE" : "MISSING";
+  }
+  static const char* detectorHealthText(DetectorHealth value) {
+    switch (value) {
+      case DetectorHealth::Healthy: return "HEALTHY";
+      case DetectorHealth::Fault: return "FAULT";
+      case DetectorHealth::ReplacementRequired: return "REPLACEMENT_REQUIRED";
+      default: return "UNKNOWN";
+    }
+  }
+  static bool serializeTrackSetup(const ProposedRaceSetup* setup,
+                                  const DetectorProvider* provider,
+                                  uint32_t revision,
+                                  char* out, size_t cap, size_t& length) {
+    if (!setup || !provider) return false;
+    size_t n = 0;
+    bool ok = appendJson(out, cap, n,
+      "{\"formatVersion\":1,\"proposalRevision\":%lu,\"laneCount\":%u,\"assignments\":[",
+      static_cast<unsigned long>(revision), unsigned(setup->activeLanes));
+    const ProposedRaceSetup normal = normalised(*setup);
+    for (uint8_t i = 0; i < normal.activeLanes && i < PP_MAX_ENTRIES && ok; ++i) {
+      const auto& assignment = normal.entries[i].startFinish;
+      ok = appendJson(out, cap, n,
+        "%s{\"lane\":%u,\"device\":%lu,\"capability\":%u}",
+        i ? "," : "", unsigned(i + 1), static_cast<unsigned long>(assignment.input.device),
+        unsigned(assignment.input.capability)) && ok;
+    }
+    ok = appendJson(out, cap, n, "],\"detectors\":[") && ok;
+    const uint8_t count = provider->detectorCount() > PP_MAX_ENTRIES ? PP_MAX_ENTRIES : provider->detectorCount();
+    for (uint8_t i = 0; i < count && ok; ++i) {
+      const DetectorStatus status = provider->status(i);
+      ok = appendJson(out, cap, n,
+        "%s{\"index\":%u,\"device\":%lu,\"capability\":%u,"
+        "\"observedDevice\":%lu,\"observedCapability\":%u,"
+        "\"availability\":\"%s\",\"health\":\"%s\",\"replacementRequired\":%s}",
+        i ? "," : "", unsigned(i), static_cast<unsigned long>(status.identity.device),
+        unsigned(status.identity.capability), static_cast<unsigned long>(status.observedIdentity.device),
+        unsigned(status.observedIdentity.capability), detectorAvailabilityText(status.availability),
+        detectorHealthText(status.health), status.replacementRequired ? "true" : "false") && ok;
+    }
+    ok = appendJson(out, cap, n, "]}") && ok;
+    length = n;
+    return ok;
   }
   // Presentation-only elapsed finish duration.  completionTime remains the
   // raw monotonic Relevant-Time value used for authoritative ordering and
@@ -1613,10 +1662,28 @@ private:
     if(finishPolicy){const char* named=strstr(body,"COMPLETE_CURRENT_LAP");const char* full=strstr(body,"COMPLETE_FULL_RACE_DISTANCE");const char* raw=strstr(body,"finishPolicy");*finishPolicy=named?1:full?2:(raw?uint8_t(strtoul(strchr(raw,':')+1,nullptr,10)):0);}
     return true;
   }
-  static bool setupFromBody(httpd_req_t* request,uint32_t& correlation,SessionMode& mode,uint32_t& lapTarget,uint16_t& duration,uint8_t& finish,uint32_t& revision,uint64_t* traceId=nullptr){
+  static bool setupFromBody(httpd_req_t* request,uint32_t& correlation,SessionMode& mode,uint32_t& lapTarget,uint16_t& duration,uint8_t& finish,uint32_t& revision,uint64_t* traceId=nullptr,uint8_t* assignmentMask=nullptr,InputIdentity* lane1=nullptr,InputIdentity* lane2=nullptr){
     if(request->content_len<=0||request->content_len>=512)return false;char body[512]{};int received=0;while(received<request->content_len){const int part=httpd_req_recv(request,body+received,request->content_len-received);if(part<=0)return false;received+=part;}
     const char* c=strstr(body,"\"correlationId\"");const char* cc=c?strchr(c,':'):nullptr;const char* m=strstr(body,"\"mode\"");const char* mc=m?strchr(m,':'):nullptr;const char* lp=strstr(body,"\"lapTarget\"");const char* lc=lp?strchr(lp,':'):nullptr;const char* du=strstr(body,"\"durationMinutes\"");const char* dc=du?strchr(du,':'):nullptr;const char* fp=strstr(body,"\"finishPolicy\"");const char* fc=fp?strchr(fp,':'):nullptr;const char* rv=strstr(body,"\"proposalRevision\"");const char* rc=rv?strchr(rv,':'):nullptr;
-    if(!cc||!mc||!lc||!dc||!fc||!rc)return false;char* end=nullptr;const unsigned long cv=strtoul(cc+1,&end,10);if(!end||end==cc+1||cv==0||cv>UINT32_MAX)return false;correlation=uint32_t(cv);if(strstr(mc,"OPEN_PRACTICE"))mode=SessionMode::OpenPractice;else if(strstr(mc,"ENDURANCE"))mode=SessionMode::Endurance;else if(strstr(mc,"LAP_RACE"))mode=SessionMode::LapRace;else return false;lapTarget=uint32_t(strtoul(lc+1,nullptr,10));duration=uint16_t(strtoul(dc+1,nullptr,10));finish=uint8_t(strtoul(fc+1,nullptr,10));revision=uint32_t(strtoul(rc+1,nullptr,10));if(traceId){const char* t=strstr(body,"\"diagnosticTraceId\"");const char* tc=t?strchr(t,':'):nullptr;*traceId=tc?strtoull(tc+1,nullptr,10):0;}return true;
+    if(!cc||!mc||!lc||!dc||!fc||!rc)return false;char* end=nullptr;const unsigned long cv=strtoul(cc+1,&end,10);if(!end||end==cc+1||cv==0||cv>UINT32_MAX)return false;correlation=uint32_t(cv);if(strstr(mc,"OPEN_PRACTICE"))mode=SessionMode::OpenPractice;else if(strstr(mc,"ENDURANCE"))mode=SessionMode::Endurance;else if(strstr(mc,"LAP_RACE"))mode=SessionMode::LapRace;else return false;lapTarget=uint32_t(strtoul(lc+1,nullptr,10));duration=uint16_t(strtoul(dc+1,nullptr,10));finish=uint8_t(strtoul(fc+1,nullptr,10));revision=uint32_t(strtoul(rc+1,nullptr,10));if(traceId){const char* t=strstr(body,"\"diagnosticTraceId\"");const char* tc=t?strchr(t,':'):nullptr;*traceId=tc?strtoull(tc+1,nullptr,10):0;}
+    if (assignmentMask) {
+      *assignmentMask = 0;
+      auto parseIdentity = [&](const char* deviceKey, const char* capabilityKey, InputIdentity* value, uint8_t bit) {
+        const char* d = strstr(body, deviceKey); const char* dcx = d ? strchr(d, ':') : nullptr;
+        const char* cap = strstr(body, capabilityKey); const char* capcx = cap ? strchr(cap, ':') : nullptr;
+        if (!d && !cap) return true;
+        if (!dcx || !capcx || !value) return false;
+        const unsigned long device = strtoul(dcx + 1, nullptr, 10);
+        const unsigned long capability = strtoul(capcx + 1, nullptr, 10);
+        if (!device || !capability || capability > UINT16_MAX) return false;
+        *value = InputIdentity(static_cast<uint32_t>(device), static_cast<uint16_t>(capability));
+        *assignmentMask = static_cast<uint8_t>(*assignmentMask | bit);
+        return true;
+      };
+      if (!parseIdentity("\"lane1Device\"", "\"lane1Capability\"", lane1, 0x01) ||
+          !parseIdentity("\"lane2Device\"", "\"lane2Capability\"", lane2, 0x02)) return false;
+    }
+    return true;
   }
   static diagnostic::OperationName diagnosticOperationName(const char* value) {
     if (!value) return diagnostic::OperationName::Unknown;
@@ -1866,6 +1933,28 @@ private:
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
     return httpd_resp_sendstr(request, json);
   }
+  static esp_err_t trackSetupRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/track/setup");
+    client(request);
+    BrowserInterface* browser = instance();
+    char* json = static_cast<char*>(malloc(4096));
+    size_t length = 0;
+    if (!json || !browser->detectorProvider_ ||
+        !serializeTrackSetup(browser->proposedRaceSetup(), browser->detectorProvider_,
+                             browser->proposalRevision(), json, 4096, length)) {
+      if (json) free(json);
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      httpd_resp_sendstr(request, "track setup unavailable");
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return ESP_FAIL;
+    }
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    const esp_err_t sent = httpd_resp_sendstr(request, json);
+    free(json);
+    trace.complete(sent);
+    return sent;
+  }
   static esp_err_t proposalRoute(httpd_req_t* request){
     RequestTrace trace(instance(), "/proposal");
     client(request);BrowserInterface* browser=instance();char* json=static_cast<char*>(malloc(4096));size_t length=0;if(!json){httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal buffer unavailable");trace.complete(ESP_ERR_NO_MEM);return ESP_FAIL;}if(!serializeProposal(browser->proposedRaceSetup(),browser->controllerEpoch_,browser->proposalRevision(),browser->readiness(),json,4096,length)){free(json);httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"proposal unavailable");trace.complete(ESP_ERR_INVALID_SIZE);return ESP_FAIL;}httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");const esp_err_t sent=httpd_resp_sendstr(request,json);free(json);trace.complete(sent);return sent;
@@ -1878,7 +1967,7 @@ private:
   }
   static esp_err_t finishDisplaySkipRoute(httpd_req_t* request){return operationRoute(request,SessionOperation::SkipFinishDisplay);}
   static esp_err_t setupRoute(httpd_req_t* request){
-    uint32_t correlation=0,lapTarget=0,revision=0;uint64_t traceId=0;SessionMode mode=SessionMode::None;uint16_t duration=0;uint8_t finish=0;if(!setupFromBody(request,correlation,mode,lapTarget,duration,finish,revision,&traceId)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"complete proposal required");return ESP_FAIL;}const uint64_t owner=client(request);if(!instance()->submitSetup(correlation,instance()->context(owner),owner,mode,lapTarget,duration,finish,revision,traceId)){httpd_resp_set_status(request,"503 Service Unavailable");return httpd_resp_sendstr(request,"request unavailable");}char json[96];snprintf(json,sizeof(json),"{\"submitted\":true,\"correlationId\":%lu}",(unsigned long)correlation);httpd_resp_set_status(request,"202 Accepted");httpd_resp_set_type(request,"application/json");return httpd_resp_sendstr(request,json);
+    uint32_t correlation=0,lapTarget=0,revision=0;uint64_t traceId=0;SessionMode mode=SessionMode::None;uint16_t duration=0;uint8_t finish=0,assignmentMask=0;InputIdentity lane1{},lane2{};if(!setupFromBody(request,correlation,mode,lapTarget,duration,finish,revision,&traceId,&assignmentMask,&lane1,&lane2)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"complete proposal required");return ESP_FAIL;}const uint64_t owner=client(request);if(!instance()->submitSetup(correlation,instance()->context(owner),owner,mode,lapTarget,duration,finish,revision,traceId,assignmentMask,lane1,lane2)){httpd_resp_set_status(request,"503 Service Unavailable");return httpd_resp_sendstr(request,"request unavailable");}char json[96];snprintf(json,sizeof(json),"{\"submitted\":true,\"correlationId\":%lu}",(unsigned long)correlation);httpd_resp_set_status(request,"202 Accepted");httpd_resp_set_type(request,"application/json");return httpd_resp_sendstr(request,json);
   }
   static esp_err_t operationRoute(httpd_req_t* request, SessionOperation operation, bool confirmed=false) {
     uint32_t correlation=0;uint64_t traceId=0;if(!correlationFromBody(request,correlation,nullptr,nullptr,nullptr,&traceId)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"correlationId required");return ESP_FAIL;}
@@ -2863,6 +2952,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
 #endif
       {"/health", HTTP_GET, health, nullptr},
       {"/context", HTTP_GET, contextRoute, nullptr},
+      {"/track/setup", HTTP_GET, trackSetupRoute, nullptr},
       {"/bootstrap", HTTP_POST, bootstrapRoute, nullptr},
       {"/request/take-control", HTTP_POST, takeControlRoute, nullptr},
       {"/request/take-control/allow", HTTP_POST, allowControlRoute, nullptr},

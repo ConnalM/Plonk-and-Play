@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include "pp/core.h"
 #include "pp/session_definition.h"
+#include "pp/track_configuration.h"
 #include "pp/race_control.h"
 #include "pp/race_engine.h"
 #include "pp/history_store.h"
@@ -129,6 +130,9 @@ private: Preferences preferences;bool ready=false;
 } browserAuthority;
 pp::Bus bus;
 pp::Memory memory(storage);
+pp::TrackConfigurationMemory trackConfigurationMemory(storage);
+pp::TrackConfiguration workingTrackConfiguration{};
+bool trackConfigurationRemembered = false;
 #if defined(PP_PHASE8B_REAL_SD)
 pp::SlotHistoryStore rawHistory(sdPersistence);
 pp::VersionedHistoryStore history(rawHistory);
@@ -144,7 +148,7 @@ pp::SimulatedDetectorProvider simulatedDetectorProvider;
 pp::InputModule input(bus,bus.attach(pp::Role::Input),simulatedDetectorProvider);
 pp::ActiveSessionDefinition activeSession;
 const auto raceControlEndpoint=bus.attach(pp::Role::RaceControl);
-pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession,&history,&records);
+pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession,&history,&records,&simulatedDetectorProvider);
 const auto raceEngineEndpoint=bus.attach(pp::Role::RaceEngine);
 pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint,activeSession,&history,&records,
 #if defined(PP_PHASE8B_REAL_SD)
@@ -213,7 +217,8 @@ pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthor
                              nullptr,
 #endif
                              &firmwareUpdateService,
-                             &customerMaintenance
+                             &customerMaintenance,
+                             &simulatedDetectorProvider
 );
 #if defined(PP_STAGE8A_TASTER_WOKWI)
 pp::TasterRuntime taster(browser);
@@ -239,6 +244,31 @@ void refreshRequiredDetectorReadiness() {
   const auto* setup = raceControl.proposedRaceSetup();
   const bool healthy = setup && pp::requiredDetectorCapabilitiesHealthy(*setup, simulatedDetectorProvider);
   raceControl.setRequiredCapabilityAvailable(healthy);
+}
+uint32_t persistedTrackProposalRevision = 0;
+uint32_t trackPersistenceFailureRevision = 0;
+void persistTrackConfigurationIfChanged() {
+  const ProposedRaceSetup* setup = raceControl.proposedRaceSetup();
+  if (!setup) return;
+  const uint32_t revision = raceControl.proposalRevision();
+  if (revision == persistedTrackProposalRevision || revision == trackPersistenceFailureRevision) return;
+  const pp::TrackConfiguration next = pp::TrackConfiguration::fromSetup(*setup);
+  if (!next.valid()) return;
+  if (next == workingTrackConfiguration) {
+    persistedTrackProposalRevision = revision;
+    return;
+  }
+  if (trackConfigurationMemory.save(next)) {
+    workingTrackConfiguration = next;
+    persistedTrackProposalRevision = revision;
+    diagnostics.log("[CONFIG] Track Setup persisted lanes=%u lane1=%lu/%u lane2=%lu/%u",
+                    unsigned(next.laneCount), static_cast<unsigned long>(next.lane1.device),
+                    unsigned(next.lane1.capability), static_cast<unsigned long>(next.lane2.device),
+                    unsigned(next.lane2.capability));
+  } else {
+    trackPersistenceFailureRevision = revision;
+    diagnostics.log("[CONFIG] Track Setup persistence unavailable");
+  }
 }
 bool ready=false,testsPassed=true,bootFailed=false;
 pp::Time nextStatus=0;
@@ -735,7 +765,18 @@ void setup(){
                   PP_BUILD_SOURCE_COMMIT, PP_BUILD_ENVIRONMENT, applicationElfSha256());
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
-  storage.begin();browserAuthority.begin();browser.restorePersistedAuthority();
+  storage.begin();
+  const auto trackLoadStatus = trackConfigurationMemory.load(workingTrackConfiguration);
+  trackConfigurationRemembered = trackLoadStatus == pp::LoadStatus::Remembered;
+  if (!trackConfigurationRemembered) workingTrackConfiguration = pp::TrackConfiguration{};
+  diagnostics.log("[INIT] Track Setup %s (lanes=%u lane1=%lu/%u lane2=%lu/%u)",
+                  trackConfigurationRemembered ? "REMEMBERED" : "DEFAULT",
+                  unsigned(workingTrackConfiguration.laneCount),
+                  static_cast<unsigned long>(workingTrackConfiguration.lane1.device),
+                  unsigned(workingTrackConfiguration.lane1.capability),
+                  static_cast<unsigned long>(workingTrackConfiguration.lane2.device),
+                  unsigned(workingTrackConfiguration.lane2.capability));
+  browserAuthority.begin();browser.restorePersistedAuthority();
 #if defined(PP_PHASE8B_REAL_SD)
   physicalSdOwner.setLifecycle(raceControl.state());
   const bool physicalSdReady = physicalSdOwner.begin();
@@ -879,6 +920,7 @@ void loop(){
   // unassigned/optional provider entries non-blocking.
   refreshRequiredDetectorReadiness();
   raceControl.tick(systemTime());
+  persistTrackConfigurationIfChanged();
   input.tick(systemTime());
   raceEngine.tick();
 #if defined(PP_PHASE8B_REAL_SD)
@@ -957,7 +999,15 @@ void loop(){
 #else
       proposedRaceSetup.lapTarget=workingConfiguration.laps;
 #endif
+      proposedRaceSetup.activeLanes = workingTrackConfiguration.laneCount;
+      proposedRaceSetup.entries[0].startFinish = {workingTrackConfiguration.lane1, 1, pp::InputRole::StartFinish};
+      proposedRaceSetup.entries[0].mugId = proposedRaceSetup.selectedMugId ? proposedRaceSetup.selectedMugId : 1;
+      proposedRaceSetup.entries[1].startFinish = {workingTrackConfiguration.lane2, 2, pp::InputRole::StartFinish};
+      proposedRaceSetup.entries[1].mugId = proposedRaceSetup.secondMugId ? proposedRaceSetup.secondMugId : 2;
+      proposedRaceSetup.startFinish = proposedRaceSetup.entries[0].startFinish;
+      proposedRaceSetup.secondStartFinish = proposedRaceSetup.entries[1].startFinish;
       raceControl.setProposedRaceSetup(proposedRaceSetup);
+      persistedTrackProposalRevision = raceControl.proposalRevision();
       refreshRequiredDetectorReadiness();
 #ifdef PP_ACCEPTANCE
       acceptanceLoadStatus=unsigned(message.loadStatus);

@@ -194,7 +194,21 @@ unassigned/optional provider entries do not. Detector identities remain fixed
 and no lane is silently reassigned. Focused evidence is
 `acceptance/stage7/detector_readiness_test.cpp` and
 `acceptance/stage7/run_detector_readiness_test.ps1`. No physical detector
-driver, Track Setup, or physical acceptance is claimed.
+driver or physical acceptance is claimed.
+
+WP7.3 — two-lane Track Setup — is implemented as a bounded software-only
+slice. The normal Browser reads `/track/setup` from the injected detector
+provider, presents identities and health, and lets the controlling Race
+Director request two-lane assignments through the existing `/request/setup`
+and Message Bus boundary. Race Control validates duplicate, missing, faulted
+and unreconciled assignments before publishing the authoritative proposal;
+accepted installation assignments are remembered through the existing Store
+boundary in an A/B Track Configuration record. Focused evidence is
+`acceptance/stage7/track_setup_test.cpp`,
+`acceptance/stage7/run_track_setup_test.ps1`, and
+`acceptance/stage7/track_setup_structural.py`. This remains software-only:
+simulated detectors and keyboard-triggered racing are covered, while physical
+detector discovery/drivers and physical acceptance remain open.
 
 Productise real detection: sensor addressing, lane assignment, health, Track Setup, minimum-lap/detection behaviour, connections/cabling, gantry and 4/8-lane expansion architecture. Final MCP23017/alternative choice is made here, not assumed by WP0.
 
@@ -255,9 +269,8 @@ WP7 is the next active package, while WP8 remains future work.
 Immediate technical order is:
 
 1. Resolve the already-identified WP7 sensor/interface and expansion decisions.
-2. WP7.1's deterministic two-lane boundary and WP7.2 readiness integration are
-   implemented and tested in the software-only slices above; no real-provider
-   or physical-detector work is claimed.
+2. WP7.1, WP7.2 and WP7.3 are implemented and tested in software-only slices;
+   no real-provider or physical-detector work is claimed.
 3. Select and integrate the real detector hardware, wiring and gantry, then prove
    two-lane product-intent detection and replacement/fault behaviour.
 4. Record the 4/8-lane expansion evidence and prepare the later WP8 appliance work.
