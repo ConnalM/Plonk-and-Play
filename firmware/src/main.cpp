@@ -140,7 +140,8 @@ pp::VersionedTrackRecordStore records(storage);
 #endif
 const auto lifecycle=bus.attach(pp::Role::Lifecycle);
 const auto memoryEndpoint=bus.attach(pp::Role::Memory);
-pp::InputModule input(bus,bus.attach(pp::Role::Input));
+pp::SimulatedDetectorProvider simulatedDetectorProvider;
+pp::InputModule input(bus,bus.attach(pp::Role::Input),simulatedDetectorProvider);
 pp::ActiveSessionDefinition activeSession;
 const auto raceControlEndpoint=bus.attach(pp::Role::RaceControl);
 pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession,&history,&records);

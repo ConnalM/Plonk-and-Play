@@ -42,7 +42,9 @@ enum class RestartMethod : uint8_t { None, Honour, Grid };
 struct InputIdentity {
   uint32_t device;
   uint16_t capability;
-  constexpr InputIdentity(uint32_t deviceValue=0, uint16_t capabilityValue=0):device(deviceValue),capability(capabilityValue) {} constexpr bool operator==(const InputIdentity& other) const { return device==other.device && capability==other.capability; }
+  constexpr InputIdentity(uint32_t deviceValue=0, uint16_t capabilityValue=0):device(deviceValue),capability(capabilityValue) {}
+  constexpr bool operator==(const InputIdentity& other) const { return device==other.device && capability==other.capability; }
+  constexpr bool operator!=(const InputIdentity& other) const { return !(*this==other); }
 };
 struct Configuration {
   uint16_t lanes = 2;
@@ -327,29 +329,120 @@ private:
   Time stableSince_=0;
 };
 
+// Detector availability/health is authoritative at the Input Module boundary.
+// The configured identity is stable: a newly observed identity is reported as
+// a replacement candidate and is never silently adopted or assigned a lane.
+enum class DetectorAvailability : uint8_t { Missing, Available };
+enum class DetectorHealth : uint8_t { Unknown, Healthy, Fault, ReplacementRequired };
+struct DetectorStatus {
+  InputIdentity identity{};
+  InputIdentity observedIdentity{};
+  DetectorAvailability availability=DetectorAvailability::Missing;
+  DetectorHealth health=DetectorHealth::Unknown;
+  bool replacementRequired=false;
+  bool healthy() const { return availability==DetectorAvailability::Available && health==DetectorHealth::Healthy && !replacementRequired; }
+};
+
+// Source-specific detector work sits behind this boundary.  A physical
+// provider can replace the deterministic provider without changing Input
+// Module publication, event identity/timestamp or downstream consumers.
+class DetectorProvider {
+public:
+  virtual ~DetectorProvider() = default;
+  virtual uint8_t detectorCount() const = 0;
+  virtual bool sample(uint8_t index, Time sampleTime, Time& triggerTime) = 0;
+  virtual DetectorStatus status(uint8_t index) const = 0;
+  // Test/simulation providers may expose a source stimulus seam. Physical
+  // providers leave it as a no-op; it is never part of the event contract.
+  virtual void setTestSource(uint8_t index, bool active) { (void)index; (void)active; }
+};
+
+// Deterministic two-lane provider used by development and host acceptance.
+// It deliberately models health transitions without assigning racing roles.
+class SimulatedDetectorProvider final : public DetectorProvider {
+public:
+  static constexpr size_t MaxDetectors=PP_MAX_ENTRIES;
+  SimulatedDetectorProvider() {
+    for (uint8_t i=0;i<MaxDetectors;++i) {
+      const InputIdentity id=InputModuleIdentity(i);
+      detectors_[i].setIdentity(id);
+      statuses_[i].identity=id;
+      statuses_[i].observedIdentity=id;
+      statuses_[i].availability=DetectorAvailability::Available;
+      statuses_[i].health=DetectorHealth::Healthy;
+    }
+  }
+  uint8_t detectorCount() const override { return static_cast<uint8_t>(MaxDetectors); }
+  bool sample(uint8_t index, Time sampleTime, Time& triggerTime) override {
+    if (index>=MaxDetectors || !statuses_[index].healthy()) return false;
+    return detectors_[index].sample(sources_[index],sampleTime,triggerTime);
+  }
+  DetectorStatus status(uint8_t index) const override {
+    return index<MaxDetectors ? statuses_[index] : DetectorStatus{};
+  }
+  void setTestSource(uint8_t index, bool active) override { if (index<MaxDetectors) sources_[index]=active; }
+  void setAvailable(uint8_t index, bool available) {
+    if (index>=MaxDetectors) return;
+    auto& s=statuses_[index];
+    s.availability=available?DetectorAvailability::Available:DetectorAvailability::Missing;
+    if (!available) { s.health=DetectorHealth::Unknown; return; }
+    refreshHealth(index);
+  }
+  void setFault(uint8_t index, bool fault) {
+    if (index>=MaxDetectors) return;
+    faults_[index]=fault;
+    refreshHealth(index);
+  }
+  void markReplacement(uint8_t index, InputIdentity replacement) {
+    if (index>=MaxDetectors) return;
+    auto& s=statuses_[index];
+    s.observedIdentity=replacement;
+    s.replacementRequired=replacement!=s.identity;
+    s.availability=DetectorAvailability::Available;
+    refreshHealth(index);
+  }
+private:
+  static constexpr InputIdentity InputModuleIdentity(uint8_t index) { return InputIdentity(0x50500001u,uint16_t(index+1)); }
+  void refreshHealth(uint8_t index) {
+    auto& s=statuses_[index];
+    if (s.replacementRequired) s.health=DetectorHealth::ReplacementRequired;
+    else if (s.availability!=DetectorAvailability::Available) s.health=DetectorHealth::Unknown;
+    else s.health=faults_[index]?DetectorHealth::Fault:DetectorHealth::Healthy;
+  }
+  SimulatedDetector detectors_[MaxDetectors]{};
+  bool sources_[MaxDetectors]{};
+  bool faults_[MaxDetectors]{};
+  DetectorStatus statuses_[MaxDetectors]{};
+};
+
 class InputModule {
 public:
   static constexpr size_t ProtectedDepth=8;
   static constexpr size_t MaxDetectors=PP_MAX_ENTRIES;
   static constexpr InputIdentity simulatedDetectorIdentity(uint16_t index=0){return InputIdentity(0x50500001u,uint16_t(index+1));}
   static constexpr InputIdentity simulatedDetectorBIdentity(){return simulatedDetectorIdentity(1);}
-  InputModule(Bus& bus,Bus::Endpoint endpoint):endpoint(endpoint),bus_(bus){for(uint8_t i=0;i<MaxDetectors;++i)detectors_[i].setIdentity(simulatedDetectorIdentity(i));}
+  InputModule(Bus& bus,Bus::Endpoint endpoint):endpoint(endpoint),bus_(bus),provider_(&defaultProvider()){}
+  InputModule(Bus& bus,Bus::Endpoint endpoint,DetectorProvider& provider):endpoint(endpoint),bus_(bus),provider_(&provider){}
   Bus::Endpoint endpoint;
   void setSimulatedSource(bool active){setSimulatedSource(0,active);} void setSimulatedSourceB(bool active){setSimulatedSource(1,active);}
-  void setSimulatedSource(uint8_t which,bool active){if(which<MaxDetectors)sources_[which]=active;}
-  void tick(Time now){drainOperations();for(uint8_t i=0;i<MaxDetectors;++i)sampleSource(i,sources_[i],now);flush();settleIfReady();finishSettleIfReady();}
+  void setSimulatedSource(uint8_t which,bool active){if(which<MaxDetectors)provider_->setTestSource(which,active);}
+  void tick(Time now){drainOperations();for(uint8_t i=0;i<provider_->detectorCount()&&i<MaxDetectors;++i)sampleDetector(i,now);flush();settleIfReady();finishSettleIfReady();}
   void sampleSource(bool active,Time at){sampleSource(0,active,at);}
   void sampleSourceB(bool active,Time at){sampleSource(1,active,at);}
-  void sampleSource(uint8_t which,bool active,Time at){if(which>=MaxDetectors)return;Time trigger=0;if(!detectors_[which].sample(active,at,trigger))return;++cleanTriggers_;Message e{};e.type=Type::InputEvent;e.input=detectors_[which].identity();e.relevantTime=trigger;e.eventId=++nextEventId_;enqueue(e);flush();}
+  void sampleSource(uint8_t which,bool active,Time at){if(which>=MaxDetectors)return;provider_->setTestSource(which,active);sampleDetector(which,at);}
+  size_t detectorCount() const { return provider_->detectorCount(); }
+  DetectorStatus detectorStatus(uint8_t index) const { return provider_->status(index); }
   void flush(){if(faulted_)return;while(size_){Delivery d=bus_.publish(endpoint,backlog_[head_]);lastDelivery_=d;if(d==Delivery::Delivered){head_=(head_+1)%ProtectedDepth;--size_;continue;}if(d==Delivery::Full)return;fault(Time{});return;}}
   void settleIfReady(){if(!settlementPending_||size_||settlementPublished_)return;Message s{};s.type=Type::InputSettlement;s.relevantTime=settlementAt_;Delivery d=bus_.publish(endpoint,s);lastDelivery_=d;if(d==Delivery::Delivered)settlementPublished_=true;else if(d!=Delivery::Full)fault(settlementAt_);}
   void sessionOperation(const Message&m){if(m.operation==SessionOperation::Pause){settlementPending_=true;settlementAt_=m.relevantTime;settlementPublished_=false;settleIfReady();}else if(m.operation==SessionOperation::HonourRestart||m.operation==SessionOperation::GridRestart){settlementPending_=false;settlementPublished_=false;settlementAt_=0;}}
   void drainOperations(){Message m;while(bus_.receive(endpoint,m)){if(m.type==Type::SessionOperation)sessionOperation(m);else if(m.type==Type::FinishSettlement){if(!finishSettlementPending_||m.relevantTime!=finishSettlementAt_)finishSettlementPublished_=false;finishSettlementPending_=true;finishSettlementAt_=m.relevantTime;}}} void finishSettleIfReady(){if(!finishSettlementPending_||size_||finishSettlementPublished_||faulted_)return;Message s{};s.type=Type::FinishSettled;s.relevantTime=finishSettlementAt_;if(bus_.publish(endpoint,s)==Delivery::Delivered){finishSettlementPublished_=true;finishSettlementPending_=false;}}
   uint32_t cleanTriggers()const{return cleanTriggers_;}Delivery lastDelivery()const{return lastDelivery_;}size_t protectedBacklogDepth()const{return size_;}size_t maximumProtectedBacklogDepth()const{return maxDepth_;}bool faulted()const{return faulted_;}
 private:
+  static SimulatedDetectorProvider& defaultProvider(){static SimulatedDetectorProvider provider;return provider;}
+  void sampleDetector(uint8_t which,Time at){if(which>=MaxDetectors)return;Time trigger=0;if(!provider_->sample(which,at,trigger))return;const DetectorStatus state=provider_->status(which);if(!state.healthy())return;++cleanTriggers_;Message e{};e.type=Type::InputEvent;e.input=state.identity;e.relevantTime=trigger;e.eventId=++nextEventId_;enqueue(e);flush();}
   void enqueue(const Message&e){if(faulted_)return;if(size_==ProtectedDepth){fault(e.relevantTime);return;}backlog_[(head_+size_)%ProtectedDepth]=e;++size_;if(size_>maxDepth_)maxDepth_=size_;}
   void fault(Time at){if(faulted_)return;faulted_=true;Message f{};f.type=Type::RaceIntegrityFault;f.relevantTime=at;f.integrityReason=RaceIntegrityReason::InputEventDeliveryOverrun;bus_.publish(endpoint,f);}
-  Bus& bus_;SimulatedDetector detectors_[MaxDetectors]{};bool sources_[MaxDetectors]{};Message backlog_[ProtectedDepth]{};size_t head_=0,size_=0,maxDepth_=0;uint32_t cleanTriggers_=0,nextEventId_=0;Delivery lastDelivery_=Delivery::NoSubscribers;bool faulted_=false;bool settlementPending_=false,settlementPublished_=false;Time settlementAt_=0;bool finishSettlementPending_=false,finishSettlementPublished_=false;Time finishSettlementAt_=0;
+  Bus& bus_;DetectorProvider* provider_;Message backlog_[ProtectedDepth]{};size_t head_=0,size_=0,maxDepth_=0;uint32_t cleanTriggers_=0,nextEventId_=0;Delivery lastDelivery_=Delivery::NoSubscribers;bool faulted_=false;bool settlementPending_=false,settlementPublished_=false;Time settlementAt_=0;bool finishSettlementPending_=false,finishSettlementPublished_=false;Time finishSettlementAt_=0;
 };
 struct OutputModule { Bus::Endpoint endpoint; };
 struct Presentation { Bus::Endpoint endpoint; };
