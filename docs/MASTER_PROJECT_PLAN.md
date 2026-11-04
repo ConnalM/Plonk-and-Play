@@ -243,6 +243,21 @@ Evidence remains in `acceptance/stage7/racer_selection_test.cpp` and
 `acceptance/stage7/run_racer_selection_test.ps1`; this does not implement the
 deferred saved-MUG catalog or profile management.
 
+The first saved-MUG catalog foundation is now implemented as a bounded,
+software-only storage slice (4 November 2026). `pp::MugCatalog` is a
+controller-owned SD/Store consumer with a dedicated slot namespace (210/211
+plus staging 212), versioned/checksummed A/B records, staged read-back
+verification, monotonic saved IDs beginning at 3, a 100-entry limit, strict
+1–40-character UTF-8 names, rename-without-ID-change and archive-without-ID-
+reuse. MUG 1 and MUG 2 remain built-in defaults. Failed staging, publication or
+cleanup paths preserve the prior authoritative catalog, and restart
+reconstructs the newest committed copy. Focused evidence is
+`acceptance/stage7/mug_catalog_test.cpp` and
+`acceptance/stage7/run_mug_catalog_test.ps1`. Browser controls, Race Control
+catalog membership/selection validation, Guest handling and historical name
+freezing remain later slices; this foundation does not change the current
+numeric racer-selection path or any History/Record format.
+
 Productise real detection: sensor addressing, lane assignment, health, Track Setup, minimum-lap/detection behaviour, connections/cabling, gantry and 4/8-lane expansion architecture. Final MCP23017/alternative choice is made here, not assumed by WP0.
 
 **G7 closure:** two-lane product-intent detection works reliably; setup/fault/replacement behaviour is defined and tested; expansion architecture is sufficiently proven for the v1 promise.
@@ -302,8 +317,9 @@ WP7 is the next active package, while WP8 remains future work.
 Immediate technical order is:
 
 1. Resolve the already-identified WP7 sensor/interface and expansion decisions.
-2. WP7.1, WP7.2 and WP7.3 are implemented and tested in software-only slices;
-   no real-provider or physical-detector work is claimed.
+2. WP7.1, WP7.2 and WP7.3, plus the saved-MUG catalog storage foundation, are
+   implemented and tested in software-only slices; no real-provider or
+   physical-detector work is claimed.
 3. Select and integrate the real detector hardware, wiring and gantry, then prove
    two-lane product-intent detection and replacement/fault behaviour.
 4. Record the 4/8-lane expansion evidence and prepare the later WP8 appliance work.

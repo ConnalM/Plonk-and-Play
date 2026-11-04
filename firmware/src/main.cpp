@@ -9,6 +9,7 @@
 #include "pp/core.h"
 #include "pp/session_definition.h"
 #include "pp/track_configuration.h"
+#include "pp/mug_catalog.h"
 #include "pp/race_control.h"
 #include "pp/race_engine.h"
 #include "pp/history_store.h"
@@ -110,6 +111,7 @@ private: Preferences preferences;bool ready=false;
 #if defined(PP_PHASE8B_REAL_SD)
 pp::PhysicalSdOwner physicalSdOwner;
 pp::Esp32SpiSdStore sdPersistence(physicalSdOwner);
+pp::MugCatalog mugCatalog(sdPersistence);
 pp::SdActiveDetailStore activeDetail(sdPersistence);
 pp::Esp32S3BoardDisplay boardDisplay;
 pp::SessionLifecycle physicalRecoveryLifecycle = pp::SessionLifecycle::Faulted;
@@ -756,9 +758,17 @@ void setup(){
   physicalSdOwner.setLifecycle(raceControl.state());
   const bool physicalSdReady = physicalSdOwner.begin();
   const bool sdReady = sdPersistence.begin();
+  const auto mugCatalogLoad = mugCatalog.load();
+  const char* mugCatalogState = mugCatalogLoad == pp::MugCatalog::LoadResult::Remembered ? "REMEMBERED" :
+                                mugCatalogLoad == pp::MugCatalog::LoadResult::Empty ? "EMPTY" :
+                                mugCatalogLoad == pp::MugCatalog::LoadResult::Corrupt ? "CORRUPT" :
+                                mugCatalogLoad == pp::MugCatalog::LoadResult::MemoryUnavailable ? "NO_MEMORY" : "UNAVAILABLE";
   diagnostics.log("[INIT] Phase 8B-P1 SD owner %s; History storage boundary %s (namespace reconstruction lazy); NVS configuration READY=%s",
                   physicalSdReady ? "READY" : "DEGRADED",
                   sdReady ? "READY" : "DEGRADED", storage.available() ? "YES" : "NO");
+  diagnostics.log("[INIT] MUG catalog %s entries=%u active=%u generation=%lu",
+                  mugCatalogState, unsigned(mugCatalog.count()), unsigned(mugCatalog.activeCount()),
+                  static_cast<unsigned long>(mugCatalog.generation()));
 #endif
   diagnostics.log("[INIT] Normal diagnostics recorder READY (bounded observation-only backend)");
   pp::diagnostic::ControllerEpoch diagnosticEpoch{};
