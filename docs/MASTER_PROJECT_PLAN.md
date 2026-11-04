@@ -173,7 +173,8 @@ rollback obligations are resolved.
 ### WP7 — Track hardware system
 **Status: OPEN.** WP7.1 — the detector-provider boundary and deterministic
 two-lane health seam — is implemented as a software-only slice in
-`e23e5fe` (no physical detector driver or physical acceptance claimed).
+`cd61715` (including the Stage 2/3 boundary-oracle updates; no physical
+detector driver or physical acceptance claimed).
 
 The slice adds an injectable `DetectorProvider` boundary behind `InputModule`,
 retains the deterministic simulated provider, publishes stable role-neutral
@@ -244,7 +245,7 @@ Immediate technical order is:
 1. Resolve the already-identified WP7 sensor/interface and expansion decisions.
 2. Extend WP7.1's software seam only as needed for the eventual real-provider
    integration; its deterministic two-lane boundary is implemented and tested
-   in `e23e5fe`.
+   in `cd61715`.
 3. Select and integrate the real detector hardware, wiring and gantry, then prove
    two-lane product-intent detection and replacement/fault behaviour.
 4. Record the 4/8-lane expansion evidence and prepare the later WP8 appliance work.
