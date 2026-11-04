@@ -150,7 +150,13 @@ pp::SimulatedDetectorProvider simulatedDetectorProvider;
 pp::InputModule input(bus,bus.attach(pp::Role::Input),simulatedDetectorProvider);
 pp::ActiveSessionDefinition activeSession;
 const auto raceControlEndpoint=bus.attach(pp::Role::RaceControl);
-pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession,&history,&records,&simulatedDetectorProvider,&trackConfigurationMemory,&memory);
+pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession,&history,&records,&simulatedDetectorProvider,&trackConfigurationMemory,&memory,
+#if defined(PP_PHASE8B_REAL_SD)
+  &mugCatalog
+#else
+  nullptr
+#endif
+);
 const auto raceEngineEndpoint=bus.attach(pp::Role::RaceEngine);
 pp::RaceEngineModule raceEngine(bus,raceEngineEndpoint,activeSession,&history,&records,
 #if defined(PP_PHASE8B_REAL_SD)
@@ -220,7 +226,13 @@ pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthor
 #endif
                              &firmwareUpdateService,
                              &customerMaintenance,
-                             &simulatedDetectorProvider
+                             &simulatedDetectorProvider,
+#if defined(PP_PHASE8B_REAL_SD)
+                             &mugCatalog,
+#else
+                             nullptr,
+#endif
+                             &raceControl
 );
 #if defined(PP_STAGE8A_TASTER_WOKWI)
 pp::TasterRuntime taster(browser);
@@ -284,18 +296,20 @@ void servicePhysicalSdRecovery() {
     bool diagnosticsBoundary = false;
     bool historyReconstructionAttempted = false;
     uint8_t historyCount = 0;
+    pp::MugCatalog::LoadResult mugCatalogBoundary = pp::MugCatalog::LoadResult::StorageUnavailable;
     if (ownerRecovered) {
       historyBoundary = sdPersistence.recover();
       detailBoundary = activeDetail.recover();
       diagnosticsBoundary = controllerTraceStorage.recover() == pp::diagnostic::StorageResult::Accepted;
+      mugCatalogBoundary = mugCatalog.reload();
       historyCount = rawHistory.count();
       historyReconstructionAttempted = true;
     }
-    Serial.printf("[P8-P1] SD recovery lifecycle=%u owner=%u owner_health=%u history_boundary=%u history_available=%u detail_boundary=%u diagnostics_boundary=%u history_reconstruction_attempted=%u history_count=%u\n",
+    Serial.printf("[P8-P1] SD recovery lifecycle=%u owner=%u owner_health=%u history_boundary=%u history_available=%u detail_boundary=%u diagnostics_boundary=%u mug_catalog=%u history_reconstruction_attempted=%u history_count=%u\n",
                   static_cast<unsigned>(lifecycle), ownerRecovered ? 1u : 0u,
                   static_cast<unsigned>(physicalSdOwner.health()), historyBoundary ? 1u : 0u,
                   sdPersistence.available() ? 1u : 0u, detailBoundary ? 1u : 0u,
-                  diagnosticsBoundary ? 1u : 0u, historyReconstructionAttempted ? 1u : 0u,
+                  diagnosticsBoundary ? 1u : 0u, static_cast<unsigned>(mugCatalogBoundary), historyReconstructionAttempted ? 1u : 0u,
                   static_cast<unsigned>(historyCount));
   }
 }

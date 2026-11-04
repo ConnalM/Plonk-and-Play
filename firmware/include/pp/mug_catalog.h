@@ -8,6 +8,24 @@
 
 namespace pp {
 
+enum class MugCreateResult : uint8_t {
+  Accepted,
+  PermissionDenied,
+  LifecycleNotStartable,
+  StorageUnavailable,
+  InvalidName,
+  CapacityFull,
+  IdExhausted
+};
+
+// Narrow controller-authority seam used by the Browser.  The Browser can
+// request creation, but it never receives storage or lifecycle authority.
+class MugCatalogAuthority {
+public:
+  virtual MugCreateResult createMug(ClientContext context, const char* name, uint32_t& id) = 0;
+  virtual ~MugCatalogAuthority() = default;
+};
+
 // Saved MUG identity is a persistent SD-backed product facility.  These slots
 // are deliberately outside every existing configuration, History and Record
 // slot used by the production Store implementations:
@@ -102,14 +120,16 @@ public:
     const bool anyRecord = firstReadable || secondReadable;
     const bool readFailure = firstRead == Store::ReadResult::Failed ||
                              secondRead == Store::ReadResult::Failed;
+    // Both A and B are authoritative candidates in the committed namespace.
+    // If either read failed, the other slot may be an older record; never
+    // commission that older snapshot as writable authority while the newest
+    // namespace is only partially observable.  Leave loaded_ false so an
+    // explicit recovery/reload can retry once storage is healthy again.
+    if (readFailure) {
+      free(first); free(second); free(firstEntries); free(secondEntries);
+      return LoadResult::StorageUnavailable;
+    }
     if (!firstValid && !secondValid) {
-      if (readFailure) {
-        // Do not commission an empty in-memory catalog after an existing
-        // namespace could not be read. The caller must retain the previous
-        // authority and wait for storage to recover.
-        free(first); free(second); free(firstEntries); free(secondEntries);
-        return LoadResult::StorageUnavailable;
-      }
       if (anyRecord) {
         free(first); free(second); free(firstEntries); free(secondEntries);
         return LoadResult::Corrupt;
@@ -130,6 +150,14 @@ public:
     loaded_ = true;
     free(first); free(second); free(firstEntries); free(secondEntries);
     return LoadResult::Remembered;
+  }
+
+  // Explicit recovery/reconstruction boundary.  A failed load leaves
+  // loaded_ false, so callers can retry after the owner reports storage
+  // available again without commissioning a partial or older snapshot.
+  LoadResult reload() {
+    loaded_ = false;
+    return load();
   }
 
   Result create(const char* name, uint32_t& id) {
@@ -206,6 +234,8 @@ public:
   uint32_t generation() const { return generation_; }
   uint32_t nextId() const { return nextId_; }
   unsigned activeSlot() const { return activeSlot_; }
+  bool loaded() const { return loaded_; }
+  bool available() const { return store_.available(); }
 
   static const char* resultName(Result value) {
     switch (value) {

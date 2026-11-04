@@ -223,11 +223,7 @@ identities into the existing Session Definition. Focused evidence is
 `acceptance/stage7/racer_selection_test.cpp`,
 `acceptance/stage7/run_racer_selection_test.ps1`,
 `acceptance/stage7/racer_browser_contract.py`, and
-`acceptance/stage7/run_racer_browser_contract.ps1`. The existing product
-defaults (MUG 1/MUG 2) and persisted internal IDs are selectable; profile
-creation, naming/editing and deletion remain outside this slice because no
-saved-MUG catalog exists in the current implementation and must not become a
-second configuration authority.
+`acceptance/stage7/run_racer_browser_contract.ps1`.
 
 The racer-selection persistence boundary was tightened on 4 November 2026.
 Race Control now rejects a request that combines detector and racer assignment
@@ -251,12 +247,26 @@ verification, monotonic saved IDs beginning at 3, a 100-entry limit, strict
 1–40-character UTF-8 names, rename-without-ID-change and archive-without-ID-
 reuse. MUG 1 and MUG 2 remain built-in defaults. Failed staging, publication or
 cleanup paths preserve the prior authoritative catalog, and restart
-reconstructs the newest committed copy. Focused evidence is
-`acceptance/stage7/mug_catalog_test.cpp` and
-`acceptance/stage7/run_mug_catalog_test.ps1`. Browser controls, Race Control
-catalog membership/selection validation, Guest handling and historical name
-freezing remain later slices; this foundation does not change the current
-numeric racer-selection path or any History/Record format.
+reconstructs the newest committed copy. A failure reading either authoritative
+slot now fails closed rather than commissioning the other snapshot; an
+explicit recovery reload reconstructs the committed catalog once both reads
+recover.
+
+Saved-MUG catalog integration is now implemented as a bounded software-only
+Browser/controller slice (4 November 2026). The controlling Race Director can
+create a named MUG from Race Setup through the controller-authoritative
+`/request/mug/create` boundary; `/racers` lists built-in and active saved
+profiles with their actual names and permanent IDs; lane selection continues
+through `/request/setup`, with Race Control validating catalog membership,
+archived/unknown IDs and duplicate assignments before persistence and proposal
+publication. The catalog is reloaded after an authorised storage recovery, and
+START/restart continue to use the existing proposal, Memory and Session
+Definition boundaries. Evidence is
+`acceptance/stage7/mug_catalog_integration_test.cpp`,
+`acceptance/stage7/racer_browser_contract.py`, and the catalog/selection tests.
+Rename/archive Browser controls, Guest handling, historical name freezing and
+History/Record format changes remain deferred; no Race Engine or Message Bus
+architecture was changed.
 
 Productise real detection: sensor addressing, lane assignment, health, Track Setup, minimum-lap/detection behaviour, connections/cabling, gantry and 4/8-lane expansion architecture. Final MCP23017/alternative choice is made here, not assumed by WP0.
 

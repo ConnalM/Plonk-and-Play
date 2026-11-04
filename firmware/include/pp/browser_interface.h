@@ -13,6 +13,7 @@
 #include "control_lease.h"
 #include "external_wifi.h"
 #include "firmware_update.h"
+#include "mug_catalog.h"
 #if defined(PP_PHASE8B_REAL_SD)
 #include "physical_sd_owner.h"
 #endif
@@ -59,10 +60,13 @@ public:
                    PhysicalSdOwner* physicalOwner = nullptr,
                    FirmwareUpdateEndpoint* firmwareUpdate = nullptr,
                    MaintenanceEndpoint* maintenance = nullptr,
-                   DetectorProvider* detectorProvider = nullptr)
+                   DetectorProvider* detectorProvider = nullptr,
+                   MugCatalog* mugCatalog = nullptr,
+                   MugCatalogAuthority* mugAuthority = nullptr)
       : bus_(bus), endpoint_(endpoint), noticeboard_(noticeboard),
         authority_(authority ? authority : &fallback_), history_(history), records_(records), detailSource_(detailSource),
-        physicalOwner_(physicalOwner), firmwareUpdate_(firmwareUpdate), maintenance_(maintenance), detectorProvider_(detectorProvider) {
+        physicalOwner_(physicalOwner), firmwareUpdate_(firmwareUpdate), maintenance_(maintenance), detectorProvider_(detectorProvider),
+        mugCatalog_(mugCatalog), mugAuthority_(mugAuthority) {
     controllerEpoch_ = newControllerEpoch();
   }
   uint64_t controllerEpoch() const { return controllerEpoch_; }
@@ -599,6 +603,8 @@ private:
   FirmwareUpdateEndpoint* firmwareUpdate_ = nullptr;
   MaintenanceEndpoint* maintenance_ = nullptr;
   DetectorProvider* detectorProvider_ = nullptr;
+  MugCatalog* mugCatalog_ = nullptr;
+  MugCatalogAuthority* mugAuthority_ = nullptr;
   VolatileAuthorityStore fallback_;
   ExternalWifiManager network_{};
   httpd_handle_t server_ = nullptr;
@@ -956,6 +962,17 @@ private:
     if(!out||n>=cap)return false;va_list args;va_start(args,format);const int written=vsnprintf(out+n,cap-n,format,args);va_end(args);
     if(written<0||size_t(written)>=cap-n){n=cap;return false;}n+=size_t(written);return true;
   }
+  static bool appendJsonString(char* out, size_t cap, size_t& n, const char* value) {
+    if (!appendJson(out, cap, n, "\"")) return false;
+    if (!value) value = "";
+    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(value); *p; ++p) {
+      if (*p == '\"') { if (!appendJson(out, cap, n, "\\\"")) return false; }
+      else if (*p == '\\') { if (!appendJson(out, cap, n, "\\\\")) return false; }
+      else if (*p < 0x20u) { if (!appendJson(out, cap, n, "\\u%04x", unsigned(*p))) return false; }
+      else if (!appendJson(out, cap, n, "%c", char(*p))) return false;
+    }
+    return appendJson(out, cap, n, "\"");
+  }
   static bool serializeState(const NoticeboardState& value,Time now,char*out,size_t cap,size_t&length){
     size_t n=0;const char* mode=value.sessionMode==SessionMode::OpenPractice?"OPEN_PRACTICE":value.sessionMode==SessionMode::Endurance?"ENDURANCE":value.sessionMode==SessionMode::None?"NONE":"LAP_RACE";bool ok=appendJson(out,cap,n,"{\"systemTime\":%llu,\"lifecycle\":\"%s\",\"sessionMode\":\"%s\",\"proposalRevision\":%lu,\"entryCount\":%u,\"raceEntryId\":%lu,\"laps\":%lu,\"lapTarget\":%lu,\"durationMinutes\":%u,\"durationExpiryAt\":%llu,\"remainingDuration\":%llu,\"durationExpired\":%s,\"overtime\":%llu,\"finishBehaviour\":\"%s\",\"hasLap\":%s,\"lastLapTime\":%llu,\"sessionFastestLap\":%llu,\"scheduledGo\":%llu,\"redLightCount\":%u,\"redIntervalUs\":%llu,\"finalDelayUs\":%llu,\"startSignal\":%u,\"pauseEffectiveAt\":%llu,\"scheduledRestartAt\":%llu,\"restartMethod\":\"%s\",\"resultValid\":%s,\"raceIntegrity\":\"%s\",\"resultSealed\":%s,\"winningTime\":%llu,\"finishTime\":%llu,\"fastestLap\":%llu,\"historySequence\":%lu,\"persistencePending\":%s,\"persistenceFault\":%s,\"entries\":[",
       (unsigned long long)now,lifecycle(value.lifecycle),mode,(unsigned long)value.proposalRevision,unsigned(value.entryCount),(unsigned long)value.raceEntryId,(unsigned long)value.laps,(unsigned long)value.lapTarget,unsigned(value.durationMinutes),(unsigned long long)value.durationExpiryAt,(unsigned long long)value.remainingDuration,value.durationExpired?"true":"false",(unsigned long long)value.overtime,finishBehaviour(value.finishBehaviour),value.hasLap?"true":"false",(unsigned long long)value.lastLapTime,(unsigned long long)value.sessionFastestLap,(unsigned long long)value.scheduledGo,unsigned(value.redLightCount),(unsigned long long)value.redIntervalUs,(unsigned long long)value.finalDelayUs,unsigned(value.startSignal),(unsigned long long)value.pauseEffectiveAt,(unsigned long long)value.scheduledRestartAt,value.restartMethod==RestartMethod::Honour?"HONOUR":value.restartMethod==RestartMethod::Grid?"GRID":"NONE",value.resultValid?"true":"false",value.raceIntegrityFaulted?"FAULTED":"OK",value.resultSealed?"true":"false",(unsigned long long)value.winningTime,(unsigned long long)value.finishTime,(unsigned long long)value.fastestLap,(unsigned long)value.historySequence,value.persistencePending?"true":"false",value.persistenceFault?"true":"false");
@@ -970,17 +987,39 @@ private:
     for(uint8_t i=0;i<setup->activeLanes&&i<PP_MAX_ENTRIES;++i){const auto&e=setup->entries[i];ok=appendJson(out,cap,n,"%s{\"index\":%u,\"lane\":%u,\"inputDevice\":%lu,\"inputCapability\":%u,\"mugId\":%lu}",i?",":"",unsigned(i),unsigned(e.startFinish.lane),(unsigned long)e.startFinish.input.device,unsigned(e.startFinish.input.capability),(unsigned long)e.mugId)&&ok;}
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
   }
-  static bool serializeRacers(const ProposedRaceSetup* setup,uint32_t revision,char*out,size_t cap,size_t&length){
+  static bool serializeRacers(const ProposedRaceSetup* setup, const MugCatalog* catalog,
+                              uint32_t revision, char* out, size_t cap, size_t& length){
     if(!setup)return false;
+    if (catalog && (!catalog->loaded() || !catalog->available())) return false;
     const ProposedRaceSetup normal=normalised(*setup);
-    uint32_t ids[4]={1,2,0,0}; uint8_t count=2;
+    uint32_t ids[2 + MugCatalog::MaxProfiles]{}; uint16_t count=2; ids[0]=1; ids[1]=2;
     for(uint8_t i=0;i<normal.activeLanes&&i<2;++i){
       const uint32_t id=normal.entries[i].mugId;
       bool known=false;for(uint8_t j=0;j<count;++j)if(ids[j]==id)known=true;
-      if(id&&!known&&count<4)ids[count++]=id;
+      if(id&&!known&&count<(2 + MugCatalog::MaxProfiles))ids[count++]=id;
     }
     size_t n=0;bool ok=appendJson(out,cap,n,"{\"formatVersion\":1,\"proposalRevision\":%lu,\"racers\":[",static_cast<unsigned long>(revision));
-    for(uint8_t i=0;i<count&&ok;++i)ok=appendJson(out,cap,n,"%s{\"id\":%lu,\"name\":\"MUG %lu\"}",i?",":"",static_cast<unsigned long>(ids[i]),static_cast<unsigned long>(ids[i]));
+    for(uint16_t i=0;i<count&&ok;++i){
+      const uint32_t id=ids[i]; const char* name=nullptr; char builtin[16]{}; MugCatalog::Entry entry{};
+      if (id == 1 || id == 2) { snprintf(builtin, sizeof(builtin), "MUG %lu", static_cast<unsigned long>(id)); name=builtin; }
+      else if (catalog && catalog->find(id, entry, false)) name=entry.name;
+      else { snprintf(builtin, sizeof(builtin), "MUG %lu", static_cast<unsigned long>(id)); name=builtin; }
+      ok=appendJson(out,cap,n,"%s{\"id\":%lu,\"builtin\":%s,\"name\":",i?",":"",static_cast<unsigned long>(id),(id==1||id==2)?"true":"false")&&ok;
+      ok=appendJsonString(out,cap,n,name)&&ok;
+      ok=appendJson(out,cap,n,"}")&&ok;
+    }
+    if (catalog) {
+      for (uint16_t index=0; index<catalog->count() && ok; ++index) {
+        const MugCatalog::Entry* entry=catalog->entry(index);
+        if (!entry || entry->archived) continue;
+        bool known=false; for (uint16_t j=0;j<count;++j) if(ids[j]==entry->id) { known=true; break; }
+        if (known || count >= (2 + MugCatalog::MaxProfiles)) continue;
+        ids[count++]=entry->id;
+        ok=appendJson(out,cap,n,"%s{\"id\":%lu,\"builtin\":false,\"name\":",n && out[n-1]=='['?"":",",static_cast<unsigned long>(entry->id))&&ok;
+        ok=appendJsonString(out,cap,n,entry->name)&&ok;
+        ok=appendJson(out,cap,n,"}")&&ok;
+      }
+    }
     ok=appendJson(out,cap,n,"],\"assignments\":[")&&ok;
     for(uint8_t i=0;i<normal.activeLanes&&i<2&&ok;++i)ok=appendJson(out,cap,n,"%s{\"lane\":%u,\"mugId\":%lu}",i?",":"",unsigned(i+1),static_cast<unsigned long>(normal.entries[i].mugId));
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
@@ -1994,11 +2033,79 @@ private:
   }
   static esp_err_t racersRoute(httpd_req_t* request){
     RequestTrace trace(instance(), "/racers");
-    client(request); BrowserInterface* browser=instance(); char json[2048]{}; size_t length=0;
-    if(!serializeRacers(browser->proposedRaceSetup(),browser->proposalRevision(),json,sizeof(json),length)){
+    client(request); BrowserInterface* browser=instance();
+    // 100 saved profiles may each contain a 40-code-point UTF-8 name which
+    // needs JSON escaping. Keep this bounded and heap-backed rather than
+    // putting the complete catalog on the task stack.
+    constexpr size_t RacersJsonCapacity = 45056;
+    char* json = static_cast<char*>(malloc(RacersJsonCapacity)); size_t length=0;
+    if(!json || !serializeRacers(browser->proposedRaceSetup(),browser->mugCatalog_,browser->proposalRevision(),json,RacersJsonCapacity,length)){
+      if (json) free(json);
       httpd_resp_send_err(request,HTTPD_500_INTERNAL_SERVER_ERROR,"racers unavailable"); trace.complete(ESP_ERR_INVALID_STATE); return ESP_FAIL;
     }
     httpd_resp_set_type(request,"application/json"); httpd_resp_set_hdr(request,"Cache-Control","no-store");
+    const esp_err_t sent=httpd_resp_sendstr(request,json); free(json); trace.complete(sent); return sent;
+  }
+  static bool mugNameFromBody(httpd_req_t* request, char* out, size_t cap) {
+    if (!request || !out || cap < 2 || request->content_len <= 0 || request->content_len >= 256) return false;
+    char body[256]{}; int received=0;
+    while (received < request->content_len) {
+      const int part=httpd_req_recv(request, body+received, request->content_len-received);
+      if (part <= 0) return false; received += part;
+    }
+    const char* key=strstr(body,"\"name\""); const char* colon=key?strchr(key,':'):nullptr;
+    if (!colon) return false; const char* p=colon+1; while (*p==' '||*p=='\t') ++p;
+    if (*p!='\"') return false; ++p;
+    size_t n=0;
+    while (*p) {
+      if (*p=='\"') { out[n]='\0'; return true; }
+      unsigned char value=static_cast<unsigned char>(*p++);
+      if (value=='\\') {
+        const char escaped= *p ? *p++ : '\0';
+        if (escaped=='\"'||escaped=='\\'||escaped=='/') value=static_cast<unsigned char>(escaped);
+        else if (escaped=='b') value='\b';
+        else if (escaped=='f') value='\f';
+        else if (escaped=='n') value='\n';
+        else if (escaped=='r') value='\r';
+        else if (escaped=='t') value='\t';
+        else return false; // keep the bounded endpoint strict; UTF-8 is sent directly
+      }
+      if (n+1 >= cap) return false; out[n++]=static_cast<char>(value);
+    }
+    return false;
+  }
+  static const char* mugCreateResultText(MugCreateResult result) {
+    switch (result) {
+      case MugCreateResult::Accepted: return "ACCEPTED";
+      case MugCreateResult::PermissionDenied: return "PERMISSION_DENIED";
+      case MugCreateResult::LifecycleNotStartable: return "LIFECYCLE_NOT_SETTLED";
+      case MugCreateResult::StorageUnavailable: return "STORAGE_UNAVAILABLE";
+      case MugCreateResult::InvalidName: return "INVALID_NAME";
+      case MugCreateResult::CapacityFull: return "CAPACITY_FULL";
+      case MugCreateResult::IdExhausted: return "ID_EXHAUSTED";
+    }
+    return "REJECTED";
+  }
+  static esp_err_t mugCreateRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/request/mug/create");
+    BrowserInterface* browser=instance(); const uint64_t owner=client(request);
+    char name[MugCatalog::MaxNameBytes+1]{};
+    if (!mugNameFromBody(request,name,sizeof(name))) {
+      httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"MUG name required");
+      trace.complete(ESP_ERR_INVALID_ARG); return ESP_FAIL;
+    }
+    uint32_t id=0;
+    const auto result=browser->mugAuthority_ ? browser->mugAuthority_->createMug(browser->context(owner),name,id)
+                                             : MugCreateResult::StorageUnavailable;
+    const char* status=result==MugCreateResult::Accepted?"202 Accepted":
+      result==MugCreateResult::PermissionDenied?"403 Forbidden":
+      result==MugCreateResult::StorageUnavailable?"503 Service Unavailable":
+      "409 Conflict";
+    char json[192]{};
+    snprintf(json,sizeof(json),"{\"accepted\":%s,\"result\":\"%s\",\"id\":%lu}",
+             result==MugCreateResult::Accepted?"true":"false",
+             mugCreateResultText(result),static_cast<unsigned long>(id));
+    httpd_resp_set_status(request,status); httpd_resp_set_type(request,"application/json");
     const esp_err_t sent=httpd_resp_sendstr(request,json); trace.complete(sent); return sent;
   }
   static esp_err_t practiceSummaryRoute(httpd_req_t* request){
@@ -2983,6 +3090,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/network/forget", HTTP_POST, networkForgetRoute, nullptr},
       {"/proposal", HTTP_GET, proposalRoute, nullptr},
       {"/racers", HTTP_GET, racersRoute, nullptr},
+      {"/request/mug/create", HTTP_POST, mugCreateRoute, nullptr},
       {"/practice-summary", HTTP_GET, practiceSummaryRoute, nullptr},
       {"/finish-display", HTTP_GET, finishDisplayRoute, nullptr},
       {"/results", HTTP_GET, resultsRoute, nullptr},

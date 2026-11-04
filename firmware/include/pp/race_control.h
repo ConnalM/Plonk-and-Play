@@ -4,6 +4,7 @@
 #include "history_store.h"
 #include "record_store.h"
 #include "track_configuration.h"
+#include "mug_catalog.h"
 
 namespace pp {
 
@@ -13,13 +14,13 @@ enum class StartPresentationPhase : uint8_t { None, Countdown, ResumeCountdown, 
 enum class ReadinessSeverity : uint8_t { None, Blocking };
 struct ReadinessContext { uint8_t version=1; StartReadiness readiness=StartReadiness::LifecycleNotStartable; ReadinessSeverity severity=ReadinessSeverity::Blocking; bool blocking=true; uint8_t lane=0; };
 
-class RaceControlModule {
+class RaceControlModule : public MugCatalogAuthority {
 public:
   static constexpr Time StartLeadUs=1000000;
   static constexpr Time DefaultRedIntervalUs=1000000;
   static constexpr Time DefaultFinalDelayMinUs=500000;
   static constexpr Time DefaultFinalDelayMaxUs=2000000;
-  RaceControlModule(Bus& bus,Bus::Endpoint endpoint,ActiveSessionDefinition& active, HistoryStore* history=nullptr, TrackRecordStore* records=nullptr, DetectorProvider* detectorProvider=nullptr, TrackConfigurationPersistence* trackConfigurationPersistence=nullptr, RacerSelectionPersistence* racerSelectionPersistence=nullptr):bus_(bus),endpoint_(endpoint),active_(active),history_(history),records_(records),detectorProvider_(detectorProvider),trackConfigurationPersistence_(trackConfigurationPersistence),racerSelectionPersistence_(racerSelectionPersistence) {}
+  RaceControlModule(Bus& bus,Bus::Endpoint endpoint,ActiveSessionDefinition& active, HistoryStore* history=nullptr, TrackRecordStore* records=nullptr, DetectorProvider* detectorProvider=nullptr, TrackConfigurationPersistence* trackConfigurationPersistence=nullptr, RacerSelectionPersistence* racerSelectionPersistence=nullptr, MugCatalog* mugCatalog=nullptr):bus_(bus),endpoint_(endpoint),active_(active),history_(history),records_(records),detectorProvider_(detectorProvider),trackConfigurationPersistence_(trackConfigurationPersistence),racerSelectionPersistence_(racerSelectionPersistence),mugCatalog_(mugCatalog) {}
   // Stage 6/7 preparation supplies an already-fixed external definition. It
   // does not exercise Browser START acceptance or create a competing path.
   void resetForFixture(){definition_=nullptr;setup_=nullptr;requiredCapabilityAvailable_=false;practiceSummaryPending_=false;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=goPresentationUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
@@ -33,6 +34,25 @@ public:
   // never infer readiness from detector events or cached Browser state.
   void setRequiredCapabilityAvailable(bool available){requiredCapabilityAvailable_=available;}
   void setDetectorProvider(DetectorProvider& provider){detectorProvider_=&provider;}
+  void setMugCatalog(MugCatalog& catalog){mugCatalog_=&catalog;}
+  // Named-MUG creation is a controller-authoritative installation operation.
+  // Browser supplies only its current logical context; lifecycle and storage
+  // gates remain here beside the existing setup authority.
+  MugCreateResult createMug(ClientContext context, const char* name, uint32_t& id) override {
+    id = 0;
+    if (context != ClientContext::RaceDirectorSmug) return MugCreateResult::PermissionDenied;
+    if (state_ != SessionLifecycle::Ready || startCommitted_) return MugCreateResult::LifecycleNotStartable;
+    if (!mugCatalog_ || !mugCatalog_->loaded() || !mugCatalog_->available()) return MugCreateResult::StorageUnavailable;
+    switch (mugCatalog_->create(name, id)) {
+      case MugCatalog::Result::Accepted: return MugCreateResult::Accepted;
+      case MugCatalog::Result::InvalidName: return MugCreateResult::InvalidName;
+      case MugCatalog::Result::CapacityFull: return MugCreateResult::CapacityFull;
+      case MugCatalog::Result::IdExhausted: return MugCreateResult::IdExhausted;
+      case MugCatalog::Result::NotLoaded:
+      case MugCatalog::Result::StorageUnavailable: return MugCreateResult::StorageUnavailable;
+      default: return MugCreateResult::StorageUnavailable;
+    }
+  }
   bool start(Time now){
     if(!definition_||state_!=SessionLifecycle::Ready||startCommitted_)return false;
     return beginStart(now);
@@ -108,6 +128,10 @@ public:
   StartReadiness readiness()const{
     if(state_!=SessionLifecycle::Ready||startCommitted_)return StartReadiness::LifecycleNotStartable;
     if(!setup_||!valid(*setup_))return StartReadiness::InvalidRaceSetup;
+    RequestRejection identityFailure = RequestRejection::InvalidRaceSetup;
+    if (!validMugIdentity(setup_->entries[0].mugId, identityFailure) ||
+        (setup_->activeLanes > 1 && !validMugIdentity(setup_->entries[1].mugId, identityFailure)))
+      return StartReadiness::InvalidRaceSetup;
     if(!requiredCapabilityAvailable_)return StartReadiness::CapabilityUnavailable;
     return StartReadiness::Ready;
   }
@@ -304,6 +328,12 @@ private:
       }
     }
     if (request.setupRacerAssignmentMask != 0) {
+      RequestRejection identityFailure = RequestRejection::InvalidRaceSetup;
+      if (!validMugIdentity(candidate.entries[0].mugId, identityFailure) ||
+          !validMugIdentity(candidate.entries[1].mugId, identityFailure)) {
+        reject(request.correlation, identityFailure);
+        return;
+      }
       if (!racerSelectionPersistence_ ||
           !racerSelectionPersistence_->save(candidate.entries[0].mugId, candidate.entries[1].mugId)) {
         reject(request.correlation, RequestRejection::StorageUnavailable);
@@ -349,7 +379,22 @@ private:
     if(definition_->entryCount()>1){proposedSetup_.secondStartFinish=definition_->role(1);proposedSetup_.secondMugId=definition_->entry(1).mugId;}
     proposedSetup_=normalised(proposedSetup_);setup_=&proposedSetup_;++proposalRevision_;
   }
-  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;DetectorProvider* detectorProvider_=nullptr;TrackConfigurationPersistence* trackConfigurationPersistence_=nullptr;RacerSelectionPersistence* racerSelectionPersistence_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
+  bool validMugIdentity(uint32_t id, RequestRejection& rejection) const {
+    if (id == 1 || id == 2) return true;
+    if (!id) { rejection = RequestRejection::InvalidRaceSetup; return false; }
+    if (!mugCatalog_) return true; // source-compatible non-production fixtures
+    if (!mugCatalog_->loaded() || !mugCatalog_->available()) {
+      rejection = RequestRejection::StorageUnavailable;
+      return false;
+    }
+    MugCatalog::Entry entry{};
+    if (!mugCatalog_->find(id, entry, false)) {
+      rejection = RequestRejection::InvalidRaceSetup;
+      return false;
+    }
+    return true;
+  }
+  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;DetectorProvider* detectorProvider_=nullptr;TrackConfigurationPersistence* trackConfigurationPersistence_=nullptr;RacerSelectionPersistence* racerSelectionPersistence_=nullptr;MugCatalog* mugCatalog_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
   SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0,finalDelay_=0,durationExpiry_=0,durationRemaining_=0,finishDisplayUntil_=0,goPresentationUntil_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=false,startCommitted_=false,integrityFaulted_=false,practiceSummaryPending_=false,pauseSettled_=false,durationExpired_=false,durationPublished_=false,resumeScheduled_=false,finishDisplayActive_=false;uint8_t finishDisplayDurationSeconds_=5;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
   uint32_t nextSessionId_=1,nextRaceEntryId_=1;
   ProposedRaceSetup proposedSetup_{}; uint32_t proposalRevision_=1;

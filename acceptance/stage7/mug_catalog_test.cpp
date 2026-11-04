@@ -200,6 +200,26 @@ int main() {
   ok &= require(restartHas(readFailureStore, 3, "Retained"),
                 "failed catalog load leaves the previously committed profile intact for restart");
 
+  // A failure in either authoritative slot must not commission the other
+  // snapshot as writable authority. The loader remains unloaded, then
+  // reconstructs the newest committed record once both reads recover.
+  uint32_t newestId = 0;
+  ok &= require(readFailureBaseline.rename(3, "Retained Newest") == MugCatalog::Result::Accepted &&
+                readFailureBaseline.create("Second", newestId) == MugCatalog::Result::Accepted,
+                "read-failure matrix has successive committed A/B generations");
+  const unsigned newestSlot = readFailureBaseline.activeSlot();
+  if (newestSlot == MugCatalog::CatalogSlotA) readFailureStore.failCatalogReadA = true;
+  else readFailureStore.failCatalogReadB = true;
+  MugCatalog partialRead(readFailureStore);
+  ok &= require(partialRead.load() == MugCatalog::LoadResult::StorageUnavailable &&
+                partialRead.create("MustNotOverwriteNewest", id) == MugCatalog::Result::NotLoaded,
+                "a failed read of the newer catalog slot cannot commission an older writable snapshot");
+  readFailureStore.failCatalogReadA = false;
+  readFailureStore.failCatalogReadB = false;
+  ok &= require(partialRead.reload() == MugCatalog::LoadResult::Remembered &&
+                hasName(partialRead, newestId, "Second"),
+                "catalog reload reconstructs the newest committed record after read recovery");
+
   CatalogStore capacityStore;
   MugCatalog capacity(capacityStore);
   ok &= require(capacity.load() == MugCatalog::LoadResult::Empty,
