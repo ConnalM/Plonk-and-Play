@@ -21,12 +21,15 @@ public:
   RaceControlModule(Bus& bus,Bus::Endpoint endpoint,ActiveSessionDefinition& active, HistoryStore* history=nullptr, TrackRecordStore* records=nullptr):bus_(bus),endpoint_(endpoint),active_(active),history_(history),records_(records) {}
   // Stage 6/7 preparation supplies an already-fixed external definition. It
   // does not exercise Browser START acceptance or create a competing path.
-  void resetForFixture(){definition_=nullptr;setup_=nullptr;practiceSummaryPending_=false;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=goPresentationUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
-  void resetRaceForFixture(){definition_=nullptr;practiceSummaryPending_=false;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=goPresentationUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
+  void resetForFixture(){definition_=nullptr;setup_=nullptr;requiredCapabilityAvailable_=false;practiceSummaryPending_=false;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=goPresentationUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
+  void resetRaceForFixture(){definition_=nullptr;requiredCapabilityAvailable_=false;practiceSummaryPending_=false;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=goPresentationUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
   void prepare(const SessionDefinition& definition){definition_=&definition;setup_=nullptr;practiceSummaryPending_=false;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=goPresentationUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
   // Stage 8 supplies the mutable working setup and current required-capability
   // availability. Race Control alone validates and commits an active session.
   void setProposedRaceSetup(const ProposedRaceSetup& setup){proposedSetup_=normalised(setup);setup_=&proposedSetup_;++proposalRevision_;definition_=active_.current();}
+  // Race Control remains the sole start-readiness authority.  The owning
+  // integration supplies the current required-capability snapshot; consumers
+  // never infer readiness from detector events or cached Browser state.
   void setRequiredCapabilityAvailable(bool available){requiredCapabilityAvailable_=available;}
   bool start(Time now){
     if(!definition_||state_!=SessionLifecycle::Ready||startCommitted_)return false;
@@ -286,7 +289,7 @@ private:
     proposedSetup_=normalised(proposedSetup_);setup_=&proposedSetup_;++proposalRevision_;
   }
   Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
-  SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0,finalDelay_=0,durationExpiry_=0,durationRemaining_=0,finishDisplayUntil_=0,goPresentationUntil_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=true,startCommitted_=false,integrityFaulted_=false,practiceSummaryPending_=false,pauseSettled_=false,durationExpired_=false,durationPublished_=false,resumeScheduled_=false,finishDisplayActive_=false;uint8_t finishDisplayDurationSeconds_=5;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
+  SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0,finalDelay_=0,durationExpiry_=0,durationRemaining_=0,finishDisplayUntil_=0,goPresentationUntil_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=false,startCommitted_=false,integrityFaulted_=false,practiceSummaryPending_=false,pauseSettled_=false,durationExpired_=false,durationPublished_=false,resumeScheduled_=false,finishDisplayActive_=false;uint8_t finishDisplayDurationSeconds_=5;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
   uint32_t nextSessionId_=1,nextRaceEntryId_=1;
   ProposedRaceSetup proposedSetup_{}; uint32_t proposalRevision_=1;
 };

@@ -173,9 +173,9 @@ rollback obligations are resolved.
 ### WP7 — Track hardware system
 **Status: OPEN.** WP7.1 — the detector-provider boundary and deterministic
 two-lane health seam — is implemented as a software-only slice in
-`fce2b8a` (including mandatory explicit provider injection and the Stage 2/3
-boundary-oracle updates; no physical detector driver or physical acceptance
-claimed).
+`fce2b8a`/`7affe55` (including mandatory explicit provider injection and the
+Stage 2/3 boundary-oracle updates; no physical detector driver or physical
+acceptance claimed).
 
 The slice adds an injectable `DetectorProvider` boundary behind `InputModule`,
 retains the deterministic simulated provider, publishes stable role-neutral
@@ -184,6 +184,17 @@ missing/fault/replacement status without silently changing detector identity.
 Focused evidence is `acceptance/stage7/detector_provider_test.cpp` and its
 structural review; the existing Stage 2–9/14A structural/regression guards
 remain passing.
+
+WP7.2 — detector readiness integration — is now implemented as a bounded
+software-only slice. Race Control readiness is refreshed from the current
+normalized Session Definition assignments and the injected provider's
+authoritative status: missing, faulted or unreconciled replacement required
+detectors block START with the existing `CapabilityUnavailable` reason;
+unassigned/optional provider entries do not. Detector identities remain fixed
+and no lane is silently reassigned. Focused evidence is
+`acceptance/stage7/detector_readiness_test.cpp` and
+`acceptance/stage7/run_detector_readiness_test.ps1`. No physical detector
+driver, Track Setup, or physical acceptance is claimed.
 
 Productise real detection: sensor addressing, lane assignment, health, Track Setup, minimum-lap/detection behaviour, connections/cabling, gantry and 4/8-lane expansion architecture. Final MCP23017/alternative choice is made here, not assumed by WP0.
 
@@ -244,9 +255,9 @@ WP7 is the next active package, while WP8 remains future work.
 Immediate technical order is:
 
 1. Resolve the already-identified WP7 sensor/interface and expansion decisions.
-2. Extend WP7.1's software seam only as needed for the eventual real-provider
-   integration; its deterministic two-lane boundary is implemented and tested
-   in `fce2b8a`.
+2. WP7.1's deterministic two-lane boundary and WP7.2 readiness integration are
+   implemented and tested in the software-only slices above; no real-provider
+   or physical-detector work is claimed.
 3. Select and integrate the real detector hardware, wiring and gantry, then prove
    two-lane product-intent detection and replacement/fault behaviour.
 4. Record the 4/8-lane expansion evidence and prepare the later WP8 appliance work.

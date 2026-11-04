@@ -70,6 +70,33 @@ inline bool valid(const ProposedRaceSetup& original) {
   return true;
 }
 
+inline bool detectorCapabilityHealthy(const DetectorProvider& provider, InputIdentity required) {
+  bool matched = false;
+  for (uint16_t providerIndex = 0; providerIndex < provider.detectorCount(); ++providerIndex) {
+    const DetectorStatus status = provider.status(static_cast<uint8_t>(providerIndex));
+    if (status.identity != required) continue;
+    if (matched || !status.healthy()) return false;
+    matched = true;
+  }
+  return matched;
+}
+
+// Race Control evaluates the required detector set from the normalized
+// session proposal.  Provider entries which are not assigned to an active
+// lane are optional for this session and therefore do not block readiness.
+// Matching is by the configured identity only: an observed replacement keeps
+// the configured identity but reports unhealthy until it is explicitly
+// reconciled by the provider.
+inline bool requiredDetectorCapabilitiesHealthy(const ProposedRaceSetup& original,
+                                                const DetectorProvider& provider) {
+  const ProposedRaceSetup setup = normalised(original);
+  if (!setup.activeLanes || setup.activeLanes > PP_MAX_ENTRIES) return false;
+  for (uint8_t requiredIndex = 0; requiredIndex < setup.activeLanes; ++requiredIndex) {
+    if (!detectorCapabilityHealthy(provider, setup.entries[requiredIndex].startFinish.input)) return false;
+  }
+  return true;
+}
+
 class SessionDefinition {
 public:
   explicit SessionDefinition(SessionInputRole a,uint32_t id=1,uint32_t target=0,LapFinishBehaviour f=LapFinishBehaviour::Immediate):sessionId_(0),count_(1),lapTarget_(target),finish_(f) {
@@ -107,6 +134,14 @@ private:
   uint8_t redLightCount_=5,startSignal_=0,startTiming_=2,falseStartPolicy_=0;
   Time redIntervalUs_=1000000,fixedFinalDelayUs_=1000000; bool falseStartCapability_=false;
 };
+
+inline bool requiredDetectorCapabilitiesHealthy(const SessionDefinition& definition,
+                                                const DetectorProvider& provider) {
+  for (uint8_t i = 0; i < definition.entryCount(); ++i) {
+    if (!detectorCapabilityHealthy(provider, definition.role(i).input)) return false;
+  }
+  return true;
+}
 
 class ActiveSessionDefinition {
 public:

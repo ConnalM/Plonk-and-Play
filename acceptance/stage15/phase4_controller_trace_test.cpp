@@ -49,6 +49,7 @@ static bool actualRaceControlTrace() {
       !bus.subscribe(observer, Type::RequestResult) ||
       !bus.subscribe(observer, Type::NoticeboardChanged)) return false;
   control.setProposedRaceSetup(setup);
+  control.setRequiredCapabilityAvailable(true);
 
   MemoryDiagnosticStorage storage;
   InMemoryDiagnosticRecorder recorder(storage);

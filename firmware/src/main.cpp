@@ -235,6 +235,11 @@ pp::ProposedRaceSetup proposedRaceSetup{ {pp::InputModule::simulatedDetectorIden
 // The development setup keeps a valid ten-minute Endurance value available
 // when the Browser changes mode; Lap Race ignores this field.
 struct ProposalDefaultsInitialiser { ProposalDefaultsInitialiser(){ proposedRaceSetup.durationMinutes=10; } } proposalDefaultsInitialiser;
+void refreshRequiredDetectorReadiness() {
+  const auto* setup = raceControl.proposedRaceSetup();
+  const bool healthy = setup && pp::requiredDetectorCapabilitiesHealthy(*setup, simulatedDetectorProvider);
+  raceControl.setRequiredCapabilityAvailable(healthy);
+}
 bool ready=false,testsPassed=true,bootFailed=false;
 pp::Time nextStatus=0;
 pp::Time loopWorstUs=0;
@@ -316,7 +321,7 @@ bool browserFixturePass(uint8_t lane){
   diagnostics.log("[INPUT] fixture_pass lane=%u disposition=SOURCE_ASSERTED mode=%u release_us=%llu",unsigned(lane),unsigned(mode),static_cast<unsigned long long>(lane==1?simulatedARelease:simulatedBRelease));
   return true;
 }
-void browserFixtureReset(){ activeSession.clearForFixture(); raceControl.resetRaceForFixture(); raceControl.setProposedRaceSetup(proposedRaceSetup); raceEngine.resetForFixture(); browser.clearRaceForFixture(); diagnostics.log("[DEV] TEST RESET READY (Race Director retained)"); }
+void browserFixtureReset(){ activeSession.clearForFixture(); raceControl.resetRaceForFixture(); raceControl.setProposedRaceSetup(proposedRaceSetup); refreshRequiredDetectorReadiness(); raceEngine.resetForFixture(); browser.clearRaceForFixture(); diagnostics.log("[DEV] TEST RESET READY (Race Director retained)"); }
 #endif
 // The build environment is diagnostic identity only. It never supplies product
 // State or changes P&P behaviour.
@@ -868,6 +873,11 @@ void loop(){
   // Race Control owns authoritative time boundaries.  Publish an Endurance
   // expiry before sampling a same-loop detector passage so Race Engine sees
   // the expiry marker before classifying any post-expiry input.
+  // Re-evaluate the currently proposed Session Definition assignments on every
+  // loop. This keeps Race Control's readiness authority current when a
+  // required detector becomes missing, faulted or unreconciled, while leaving
+  // unassigned/optional provider entries non-blocking.
+  refreshRequiredDetectorReadiness();
   raceControl.tick(systemTime());
   input.tick(systemTime());
   raceEngine.tick();
@@ -948,7 +958,7 @@ void loop(){
       proposedRaceSetup.lapTarget=workingConfiguration.laps;
 #endif
       raceControl.setProposedRaceSetup(proposedRaceSetup);
-      raceControl.setRequiredCapabilityAvailable(true);
+      refreshRequiredDetectorReadiness();
 #ifdef PP_ACCEPTANCE
       acceptanceLoadStatus=unsigned(message.loadStatus);
 #endif

@@ -37,6 +37,7 @@ int main() {
       !bus.subscribe(controlEndpoint, Type::SessionOperationRequest) ||
       !bus.subscribe(presentation, Type::RequestResult)) return 1;
   control.setProposedRaceSetup(setup);
+  control.setRequiredCapabilityAvailable(true);
 
   if (bus.publish(presentation, startRequest(1)) != Delivery::Delivered) return 2;
   control.tick(1000);
