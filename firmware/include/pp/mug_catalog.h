@@ -43,7 +43,7 @@ public:
   // UTF-8 code points may occupy at most four bytes.  The fixed record keeps
   // the storage transaction bounded while accepting every valid 1..40-code
   // point name.
-  static constexpr uint16_t MaxNameBytes = MaxNameCharacters * 4;
+  static constexpr uint16_t MaxNameBytes = static_cast<uint16_t>(MugNameMaxBytes);
 
   static constexpr unsigned CatalogSlotA = 210;
   static constexpr unsigned CatalogSlotB = 211;

@@ -256,16 +256,24 @@ Saved-MUG catalog integration is now implemented as a bounded software-only
 Browser/controller slice (4 November 2026). The controlling Race Director can
 create a named MUG from Race Setup through the controller-authoritative
 `/request/mug/create` boundary; `/racers` lists built-in and active saved
-profiles with their actual names and permanent IDs; lane selection continues
-through `/request/setup`, with Race Control validating catalog membership,
+profiles with their actual names and permanent IDs; remembered unknown or
+archived identities remain visible only as an explicit reconciliation state,
+never as ordinary selectable choices. Lane selection continues through
+`/request/setup`, with Race Control validating catalog membership,
 archived/unknown IDs and duplicate assignments before persistence and proposal
-publication. The catalog is reloaded after an authorised storage recovery, and
-START/restart continue to use the existing proposal, Memory and Session
-Definition boundaries. Evidence is
+publication. At START the current permanent ID and display name are copied into
+the authoritative Session Definition, then into the sealed result. Versioned
+History records persist that frozen identity; the new wire version remains
+backward-readable for older ID-only records without consulting the current
+catalog. Results, Details and History therefore retain the name that was
+actually raced even after a later rename or archive. The catalog is reloaded
+after an authorised storage recovery, and restart continues to use the existing
+proposal, Memory, Session Definition and History boundaries. Evidence is
 `acceptance/stage7/mug_catalog_integration_test.cpp`,
+`acceptance/stage7/frozen_mug_history_test.cpp`,
 `acceptance/stage7/racer_browser_contract.py`, and the catalog/selection tests.
-Rename/archive Browser controls, Guest handling, historical name freezing and
-History/Record format changes remain deferred; no Race Engine or Message Bus
+Rename/archive Browser controls, Guest handling and historical name freezing
+outside this transaction remain deferred; no Race Engine or Message Bus
 architecture was changed.
 
 Productise real detection: sensor addressing, lane assignment, health, Track Setup, minimum-lap/detection behaviour, connections/cabling, gantry and 4/8-lane expansion architecture. Final MCP23017/alternative choice is made here, not assumed by WP0.

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdio.h>
 
 #ifndef PP_MAX_ENTRIES
 #define PP_MAX_ENTRIES 8
@@ -10,6 +11,20 @@ static_assert(PP_MAX_ENTRIES > 0 && PP_MAX_ENTRIES <= 255, "PP_MAX_ENTRIES must 
 
 namespace pp {
 using Time = uint64_t; // Monotonic microseconds in this controller boot's domain.
+// Frozen racer names are bounded by the saved-MUG catalog contract.  The
+// common boundary keeps Session Definition and result/history records
+// independent of the catalog implementation while preserving the same UTF-8
+// byte capacity at every persistence boundary.
+static constexpr size_t MugNameMaxBytes = 160;
+inline void copyMugName(char* destination, const char* source, uint32_t id) {
+  if (!destination) return;
+  if (source && source[0]) {
+    strncpy(destination, source, MugNameMaxBytes);
+    destination[MugNameMaxBytes] = '\0';
+    return;
+  }
+  snprintf(destination, MugNameMaxBytes + 1, "MUG %lu", static_cast<unsigned long>(id));
+}
 struct LapRecord { uint32_t lapNumber=0; Time startTime=0,finishTime=0,lapTime=0,racingFinishTime=0; bool valid=false; };
 class DetailSource {
 public:

@@ -351,7 +351,11 @@ private:
     if(readiness()==StartReadiness::InvalidRaceSetup){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
     if(readiness()==StartReadiness::CapabilityUnavailable){reject(request.correlation,RequestRejection::RequiredCapabilityUnavailable);return;}
     if(!setup_){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
-    const ProposedRaceSetup requested=*setup_;
+    ProposedRaceSetup requested=*setup_;
+    if (!freezeMugNames(requested)) {
+      reject(request.correlation, RequestRejection::InvalidRaceSetup);
+      return;
+    }
     const uint32_t sessionId=nextSessionId_,firstEntryId=nextRaceEntryId_;
     if(!active_.commit(requested,sessionId,firstEntryId)){reject(request.correlation,RequestRejection::SessionDefinitionUnavailable);return;}
     ++nextSessionId_;nextRaceEntryId_+=requested.activeLanes;
@@ -372,7 +376,7 @@ private:
     proposedSetup_.redLightCount=definition_->redLightCount(); proposedSetup_.startSignal=definition_->startSignal(); proposedSetup_.startTiming=definition_->startTiming();
     proposedSetup_.redIntervalUs=definition_->redIntervalUs(); proposedSetup_.fixedFinalDelayUs=definition_->fixedFinalDelayUs();
     proposedSetup_.falseStartCapability=definition_->falseStartCapability(); proposedSetup_.falseStartPolicy=definition_->falseStartPolicy();
-    for(uint8_t i=0;i<definition_->entryCount();++i){proposedSetup_.entries[i].startFinish=definition_->role(i);proposedSetup_.entries[i].mugId=definition_->entry(i).mugId;}
+    for(uint8_t i=0;i<definition_->entryCount();++i){proposedSetup_.entries[i].startFinish=definition_->role(i);proposedSetup_.entries[i].mugId=definition_->entry(i).mugId;copyMugName(proposedSetup_.entries[i].mugName,definition_->entry(i).mugName,definition_->entry(i).mugId);}
     // Keep accepted source-level aliases synchronized for legacy fixtures and
     // two-entry Browser/demo compatibility; indexed entries are authoritative.
     if(definition_->entryCount()>0){proposedSetup_.startFinish=definition_->role(0);proposedSetup_.selectedMugId=definition_->entry(0).mugId;}
@@ -391,6 +395,22 @@ private:
     if (!mugCatalog_->find(id, entry, false)) {
       rejection = RequestRejection::InvalidRaceSetup;
       return false;
+    }
+    return true;
+  }
+  bool freezeMugNames(ProposedRaceSetup& setup) const {
+    const ProposedRaceSetup normalized = normalised(setup);
+    setup = normalized;
+    for (uint8_t i = 0; i < normalized.activeLanes && i < PP_MAX_ENTRIES; ++i) {
+      const uint32_t id = normalized.entries[i].mugId;
+      if (id > 2 && mugCatalog_) {
+        if (!mugCatalog_->loaded() || !mugCatalog_->available()) return false;
+        MugCatalog::Entry entry{};
+        if (!mugCatalog_->find(id, entry, false)) return false;
+        copyMugName(setup.entries[i].mugName, entry.name, id);
+      } else {
+        copyMugName(setup.entries[i].mugName, nullptr, id);
+      }
     }
     return true;
   }

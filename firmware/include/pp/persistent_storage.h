@@ -12,7 +12,8 @@ namespace pp {
 class VersionedResultCodec {
 public:
   static constexpr uint32_t Magic = 0x50534631u; // PSF1
-  static constexpr uint16_t Version = 3;
+  static constexpr uint16_t Version = 4;
+  static constexpr uint16_t LegacyVersion = 3;
   // Workspace for one encoded race.  It scales with the current authoritative
   // result object; it is not a History-retention or sporting limit.
   // Development workspace only.  It bounds one encoded race transaction,
@@ -44,6 +45,9 @@ public:
       const bool detailOk=source?source->detailComplete():e.detailComplete;
       const uint32_t recordCount=source?source->detailRecordCount(i):e.recordCount;
       uint8_t entryFlags=(e.tied?1u:0u)|(e.completed?2u:0u)|(detailOk?4u:0u); w.u8(entryFlags); w.u32(recordCount);
+      size_t nameLength = 0; while (nameLength < MugNameMaxBytes && e.mugName[nameLength]) ++nameLength;
+      w.u16(static_cast<uint16_t>(nameLength));
+      w.put(reinterpret_cast<const uint8_t*>(e.mugName), MugNameMaxBytes);
       w.u64(e.completionTime); w.u64(e.bestLap);
       for(uint32_t j=0;j<recordCount;++j) {
         RaceEngineModule::LapRecord streamed{};
@@ -70,7 +74,7 @@ public:
     const uint32_t supplied=read32(bytes+length-4);
     if(expected!=supplied)return false;
     Reader r(bytes,length-4); uint32_t magic=0,total=0;uint16_t version=0,reserved=0;
-    if(!r.u32(magic)||!r.u16(version)||!r.u16(reserved)||!r.u32(total)||magic!=Magic||(version!=Version&&version!=2)||total!=length)return false;
+    if(!r.u32(magic)||!r.u16(version)||!r.u16(reserved)||!r.u32(total)||magic!=Magic||(version!=Version&&version!=LegacyVersion&&version!=2)||total!=length)return false;
     uint16_t resultVersion=0;uint8_t flags=0,mode=0,behaviour=0,count=0;uint16_t duration=0,unused=0;uint32_t lapTarget=0;
     if(!r.u16(resultVersion)||!r.u8(flags)||!r.u8(mode)||!r.u8(behaviour)||!r.u8(count)||!r.u16(duration)||!r.u16(unused)||!r.u32(lapTarget)||count>RaceEngineModule::MaxEntries)return false;
     const bool legacyResult=(version==2&&resultVersion==2);
@@ -79,7 +83,7 @@ public:
     if(mode<static_cast<uint8_t>(SessionMode::LapRace)||mode>static_cast<uint8_t>(SessionMode::Endurance)||behaviour>static_cast<uint8_t>(LapFinishBehaviour::CompleteCurrentLap))return false;
     out.mode=static_cast<SessionMode>(mode);out.behaviour=static_cast<LapFinishBehaviour>(behaviour);out.entryCount=count;out.durationMinutes=duration;out.lapTarget=lapTarget;
     uint32_t unused32=0;if(!r.u64(out.winningTime)||!r.u64(out.finishTime)||!r.u64(out.expiryTime)||!r.u64(out.durationUs)||!r.u64(out.fastestLap)||!r.u32(out.fastestEntryId)||!r.u32(unused32))return false;
-    for(uint8_t i=0;i<count;++i){auto&e=out.entries[i];uint8_t entryFlags=0,lane=0,legacyCount=0;uint32_t recordCount=0;if(!r.u32(e.raceEntryId)||!r.u32(e.mugId)||!r.u32(e.laps)||!r.u32(e.classifiedLaps)||!r.u32(e.rank)||!r.u32(e.lapsBehind)||!r.u32(e.lapPenalty)||!r.u8(lane)||!r.u8(entryFlags))return false;if(version==2){uint8_t pad=0;if(!r.u8(legacyCount)||!r.u8(pad))return false;recordCount=legacyCount;}else if(!r.u32(recordCount))return false;if(!r.u64(e.completionTime)||!r.u64(e.bestLap))return false;e.lane=lane;e.tied=entryFlags&1u;e.completed=entryFlags&2u;e.detailComplete=version==2?true:((entryFlags&4u)!=0);e.recordCount=0;if(!e.detail.prepare(recordCount,PP_REHYDRATED_DETAIL_BUDGET_BYTES))return false;for(uint32_t j=0;j<recordCount;++j){RaceEngineModule::LapRecord lap{};uint8_t valid=0;uint8_t pad8=0;uint16_t pad16=0;if(!r.u32(lap.lapNumber)||!r.u64(lap.startTime)||!r.u64(lap.finishTime)||!r.u64(lap.lapTime)||!r.u64(lap.racingFinishTime)||!r.u8(valid)||!r.u8(pad8)||!r.u16(pad16))return false;lap.valid=valid!=0;if(!e.detail.append(lap))return false;}if(e.detail.recordCount!=recordCount)return false;e.records=e.detail.records;e.recordCount=e.detail.recordCount;}
+    for(uint8_t i=0;i<count;++i){auto&e=out.entries[i];uint8_t entryFlags=0,lane=0,legacyCount=0;uint32_t recordCount=0;if(!r.u32(e.raceEntryId)||!r.u32(e.mugId)||!r.u32(e.laps)||!r.u32(e.classifiedLaps)||!r.u32(e.rank)||!r.u32(e.lapsBehind)||!r.u32(e.lapPenalty)||!r.u8(lane)||!r.u8(entryFlags))return false;if(version==2){uint8_t pad=0;if(!r.u8(legacyCount)||!r.u8(pad))return false;recordCount=legacyCount;}else if(!r.u32(recordCount))return false;if(version==Version){uint16_t nameLength=0;if(!r.u16(nameLength)||nameLength>MugNameMaxBytes||!r.take(reinterpret_cast<uint8_t*>(e.mugName),MugNameMaxBytes))return false;e.mugName[nameLength]='\0';}else{copyMugName(e.mugName,nullptr,e.mugId);}if(!r.u64(e.completionTime)||!r.u64(e.bestLap))return false;e.lane=lane;e.tied=entryFlags&1u;e.completed=entryFlags&2u;e.detailComplete=version==2?true:((entryFlags&4u)!=0);e.recordCount=0;if(!e.detail.prepare(recordCount,PP_REHYDRATED_DETAIL_BUDGET_BYTES))return false;for(uint32_t j=0;j<recordCount;++j){RaceEngineModule::LapRecord lap{};uint8_t valid=0;uint8_t pad8=0;uint16_t pad16=0;if(!r.u32(lap.lapNumber)||!r.u64(lap.startTime)||!r.u64(lap.finishTime)||!r.u64(lap.lapTime)||!r.u64(lap.racingFinishTime)||!r.u8(valid)||!r.u8(pad8)||!r.u16(pad16))return false;lap.valid=valid!=0;if(!e.detail.append(lap))return false;}if(e.detail.recordCount!=recordCount)return false;e.records=e.detail.records;e.recordCount=e.detail.recordCount;}
     return r.position()==length-4;
   }
 
@@ -105,7 +109,7 @@ public:
   bool appendDetailed(const void* value,size_t length,const DetailSource& source,uint32_t&sequence) override {
     sequence=0;
     if(!value||length!=sizeof(RaceEngineModule::CompletedRaceResult)){historyCommitTrace("append_detailed", "input", length);return false;}
-    size_t required=1024;for(uint8_t i=0;i<source.detailEntryCount();++i){const size_t count=source.detailRecordCount(i);if(count> (SIZE_MAX-required)/40u){historyCommitTrace("append_detailed", "size_overflow", i, count);return false;}required+=count*40u;}auto* encoded=static_cast<uint8_t*>(malloc(required));if(!encoded){historyCommitTrace("append_detailed", "encode_workspace", required);return false;}size_t encodedLength=0;
+    size_t required=2048;for(uint8_t i=0;i<source.detailEntryCount();++i){const size_t count=source.detailRecordCount(i);if(count> (SIZE_MAX-required-162u)/40u){historyCommitTrace("append_detailed", "size_overflow", i, count);return false;}required+=162u+count*40u;}auto* encoded=static_cast<uint8_t*>(malloc(required));if(!encoded){historyCommitTrace("append_detailed", "encode_workspace", required);return false;}size_t encodedLength=0;
     const bool encodedOk=VersionedResultCodec::encode(*reinterpret_cast<const RaceEngineModule::CompletedRaceResult*>(value),encoded,required,encodedLength,&source);
     if(!encodedOk){free(encoded);historyCommitTrace("append_detailed", "encode", required, encodedLength);return false;}
     const bool ok=backend_.append(encoded,encodedLength,sequence);historyCommitTrace("append_detailed", "backend", encodedLength, sequence, ok);free(encoded);return ok;

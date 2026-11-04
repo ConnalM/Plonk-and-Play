@@ -480,6 +480,7 @@ public:
   static bool serializeResultsForAcceptance(const RaceEngineModule::CompletedRaceResult& value,char*out,size_t cap,size_t&length,const DetailSource* detailSource=nullptr){return serializeResults(value,out,cap,length,detailSource);}
   static bool serializeDetailsForAcceptance(const RaceEngineModule::CompletedRaceResult& value,char*out,size_t cap,size_t&length){return serializeDetails(value,out,cap,length);}
   static bool serializeRecordsForAcceptance(TrackRecordStore* records,uint8_t count,char*out,size_t cap,size_t&length){return serializeRecords(records,count,out,cap,length);}
+  static bool serializeRacersForAcceptance(const ProposedRaceSetup* setup,const MugCatalog* catalog,uint32_t revision,char*out,size_t cap,size_t&length){return serializeRacers(setup,catalog,revision,out,cap,length);}
 private:
   static const char* physicalStorageText(const PhysicalSdOwner* owner) {
 #if defined(PP_PHASE8B_REAL_SD)
@@ -993,35 +994,36 @@ private:
     if (catalog && (!catalog->loaded() || !catalog->available())) return false;
     const ProposedRaceSetup normal=normalised(*setup);
     uint32_t ids[2 + MugCatalog::MaxProfiles]{}; uint16_t count=2; ids[0]=1; ids[1]=2;
-    for(uint8_t i=0;i<normal.activeLanes&&i<2;++i){
-      const uint32_t id=normal.entries[i].mugId;
-      bool known=false;for(uint8_t j=0;j<count;++j)if(ids[j]==id)known=true;
-      if(id&&!known&&count<(2 + MugCatalog::MaxProfiles))ids[count++]=id;
+    if (catalog) for (uint16_t index=0; index<catalog->count() && count<(2 + MugCatalog::MaxProfiles); ++index) {
+      const MugCatalog::Entry* entry=catalog->entry(index);
+      if (!entry || entry->archived) continue;
+      ids[count++]=entry->id;
     }
     size_t n=0;bool ok=appendJson(out,cap,n,"{\"formatVersion\":1,\"proposalRevision\":%lu,\"racers\":[",static_cast<unsigned long>(revision));
     for(uint16_t i=0;i<count&&ok;++i){
       const uint32_t id=ids[i]; const char* name=nullptr; char builtin[16]{}; MugCatalog::Entry entry{};
       if (id == 1 || id == 2) { snprintf(builtin, sizeof(builtin), "MUG %lu", static_cast<unsigned long>(id)); name=builtin; }
       else if (catalog && catalog->find(id, entry, false)) name=entry.name;
-      else { snprintf(builtin, sizeof(builtin), "MUG %lu", static_cast<unsigned long>(id)); name=builtin; }
+      else continue;
       ok=appendJson(out,cap,n,"%s{\"id\":%lu,\"builtin\":%s,\"name\":",i?",":"",static_cast<unsigned long>(id),(id==1||id==2)?"true":"false")&&ok;
       ok=appendJsonString(out,cap,n,name)&&ok;
       ok=appendJson(out,cap,n,"}")&&ok;
     }
-    if (catalog) {
-      for (uint16_t index=0; index<catalog->count() && ok; ++index) {
-        const MugCatalog::Entry* entry=catalog->entry(index);
-        if (!entry || entry->archived) continue;
-        bool known=false; for (uint16_t j=0;j<count;++j) if(ids[j]==entry->id) { known=true; break; }
-        if (known || count >= (2 + MugCatalog::MaxProfiles)) continue;
-        ids[count++]=entry->id;
-        ok=appendJson(out,cap,n,"%s{\"id\":%lu,\"builtin\":false,\"name\":",n && out[n-1]=='['?"":",",static_cast<unsigned long>(entry->id))&&ok;
-        ok=appendJsonString(out,cap,n,entry->name)&&ok;
-        ok=appendJson(out,cap,n,"}")&&ok;
-      }
-    }
     ok=appendJson(out,cap,n,"],\"assignments\":[")&&ok;
-    for(uint8_t i=0;i<normal.activeLanes&&i<2&&ok;++i)ok=appendJson(out,cap,n,"%s{\"lane\":%u,\"mugId\":%lu}",i?",":"",unsigned(i+1),static_cast<unsigned long>(normal.entries[i].mugId));
+    for(uint8_t i=0;i<normal.activeLanes&&i<2&&ok;++i){
+      const uint32_t id=normal.entries[i].mugId; MugCatalog::Entry entry{}; char fallback[24]{};
+      const bool builtin=id==1||id==2;
+      const bool known=builtin||(catalog&&catalog->find(id,entry,true));
+      const bool selectable=builtin||(known&&!entry.archived);
+      const bool reconciliation=!selectable;
+      const char* name=nullptr;
+      if (builtin) { snprintf(fallback,sizeof(fallback),"MUG %lu",static_cast<unsigned long>(id)); name=fallback; }
+      else if (known) name=entry.name;
+      else { snprintf(fallback,sizeof(fallback),"MUG %lu",static_cast<unsigned long>(id)); name=fallback; }
+      ok=appendJson(out,cap,n,"%s{\"lane\":%u,\"mugId\":%lu,\"name\":",i?",":"",unsigned(i+1),static_cast<unsigned long>(id))&&ok;
+      ok=appendJsonString(out,cap,n,name)&&ok;
+      ok=appendJson(out,cap,n,",\"selectable\":%s,\"reconciliationRequired\":%s,\"status\":\"%s\"}",selectable?"true":"false",reconciliation?"true":"false",builtin||(!known?"UNKNOWN":(entry.archived?"ARCHIVED":"ACTIVE")))&&ok;
+    }
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
   }
   static const char* detectorAvailabilityText(DetectorAvailability value) {
@@ -1106,7 +1108,7 @@ private:
   static bool serializeResults(const RaceEngineModule::CompletedRaceResult&r,char*out,size_t cap,size_t&length,const DetailSource* detailSource=nullptr){
     const uint64_t overtimeUs=r.overtime&&r.finishTime>r.expiryTime?r.finishTime-r.expiryTime:0;size_t n=0;const char* mode=r.mode==SessionMode::Endurance?"ENDURANCE":r.mode==SessionMode::OpenPractice?"OPEN_PRACTICE":"LAP_RACE";bool ok=true;ok=appendJson(out,cap,n,"{\"sealed\":%s,\"valid\":%s,\"mode\":\"%s\"",r.sealed?"true":"false",r.valid?"true":"false",mode)&&ok;ok=appendJson(out,cap,n,",\"lapTarget\":%lu,\"durationMinutes\":%u,\"durationUs\":%llu",(unsigned long)r.lapTarget,unsigned(r.durationMinutes),(unsigned long long)r.durationUs)&&ok;ok=appendJson(out,cap,n,",\"expiryTime\":%llu,\"overtime\":%s,\"overtimeUs\":%llu",(unsigned long long)r.expiryTime,r.overtime?"true":"false",(unsigned long long)overtimeUs)&&ok;ok=appendJson(out,cap,n,",\"winningTime\":%llu,\"finishTime\":%llu,\"finishBehaviour\":\"%s\"",(unsigned long long)r.winningTime,(unsigned long long)r.finishTime,finishBehaviour(r.behaviour))&&ok;ok=appendJson(out,cap,n,",\"deadHeat\":%s,\"fastestLap\":%llu,\"fastestEntryId\":%lu,\"fastestLapTied\":%s,\"entries\":[",r.deadHeat?"true":"false",(unsigned long long)r.fastestLap,(unsigned long)r.fastestEntryId,r.fastestLapTied?"true":"false")&&ok;
     if(r.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=r.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:r.entryCount;
-    for(uint8_t i=0;i<count;++i){const auto&e=r.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"tied\":%s,\"lapsBehind\":%lu,\"completed\":%s,\"completionTime\":%llu,\"finishDurationUs\":%llu,\"bestLap\":%llu}",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,e.tied?"true":"false",(unsigned long)e.lapsBehind,e.completed?"true":"false",(unsigned long long)e.completionTime,(unsigned long long)finishDurationUs(e,detailSource),(unsigned long long)e.bestLap)&&ok;}
+    for(uint8_t i=0;i<count&&ok;++i){const auto&e=r.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"name\":",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId)&&ok;ok=appendJsonString(out,cap,n,e.mugName)&&ok;ok=appendJson(out,cap,n,",\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"tied\":%s,\"lapsBehind\":%lu,\"completed\":%s,\"completionTime\":%llu,\"finishDurationUs\":%llu,\"bestLap\":%llu}",unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,e.tied?"true":"false",(unsigned long)e.lapsBehind,e.completed?"true":"false",(unsigned long long)e.completionTime,(unsigned long long)finishDurationUs(e,detailSource),(unsigned long long)e.bestLap)&&ok;}
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
   }
   static bool serializeDetails(const RaceEngineModule::CompletedRaceResult&r,char*out,size_t cap,size_t&length){
@@ -1120,7 +1122,7 @@ private:
     }
     size_t n=0;bool ok=appendJson(out,cap,n,"{\"sealed\":%s,\"lapTarget\":%lu,\"entries\":[",r.sealed?"true":"false",(unsigned long)r.lapTarget);
     if(r.entryCount>PP_MAX_ENTRIES)ok=false;const uint8_t count=r.entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:r.entryCount;
-    for(uint8_t i=0;i<count;++i){const auto&e=r.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"rank\":%lu,\"records\":[",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.rank)&&ok;for(uint32_t j=0;j<e.recordCount;++j){const auto&lap=e.records[j];ok=appendJson(out,cap,n,"%s{\"lapNumber\":%lu,\"startTime\":%llu,\"finishTime\":%llu,\"lapTime\":%llu,\"valid\":%s}",j?",":"",(unsigned long)lap.lapNumber,(unsigned long long)lap.startTime,(unsigned long long)lap.finishTime,(unsigned long long)lap.lapTime,lap.valid?"true":"false")&&ok;}ok=appendJson(out,cap,n,"]}")&&ok;}
+    for(uint8_t i=0;i<count&&ok;++i){const auto&e=r.entries[i];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"name\":",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId)&&ok;ok=appendJsonString(out,cap,n,e.mugName)&&ok;ok=appendJson(out,cap,n,",\"lane\":%u,\"laps\":%lu,\"rank\":%lu,\"records\":[",unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.rank)&&ok;for(uint32_t j=0;j<e.recordCount;++j){const auto&lap=e.records[j];ok=appendJson(out,cap,n,"%s{\"lapNumber\":%lu,\"startTime\":%llu,\"finishTime\":%llu,\"lapTime\":%llu,\"valid\":%s}",j?",":"",(unsigned long)lap.lapNumber,(unsigned long long)lap.startTime,(unsigned long long)lap.finishTime,(unsigned long long)lap.lapTime,lap.valid?"true":"false")&&ok;}ok=appendJson(out,cap,n,"]}")&&ok;}
     ok=appendJson(out,cap,n,"]}")&&ok;length=n;return ok;
   }
   static bool serializeRecords(TrackRecordStore* records,uint8_t count,char*out,size_t cap,size_t&length){
@@ -1144,7 +1146,7 @@ private:
         const char* mode=loaded->mode==SessionMode::Endurance?"ENDURANCE":loaded->mode==SessionMode::OpenPractice?"OPEN_PRACTICE":"LAP_RACE";
         const uint64_t overtimeUs=loaded->overtime&&loaded->finishTime>loaded->expiryTime?loaded->finishTime-loaded->expiryTime:0;ok=appendJson(out,cap,n,"%s{\"sequence\":%lu,\"sealed\":true,\"mode\":\"%s\",\"durationMinutes\":%u,\"lapTarget\":%lu,\"finishBehaviour\":\"%s\",\"winningTime\":%llu,\"finishTime\":%llu,\"expiryTime\":%llu,\"overtime\":%s,\"overtimeUs\":%llu,\"fastestLap\":%llu,\"entryCount\":%u,\"entries\":[",i?",":"",(unsigned long)sequence,mode,unsigned(loaded->durationMinutes),(unsigned long)loaded->lapTarget,finishBehaviour(loaded->behaviour),(unsigned long long)loaded->winningTime,(unsigned long long)loaded->finishTime,(unsigned long long)loaded->expiryTime,loaded->overtime?"true":"false",(unsigned long long)overtimeUs,(unsigned long long)loaded->fastestLap,unsigned(loaded->entryCount));
         const uint8_t count=loaded->entryCount>PP_MAX_ENTRIES?PP_MAX_ENTRIES:loaded->entryCount;if(loaded->entryCount>PP_MAX_ENTRIES)ok=false;
-        for(uint8_t j=0;j<count&&ok;++j){const auto&e=loaded->entries[j];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"lapsBehind\":%lu,\"completed\":%s}",j?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,(unsigned long)e.lapsBehind,e.completed?"true":"false");}
+        for(uint8_t j=0;j<count&&ok;++j){const auto&e=loaded->entries[j];ok=appendJson(out,cap,n,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"name\":",j?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId)&&ok;ok=appendJsonString(out,cap,n,e.mugName)&&ok;ok=appendJson(out,cap,n,",\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"lapsBehind\":%lu,\"completed\":%s}",unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,(unsigned long)e.lapsBehind,e.completed?"true":"false")&&ok;}
         ok=appendJson(out,cap,n,"]}");
       }
     }
@@ -1223,7 +1225,7 @@ private:
       }
     }
     httpd_resp_set_type(request,"application/json");httpd_resp_set_hdr(request,"Cache-Control","no-store");snprintf(chunk,320,"{\"sealed\":%s,\"lapTarget\":%lu,\"entries\":[",r.sealed?"true":"false",(unsigned long)r.lapTarget);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);
-    for(uint8_t i=0;i<r.entryCount;++i){const auto&e=r.entries[i];snprintf(chunk,320,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"rank\":%lu,\"records\":[",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.rank);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);for(uint32_t j=0;j<e.recordCount;++j){const auto&lap=e.records[j];snprintf(chunk,320,"%s{\"lapNumber\":%lu,\"startTime\":%llu,\"finishTime\":%llu,\"lapTime\":%llu,\"valid\":%s}",j?",":"",(unsigned long)lap.lapNumber,(unsigned long long)lap.startTime,(unsigned long long)lap.finishTime,(unsigned long long)lap.lapTime,lap.valid?"true":"false");httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);}httpd_resp_send_chunk(request,"]}",2);}
+    for(uint8_t i=0;i<r.entryCount;++i){const auto&e=r.entries[i];snprintf(chunk,320,"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"name\":",i?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);size_t nameLength=0;appendJsonString(chunk,320,nameLength,e.mugName);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);snprintf(chunk,320,",\"lane\":%u,\"laps\":%lu,\"rank\":%lu,\"records\":[",unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.rank);httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);for(uint32_t j=0;j<e.recordCount;++j){const auto&lap=e.records[j];snprintf(chunk,320,"%s{\"lapNumber\":%lu,\"startTime\":%llu,\"finishTime\":%llu,\"lapTime\":%llu,\"valid\":%s}",j?",":"",(unsigned long)lap.lapNumber,(unsigned long long)lap.startTime,(unsigned long long)lap.finishTime,(unsigned long long)lap.lapTime,lap.valid?"true":"false");httpd_resp_send_chunk(request,chunk,HTTPD_RESP_USE_STRLEN);}httpd_resp_send_chunk(request,"]}",2);}
     httpd_resp_send_chunk(request,"]}",2);const esp_err_t sent=httpd_resp_send_chunk(request,nullptr,0);RaceEngineModule::clearResult(*loaded);free(loaded);free(chunk);trace.complete(sent);return sent;
   }
   static esp_err_t historyRoute(httpd_req_t* request) {
@@ -1241,7 +1243,7 @@ private:
       const int n=snprintf(chunk,sizeof(chunk),"%s{\"sequence\":%lu,\"sealed\":true,\"mode\":\"%s\",\"durationMinutes\":%u,\"lapTarget\":%lu,\"finishBehaviour\":\"%s\",\"winningTime\":%llu,\"finishTime\":%llu,\"expiryTime\":%llu,\"overtime\":%s,\"overtimeUs\":%llu,\"fastestLap\":%llu,\"entryCount\":%u,\"entries\":[",i?",":"",(unsigned long)sequence,mode,unsigned(stored->durationMinutes),(unsigned long)stored->lapTarget,finishBehaviour(stored->behaviour),(unsigned long long)stored->winningTime,(unsigned long long)stored->finishTime,(unsigned long long)stored->expiryTime,stored->overtime?"true":"false",(unsigned long long)overtimeUs,(unsigned long long)stored->fastestLap,unsigned(stored->entryCount));
       if(n<0||static_cast<size_t>(n)>=sizeof(chunk)){sent=ESP_ERR_INVALID_SIZE;break;}
       sent=httpd_resp_send_chunk(request,chunk,n);
-      for(uint8_t j=0;j<stored->entryCount&&sent==ESP_OK;++j){const auto&e=stored->entries[j];const int m=snprintf(chunk,sizeof(chunk),"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"lapsBehind\":%lu,\"completed\":%s}",j?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId,unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,(unsigned long)e.lapsBehind,e.completed?"true":"false");if(m<0||static_cast<size_t>(m)>=sizeof(chunk)){sent=ESP_ERR_INVALID_SIZE;break;}sent=httpd_resp_send_chunk(request,chunk,m);}
+      for(uint8_t j=0;j<stored->entryCount&&sent==ESP_OK;++j){const auto&e=stored->entries[j];const int m=snprintf(chunk,sizeof(chunk),"%s{\"raceEntryId\":%lu,\"mugId\":%lu,\"name\":",j?",":"",(unsigned long)e.raceEntryId,(unsigned long)e.mugId);if(m<0||static_cast<size_t>(m)>=sizeof(chunk)){sent=ESP_ERR_INVALID_SIZE;break;}sent=httpd_resp_send_chunk(request,chunk,m);size_t nameLength=0;appendJsonString(chunk,sizeof(chunk),nameLength,e.mugName);if(sent==ESP_OK)sent=httpd_resp_send_chunk(request,chunk,static_cast<int>(nameLength));const int tail=snprintf(chunk,sizeof(chunk),",\"lane\":%u,\"laps\":%lu,\"classifiedLaps\":%lu,\"lapPenalty\":%lu,\"rank\":%lu,\"lapsBehind\":%lu,\"completed\":%s}",unsigned(e.lane),(unsigned long)e.laps,(unsigned long)e.classifiedLaps,(unsigned long)e.lapPenalty,(unsigned long)e.rank,(unsigned long)e.lapsBehind,e.completed?"true":"false");if(tail<0||static_cast<size_t>(tail)>=sizeof(chunk)){sent=ESP_ERR_INVALID_SIZE;break;}if(sent==ESP_OK)sent=httpd_resp_send_chunk(request,chunk,tail);}
       if(sent==ESP_OK)sent=httpd_resp_send_chunk(request,"]}",2);
     }
     if(sent==ESP_OK)sent=httpd_resp_send_chunk(request,"]}",2);

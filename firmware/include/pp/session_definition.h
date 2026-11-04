@@ -7,10 +7,10 @@ enum class InputRole : uint8_t { StartFinish };
 enum class LapFinishBehaviour : uint8_t { Immediate, CompleteCurrentLap, CompleteFullRaceDistance };
 struct SessionInputRole { InputIdentity input; uint8_t lane; InputRole role; };
 struct RaceEntryDefinition {
-  uint32_t raceEntryId,mugId; uint8_t lane;
+  uint32_t raceEntryId,mugId; uint8_t lane; char mugName[MugNameMaxBytes+1]{};
   constexpr RaceEntryDefinition(uint32_t id=0,uint32_t mug=0,uint8_t laneValue=0):raceEntryId(id),mugId(mug),lane(laneValue){}
 };
-struct ProposedRaceEntry { SessionInputRole startFinish{InputIdentity{},0,InputRole::StartFinish}; uint32_t mugId=0; };
+struct ProposedRaceEntry { SessionInputRole startFinish{InputIdentity{},0,InputRole::StartFinish}; uint32_t mugId=0; char mugName[MugNameMaxBytes+1]{}; };
 
 struct ProposedRaceSetup {
   ProposedRaceEntry entries[PP_MAX_ENTRIES]{};
@@ -106,7 +106,7 @@ public:
     const ProposedRaceSetup s=normalised(original); count_=s.activeLanes;
     redLightCount_=s.redLightCount; startSignal_=s.startSignal; startTiming_=s.startTiming; redIntervalUs_=s.redIntervalUs;
     fixedFinalDelayUs_=s.fixedFinalDelayUs; falseStartCapability_=s.falseStartCapability; falseStartPolicy_=s.falseStartPolicy;
-    for(uint8_t i=0;i<count_;++i){ roles_[i]=s.entries[i].startFinish; entries_[i]=RaceEntryDefinition{firstId+uint32_t(i),s.entries[i].mugId,s.entries[i].startFinish.lane}; }
+    for(uint8_t i=0;i<count_;++i){ roles_[i]=s.entries[i].startFinish; entries_[i]=RaceEntryDefinition{firstId+uint32_t(i),s.entries[i].mugId,s.entries[i].startFinish.lane}; copyMugName(entries_[i].mugName,s.entries[i].mugName,entries_[i].mugId); }
   }
   bool resolve(InputIdentity input,SessionInputRole& role,RaceEntryDefinition& entry) const { for(uint8_t i=0;i<count_;++i)if(roles_[i].input==input){role=roles_[i];entry=entries_[i];return true;}return false; }
   bool resolve(InputIdentity input,SessionInputRole& role) const { RaceEntryDefinition ignored;return resolve(input,role,ignored); }
