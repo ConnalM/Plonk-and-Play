@@ -91,7 +91,7 @@ def evaluate():
     no_race=not any(word in input_module.lower() for word in forbidden)
     check('2.8',all(set(row).issuperset({'test','count','device','capability','relevant'}) for row in events.values()) and no_race,
       {'captured_fields':['test','count','device','capability','relevant','observed'],'forbidden_input_interpretation_present':not no_race},'acceptance-serial.txt; source/firmware/include/pp/core.h')
-    source_path=('input.sampleSource(active,at)' in probe and 'class InputModule' in core and 'detectors_[which].sample(active,at,trigger)' in core and 'bus_.publish(endpoint,backlog_[head_])' in core)
+    source_path=('input.sampleSource(active,at)' in probe and 'class InputModule' in core and 'DetectorProvider' in core and 'provider_->sample' in core and 'bus_.publish(endpoint,backlog_[head_])' in core)
     check('2.9',source_path,{'fixture_calls':'InputModule.sampleSource','module_path':'InputDevice sample then InputModule publication'},'source/firmware/tests/stage2_acceptance_probe.inc; source/firmware/include/pp/core.h')
     findings=[
       {'requirement':'Input Device owns source conditioning/re-arm','result':'PASS' if all(x in core for x in ['class SimulatedDetector','sourceActive_','armed_','DetectionStableUs','ClearStableUs']) else 'FAIL'},
