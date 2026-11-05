@@ -114,7 +114,7 @@ Minimum hardware inventory to audit:
 - microSD interface/card
 - Wi-Fi AP
 - speaker/amplifier/audio
-- rotary encoder/buttons/Taster
+- 7-inch touchscreen/Taster touch controls (rotary encoder belongs only to superseded prototype)
 - VL53L0X detector(s)
 - intended VL53L4CD detector(s)
 - two-lane connections
