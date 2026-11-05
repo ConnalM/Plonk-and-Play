@@ -6,9 +6,13 @@ P&P Taster is the built-in, standalone experience provided by the P&P unit itsel
 
 It is deliberately simpler than full browser-based P&P Race Control. Its purpose is to let a MUG switch on the standard base product and run a basic race without first connecting a phone, tablet or computer.
 
-The local display should be a decent small graphical colour display capable of attractive fonts, colours, graphics and the P&P visual language. It must not look or behave like a crude segment display.
+The Taster uses the integrated 7-inch, 800 × 480 landscape colour touchscreen.
+It should be capable of attractive fonts, colours, graphics and the P&P visual
+language. It must not look or behave like a crude segment display. No rotary
+encoder or physical control buttons are required; local operation is through
+the touchscreen.
 
-## WP8 contract alignment
+## WP7 contract alignment
 
 The Taster is a controller-local presentation and control client over the
 normal P&P authority. It does not create a second Race Control, Race Engine,
@@ -40,7 +44,9 @@ Taster should remain comparable in complexity to a basic Scalextric-style lap co
 
 The intended local controls are deliberately simple. Taster must not require the SMUG merely to choose an ordinary race distance or duration.
 
-The preferred hardware direction is a rotary encoder with an integral push-button, together with the local graphical display.
+The local touchscreen is the only Taster control surface. It provides the
+simple two-lane experience directly without a rotary encoder, physical control
+buttons or a browser.
 
 ### READY
 
@@ -49,20 +55,22 @@ Taster provides exactly two locally selectable race types:
 - **LAPS** — 1 to 999 laps;
 - **TIMED** — 1 to 999 minutes.
 
+These are the only Taster race modes. Open Practice is not offered on the
+local touchscreen.
+
 On first/factory use, READY defaults to **10 LAPS**.
 
-Thereafter the last selected race type, the last selected lap distance and the last selected timed duration are retained in persistent settings storage and restored after power-off/restart.
+Thereafter the last selected race type, the last selected lap distance and the
+last selected timed duration are retained through the existing Memory/Store
+boundary and restored after power-off/restart.
 
-At READY:
+At READY, the touchscreen provides:
 
-- rotating the encoder changes the currently displayed lap distance or timed duration directly, with no menu entry;
-- slow rotation changes the value by 1 per detent;
-- medium-speed rotation accelerates adjustment to 5 per detent;
-- fast rotation accelerates adjustment to 10 per detent;
-- when rotation slows, adjustment promptly returns to 1 per detent;
-- values are clamped to 1–999 and do not wrap;
-- a short press starts the displayed race;
-- a long press toggles between LAPS and TIMED, restoring the last value used for that race type.
+- a LAPS/TIMED selector;
+- an adjustment control for the selected value, clamped to 1–999 with no wrap;
+- a START control for the displayed race.
+
+Selecting LAPS adjusts laps; selecting TIMED adjusts minutes.
 
 START is not a second Taster-specific race mechanism. Once requested, the selected Taster setup is submitted to the normal P&P start procedure and normal Race Control/session machinery.
 
@@ -71,22 +79,22 @@ Taster setup is translated into the normal race modes and finish policies:
 - LAPS uses `LapRace` with `CompleteFullRaceDistance`;
 - TIMED uses `Endurance` with `CompleteCurrentLap`.
 
-The selected mode and its mode-specific value are persistent Taster settings,
-restored after restart through the existing Memory/Store boundary.
-
 ### During a race
 
 RACING includes one small, unobtrusive interruption control. Its visual
 treatment belongs to the Taster presentation design; it is not a second race
 operation.
 
-Activating it submits the normal authoritative `PAUSE` operation. Once the
-pause is authoritative, the Taster offers only:
+The control recognises a deliberate 700 ms touch-and-hold on release. A short
+touch, or a hold released before 700 ms, has no race-control effect. A hold at
+or beyond 700 ms submits the normal authoritative `PAUSE` operation once.
+
+Once the pause is authoritative, the Taster offers only:
 
 - **RESUME** — use the normal P&P restart countdown and resume the preserved
   race;
-- **ABANDON** — confirm abandonment, return to READY and create no completed
-  result.
+- **ABANDON RACE** — requires explicit confirmation, then returns to READY and
+  creates no completed result.
 
 The Taster does not offer **RESTART**. Race Control remains responsible for
 pause settlement, resume timing, abandonment and the no-result/no-History
@@ -96,17 +104,24 @@ outcome.
 
 The final result remains displayed indefinitely until the MUG acts.
 
-- short press = **RACE AGAIN**, using the same race type and value and entering the normal start procedure;
-- rotating the encoder leaves the result view and adjusts the current race value ready for a new race;
-- the same velocity-sensitive 1/5/10 adjustment applies.
+- **RACE AGAIN** returns to READY with the previous mode and value retained;
+- a separate **START** selection is required to begin the next countdown and
+  race.
 
 The standalone Taster result is a sealed in-memory result view, not a local
 History screen. **RACE AGAIN** discards that displayed standalone result when
-the next race is accepted and starts the normal new-session procedure.
+the authoritative operation completes and READY is restored; it does not
+automatically start another race.
 
 Taster must not grow into a general menu-driven recreation of the browser interface. If configuration becomes menu-heavy or requires navigating levels, it belongs on the SMUG.
 
 ## What the MUG sees
+
+The Taster preserves the original Wokwi screen composition: the P&P graphical
+layout, five start lights, two stable lane rows, lane-local car animations and
+the bottom message strip. READY, RACING and FINISHED use the same basic
+two-lane layout; there is no separate Results screen and no developer or
+simulation control surface.
 
 Before the race, the local screen shows the Taster race type/distance and the two competitors as READY.
 
@@ -133,7 +148,9 @@ At finish it shows the finishing/result information, including finish time as ap
 
 If SMUG has configured MUG names, those names may replace generic LANE 1 / LANE 2 labels on the Taster display rather than adding unnecessary extra clutter.
 
-The local display may use the established P&P graphical start-light language.
+The local display uses the authoritative five-light countdown: one through
+five red lights progress before GO, then all five lights turn green together.
+The Taster never calculates GO or race timing locally.
 
 ## SMUG-configurable Taster
 
@@ -141,9 +158,11 @@ The Factory Taster is only the out-of-box default.
 
 Using the browser, a SMUG may configure a different supported Taster for subsequent standalone use. This allows the full interface to perform setup once while leaving later operation simple enough for MUGs or MINIMUGs without supervision.
 
-Examples may include assigning names instead of lane labels and selecting other settings that remain completely operable from the local Taster interface. Lap count is a special case: it must also be adjustable directly on the Taster itself using the local rotary control.
-
-A configured Taster must remain self-contained: the browser must not allow a Taster configuration that subsequently requires a browser merely to run it.
+Examples may include assigning names instead of lane labels and selecting
+other supported settings that remain completely operable from the local
+touchscreen. A configured Taster must remain self-contained: the browser must
+not allow a Taster configuration that subsequently requires a browser merely
+to run it.
 
 A RESTORE FACTORY TASTER function should return the product to the guaranteed standard two-lane, 10-lap standalone experience.
 
