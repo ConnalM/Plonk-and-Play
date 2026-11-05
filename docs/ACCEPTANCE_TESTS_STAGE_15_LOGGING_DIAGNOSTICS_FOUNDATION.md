@@ -73,7 +73,7 @@ passes and do not grant final Stage 15 acceptance.
 | PS15.69 | Only one takeover request may be pending; concurrent requests are rejected as busy/already pending; no unanswered connected request transfers after an arbitrary timeout. | Arbitration and timeout test. |
 | PS15.70 | Authoritatively detected client disconnection permits deliberate acquisition; reload/reconnect with the same identity reconstructs a pending prompt, while a former owner after transfer has no automatic right to regain control. | Disconnect/reconnect/reconstruction test. |
 | PS15.71 | Control transfer does not interrupt or alter race lifecycle, timing, classification, results or Race Engine state. | Active-race transfer regression. |
-| PS15.72 | The physical Taster's ownership/takeover behavior is outside this browser lease clarification and remains a separate Phase 8B product decision. | Phase 8B review record. |
+| PS15.72 | The physical Taster is a controller-local control source: it controls when no SMUGLAND controller is connected; a connected SMUGLAND controller automatically supersedes it; Taster commands are suppressed while subordinate; and SMUGLAND disconnection restores Taster control through the same P&P lease boundary without creating a second race authority. | Phase 8B authority-handover and coexistence test. |
 
 ## Foundation contract checks
 
@@ -209,10 +209,15 @@ display/Taster implementation is assigned to WP8 and no pre-WP8 physical
 Taster is available on the current base candidate. Once that candidate exists,
 Phase 8B must run the real P&P core with the normal Browser and physical Taster
 over the same authoritative instance, and must demonstrate READY convergence,
-START from Taster, PAUSE from Browser, RESUME from Taster, rejected-request
-behaviour, completion/results agreement, and Taster reconstruction. The
-dependency changes WP5 scheduling only; it does not waive or weaken any Phase
-8B acceptance requirement.
+standalone START from Taster, automatic SMUGLAND takeover, Taster control
+suppression while SMUGLAND is connected, Taster control restoration after
+SMUGLAND disconnect, rejected-request behaviour, completion/results agreement,
+and Taster reconstruction. It must also prove the frozen record-policy split:
+standalone Taster results do not enter official History/PB/Track Record, while
+SMUG-controlled races retain the normal official behaviour. Taster RACING
+interruption must pause through Race Control and expose only RESUME or
+confirmed ABANDON. The dependency changes WP5 scheduling only; it does not
+waive or weaken any Phase 8B acceptance requirement.
 
 Phase 8B must also complete the existing boot, flash, PSRAM, LCD/backlight,
 encoder/touch where fitted, SD, persistence/reconstruction, resource,

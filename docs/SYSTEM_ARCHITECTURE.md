@@ -429,6 +429,13 @@ For the first Lap Race, the Session Definition contains only what is required to
 
 The Session Definition contains the Race Setup **and the session-specific roles assigned to every input, output and other capability required to interpret and execute that session**. Only relevant capabilities need a session role. For example, the same physical detector may be Lane 2 Start/Finish in one session and a Drag finish or speed-trap input in another. Its hardware identity and Input Module behaviour do not change.
 
+The Session Definition also freezes the trusted session source and record
+policy established when START is accepted. The supported classifications are
+standalone Taster (non-official records), SMUG-controlled P&P (normal official
+record rules) and development simulation (non-official). A later Browser
+connection or disconnection never changes the classification of an active
+session.
+
 Race Control and the Race Engine operate from that fixed Session Definition rather than repeatedly reading mutable configuration and discovering that operation, device roles or rules have silently changed. **PAUSE does not unlock race-affecting configuration:** the same immutable Session Definition remains in force through PAUSE and RESUME. A change that would alter the Session Definition requires the active session to be ended/abandoned and a new session to be started from a newly accepted Race Setup.
 
 ### 7.7 Optional driver/car data
@@ -442,6 +449,13 @@ The **Noticeboard** is P&P's authoritative current externally presentable view o
 During a session this includes the relevant Session Definition information as well as live session/competition state. Outside a race it can include current Race Setup, available options, capability/availability information, selectable saved identities and user-facing status/fault information where an interface needs them. The Noticeboard is not History and does not expose private hardware/implementation detail merely because it exists. A Browser/Taster obtains current externally presentable P&P information through the Noticeboard rather than directly interrogating owning modules. **The Noticeboard is read-only as an architectural view: no consumer writes through it to alter Race Control, Race Engine, configuration, Registry or any other authoritative owner.** Changes originate with the responsibility that owns the truth; the Noticeboard merely exposes the resulting current externally presentable state.
 
 A material change to the Noticeboard can cause a standard **`NOTICEBOARD_CHANGED`** notification. The notification does not carry a replacement copy of State; interested consumers look again at the current authoritative information they need.
+
+For WP8 the Noticeboard must also make the current Taster/SMUG control role,
+startup race-readiness, selected lane graphics, frozen racer identities and
+the live per-lane completion/winner information available to presentation
+clients where those values are relevant. These remain views assembled from
+their owning authorities; the Taster and Browser do not publish them back as
+state.
 
 The Noticeboard does not conceptually require a public version number. Revision counters, dirty flags or sequence numbers may be used internally if useful, but are implementation mechanisms unless a later concrete requirement says otherwise.
 
@@ -982,7 +996,7 @@ Human-interface participants such as the Browser and Taster are two-way: they co
 
 ## 13.6 Manual User Gateway (MUG)
 
-A **Manual User Gateway (MUG)** is a phone, tablet, computer or other browser host acting as a human-facing P&P interface. The ownership and takeover semantics of the physical Taster are deliberately deferred to the Phase 8B hardware/product checkpoint; this section defines browser/client control only.
+A **Manual User Gateway (MUG)** is a phone, tablet, computer or other browser host acting as a human-facing P&P interface. The integrated physical Taster is another P&P human-interface participant, not a second controller. When no SMUGLAND controller is connected, the Taster may control the supported standalone operations. A connected SMUGLAND controller automatically supersedes Taster control; when that connection is lost, the controller may restore control to Taster through the same control-lease boundary. Race Control remains the sole lifecycle authority.
 
 Multiple MUGs may be connected simultaneously. One MUG may hold Race Director authority while others operate as permitted driver, display or spectator clients. A MUG does not own race state and its disconnection must not stop the race.
 

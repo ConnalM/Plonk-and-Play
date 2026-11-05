@@ -4,6 +4,12 @@
 
 These tests define the frozen acceptance requirements for the Endurance implementation slice. They do not by themselves authorize production implementation. Stages 1–14B remain frozen.
 
+Browser/SMUG Endurance rows below retain the normal official-record rules. The
+WP8 Taster-specific mapping is narrower: standalone Taster TIMED uses Endurance
+with Finish Current Lap and is non-official, while a SMUG-controlled session
+continues to use the ordinary official persistence policy. The session source
+and record policy are authoritative and frozen at START.
+
 Every automated result must be bound to the final source/build identity and retain deterministic setup, seed, Relevant Times, ordered delivery evidence, Message Bus traces, authoritative State, Facts, Request Results and production Browser/API responses.
 
 Before final stage acceptance, the resource evidence must include one product-profile campaign using the default `PP_MAX_ENTRIES=8` and product-like loopTask/httpd stacks through real HTTP handlers, START, FINISH/result and persistence/reconstruction. Reduced fixtures remain valid for fast behavioural checks; ELF/frame guards remain additional protection.
@@ -33,7 +39,7 @@ Before final stage acceptance, the resource evidence must include one product-pr
 | 14C.19 | Valid completed Endurance laps update PB/Track Record data, including a valid final Finish-Current-Lap lap; partial laps do not; Practice remains excluded. |
 | 14C.20 | Browser disconnect/reconnect reconstructs live Endurance State, remaining time, PAUSED state, expiry and overtime without Fact replay. |
 | 14C.21 | Presentation pressure, delayed polling and Browser absence do not alter authoritative duration, crossings, classification or expiry. |
-| 14C.22 | Taster TIMED selection maps to Endurance for 1–999 minutes while preserving the established simple Taster interaction and existing Lap behaviour. |
+| 14C.22 | Standalone Taster TIMED selection maps to Endurance for 1–999 minutes with Finish Current Lap, preserves the established simple Taster interaction and LAPS full-distance behaviour, and contributes no official History, PB or Track Record data. SMUG-controlled Endurance retains the normal official policy. |
 | 14C.23 | Detailed-lap retention is bounded safely without imposing a 16-lap Endurance limit; authoritative lap totals and required statistics remain correct beyond the current 16-record capacity. |
 | 14C.24 | Persistence/result format versioning and incompatible-version handling are safe and reconstruct all required Endurance data. |
 | 14C.25 | Invalid mode, duration, finish policy, entry, lifecycle, operation and forged-authority requests are rejected with authoritative State unchanged. |

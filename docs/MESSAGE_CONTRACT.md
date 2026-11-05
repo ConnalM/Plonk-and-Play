@@ -128,6 +128,26 @@ State is obtained according to the current client/screen need. Browser clients d
 
 The Taster is another Human Interface using the same common P&P Message Contract. It does not have a separate Taster control protocol. It sends only the Requests it supports and consumes only the messages it understands or needs.
 
+The integrated Taster is also a controller-local trusted control source. It is
+not an HTTP Browser identity and cannot claim Race Director authority by
+putting a role in a Request. The controller's existing control-lease boundary
+determines whether the local Taster is controlling or subordinate:
+
+- when no SMUGLAND controller is connected, the Taster may issue its supported
+  setup and session Requests;
+- when SMUGLAND connects and becomes the controlling P&P client, the controller
+  automatically supersedes Taster; Taster Requests are rejected or disabled
+  and the Taster consumes the authoritative Noticeboard as a subordinate
+  display;
+- a spectator connection never acquires control or causes this handover;
+- when the controlling SMUGLAND connection is lost, the controller may restore
+  Taster control through the same lease boundary.
+
+This handover changes only which presentation client may originate an
+authorised Request. Race Control remains the sole lifecycle authority, and the
+active Session Definition and its record policy remain frozen for the life of
+the session.
+
 ## 10. The Noticeboard and change notification
 
 The **Noticeboard** is P&P's authoritative current externally presentable view of itself. It contains everything relevant and current needed to understand P&P or an active session, plus any current information that P&P makes available to a Browser, Taster or other presentation interface. It is information/state, not another operational module and not another owner of the underlying information.

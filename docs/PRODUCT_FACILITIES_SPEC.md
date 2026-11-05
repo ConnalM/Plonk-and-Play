@@ -110,6 +110,27 @@ The architecture should support several simultaneous browser clients. A represen
 
 This scale should be prototype-tested under realistic worst-case conditions before hardware is frozen.
 
+### 4.1 Local Taster and SMUG control hierarchy
+
+The integrated Taster is P&P's local human-interface participant, not a second
+Race Controller. When no SMUGLAND controller is connected, it may control the
+supported standalone race operations. A connected SMUGLAND controller
+automatically supersedes Taster control; the Taster remains a subordinate
+display. When the controlling SMUGLAND connection is lost, control may return
+to Taster through the existing controller-owned lease boundary. Race Control
+and Race Engine remain the single authoritative race/session authority.
+
+The control source is frozen at START. Standalone Taster races are deliberately
+non-official: they do not contribute to History, Personal Bests or Track
+Records. SMUG-controlled races retain the normal official-record rules.
+Development simulations remain a separate non-official classification.
+
+The factory Taster presentation uses the original green MGB and red E-Type
+side-profile graphics, assigned per lane. SMUGLAND may select only from P&P's
+built-in graphic set; custom image upload is outside this product contract.
+Selections are persistent Taster configuration and do not alter racer identity,
+lane assignment or race timing.
+
 ## 5. Track Setup
 
 Track Setup may optionally store information that normally changes rarely:
@@ -250,6 +271,11 @@ Simulated race sessions must be authoritatively identifiable as **DEMO**, not me
 Demo results must not contaminate genuine sporting records, including personal bests, track records, championship results or equivalent persistent competitive data.
 
 Displays should identify simulated operation clearly enough that a demo cannot reasonably be mistaken for a live race.
+
+The Demo exclusion above is independent of the WP8 standalone-Taster policy:
+both are non-official, but a standalone Taster race is a real local race rather
+than a simulated/demo session and must remain distinguishable in the frozen
+session source.
 
 The eventual persistence design may retain demo sessions for testing or support purposes, but they must remain distinguishable from genuine results.
 

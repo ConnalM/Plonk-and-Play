@@ -170,7 +170,10 @@ Results are stored automatically. There is no routine Save Results action.
 
 ## Results & History
 
-History is a simple newest-first list of completed sessions across the supported modes.
+History is a simple newest-first list of completed **official** sessions across
+the supported modes. Standalone Taster results are deliberately excluded from
+this Browser History because they are local, non-official results; a
+SMUG-controlled session uses the normal History path.
 
 A basic mode filter may be provided:
 **All | Lap | Practice | Endurance | Timed Stage | Drag**.
@@ -188,6 +191,11 @@ When the buffer is full, storing a new completed session automatically discards 
 The exact factory buffer size is an implementation choice to be set after realistic session-size/storage testing.
 
 Persistent record summaries are independent of the rolling session buffer. Expiry of an old session must not make a valid PB or track record revert merely because its originating session has fallen out of History.
+
+The Browser must not infer official eligibility from the visible result or from
+the client that is currently connected. Race Control freezes the trusted
+session source and record policy at START, and the Race Engine applies that
+policy before History, PB or Track Record persistence.
 
 ### v1 records
 

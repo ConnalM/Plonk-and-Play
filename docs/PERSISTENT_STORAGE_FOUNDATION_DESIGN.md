@@ -108,7 +108,14 @@ temporary stream is drained, finalized and verified, then the summary and
 detail are encoded and published through one linked transactional History
 commit. Temporary streams are never enumerated as History.
 
-Existing LAP, Endurance and Practice semantics remain unchanged. Completed official LAP and Endurance results may enter History; abandoned races and Practice do not create official History; existing PB/Track Record eligibility and Record Era semantics remain unchanged.
+Existing LAP, Endurance and Practice semantics remain unchanged. Completed
+SMUG-controlled LAP and Endurance results may enter official History; abandoned
+races and Practice do not create official History. The WP8 standalone Taster
+is an additional authoritative non-official session source: its sealed result
+remains available to the local presentation, but it does not append History or
+update PB/Track Record data. Development simulation remains separately
+non-official. Record policy is frozen in Session Definition at START and is not
+changed by later control handover.
 
 ## Atomic persistence
 
@@ -206,5 +213,9 @@ wear policy and near-full-card behaviour remain Phase 8B hardware evidence.
 
 ## Scope exclusions
 
-This foundation introduces no active-race persistence or recovery, new race modes, new PB/Track Record eligibility rules, new MUG user interface, new Practice or Endurance behaviour, or product maximum based on implementation capacity.
+This foundation introduces no active-race persistence or recovery, new race
+modes, a second persistence authority, new Practice or Endurance behaviour, or
+product maximum based on implementation capacity. The WP8 session-source
+record-policy boundary is defined by the Race Control/Session Definition
+contract above; its implementation and physical presentation remain WP8 work.
 

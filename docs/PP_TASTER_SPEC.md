@@ -8,6 +8,17 @@ It is deliberately simpler than full browser-based P&P Race Control. Its purpose
 
 The local display should be a decent small graphical colour display capable of attractive fonts, colours, graphics and the P&P visual language. It must not look or behave like a crude segment display.
 
+## WP8 contract alignment
+
+The Taster is a controller-local presentation and control client over the
+normal P&P authority. It does not create a second Race Control, Race Engine,
+timing, results or persistence authority.
+
+The Taster leaves its Welcome state only after configuration has loaded and
+P&P is genuinely capable of racing for the selected installation. Optional
+services, including Browser connectivity and official record storage, must not
+block a standalone Taster race when the required race capabilities are healthy.
+
 ## Factory Taster
 
 The factory/default Taster assumes the standard base hardware:
@@ -55,16 +66,31 @@ At READY:
 
 START is not a second Taster-specific race mechanism. Once requested, the selected Taster setup is submitted to the normal P&P start procedure and normal Race Control/session machinery.
 
+Taster setup is translated into the normal race modes and finish policies:
+
+- LAPS uses `LapRace` with `CompleteFullRaceDistance`;
+- TIMED uses `Endurance` with `CompleteCurrentLap`.
+
+The selected mode and its mode-specific value are persistent Taster settings,
+restored after restart through the existing Memory/Store boundary.
+
 ### During a race
 
-A short encoder press has no race-control effect.
+RACING includes one small, unobtrusive interruption control. Its visual
+treatment belongs to the Taster presentation design; it is not a second race
+operation.
 
-A deliberate long press during a race pauses/stops race progress and presents **RESTART RACE?**. This is the Taster's deliberately simple combined restart/pause-resume interaction.
+Activating it submits the normal authoritative `PAUSE` operation. Once the
+pause is authoritative, the Taster offers only:
 
-- **YES** — abandon the current race and return to the initial Taster READY screen, retaining the selected LAPS/TIMED mode and its value. The abandoned race is not treated as a completed result.
-- **NO** — do not abandon the race. Run the normal P&P start-light sequence and then resume the interrupted race from the preserved race state. Completed laps, lane positions/progress and other authoritative race state remain intact, and paused time is excluded according to the normal P&P pause/resume rules.
+- **RESUME** — use the normal P&P restart countdown and resume the preserved
+  race;
+- **ABANDON** — confirm abandonment, return to READY and create no completed
+  result.
 
-Rotating the encoder selects YES or NO and a short press confirms. **NO** is the safe/default choice. Until YES is explicitly confirmed, the current race must remain recoverable for resume; the long press itself must not destroy the race state.
+The Taster does not offer **RESTART**. Race Control remains responsible for
+pause settlement, resume timing, abandonment and the no-result/no-History
+outcome.
 
 ### FINISHED
 
@@ -73,6 +99,10 @@ The final result remains displayed indefinitely until the MUG acts.
 - short press = **RACE AGAIN**, using the same race type and value and entering the normal start procedure;
 - rotating the encoder leaves the result view and adjusts the current race value ready for a new race;
 - the same velocity-sensitive 1/5/10 adjustment applies.
+
+The standalone Taster result is a sealed in-memory result view, not a local
+History screen. **RACE AGAIN** discards that displayed standalone result when
+the next race is accepted and starts the normal new-session procedure.
 
 Taster must not grow into a general menu-driven recreation of the browser interface. If configuration becomes menu-heavy or requires navigating levels, it belongs on the SMUG.
 
@@ -95,7 +125,11 @@ On the winning/final lap, the appropriate lane may use a chequered-flag/finish t
 
 For Taster Lap Races, both lanes always complete the full selected race distance. The first lane to complete the target is recorded as the winner/first finisher, but the other lane continues until it has also completed the target. Taster exposes no alternative finish-policy setting.
 
-At finish it shows the finishing/result information, including finish time as appropriate, followed by the simple result. The result remains on screen until the MUG chooses Race Again or changes the race setting.
+For Taster TIMED races, the authoritative Endurance duration expires at the
+selected time and each racer completes their current lap before the result is
+finalised.
+
+At finish it shows the finishing/result information, including finish time as appropriate, followed by the simple result. The result remains on screen until the MUG chooses Race Again.
 
 If SMUG has configured MUG names, those names may replace generic LANE 1 / LANE 2 labels on the Taster display rather than adding unnecessary extra clutter.
 
@@ -112,6 +146,33 @@ Examples may include assigning names instead of lane labels and selecting other 
 A configured Taster must remain self-contained: the browser must not allow a Taster configuration that subsequently requires a browser merely to run it.
 
 A RESTORE FACTORY TASTER function should return the product to the guaranteed standard two-lane, 10-lap standalone experience.
+
+### Factory car graphics
+
+The factory Taster provides the original green MGB and red E-Type side-profile
+graphics, assigned independently to Lane 1 and Lane 2. SMUGLAND may select a
+different graphic for either lane only from P&P's built-in graphic set. Custom
+image upload is not part of this contract. Lane graphic selections are
+persistent Taster configuration and are restored after restart; they are not
+racer identities and are not assigned through the MUG catalog.
+
+### Control hierarchy and records
+
+The Taster controls P&P when no SMUGLAND controller is connected. A connected
+SMUGLAND controller automatically supersedes Taster control; Taster remains a
+subordinate display and its control requests are disabled. When SMUGLAND
+disconnects, the controller returns control to Taster without creating a new
+race authority.
+
+The session's control source is frozen when START is accepted:
+
+- a standalone Taster race is non-official and contributes no History, PB or
+  Track Record data;
+- a SMUG-controlled race follows the normal official-record rules;
+- a development simulation is non-official.
+
+Changing Browser/Taster connectivity during an active race never changes the
+frozen record policy for that race.
 
 ## MINIMUG principle
 

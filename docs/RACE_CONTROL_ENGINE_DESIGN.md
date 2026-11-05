@@ -86,6 +86,9 @@ For the first two-lane Lap Race it contains:
 - for each Race Entry, its lane, stable MUG ID and frozen MUG display name, plus optional stable Car ID and frozen Car display name where Cars are enabled;
 - required semantic input roles mapped to stable Input IDs/capabilities;
 - required semantic output roles mapped to stable Output IDs/capabilities;
+- the trusted session source and record policy: standalone Taster (non-official),
+  SMUG-controlled P&P (official under the normal rules), or development
+  simulation (non-official);
 - only the physical/rule parameters required to interpret or execute the session.
 
 Installed capabilities unused by the session do not need session roles merely because they exist. Hardware implementation details such as GPIOs, transport addresses, detector thresholds and Browser connections do not belong in the Session Definition.
@@ -97,6 +100,24 @@ Ordinary configuration changes must not silently alter a session already in prog
 For the initial product, race-affecting configuration is not changed while an individual race is active. The Race Director changes it after that race has ended. This is a deliberate product simplification, not an architectural prohibition on harmless live presentation preferences or a future explicitly designed runtime feature.
 
 This does not prescribe whether the implementation copies, references, serialises or otherwise represents the definition.
+
+### 4.1 Session source and record policy
+
+Race Control derives the session source from the trusted control boundary when
+START is accepted; it must not accept a Browser-supplied presentation label as
+proof of source. The resulting record policy is immutable for the session.
+
+The Race Engine uses that frozen policy at its existing persistence gates:
+
+- standalone Taster sessions seal and present their results in memory but do
+  not append official History or update PB/Track Record data;
+- SMUG-controlled Lap Race and Endurance sessions retain the normal official
+  History, PB and Track Record behaviour;
+- development simulation remains non-official and remains distinct from a
+  real standalone Taster race.
+
+Control handover during an active session cannot change this policy or
+retroactively publish a previously non-official result.
 
 ## 5. Time and event ordering
 
