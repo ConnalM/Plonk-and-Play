@@ -1,9 +1,9 @@
 # Plonk & Play™ — Product Specification Index
 
-**Status:** Architecture baseline accepted — ready for Stage 1 implementation  
+**Status:** Architecture baseline accepted; development acceptance evidence retained through Stage 14C — current product completion governed by the WP0–WP12 Master Project Plan  
 **Baseline accepted:** 30 September 2026
 
-The governing P&P architecture has completed its pre-implementation consistency review. No unresolved architecture blockers remain. Deferred implementation choices and future product detail remain deliberately deferred and do not prevent Stage 1 from beginning.
+The governing P&P architecture completed its pre-implementation consistency review. Development stages 1–14C have since accumulated implementation and acceptance evidence. This index records governing specifications, not completion of the integrated P&P product; remaining software, hardware integration and release work is tracked in the WP0–WP12 Master Project Plan.
 
 Changes to the accepted architectural boundaries should now be made deliberately and recorded as architecture changes, rather than emerging accidentally during implementation.
 
