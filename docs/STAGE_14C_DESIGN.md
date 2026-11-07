@@ -76,7 +76,11 @@ Eligibility is determined at the expiry boundary: the entry must already have a 
 
 At expiry, an entry that had established a legitimate timing origin and was already on a lap may complete that lap at its first eligible post-expiry Start/Finish crossing. It cannot begin another counted lap. An entry without a legitimate pre-expiry timing origin/lap receives no post-expiry lap. Different entries may finish with different totals. Classification is by final classified lap count; equal totals are ordered by post-expiry finishing Relevant Time.
 
-The main duration display reaches and remains at `00:00`. Finish Current Lap also exposes a separate authoritative overtime value beginning at expiry and counting upward until the last eligible entry completes.
+The main duration display reaches and remains at `0` seconds. Finish Current
+Lap also exposes live authoritative overtime as `+0`, `+1`, `+2` and so on from
+the one shared expiry point. Each lane's first eligible final crossing freezes
+its offset to hundredths as `+mm:ss:xx`; the other lane continues to its own
+crossing and both offsets remain visible at finish.
 
 ## Exact Relevant-Time boundaries
 
@@ -106,7 +110,10 @@ authoritative PAUSED. Confirmed ABANDON invokes the existing END RACE
 abandonment path. Presentation is derived from authoritative State and must
 not calculate results.
 
-The existing Taster already supports LAPS/TIMED values from 1–999. Stage 14C maps the existing TIMED Taster selection to Endurance while preserving the simple Taster interaction model. It does not redesign Taster or add unrelated controls.
+The Taster exposes the restricted **LAPS** and **ENDURANCE** choices from
+`PP_TASTER_SPEC.md`. Its ENDURANCE choice maps to this canonical Endurance
+contract; it is not a separate TIMED race mode. The Taster preserves the
+simple interaction model and does not add unrelated controls.
 
 Expiry warnings are limited to authoritative continuously available remaining time and the authoritative zero boundary. Configurable warning schedules, audio and light warnings remain deferred.
 

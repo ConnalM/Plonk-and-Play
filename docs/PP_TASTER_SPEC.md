@@ -2,9 +2,11 @@
 
 ## Purpose
 
-P&P Taster is the built-in, standalone experience provided by the P&P unit itself.
-
-It is deliberately simpler than full browser-based P&P Race Control. Its purpose is to let a MUG switch on the standard base product and run a basic race without first connecting a phone, tablet or computer.
+P&P Taster is the built-in, restricted client of the normal P&P Browser/Race
+Control experience. It is not a separate racing product. It is deliberately
+simpler than full browser-based P&P Race Control: its purpose is to let a MUG
+switch on the standard base product and run the supported subset without first
+connecting a phone, tablet or computer.
 
 The Taster uses the integrated 7-inch, 800 × 480 landscape colour touchscreen.
 It should be capable of attractive fonts, colours, graphics and the P&P visual
@@ -12,11 +14,18 @@ language. It must not look or behave like a crude segment display. No rotary
 encoder or physical control buttons are required; local operation is through
 the touchscreen.
 
-## WP7 contract alignment
+## Cross-client contract alignment
 
 The Taster is a controller-local presentation and control client over the
 normal P&P authority. It does not create a second Race Control, Race Engine,
-timing, results or persistence authority.
+timing, results or persistence authority. The canonical race behaviour is
+defined in `RACE_MODES_PRODUCT_SPEC.md` and the shared presentation rules are
+defined in `COMMON_DISPLAY_SPEC.md` and `PRESENTATION_DESIGN_SPEC.md`; this
+document defines only the Taster's restricted scope, controls and layout.
+
+Where this document is silent, those canonical contracts apply. A different
+screen size or control surface may omit features, but it may not reinterpret
+race state, timing, finish policy, result meaning or event presentation.
 
 The Taster leaves its Welcome state only after configuration has loaded and
 P&P is genuinely capable of racing for the selected installation. Optional
@@ -53,31 +62,35 @@ buttons or a browser.
 Taster provides exactly two locally selectable race types:
 
 - **LAPS** — 1 to 999 laps;
-- **TIMED** — 1 to 999 minutes.
+- **ENDURANCE** — 1 to 999 minutes.
 
-These are the only Taster race modes. Open Practice is not offered on the
-local touchscreen.
+These are the only Taster race modes. Open Practice and Timed Stage are not
+offered on the local touchscreen.
 
 On first/factory use, READY defaults to **10 LAPS**.
 
 Thereafter the last selected race type, the last selected lap distance and the
-last selected timed duration are retained through the existing Memory/Store
+last selected Endurance duration are retained through the existing Memory/Store
 boundary and restored after power-off/restart.
 
 At READY, the touchscreen provides:
 
-- a LAPS/TIMED selector;
+- a LAPS/ENDURANCE selector;
 - an adjustment control for the selected value, clamped to 1–999 with no wrap;
 - a START control for the displayed race.
 
-Selecting LAPS adjusts laps; selecting TIMED adjusts minutes.
+Selecting LAPS adjusts laps; selecting ENDURANCE adjusts minutes.
 
 START is not a second Taster-specific race mechanism. Once requested, the selected Taster setup is submitted to the normal P&P start procedure and normal Race Control/session machinery.
 
 Taster setup is translated into the normal race modes and finish policies:
 
 - LAPS uses `LapRace` with `CompleteFullRaceDistance`;
-- TIMED uses `Endurance` with `CompleteCurrentLap`.
+- ENDURANCE uses `Endurance` with `CompleteCurrentLap`.
+
+The Browser may expose additional modes, but the Taster never relabels or
+redefines them. Its ENDURANCE choice is the normal P&P `Endurance` mode with
+the canonical Finish Current Lap policy.
 
 ### During a race
 
@@ -95,6 +108,12 @@ Once the pause is authoritative, the Taster offers only:
   race;
 - **ABANDON RACE** — requires explicit confirmation, then returns to READY and
   creates no completed result.
+
+The shared pause/restart timing rule in `RACE_MODES_PRODUCT_SPEC.md` applies:
+paused time and an authoritative restart countdown do not add racing time.
+RESUME continues from the shared P&P timing boundary. The Taster may advance
+or render pause/countdown values from authoritative P&P timing, but it does not
+independently establish pause or countdown authority.
 
 The Taster does not offer **RESTART**. Race Control remains responsible for
 pause settlement, resume timing, abandonment and the no-result/no-History
@@ -130,7 +149,15 @@ During a race it provides one stable display row for each of the two lanes/compe
 - lane number or configured MUG name;
 - lap count/progress;
 - latest lap time;
-- race time/countdown information where appropriate for TIMED.
+- race time/countdown information where appropriate for ENDURANCE.
+
+The Browser and Taster consume the same authoritative state and presentation
+events/facts. The Taster may advance or render displayed clock values from
+authoritative P&P timing, but never independently establishes the GO instant,
+race timing, expiry, finish, overtime, classification or result authority.
+Numeric fields and lane rows remain in fixed regions; changing values do not
+move unrelated layout. A car or finish effect is a response to its
+authoritative event and is active only for that event.
 
 A genuine Start/Finish crossing for a lane may trigger a short graphical animation confined to that lane's row: for example, its little car whizzing across a Start/Finish marker while the new lap information appears. Lane 1 events animate Lane 1; Lane 2 events animate Lane 2. The other lane remains undisturbed.
 
@@ -138,11 +165,24 @@ The lap-crossing presentation may include an optional playful car-pass sound (th
 
 On the winning/final lap, the appropriate lane may use a chequered-flag/finish treatment rather than the ordinary lap animation.
 
-For Taster Lap Races, both lanes always complete the full selected race distance. The first lane to complete the target is recorded as the winner/first finisher, but the other lane continues until it has also completed the target. Taster exposes no alternative finish-policy setting.
+For Taster LAPS races, the canonical `CompleteFullRaceDistance` contract in
+`RACE_MODES_PRODUCT_SPEC.md` applies: either lane may be first to the selected
+distance, each lane's final time freezes at its own eligible crossing, and the
+shared race completes only when the required entries have finished. Taster
+exposes no alternative finish-policy setting.
 
-For Taster TIMED races, the authoritative Endurance duration expires at the
-selected time and each racer completes their current lap before the result is
-finalised.
+For Taster ENDURANCE races, the canonical `FinishCurrentLap` contract in
+`RACE_MODES_PRODUCT_SPEC.md` applies: the next eligible crossing after the one
+shared expiry point contributes to each lane's result, with any finishing
+offset/overtime derived from that same authority.
+
+Timing fields and number formats are shared with the Browser exactly as
+defined in `RACE_MODES_PRODUCT_SPEC.md` §4.6. Live elapsed/remaining race
+timers use whole seconds beyond 3599 without changing units; completed
+race/finish durations use unbounded-minute `mm:ss:xx` with hundredths; live
+Endurance overtime uses `+0`, `+1`, `+2` and so on; and each lane's frozen
+final offset uses `+mm:ss:xx`, such as `+00:18:42`. The Taster does not
+redefine those formats and reserves stable width for their largest values.
 
 At finish it shows the finishing/result information, including finish time as appropriate, followed by the simple result. The result remains on screen until the MUG chooses Race Again.
 

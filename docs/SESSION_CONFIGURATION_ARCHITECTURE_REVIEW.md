@@ -139,7 +139,7 @@ The core architecture has a clean place for future active-session meaning: new m
 
 The pressure point is before START. Rally/Timed Stage/Drag, pit stops, mandatory stops, fuel, Stop/Go penalties and additional setup options will add more fields. If each field is held in a separate Browser-local variable and appended to START bodies, every mode increases the chance of divergent clients, lost refresh state, stale DOM and mode-specific parsing. A server-owned pending Race Setup would give all of those options one validated home without changing active-session authority.
 
-The Taster is intentionally narrower. It retains a simple two-lane LAPS/TIMED surface and defaults, while expanded installations use the full Browser (`docs/PP_TASTER_SPEC.md:34-77,104-128`). That should remain a presentation/product boundary rather than forcing Browser proposal state into Taster internals.
+The Taster is intentionally narrower. It retains a simple two-lane LAPS/ENDURANCE surface and defaults, while expanded installations use the full Browser (`docs/PP_TASTER_SPEC.md:35-92,109-133`). That should remain a presentation/product boundary rather than forcing Browser proposal state into Taster internals.
 
 ## 9. Risks
 
@@ -180,7 +180,7 @@ The review finds no reason to change the following frozen principles:
 * Message Bus and Noticeboard boundaries remain the normal communication path.
 * Browser remains a presentation/request client, never an alternative Race Engine or timing authority.
 * Relevant-Time ordering, settlement fences, authoritative GO and browser-independent timing remain unchanged.
-* Taster's simple documented LAPS/TIMED behaviour remains separate from the full Browser configuration surface.
+* Taster's simple documented LAPS/ENDURANCE behaviour remains a restricted view of the full Browser configuration surface; it does not create separate race semantics.
 * Results, History, PB and Track Record remain owned by their existing authoritative/persistence paths; Browser only reconstructs and presents them.
 * No active-race crash-recovery or persistent live-session reconstruction should be introduced as part of this proposal.
 

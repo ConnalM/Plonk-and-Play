@@ -5,7 +5,7 @@
 These tests define the frozen acceptance requirements for the Endurance implementation slice. They do not by themselves authorize production implementation. Stages 1–14B remain frozen.
 
 Browser/SMUG Endurance rows below retain the normal official-record rules. The
-WP8 Taster-specific mapping is narrower: standalone Taster TIMED uses Endurance
+WP8 Taster-specific mapping is narrower: standalone Taster ENDURANCE uses Endurance
 with Finish Current Lap and is non-official, while a SMUG-controlled session
 continues to use the ordinary official persistence policy. The session source
 and record policy are authoritative and frozen at START.
@@ -28,7 +28,7 @@ Before final stage acceptance, the resource evidence must include one product-pr
 | 14C.8 | Finish Current Lap allows at most one eligible post-expiry crossing per entry; eligibility requires that the entry was legitimately already on that lap before expiry; an entry without that pre-expiry timing origin receives no post-expiry lap; and unequal totals are produced where appropriate. |
 | 14C.9 | Exact expiry boundaries are proven: before expiry, exactly at expiry, after expiry, and delayed delivery of an event carrying an earlier Relevant Time. An event exactly at expiry may complete a lap already in progress, but cannot establish a new timing origin or grant another post-expiry completion. |
 | 14C.10 | Classification is correct for both policies, including equal-lap ordering, ties and post-expiry finish ordering using authoritative Relevant Time. |
-| 14C.11 | Remaining duration reaches authoritative zero; Finish Current Lap keeps the main countdown at zero and exposes a separate increasing overtime value. |
+| 14C.11 | Remaining duration reaches authoritative zero seconds; Finish Current Lap keeps the main timer at `0`, exposes live overtime as `+0`, `+1`, `+2` and so on from one shared expiry point, freezes each lane's first eligible final-crossing offset as `+mm:ss:xx` to hundredths, and retains both offsets at finish. |
 | 14C.12 | PAUSE uses the existing settlement fence; paused time does not consume duration; crossings in the paused interval cannot advance timing; generic RESUME continues with remaining time. |
 | 14C.13 | Multiple PAUSE → RESUME cycles preserve the frozen LAP race timing and pause semantics: completed laps/statistics remain, interrupted-lap timing follows the frozen LAP PAUSE/RESUME rules, paused time does not consume Endurance duration, settlement completes through the normal fence, Resume continues correctly, and no Open Practice-specific incomplete-lap discard behaviour is introduced. |
 | 14C.14 | END RACE is Race Director-only, abandons the active Endurance session, creates no normal result and creates no History entry. |
@@ -39,7 +39,7 @@ Before final stage acceptance, the resource evidence must include one product-pr
 | 14C.19 | Valid completed Endurance laps update PB/Track Record data, including a valid final Finish-Current-Lap lap; partial laps do not; Practice remains excluded. |
 | 14C.20 | Browser disconnect/reconnect reconstructs live Endurance State, remaining time, PAUSED state, expiry and overtime without Fact replay. |
 | 14C.21 | Presentation pressure, delayed polling and Browser absence do not alter authoritative duration, crossings, classification or expiry. |
-| 14C.22 | Standalone Taster TIMED selection maps to Endurance for 1–999 minutes with Finish Current Lap, preserves the established simple Taster interaction and LAPS full-distance behaviour, and contributes no official History, PB or Track Record data. SMUG-controlled Endurance retains the normal official policy. |
+| 14C.22 | Standalone Taster ENDURANCE selection maps to Endurance for 1–999 minutes with Finish Current Lap, preserves the established simple Taster interaction and LAPS full-distance behaviour, and contributes no official History, PB or Track Record data. SMUG-controlled Endurance retains the normal official policy. |
 | 14C.23 | Detailed-lap retention is bounded safely without imposing a 16-lap Endurance limit; authoritative lap totals and required statistics remain correct beyond the current 16-record capacity. |
 | 14C.24 | Persistence/result format versioning and incompatible-version handling are safe and reconstruct all required Endurance data. |
 | 14C.25 | Invalid mode, duration, finish policy, entry, lifecycle, operation and forged-authority requests are rejected with authoritative State unchanged. |
@@ -64,10 +64,10 @@ Using the prepared Endurance image, the operator will:
 4. Trigger at least two lanes independently and observe lap counts, last/best lap and remaining time.
 5. Verify a real PAUSE, settlement, frozen duration, and generic RESUME with remaining time continuing afterward.
 6. Run one Stop-at-Zero completion and verify official Results/History reconstruction.
-7. Run one Finish-Current-Lap completion and verify zero countdown, overtime and final-lap classification.
+7. Run one Finish-Current-Lap completion and verify the `0`-second countdown, whole-second overtime, frozen per-lane `+mm:ss:xx` offsets and final-lap classification.
 8. Refresh/disconnect/reconnect the Browser during active, PAUSED and post-expiry states and verify authoritative reconstruction.
 9. Verify a valid Endurance lap appears in the intended PB/Track Record presentation and that no partial lap does.
-10. Verify Taster TIMED selection maps to Endurance without changing established Lap behaviour.
+10. Verify Taster ENDURANCE selection maps to Endurance without changing established Lap behaviour.
 11. Verify END RACE abandons an active run without manufacturing a normal result.
 
 The checkpoint must retain visible Browser/Taster evidence plus State, Fact, Request Result, Results, Details, History, persistence and record snapshots.

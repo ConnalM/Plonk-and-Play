@@ -144,8 +144,9 @@ Progress example: 6 / 10.
 Show mode/race distance, Fastest Lap, Track Record, Race Control Pod,
 elapsed RACE TIME and PAUSE.
 
-RACE TIME counts upward from authoritative race timing. Pause freezes
-it; Resume continues it.
+RACE TIME counts upward from authoritative race timing in whole seconds,
+continuing past `3599` without resetting or changing units. Pause freezes it;
+Resume continues it.
 
 ## Endurance live screen
 
@@ -157,8 +158,12 @@ Show prominent TIME REMAINING counting down from authoritative timing.
 
 Clearly show ENDURANCE · STOP AT ZERO or ENDURANCE · FINISH CURRENT LAP.
 
-For FINISH CURRENT LAP after expiry, TIME REMAINING remains 00:00 and
-OVERTIME appears where applicable, counting upward, e.g. +00:18.
+For FINISH CURRENT LAP after expiry, TIME REMAINING remains `0` seconds and
+OVERTIME appears where applicable, counting upward from the same authoritative
+expiry point as `+0`, `+1`, `+2` and so on. Each lane freezes its first
+eligible final-crossing offset as `+mm:ss:xx` to hundredths; both offsets stay
+visible when the race finishes. These values follow the common contract in
+`RACE_MODES_PRODUCT_SPEC.md` §4.6.
 
 P&P determines whether overtime applies and supplies authoritative
 timing. Browser does not infer expiry/overtime.

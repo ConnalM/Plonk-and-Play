@@ -1,8 +1,11 @@
 # Plonk & Play™ — Common Display Specification
 
 **Status:** Committed product-design specification  
-**Applies to:** Lap, Endurance and Timed Stage  
-**Exception:** Drag uses its own display design.
+**Applies to:** Lap, Endurance and Timed Stage on the Browser and integrated
+P&P displays.
+**Exception:** Drag uses its own display design. The integrated Taster is a
+restricted client of this same display/race authority; it may omit modes and
+controls, but it does not define separate racing or timing behaviour.
 
 ## 1. Design principle
 
@@ -20,6 +23,30 @@ The race display remains fundamentally one screen with changing states rather th
 
 The start sequence does not replace the scoreboard with a separate start screen.
 
+### 2.1 Shared client authority and timing
+
+The Browser and Taster are presentation/control clients of the same Race
+Control, Race Engine and P&P System Time authority. The Taster is not a second
+racing product or a second timing authority. Its local choices are labelled
+**LAPS** and **ENDURANCE** and map to the canonical Lap Race and Endurance
+semantics in `RACE_MODES_PRODUCT_SPEC.md`; it does not create a local TIMED
+mode or reinterpret a Browser mode.
+
+Both clients consume the same authoritative state and presentation
+events/facts. Neither client invents the GO instant, elapsed/remaining clock,
+Endurance expiry, finish classification, finish time or overtime. Paused time
+and an approved restart countdown do not add racing time.
+
+Mode-specific finish policy and the shared timing/format definitions are
+defined only in `RACE_MODES_PRODUCT_SPEC.md` §2, §4 and §4.6. The display
+consumes those values; it does not restate or reinterpret the policies.
+
+Presentation updates are event/state driven. A client may advance or render a
+displayed clock from authoritative P&P timing and may animate a genuine active
+event, but a redraw timer or local calculation must not establish race timing
+authority or rebuild unrelated layout regions. Numeric fields and lane rows
+retain stable fixed regions while values change.
+
 ## 3. Race Control Pod
 
 A permanent segmented area sits across the top of the full display, envisaged as a shallow/squashed half-hexagonal pod.
@@ -28,7 +55,7 @@ It contains five light positions, which remain visible but greyed when inactive.
 
 During a start these become the race start lights. The system can use either three or five according to the selected start configuration.
 
-The pod has five physical light positions; there is no separate sixth green lamp. The authoritative countdown uses either three or five red lights according to the configured start. The authoritative GO style is either **Lights Out** or **Green**, as selected in the Session Definition. With Lights Out, the configured red lights extinguish at GO and all five physical positions are grey/off and dormant during ordinary racing. With Green, all five physical positions turn green simultaneously at authoritative GO for exactly one second, then all five become grey/off and dormant during ordinary racing. A configured three-light start changes only the number of red countdown positions; Green still illuminates all five physical positions. Browser and physical presentation consume this authoritative state and do not create a sixth lamp or a local GO timer.
+The pod has five physical light positions; there is no separate sixth green lamp. The authoritative countdown uses either three or five red lights according to the configured start. The authoritative GO style is either **Lights Out** or **Green**, as selected in the Session Definition. With Lights Out, the configured red lights extinguish at GO and all five physical positions are grey/off and dormant during ordinary racing. With Green, all five physical positions turn green simultaneously at authoritative GO for exactly one second, then all five become grey/off and dormant during ordinary racing. A configured three-light start changes only the number of red countdown positions; Green still illuminates all five physical positions. Browser and physical presentation consume this authoritative state and do not create a sixth lamp or independently establish GO authority; they may render the authoritative countdown and GO state.
 
 During normal racing the lights are dormant but can be repurposed for race-control signals:
 
@@ -74,7 +101,7 @@ Race progress for a 25-lap race might display `17 / 25`.
 
 A thin graphical progress indicator may also show race completion visually. This should be prototyped rather than considered mandatory at this stage.
 
-Endurance and Timed Stage use the same visual architecture with mode-appropriate information.
+Endurance and Timed Stage use the same visual architecture with mode-appropriate information. Mode-specific field meaning and finish semantics are defined in `RACE_MODES_PRODUCT_SPEC.md`; this specification governs their shared visual meaning and geometry.
 
 ## 5. Temporary Row States
 
@@ -92,7 +119,7 @@ A finished MUG remains in its original lane row while other MUGs continue racing
 
 Example:
 
-`LANE 2 | CONNAL | FINISHED | P1 | 25/25 | 3:42.18 | BEST 8.19`
+`LANE 2 | CONNAL | FINISHED | P1 | 25/25 | 03:42:18 | BEST 8.19`
 
 This is necessary because some Lap finish rules allow other MUGs to continue after the winner has finished.
 
@@ -222,7 +249,7 @@ A four-MUG event could therefore have:
 
 or any smaller combination.
 
-The System Controller remains responsible for timing, race logic and authoritative race state. Browsers perform their own rendering, animations and browser audio.
+The System Controller remains responsible for timing, race logic and authoritative race state. Browser and Taster perform their own rendering, animations and audio as presentation responses; neither becomes a timing authority.
 
 Loss of a browser connection must never affect race timing or race state.
 

@@ -2,7 +2,10 @@
 
 **Status:** Committed product-design specification  
 **Scope:** Agreed behaviour for Lap, Practice, Endurance, Timed Stage and Drag.  
-**Relationship:** Complements the architecture and first-implementation documents. Detailed RMS implementation remains deferred.
+**Relationship:** This is the canonical race-behaviour contract for every P&P
+client. The Browser and integrated Taster are presentation/control clients of
+the same authority; the Taster is a restricted subset, not a separate racing
+product. Detailed RMS implementation remains deferred.
 
 ## 1. Mode hierarchy
 
@@ -17,6 +20,19 @@ The customer-facing mode hierarchy is:
 
 Normal circuit racing is called **Lap**, not Circuit.
 
+### 1.1 Restricted Taster subset
+
+The normal Browser may expose the complete mode hierarchy above. The Taster
+exposes only two local choices:
+
+- **LAPS** — the local presentation of `Lap Race`;
+- **ENDURANCE** — the local presentation of `Endurance`.
+
+The Taster does not define a separate `TIMED` race mode. `Timed` remains a
+Practice option where supported, and **Timed Stage** remains a distinct full
+P&P Browser mode. Restricting the Taster's choices must never change the
+authoritative mode, timing, finish, pause or result semantics defined here.
+
 ## 2. Lap Race
 
 ### 2.1 Race definition
@@ -30,6 +46,14 @@ The three supported finish behaviours are:
 3. **Winner finishes — all others complete the total race distance.**
 
 These are the three normal Lap Race finish choices.
+
+For `Complete Full Race Distance`, either lane may reach the selected distance
+first and is recorded as the winner/first finisher. Every other required lane
+continues until it completes that same distance. Each entry's finishing time is
+captured and then frozen at its own final eligible crossing. The shared race
+clock and race-completion boundary occur when all required entries have
+finished; clients must not establish independent lane clocks. A client may
+derive and render displayed lane timing from authoritative P&P timing.
 
 ### 2.2 Live information
 
@@ -122,12 +146,19 @@ The winner is determined by distance/laps at expiry according to the configured 
 
 Endurance has two normal finish choices:
 
-1. **Stop at zero** — the race ends at 0:00. Classification uses completed laps and known progress where sector information permits it.
-2. **Finish current lap** — at 0:00 each running MUG continues until its next Start/Finish crossing and then finishes.
+1. **Stop at zero** — the race ends when the authoritative remaining timer reaches `0` seconds. Classification uses completed laps and known progress where sector information permits it.
+2. **Finish current lap** — when the authoritative remaining timer reaches `0` seconds, each running MUG continues until its next Start/Finish crossing and then finishes.
 
 There is no invented third timed-race finish mode.
 
 For Finish Current Lap, competitors tied on completed laps can be separated by the order in which they complete the final lap.
+
+The expiry boundary is one authoritative shared P&P time for the whole race.
+At that boundary, each entry may complete its next eligible crossing under the
+Finish Current Lap rules. Every eligible final crossing contributes to that
+entry's authoritative result. A lane's finishing offset/overtime is measured
+from the same shared expiry point; it is not calculated from a separate lane
+clock.
 
 ### 4.3 Live and result information
 
@@ -168,6 +199,47 @@ At zero:
 
 - **Stop at Zero:** announce/display race over.
 - **Finish Current Lap:** announce/display time expired/final lap and continue until each competitor finishes.
+
+### 4.6 Cross-client timing and presentation contract
+
+Race Control, Race Engine and P&P System Time remain the only authorities for
+GO, elapsed/remaining duration, lap timing, expiry, finish times and overtime.
+The Browser and Taster consume the same authoritative State and presentation
+events/facts; either client may advance or render displayed clock values from
+authoritative P&P timing, but neither client independently establishes race
+timing, GO, pause, expiry, finish or overtime authority.
+
+PAUSE and every approved restart countdown apply to the whole session. Time
+spent paused or in the restart countdown does not add racing time. RESUME
+continues from the authoritative timing boundary already established by P&P.
+
+The shared display conventions are:
+
+- live elapsed/remaining race timers use whole seconds and remain in seconds
+  beyond `3599`; they continue as `3600`, `3601`, and so on without resetting
+  or changing units;
+- completed race/finish durations use zero-padded `mm:ss:xx`, where `xx` is
+  hundredths and the minute field continues beyond `59` (for example,
+  `60:01:23` means 60 minutes and 1.23 seconds);
+- Endurance post-zero timing uses the one shared expiry point: the live value
+  is `+0`, `+1`, `+2` and so on in whole seconds;
+- when a lane completes its first eligible final crossing, its overtime offset
+  freezes to hundredths as `+mm:ss:xx` (for example, `+00:18:42`). The other
+  lane continues to its own final crossing, and both frozen offsets remain
+  visible at finish;
+- live lap/gap fields retain their common field definition and short-duration
+  precision, such as `8.21 s` or `+0.26 s`; these are not alternate race
+  clocks.
+
+Changing numeric fields use stable, fixed-width regions. Presentation updates
+are event/state driven: a client may animate a genuine active event, but it
+must not turn a continuously changing display into a second timing authority
+or rebuild unrelated layout regions.
+
+All of these are presentation values derived from authoritative P&P timing,
+not separate client timers. Implementations must reserve enough fixed-width
+space for unbounded minute values, the `+` overtime prefix and both frozen
+lane offsets so changing values never move or truncate adjacent fields.
 
 ## 5. Timed Stage
 

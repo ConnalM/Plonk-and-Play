@@ -2,7 +2,7 @@
 
 **Status:** Accepted visual-direction specification  
 **Applies to:** Browser presentation and integrated P&P display  
-**Authority:** Product behaviour remains governed by the relevant product specifications. This document governs visual language and presentation consistency, not race logic.
+**Authority:** Product behaviour remains governed by the relevant product specifications. This document governs visual language and presentation consistency, not race logic. Browser and Taster share the same presentation meanings even where their layouts and controls differ.
 
 ## 1. Purpose
 
@@ -15,6 +15,20 @@ The presentation should feel like a professionally designed motorsport timing pr
 Core principle:
 
 > **One P&P look. Different screens. The information that matters now dominates.**
+
+### 1.1 Cross-client product boundary
+
+The integrated Taster is a restricted subset of the normal P&P Browser, not a
+separate racing product. It may offer fewer modes, setup options and controls
+and may arrange the shared information for its physical touchscreen, but it
+cannot redefine race behaviour, timing, finish policy, result meaning or event
+presentation. The Browser and Taster consume the same authoritative P&P state,
+timing fields and presentation events/facts.
+
+The Taster's local mode labels are **LAPS** and **ENDURANCE**. They are the
+Taster presentation of the canonical Lap Race and Endurance modes; the Taster
+does not introduce a separate TIMED race mode. The shared behaviour and timing
+contract lives in `RACE_MODES_PRODUCT_SPEC.md` and `COMMON_DISPLAY_SPEC.md`.
 
 ## 2. Agreed visual direction
 
@@ -61,6 +75,12 @@ Where practical they should share:
 - event treatments such as Fastest Lap, Final Lap and Finish.
 
 They do not need identical layouts. The integrated display, phone, tablet, laptop and TV have different jobs and available space.
+
+The integrated display may be self-contained when no controlling SMUG is
+connected, but its controls still submit to the same Race Control authority as
+the Browser. A connected controlling SMUG may take precedence under the
+existing lease/permission contract; this changes who may request an operation,
+not what the operation means.
 
 ## 4. Information hierarchy
 
@@ -152,6 +172,15 @@ Existing rule from `COMMON_DISPLAY_SPEC.md` remains mandatory:
 
 > **No UI jitter caused by changing race data.**
 
+Timing-field definitions and number formats are common across Browser and
+Taster. Live elapsed/remaining race timers use whole seconds and continue
+beyond 3599 without changing units. Completed race/finish durations use
+unbounded-minute `mm:ss:xx` with hundredths; Endurance live overtime uses
+`+0`, `+1`, `+2` and so on; and a lane's frozen final offset uses
+`+mm:ss:xx`, such as `+00:18:42`. The Taster may omit fields outside its
+restricted mode set but may not reinterpret or reformat their authoritative
+meaning. Stable regions must reserve sufficient width for these values.
+
 Decorative motorsport fonts may be used sparingly for branding if appropriate, but not for dense timing information.
 
 ## 8. Live race display
@@ -167,6 +196,14 @@ Visually:
 - Last, Best and Gap are clearly secondary;
 - temporary events alter emphasis without rebuilding the whole screen;
 - animation must not interfere with reading current race information.
+
+Browser and Taster update from authoritative state changes and event/fact
+notifications. They may advance or render displayed clock values from
+authoritative P&P timing. Stable lane rows and numeric regions remain in place;
+only the affected regions change. Frequent redraw is reserved for an active
+event animation and must restore the background beneath moving content. A
+client must not independently establish race timing, GO, pause, expiry, finish
+or overtime authority, or use presentation refresh as a substitute for it.
 
 Race theatre is appropriate for meaningful moments such as:
 
@@ -210,6 +247,10 @@ Controls shown in visual prototypes are not automatically product requirements. 
 Home should present the supported race modes clearly using the common Mode Card component.
 
 Lap Race remains the normal/dominant starting choice in accordance with the browser-flow specification. Other supported modes remain visible without making the Home screen feel like a configuration menu.
+
+The Taster may restrict this choice surface to **LAPS** and **ENDURANCE**.
+That restriction changes available controls only; it does not rename or alter
+the canonical Browser race modes or finish policies.
 
 Mode cards may use simple icons and one short explanatory phrase. They should not contain paragraphs of help.
 
