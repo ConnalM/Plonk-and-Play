@@ -165,6 +165,14 @@ Stage 14C Browser/Taster checkpoint and Stage 15 Phase 8B Browser/Taster
 coexistence acceptance must be executed without changing or weakening those
 acceptance criteria.
 
+**Deferred WP8 presentation checkpoint — 10 November 2026:** Animations are **parked until core P&P functionality is complete**; this does not relax the WP8 functional acceptance gate.
+
+- **Known working physical baseline:** Single-framebuffer Arduino_GFX WP7 Taster, verified on the actual 800×480 ESP32-S3 screen. START/five lights, LAPS lap counting and both lanes' finish timing, Barlow anti-aliased fonts, and PAUSE/RESUME/ABANDON were demonstrated. The earlier animated car passes caused visible lane flickering/tearing. Current recovered display is working; complete Taster/endurance/integration acceptance is still outstanding.
+- **Do next (not yet performed):** In a new *stable single-framebuffer* build, disable moving-car passes and animated chequered flags **without deleting Gina's animation code**. Retain static MGB/E-Type artwork, fonts and stable regional time updates. Build/flash/visually verify before proceeding.
+- **Then finish WP8 functionality:** Restore Gina's READY controls for **LAPS / TIMED**, local **1–999 laps or minutes** adjustment and retained settings; physically test TIMED/Endurance, FINISHED/RACE AGAIN, and Browser/SMUG control handover without new race authority or timing logic.
+- **Exact graphics restart point (later only):** Gina's source is `firmware/taster_wokwi/pp-taster-display.chip.c`: full 500-pixel quadratic MGB/E-Type lap passes, streaks, independent lanes and waving `draw_flag_fabric()` finish flag. Isolated ESP-IDF 5.5.5 double-buffer red/blue diagnostic **passed visibly** using Octal PSRAM 80 MHz and `CONFIG_LCD_RGB_RESTART_IN_VSYNC=n`. The subsequent opt-in complete Arduino-as-ESP-IDF-component P&P build `firmware/wp7_idf_arduino_dbuf` compiled and displayed READY but **rolled horizontally** on physical hardware (10 Nov); it was rejected. Do not confuse this with a successful production integration, and do not resume display-driver investigations until the other functionality is complete. If full-buffer scanout remains troublesome, consider buffered animation regions on the proven Arduino_GFX driver.
+- **Recovery protection:** `C:\Users\conna\Documents\Plonk-and-Play\WP7-recovery-readback-20261109\firmware-recovery.bin` with verified SHA-256 `C8906CD37C6C1D796C89AFD41C9FDD9A1B9F830D3EBA6DBD44B32FF3B1F31CDD`; app0 flash offset `0x10000`. Preserve it and the normal single-framebuffer build environment. No further animation tests or experimental flashes are currently authorised.
+
 **G8 closure:** P&P can perform the promised core race experience without phone/PC; Browser and local operation converge correctly; display/audio/control failure behaviour is defined.
 
 ### GATE C — COMPLETE APPLIANCE PROVEN
