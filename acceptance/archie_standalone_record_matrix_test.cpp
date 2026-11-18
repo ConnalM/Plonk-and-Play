@@ -190,11 +190,21 @@ struct Fixture {
     assert(!engine.persistencePending()&&!engine.persistenceFault()&&!faultFacts);
     if(official) {
       assert(history.writes==1&&history.sequence==20&&history.count()==2);
+#if defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
+      // Historical Stage 13 fixture policy: History/detail still persist,
+      // but demo/acceptance laps must not change PB or Track Record.
+      assert(engine.historyEligible()&&!engine.recordsEligible());
+      assert(records.writes==0&&records.pb[0]==10'000'000&&records.pb[1]==10'000'000);
+      assert(records.track==10'000'000);
+#else
+      assert(engine.historyEligible()&&engine.recordsEligible());
       assert(records.writes==expectedLaps&&records.pb[0]<10'000'000&&records.pb[1]<10'000'000);
       assert(records.track<10'000'000);
+#endif
       assert(detail.begins==1&&detail.appends==expectedLaps&&detail.finalizes==1);
       assert(engine.historySequence()==20&&storedFacts==1);
     } else {
+      assert(!engine.historyEligible()&&!engine.recordsEligible());
       assert(history.writes==0&&history.sequence==19&&history.count()==1);
       assert(records.writes==0&&records.pb[0]==10'000'000&&records.pb[1]==10'000'000);
       assert(records.track==10'000'000&&detail.calls()==0);
