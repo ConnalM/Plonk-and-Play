@@ -151,6 +151,9 @@ public:
   uint32_t laps()const{return entries_[0].laps;} Time lastLapTime()const{return entries_[0].lastLapTime;}
   bool complete()const{return complete_;} Time go()const{return go_;} uint8_t entryCount()const{return definition_?definition_->entryCount():0;}
   const EntryState&entryState(uint8_t i)const{return entries_[i];} bool deadHeat()const{return deadHeat_;} bool faulted()const{return faulted_;}
+  bool entryCompleted(uint8_t index) const {
+    return index < entryCount() && observed_[index] != 0;
+  }
   const CompletedRaceResult&completedResult()const{return result_;} uint32_t historySequence()const{return historySequence_;}
   // Reset a result in place. Keeping this destination-backed avoids
   // compiler-generated PP_MAX_ENTRIES-sized temporaries on constrained tasks.
@@ -249,6 +252,11 @@ private:
     if(definition_->mode()==SessionMode::OpenPractice){if(paused_&&m.relevantTime>=pauseAt_)return;if(practiceResumeAt_&&m.relevantTime<practiceResumeAt_)return;if(s.waitingForTimingOrigin){s.lastCrossing=m.relevantTime;s.waitingForTimingOrigin=false;return;}if(m.relevantTime<s.lastCrossing)return;const Time lap=m.relevantTime-s.lastCrossing;s.lastCrossing=m.relevantTime;s.lastLapTime=lap;s.hasLap=true;if(!s.bestLapTime||lap<s.bestLapTime)s.bestLapTime=lap;++s.laps;storeLap(s,lap,m.relevantTime);publishLap(def,s,lap,m);return;}
     if(definition_->falseStartCapability()&&m.relevantTime<go_){Message fs{};fs.type=Type::FalseStart;fs.relevantTime=m.relevantTime;fs.input=m.input;fs.raceEntryId=def.raceEntryId;fs.probe=definition_->falseStartPolicy();bus_.publish(endpoint_,fs);if(definition_->falseStartPolicy()==2|| (definition_->mode()==SessionMode::Endurance&&definition_->falseStartPolicy()==3)){++s.lapPenalty;penalties_[i]=s.lapPenalty;}publishNoticeboardChanged();return;}
     if(definition_->mode()==SessionMode::Endurance){interpretEndurance(m,def,s);return;}
+    // A completed Lap Race entry is frozen at its first eligible target
+    // crossing while the other lane continues.  Do not turn later physical
+    // crossings from that already-completed entry into additional factual
+    // laps, detail records or LapCompleted facts.
+    if(observed_[i])return;
     if(m.relevantTime<s.lastCrossing||(paused_&&m.relevantTime>=pauseAt_))return;
     const Time lapStart=s.lastCrossing;
     Time lap=m.relevantTime-lapStart;
