@@ -140,7 +140,7 @@ public:
   bool officialRecordEligible()const{return officialRecordEligible_;}
 private:
   SessionInputRole roles_[PP_MAX_ENTRIES]{}; RaceEntryDefinition entries_[PP_MAX_ENTRIES]{};
-  uint32_t sessionId_=0; uint8_t count_=1; uint32_t lapTarget_=0; uint16_t durationMinutes_=0; LapFinishBehaviour finish_=LapFinishBehaviour::Immediate; bool simulatedSession_=false,officialRecordEligible_=true; SessionMode mode_=SessionMode::LapRace;
+  uint32_t sessionId_=0; uint8_t count_=1; uint32_t lapTarget_=0; uint16_t durationMinutes_=0; LapFinishBehaviour finish_=LapFinishBehaviour::Immediate; bool simulatedSession_=false,officialRecordEligible_=DefaultOfficialRecordEligibility; SessionMode mode_=SessionMode::LapRace;
   uint8_t redLightCount_=5,startSignal_=0,startTiming_=2,falseStartPolicy_=0;
   Time redIntervalUs_=1000000,fixedFinalDelayUs_=1000000; bool falseStartCapability_=false;
 };
