@@ -194,7 +194,14 @@ private:
   }
   void publishFact(Type type,Time at){Message f{};f.type=type;f.relevantTime=at;f.restartMethod=restartMethod_;lastFactDelivery_=bus_.publish(endpoint_,f);}
   void handleOperation(const Message& request,Time now){
-    if(request.clientContext!=ClientContext::RaceDirectorSmug){reject(request.correlation,RequestRejection::PermissionDenied);return;}
+    const bool tasterControl=request.clientContext==ClientContext::StandaloneTaster&&request.source==standaloneTasterSource_&&(!controllerAuthority_||!controllerAuthority_->hasController());
+    const bool controllerControl=request.clientContext==ClientContext::RaceDirectorSmug&&controllerAuthority_&&request.source==controllerSource_&&controllerAuthority_->authorizesStart(request.controlOwner);
+#if !defined(ARDUINO)
+    const bool fixtureControl=!controllerAuthority_&&request.clientContext==ClientContext::RaceDirectorSmug&&request.source!=standaloneTasterSource_;
+#else
+    const bool fixtureControl=false;
+#endif
+    if(!tasterControl&&!controllerControl&&!fixtureControl){reject(request.correlation,RequestRejection::PermissionDenied);return;}
     if(request.operation==SessionOperation::ClearHistory||request.operation==SessionOperation::ClearLane1Records||request.operation==SessionOperation::ClearLane2Records||request.operation==SessionOperation::ClearTrackRecord||request.operation==SessionOperation::ClearAllRecords){
       if(request.probe!=1){reject(request.correlation,RequestRejection::ConfirmationRequired);return;}
       bool cleared=false;
@@ -279,7 +286,14 @@ private:
     state_=SessionLifecycle::Restarting;publishFact(Type::RestartScheduled,scheduledRestart_);changed();result(request.correlation,RequestResult::Accepted);
   }
   void handleSetup(const Message& request){
-    if(request.clientContext!=ClientContext::RaceDirectorSmug){reject(request.correlation,RequestRejection::PermissionDenied);return;}
+    const bool tasterSetup=request.clientContext==ClientContext::StandaloneTaster&&request.source==standaloneTasterSource_&&(!controllerAuthority_||!controllerAuthority_->hasController());
+    const bool controllerSetup=request.clientContext==ClientContext::RaceDirectorSmug&&controllerAuthority_&&request.source==controllerSource_&&controllerAuthority_->authorizesStart(request.controlOwner);
+#if !defined(ARDUINO)
+    const bool fixtureSetup=!controllerAuthority_&&request.clientContext==ClientContext::RaceDirectorSmug&&request.source!=standaloneTasterSource_;
+#else
+    const bool fixtureSetup=false;
+#endif
+    if(!tasterSetup&&!controllerSetup&&!fixtureSetup){reject(request.correlation,RequestRejection::PermissionDenied);return;}
     if(state_!=SessionLifecycle::Ready||startCommitted_){reject(request.correlation,RequestRejection::LifecycleNotStartable);return;}
     if(!setup_){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
     if(request.proposalRevision!=proposalRevision_){reject(request.correlation,RequestRejection::ProposalRevisionConflict);return;}

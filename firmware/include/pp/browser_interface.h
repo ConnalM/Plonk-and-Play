@@ -242,7 +242,7 @@ public:
                    uint8_t racerAssignmentMask=0, uint32_t lane1MugId=0, uint32_t lane2MugId=0) {
     if (!visibleCorrelation) return false;
     Message request{}; request.type=Type::SetupRequest; request.correlation=nextInternalCorrelation();
-    request.clientContext=context; request.sessionMode=mode; request.setupLapTarget=lapTarget;
+    request.clientContext=context; request.controlOwner=owner; request.sessionMode=mode; request.setupLapTarget=lapTarget;
     request.setupDurationMinutes=durationMinutes; request.setupFinishPolicy=finishPolicy;
     request.proposalRevision=proposalRevision;
     request.setupAssignmentMask=assignmentMask; request.setupLane1=lane1; request.setupLane2=lane2;
@@ -258,7 +258,7 @@ public:
   void setFixtureCallbacks(bool (*pass)(uint8_t), void (*reset)(), bool (*arm)()=nullptr){fixturePass_=pass;fixtureReset_=reset;fixtureArm_=arm;}
   bool submitOperation(uint32_t visibleCorrelation, SessionOperation operation, ClientContext context, uint64_t owner, bool confirmed=false, uint64_t traceId=0) {
     if (!visibleCorrelation) return false;
-    Message request{}; request.type=Type::SessionOperationRequest; request.correlation=nextInternalCorrelation(); request.operation=operation; request.clientContext=context;request.probe=confirmed?1:0;
+    Message request{}; request.type=Type::SessionOperationRequest; request.correlation=nextInternalCorrelation(); request.operation=operation; request.clientContext=context;request.controlOwner=owner;request.probe=confirmed?1:0;
     if (diagnosticTrace_) { diagnostic::ClientId clientId{}; clientId.value = owner; diagnosticTrace_->observeInterfaceRequest(diagnosticOperation(operation), visibleCorrelation, request.correlation, clientId, traceId, systemTime()); }
     if (bus_.publish(endpoint_,request)!=Delivery::Delivered) return false;
     Pending& pending=pending_[nextPending_++%ResultCapacity]; pending.internal=request.correlation; pending.visible=visibleCorrelation; pending.owner=owner; pending.ready=true; return true;
@@ -293,7 +293,9 @@ public:
                : ClientContext::Spectator;
   }
   bool isControlOwner(uint64_t token) const { return token && controlLease_.isOwner(fingerprint(token)); }
-  bool authorizesStart(uint64_t token) const override { return isControlOwner(token); }
+  bool authorizesStart(uint64_t token) const override {
+    return isControlOwner(token) && controlLease_.ownerConnected();
+  }
   // A retained Master identity survives restart/disconnect; only a connected
   // owner is an active controller that must block local Taster START.
   bool hasController() const override { return controlLease_.ownerConnected(); }

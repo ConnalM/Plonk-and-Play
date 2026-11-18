@@ -76,9 +76,9 @@ struct ProbeDetail final : ActiveDetailStore {
 };
 struct LeaseAdapter final : StartAuthority {
   ControlLease lease;
-  // Mirrors 411d659 BrowserInterface: the stale queued Browser start test
-  // below exposes whether owner-only admission is sufficient after disconnect.
-  bool authorizesStart(uint64_t owner) const override { return lease.isOwner(owner); }
+  bool authorizesStart(uint64_t owner) const override {
+    return lease.isOwner(owner) && lease.ownerConnected();
+  }
   bool hasController() const override { return lease.ownerConnected(); }
 };
 struct Fixture {
@@ -130,12 +130,12 @@ struct Fixture {
   ~Fixture() { engine.resetForFixture(); }
   uint32_t queueStart(Bus::Endpoint e,ClientContext context,uint64_t owner=0) {
     Message m{}; m.type=Type::StartRequest; m.correlation=corr++;
-    m.clientContext=context; m.controlOwner=owner;
+    m.clientContext=context; m.controlOwner=owner; m.sessionMode=SessionMode::None;
     assert(bus.publish(e,m)==Delivery::Delivered); return m.correlation;
   }
   uint32_t queueOperation(Bus::Endpoint e,SessionOperation op) {
     Message m{}; m.type=Type::SessionOperationRequest; m.correlation=corr++;
-    m.clientContext=ClientContext::RaceDirectorSmug; m.operation=op; m.probe=1;
+    m.clientContext=ClientContext::StandaloneTaster; m.operation=op; m.probe=1;
     assert(bus.publish(e,m)==Delivery::Delivered); return m.correlation;
   }
   void pump(Time at) { now=at; control.tick(now); engine.tick(); }
