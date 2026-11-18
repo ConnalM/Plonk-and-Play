@@ -303,6 +303,15 @@ remains OPEN.
 
 Complete local 7-inch presentation, Taster/local controls, start lights, pause/resume/recovery/AP information, authoritative audio, volume/mute and coexistence with Browser authority.
 
+#### Approved standalone display defaults (18 November 2026)
+
+Factory READY is LAPS, 10 laps; the remembered Endurance duration is five
+minutes. The controlling Browser can configure each remembered race value.
+Display restoration returns these values and lane presentation to defaults
+without overwriting track configuration, saved racer assignments or shared
+sound preferences. See [Taster specification](PP_TASTER_SPEC.md). Implementation
+and acceptance remain open.
+
 #### Approved audio scope (18 November 2026)
 
 [Product Facilities §3](PRODUCT_FACILITIES_SPEC.md#3-audio-and-removable-storage)
