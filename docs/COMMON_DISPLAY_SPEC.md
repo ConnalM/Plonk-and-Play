@@ -215,7 +215,8 @@ Personal alerts can temporarily dominate the screen:
 - `YELLOW REQUESTED`
 - `FINISHED — P2`
 
-Browser audio can likewise provide MUG-specific alerts.
+Browser audio can likewise provide MUG-specific alerts. Personalised spoken
+announcements using MUG names are deferred until after v1.
 
 ## 11. Race Director and Solo Operation
 
@@ -250,6 +251,10 @@ A four-MUG event could therefore have:
 or any smaller combination.
 
 The System Controller remains responsible for timing, race logic and authoritative race state. Browser and Taster perform their own rendering, animations and audio as presentation responses; neither becomes a timing authority.
+
+The [Product Facilities audio specification](PRODUCT_FACILITIES_SPEC.md#3-audio-and-removable-storage)
+governs destination fallback, priorities and playback reliability. Audio
+must never delay racing. Alternating yellow PAUSED lights are silent.
 
 Loss of a browser connection must never affect race timing or race state.
 

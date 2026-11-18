@@ -103,6 +103,14 @@ This does not prescribe whether the implementation copies, references, serialise
 
 ### 4.1 Session source and record policy
 
+**Owner decision, 18 November 2026.** Official-record eligibility is frozen
+in the authoritative `SessionDefinition` at START. A standalone Taster race is
+non-official and must not create official History, PB or Track Record entries.
+A later SMUG connection cannot change that frozen eligibility. Simulated-race
+classification remains independently preserved. The current implementation
+must be reconciled and tested against this decision before standalone Taster
+official-record behaviour is claimed.
+
 Race Control derives the session source from the trusted control boundary when
 START is accepted; it must not accept a Browser-supplied presentation label as
 proof of source. The resulting record policy is immutable for the session.

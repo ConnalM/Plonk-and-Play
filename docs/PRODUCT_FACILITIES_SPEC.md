@@ -56,6 +56,11 @@ The detailed record schema remains implementation design.
 
 ### 3.3 Audio implementation
 
+Essential tones reside in firmware. Prerecorded speech and effects are stored on SD.
+P&P supplies the audio packs. Customer-installed packs are outside the product scope.
+Launch packs provide British male and female voices. The audio pack design must
+support future languages.
+
 The implementation should favour a small, reliable, low-BOM solution with sane file/folder handling.
 
 Options to compare before hardware freeze include:
@@ -72,16 +77,64 @@ High audio power is not a goal in itself. Clear internal race-control sound matt
 
 Audio event/type and audio destination are separate choices.
 
-Possible destinations:
+Selectable destinations:
 
 - P&P unit;
 - Browser;
 - Both;
 - Mute.
 
-Browser audio enables individual MUG alerts without requiring separate physical sound hardware for every competitor.
+In standalone operation, Browser-only falls back to P&P's internal speaker.
+Mute is always respected, including during destination fallback. Browser audio
+can deliver individual MUG alerts. Personalised spoken announcements using
+MUG names are deferred until after v1.
 
-Start audio may include beeps, differentiated pitches and spoken numeric countdowns.
+### 3.5 Preferences, defaults and testing
+
+The Taster ships with factory defaults. SMUG can configure sound events
+individually, including countdown beeps or spoken countdown, race announcements
+and spoken lap times. The Taster retains the configured preferences when
+operated standalone. Preferences survive restart, and factory reset restores
+the defaults.
+
+| Factory setting | Default |
+|---|---|
+| Enabled events | Welcome sound, countdown beeps, lap-completion sound, final-lap announcement, time warnings, pause/resume, winner announcement, victory fanfare |
+| Disabled events | Race setup announcement, spoken lap times, fastest-lap announcement, halfway announcement |
+| Destination and volume | P&P internal speaker, 60% |
+
+Endurance warnings are individually configurable.
+
+| Endurance event | Factory default |
+|---|---|
+| Five minutes remaining | Off |
+| One minute remaining | On |
+| Thirty seconds remaining | Off |
+| Ten seconds remaining | On |
+| Time expired | On |
+| Finish current lap | On |
+
+Provide audio preview and independent tests for the P&P speaker and Browser
+audio. Disable previews and both tests during active races.
+
+### 3.6 Playback priority and reliability
+
+Playback priority, highest first:
+
+1. Countdown and GO.
+2. Race interruption and completion.
+3. Winner announcement.
+4. Final lap and time remaining.
+5. Fastest lap.
+6. Ordinary lap sounds and spoken lap times.
+
+Higher priorities may interrupt lower priorities. Discard obsolete
+announcements, including stale cues on PAUSE and race restart. Play the pause
+announcement once per pause. Alternating yellow warning lights remain silent.
+
+Audio must never delay racing and must work without an internet dependency.
+If a file is missing or corrupt, use an appropriate basic tone. Report audio
+failures through diagnostics.
 
 ## 4. Browser and System Controller responsibilities
 

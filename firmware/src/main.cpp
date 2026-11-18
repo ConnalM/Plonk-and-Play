@@ -26,7 +26,12 @@
 #include "pp/physical_sd_owner.h"
 #include "pp/sd_store_arduino.h"
 #include "pp/diagnostic_sd.h"
+#endif
+#if defined(PP_PHASE8B_REAL_SD) || defined(PP_WP7_PHYSICAL_RACING_TEST)
 #include "pp/board_display_esp32s3.h"
+#endif
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+#include "pp/wp7_physical_racing_ui.h"
 #endif
 #include "pp/diagnostic_memory.h"
 #include "pp/diagnostic_trace.h"
@@ -89,6 +94,9 @@ public:
 #ifdef PP_ACCEPTANCE
   uint32_t readCalls=0;
 #endif
+#ifdef PP_WP7_PHYSICAL_RACING_TEST
+  uint32_t writeCalls=0;
+#endif
   void begin(const char* name="pp-stage1"){ready=preferences.begin(name,false);}
   bool available()const override{return ready;}
   bool read(unsigned s,uint8_t* data,size_t n)override{
@@ -104,7 +112,12 @@ public:
     if(length!=n){memset(data,0,n);return true;}
     return preferences.getBytes(key,data,n)==n;
   }
-  bool write(unsigned s,const uint8_t* data,size_t n)override{char generated[16]{};const char* key=s==0?"config-a":s==1?"config-b":(snprintf(generated,sizeof(generated),"slot-%u",s),generated);return ready&&preferences.putBytes(key,data,n)==n;}
+  bool write(unsigned s,const uint8_t* data,size_t n)override{
+#ifdef PP_WP7_PHYSICAL_RACING_TEST
+    ++writeCalls;
+#endif
+    char generated[16]{};const char* key=s==0?"config-a":s==1?"config-b":(snprintf(generated,sizeof(generated),"slot-%u",s),generated);return ready&&preferences.putBytes(key,data,n)==n;
+  }
   bool clear() override { return ready && preferences.clear(); }
 private: Preferences preferences;bool ready=false;
 } storage;
@@ -116,6 +129,11 @@ pp::SdActiveDetailStore activeDetail(sdPersistence);
 pp::Esp32S3BoardDisplay boardDisplay;
 pp::SessionLifecycle physicalRecoveryLifecycle = pp::SessionLifecycle::Faulted;
 bool physicalRecoveryAttempted = false;
+#elif defined(PP_WP7_PHYSICAL_RACING_TEST)
+pp::Esp32S3BoardDisplay boardDisplay;
+#endif
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+bool wp7DisplayReady = false;
 #endif
 pp::DefaultFirmwareValidationProvider firmwareValidationProvider("plonk-and-play", "esp32-8048s070");
 pp::FirmwareIdentity firmwareInitialIdentity{"plonk-and-play", "esp32-8048s070", "boot", 0};
@@ -135,6 +153,70 @@ pp::Memory memory(storage);
 pp::TrackConfigurationMemory trackConfigurationMemory(storage);
 pp::TrackConfiguration workingTrackConfiguration{};
 bool trackConfigurationRemembered = false;
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+uint32_t wp7LoopMaxUs = 0;
+class Wp7PersistenceDiagnostics final : public pp::RacerSelectionPersistence {
+public:
+  explicit Wp7PersistenceDiagnostics(pp::Memory& delegate) : delegate_(delegate) {}
+
+  bool save(uint32_t lane1MugId, uint32_t lane2MugId) override {
+    return delegate_.save(lane1MugId, lane2MugId);
+  }
+
+  bool saveRaceSettings(pp::SessionMode mode, uint32_t laps,
+                        uint16_t durationMinutes) override {
+    const uint32_t sequence = ++sequence_;
+    const uint32_t startUs = micros();
+    const uint32_t value = mode == pp::SessionMode::Endurance
+                               ? static_cast<uint32_t>(durationMinutes)
+                               : laps;
+    Serial.printf("[WP8 DIAG] persist begin seq=%lu t_ms=%lu mode=%u value=%lu "
+                  "laps=%lu duration=%u\n",
+                  static_cast<unsigned long>(sequence),
+                  static_cast<unsigned long>(millis()),
+                  static_cast<unsigned>(mode),
+                  static_cast<unsigned long>(value),
+                  static_cast<unsigned long>(laps),
+                  static_cast<unsigned>(durationMinutes));
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+    const uint32_t writesBefore = storage.writeCalls;
+#endif
+#if defined(PP_WP8_NVS_DIAGNOSTIC)
+    // The comparison fixture deliberately keeps the accepted setup in RAM.
+    // It exercises the same Race Control publication path but performs no
+    // NVS write or commit, leaving production persistence untouched.
+    ramMode_ = mode;
+    ramLaps_ = laps;
+    ramDurationMinutes_ = durationMinutes;
+    hasRamSettings_ = true;
+    const bool ok = hasRamSettings_ && ramMode_ == mode && ramLaps_ == laps &&
+                    ramDurationMinutes_ == durationMinutes;
+    const uint32_t nvsWrites = storage.writeCalls - writesBefore;
+#else
+    const bool ok = delegate_.saveRaceSettings(mode, laps, durationMinutes);
+    const uint32_t nvsWrites = storage.writeCalls - writesBefore;
+#endif
+    Serial.printf("[WP8 DIAG] persist end seq=%lu result=%s duration_us=%lu "
+                  "loop_max_us=%lu nvs_writes=%lu\n",
+                  static_cast<unsigned long>(sequence), ok ? "OK" : "FAIL",
+                  static_cast<unsigned long>(micros() - startUs),
+                  static_cast<unsigned long>(wp7LoopMaxUs),
+                  static_cast<unsigned long>(nvsWrites));
+    return ok;
+  }
+
+private:
+  pp::Memory& delegate_;
+  uint32_t sequence_ = 0;
+#if defined(PP_WP8_NVS_DIAGNOSTIC)
+  pp::SessionMode ramMode_ = pp::SessionMode::LapRace;
+  uint32_t ramLaps_ = 10;
+  uint16_t ramDurationMinutes_ = 10;
+  bool hasRamSettings_ = false;
+#endif
+};
+Wp7PersistenceDiagnostics wp7PersistenceDiagnostics(memory);
+#endif
 #if defined(PP_PHASE8B_REAL_SD)
 pp::SlotHistoryStore rawHistory(sdPersistence);
 pp::VersionedHistoryStore history(rawHistory);
@@ -148,9 +230,20 @@ const auto lifecycle=bus.attach(pp::Role::Lifecycle);
 const auto memoryEndpoint=bus.attach(pp::Role::Memory);
 pp::SimulatedDetectorProvider simulatedDetectorProvider;
 pp::InputModule input(bus,bus.attach(pp::Role::Input),simulatedDetectorProvider);
+#if defined(PP_STAGE8A_TASTER_WOKWI)
+void tasterLaneStimulus(uint8_t lane, bool active) {
+  if (lane == 1) input.setSimulatedSource(active);
+  else if (lane == 2) input.setSimulatedSourceB(active);
+}
+#endif
 pp::ActiveSessionDefinition activeSession;
 const auto raceControlEndpoint=bus.attach(pp::Role::RaceControl);
-pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession,&history,&records,&simulatedDetectorProvider,&trackConfigurationMemory,&memory,
+pp::RaceControlModule raceControl(bus,raceControlEndpoint,activeSession,&history,&records,&simulatedDetectorProvider,&trackConfigurationMemory,
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+  &wp7PersistenceDiagnostics,
+#else
+  &memory,
+#endif
 #if defined(PP_PHASE8B_REAL_SD)
   &mugCatalog
 #else
@@ -218,6 +311,10 @@ CustomerMaintenanceService customerMaintenance(memory,history,records,raceContro
 pp::OutputModule output{bus.attach(pp::Role::Output)};
 const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
 pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+const auto tasterEndpoint=bus.attach(pp::Role::Presentation);
+pp::Wp7PhysicalRacingUi wp7PhysicalUi(boardDisplay,raceControl,noticeboard,bus,presentationEndpoint,tasterEndpoint);
+#endif
 pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthority,&history,&records,&raceEngine,
 #if defined(PP_PHASE8B_REAL_SD)
                              &physicalSdOwner,
@@ -235,7 +332,7 @@ pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthor
                              &raceControl
 );
 #if defined(PP_STAGE8A_TASTER_WOKWI)
-pp::TasterRuntime taster(browser);
+pp::TasterRuntime taster(browser, tasterLaneStimulus);
 #endif
 const auto testPublisher=bus.attach(pp::Role::Diagnostics);
 const auto testObserver=bus.attach(pp::Role::Diagnostics);
@@ -314,7 +411,7 @@ void servicePhysicalSdRecovery() {
   }
 }
 #endif
-#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+#if defined(PP_PHASE8B_P1_TEST) || defined(PP_WP7_PHYSICAL_RACING_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
 // Human/demo fixture: a trigger is a momentary passage; production input semantics are unchanged.
 pp::Time simulatedARelease=0,simulatedBRelease=0;
 #endif
@@ -384,6 +481,8 @@ const char* buildIdentity(){
   return "P&P STAGE 14C DEMO";
 #elif defined(PP_PHASE8B_REAL_SD)
   return "P&P STAGE 8B-P1 REAL SD";
+#elif defined(PP_WP7_PHYSICAL_RACING_TEST)
+  return "P&P WP7 PHYSICAL RACING TEST";
 #elif defined(PP_STAGE13_DEMO)
   return "P&P STAGE 13 DEMO";
 #elif defined(PP_STAGE11_ACCEPTANCE)
@@ -762,6 +861,18 @@ void setup(){
 #ifdef PP_STAGE14C_ACCEPTANCE
   stage14cAcceptanceBeforeBoot();
 #endif
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+  // Start the already-validated panel before the remaining local services.
+  // The Taster UI keeps the welcome surface active until configuration has
+  // completed; this does not change Race Control's independent START guard.
+  wp7DisplayReady = boardDisplay.begin();
+  Serial.printf("[WP7 PHYS] display initialized=%s t_ms=%lu\n",
+                wp7DisplayReady ? "YES" : "NO",
+                static_cast<unsigned long>(millis()));
+  if (wp7DisplayReady) {
+    wp7PhysicalUi.begin();
+  }
+#endif
   diagnostics.log("[DEV] %s -- diagnostics are not product State",buildIdentity());
   diagnostics.log("[BUILD] source_commit=%s environment=%s app_elf_sha256=%s",
                   PP_BUILD_SOURCE_COMMIT, PP_BUILD_ENVIRONMENT, applicationElfSha256());
@@ -778,7 +889,13 @@ void setup(){
                   unsigned(workingTrackConfiguration.lane1.capability),
                   static_cast<unsigned long>(workingTrackConfiguration.lane2.device),
                   unsigned(workingTrackConfiguration.lane2.capability));
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+  wp7PhysicalUi.reportStartupStage(35, "SETTINGS READY");
+#endif
   browserAuthority.begin();browser.restorePersistedAuthority();
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+  wp7PhysicalUi.reportStartupStage(50, "LOADING P&P SERVICES");
+#endif
 #if defined(PP_PHASE8B_REAL_SD)
   physicalSdOwner.setLifecycle(raceControl.state());
   const bool physicalSdReady = physicalSdOwner.begin();
@@ -794,6 +911,9 @@ void setup(){
   diagnostics.log("[INIT] MUG catalog %s entries=%u active=%u generation=%lu",
                   mugCatalogState, unsigned(mugCatalog.count()), unsigned(mugCatalog.activeCount()),
                   static_cast<unsigned long>(mugCatalog.generation()));
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+  wp7PhysicalUi.reportStartupStage(55, "LOCAL DATA READY");
+#endif
 #endif
   diagnostics.log("[INIT] Normal diagnostics recorder READY (bounded observation-only backend)");
   pp::diagnostic::ControllerEpoch diagnosticEpoch{};
@@ -864,6 +984,9 @@ void setup(){
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::HistoryStored);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::StorageFault);
   testsPassed&=bus.subscribe(presentationEndpoint,pp::Type::EnduranceExpired);
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+  testsPassed&=bus.subscribe(tasterEndpoint,pp::Type::RequestResult);
+#endif
 #if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
 #if defined(PP_SIMULATED_RACING_TEST)
   browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset,browserFixtureArm);
@@ -880,6 +1003,9 @@ void setup(){
   diagnostics.log("[INIT] Message Bus READY: bounded mailboxes; authority checked");
   testsPassed&=pp::busSelfTest(bus,testPublisher,testObserver,input.endpoint,report);
   diagnostics.log("[BUS SELF-TEST] %s",testsPassed?"PASS":"FAIL");
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+  wp7PhysicalUi.reportStartupStage(80, "STARTING P&P SERVICES");
+#endif
 #ifdef PP_VERIFY
   testsPassed&=pp::memoryTests(report);
   // Exercise the actual Memory codec/adapter across an ESP32 software reset.
@@ -915,12 +1041,28 @@ void serviceFirmwareUpdateHealthGate() {
   const auto result = firmwareUpdateAdapter.confirmHealth(true);
   diagnostics.log("[WP6 OTA] post-boot health=%s", result == pp::FirmwarePlatformResult::Ok ? "COMMITTED" : "FAILED");
 }
+bool acceptKeyboardPassage(uint8_t lane) {
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+  if (raceControl.state() != pp::SessionLifecycle::Racing) {
+    diagnostics.log("[WP7 PHYS] detector lane=%u ignored state=%u",
+                    static_cast<unsigned>(lane),
+                    static_cast<unsigned>(raceControl.state()));
+    return false;
+  }
+#else
+  (void)lane;
+#endif
+  return true;
+}
 void loop(){
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+  const uint32_t wp7LoopStartedUs = micros();
+#endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   const pp::Time loopStarted=systemTime();
 #endif
   memoryModule.tick();
-#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+#if defined(PP_PHASE8B_P1_TEST) || defined(PP_WP7_PHYSICAL_RACING_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   const pp::Time fixtureNow=systemTime();
   if(simulatedARelease&&fixtureNow>=simulatedARelease){input.setSimulatedSource(false);simulatedARelease=0;}
   if(simulatedBRelease&&fixtureNow>=simulatedBRelease){input.setSimulatedSourceB(false);simulatedBRelease=0;}
@@ -936,6 +1078,9 @@ void loop(){
   raceControl.tick(systemTime());
   input.tick(systemTime());
   raceEngine.tick();
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+  wp7PhysicalUi.tick(systemTime());
+#endif
 #if defined(PP_PHASE8B_REAL_SD)
   activeDetail.drain();
   servicePhysicalSdRecovery();
@@ -995,8 +1140,21 @@ void loop(){
   if(!ready&&!bootFailed&&bus.receive(lifecycle,message)){
     if(message.type!=pp::Type::ConfigurationLoaded||message.correlation!=1||!pp::valid(message.configuration)){
       bootFailed=true;diagnostics.log("STAGE1_FAIL configuration response");
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+      wp7PhysicalUi.completeStartup(false);
+#endif
     }else{
       workingConfiguration=message.configuration;
+      proposedRaceSetup.mode = workingConfiguration.mode == static_cast<uint8_t>(pp::SessionMode::Endurance)
+                                   ? pp::SessionMode::Endurance
+                                   : workingConfiguration.mode == static_cast<uint8_t>(pp::SessionMode::OpenPractice)
+                                         ? pp::SessionMode::OpenPractice
+                                         : pp::SessionMode::LapRace;
+      proposedRaceSetup.durationMinutes = workingConfiguration.durationMinutes
+                                              ? workingConfiguration.durationMinutes : 10;
+      proposedRaceSetup.finish = proposedRaceSetup.mode == pp::SessionMode::Endurance
+                                   ? pp::LapFinishBehaviour::CompleteCurrentLap
+                                   : pp::LapFinishBehaviour::CompleteFullRaceDistance;
 #if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE8A_TASTER_WOKWI) || defined(PP_STAGE9_DEMO) || defined(PP_STAGE10_DEMO) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14C_DEMO)
       proposedRaceSetup.startFinish={pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish};
       proposedRaceSetup.secondStartFinish={pp::InputModule::simulatedDetectorBIdentity(),2,pp::InputRole::StartFinish};
@@ -1008,6 +1166,16 @@ void loop(){
       proposedRaceSetup.lapTarget=3;
 #else
       proposedRaceSetup.lapTarget=2;
+#endif
+#if defined(PP_STAGE8A_TASTER_WOKWI)
+      // The local Taster translates LAPS to the authoritative full-distance
+      // finish policy. Keep the Wokwi starting proposal aligned with that
+      // contract rather than the legacy Immediate fixture default.
+      proposedRaceSetup.finish=pp::LapFinishBehaviour::CompleteFullRaceDistance;
+      // Wokwi demonstrates the standalone Taster path. Freeze its session as
+      // non-official so a demonstration can never write History, PB or Track
+      // Records through the ordinary Race Engine persistence path.
+      proposedRaceSetup.simulatedSession=true;
 #endif
 #else
       proposedRaceSetup.lapTarget=workingConfiguration.laps;
@@ -1021,6 +1189,34 @@ void loop(){
       proposedRaceSetup.entries[1].mugId = proposedRaceSetup.secondMugId ? proposedRaceSetup.secondMugId : 2;
       proposedRaceSetup.startFinish = proposedRaceSetup.entries[0].startFinish;
       proposedRaceSetup.secondStartFinish = proposedRaceSetup.entries[1].startFinish;
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+      // The disposable physical WP7 image uses two simulated detector sources
+      // behind the normal Input Module, with a non-official session boundary.
+      // This keeps keyboard passages on the production event path while
+      // preventing History/PB/Track Record writes.
+      proposedRaceSetup.startFinish = {pp::InputModule::simulatedDetectorIdentity(),1,pp::InputRole::StartFinish};
+      proposedRaceSetup.secondStartFinish = {pp::InputModule::simulatedDetectorBIdentity(),2,pp::InputRole::StartFinish};
+      proposedRaceSetup.entries[0].startFinish = proposedRaceSetup.startFinish;
+      proposedRaceSetup.entries[0].mugId = 1;
+      proposedRaceSetup.entries[1].startFinish = proposedRaceSetup.secondStartFinish;
+      proposedRaceSetup.entries[1].mugId = 2;
+      proposedRaceSetup.selectedMugId = 1;
+      proposedRaceSetup.secondMugId = 2;
+      proposedRaceSetup.activeLanes = 2;
+      proposedRaceSetup.mode = workingConfiguration.mode == static_cast<uint8_t>(pp::SessionMode::Endurance)
+                                   ? pp::SessionMode::Endurance : pp::SessionMode::LapRace;
+      proposedRaceSetup.lapTarget = workingConfiguration.laps ? workingConfiguration.laps : 10;
+      proposedRaceSetup.durationMinutes = workingConfiguration.durationMinutes
+                                              ? workingConfiguration.durationMinutes : 10;
+      proposedRaceSetup.finish = proposedRaceSetup.mode == pp::SessionMode::Endurance
+                                   ? pp::LapFinishBehaviour::CompleteCurrentLap
+                                   : pp::LapFinishBehaviour::CompleteFullRaceDistance;
+      proposedRaceSetup.simulatedSession = true;
+      proposedRaceSetup.redLightCount = 5;
+      proposedRaceSetup.startSignal = true;
+      proposedRaceSetup.startTiming = 1;
+      proposedRaceSetup.fixedFinalDelayUs = 1000000;
+#endif
       raceControl.setProposedRaceSetup(proposedRaceSetup);
       refreshRequiredDetectorReadiness();
 #ifdef PP_ACCEPTANCE
@@ -1033,8 +1229,13 @@ void loop(){
       diagnostics.log("[INIT] No capabilities discovered or assigned; session readiness not claimed");
       ready=testsPassed;
       bootFailed=!testsPassed;
-#if defined(PP_PHASE8B_REAL_SD)
-      if (ready && boardDisplay.begin()) boardDisplay.showReady();
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+      wp7PhysicalUi.reportStartupStage(100, "CHECKING P&P");
+      wp7PhysicalUi.completeStartup(ready && wp7DisplayReady);
+#elif defined(PP_PHASE8B_REAL_SD)
+      if (ready && boardDisplay.begin()) {
+        boardDisplay.showReady();
+      }
 #endif
 #ifdef PP_VERIFY
       if(verificationReboot)diagnostics.log("[TEST] Rebooting after diagnostics drain to verify persistent configuration");
@@ -1062,22 +1263,22 @@ void loop(){
 #endif
     else if(c=='t'){const bool ok=pp::busSelfTest(bus,testPublisher,testObserver,input.endpoint,report);diagnostics.log("[BUS SELF-TEST] %s",ok?"PASS":"FAIL");}
     else if(c=='0'){input.setSimulatedSource(false);
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+#if defined(PP_WP7_PHYSICAL_RACING_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
       simulatedARelease=0;
 #endif
       diagnostics.log("[INPUT SOURCE] simulated detector INACTIVE");}
-    else if(c=='1'){input.setSimulatedSource(true);
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
+    else if(c=='1'){if(!acceptKeyboardPassage(1))continue;input.setSimulatedSource(true);
+#if defined(PP_WP7_PHYSICAL_RACING_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
       simulatedARelease=systemTime()+150000;
 #endif
       diagnostics.log("[INPUT SOURCE] simulated detector PASSAGE ACTIVE");}
-    else if(c=='2'){input.setSimulatedSourceB(true);
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE)
+    else if(c=='2'){if(!acceptKeyboardPassage(2))continue;input.setSimulatedSourceB(true);
+#if defined(PP_WP7_PHYSICAL_RACING_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE)
       simulatedBRelease=systemTime()+150000;
 #endif
       diagnostics.log("[INPUT SOURCE] simulated detector B PASSAGE ACTIVE");}
     else if(c=='3'){input.setSimulatedSourceB(false);
-#if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
+#if defined(PP_WP7_PHYSICAL_RACING_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
       simulatedBRelease=0;
 #endif
       diagnostics.log("[INPUT SOURCE] simulated detector B INACTIVE");}
@@ -1147,6 +1348,22 @@ void loop(){
 #endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   const pp::Time loopElapsed=systemTime()-loopStarted;if(loopElapsed>loopWorstUs)loopWorstUs=loopElapsed;
+#endif
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+  const uint32_t wp7LoopElapsedUs = micros() - wp7LoopStartedUs;
+  if (wp7LoopElapsedUs > wp7LoopMaxUs) wp7LoopMaxUs = wp7LoopElapsedUs;
+  static uint32_t nextWp7DiagnosticMs = 0;
+  const uint32_t diagnosticNowMs = millis();
+  if (diagnosticNowMs >= nextWp7DiagnosticMs) {
+    Serial.printf("[WP8 DIAG] loop t_ms=%lu elapsed_us=%lu max_loop_us=%lu "
+                  "touch_errors=%lu invalid_samples=%lu\n",
+                  static_cast<unsigned long>(diagnosticNowMs),
+                  static_cast<unsigned long>(wp7LoopElapsedUs),
+                  static_cast<unsigned long>(wp7LoopMaxUs),
+                  static_cast<unsigned long>(wp7PhysicalUi.touchReadErrors()),
+                  static_cast<unsigned long>(wp7PhysicalUi.touchInvalidSamples()));
+    nextWp7DiagnosticMs = diagnosticNowMs + 1000U;
+  }
 #endif
   diagnostics.flush();
 #ifdef PP_STAGE11_ACCEPTANCE
