@@ -1263,7 +1263,7 @@ void loop(){
     else if(c=='?')status();
     else if(c=='h')browserHealth();
 #if defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
-    else if(c=='x'){activeSession.clearForFixture();raceControl.resetForFixture();raceEngine.resetForFixture();browser.clearForFixture();browserAuthority.clearForFixture();diagnostics.log("[DEV] TEST RESET READY");}
+    else if(c=='x'){if(!browser.clearForFixture()){diagnostics.log("[DEV] TEST RESET DEFERRED: HTTP stop failed");continue;}activeSession.clearForFixture();raceControl.resetForFixture();raceEngine.resetForFixture();browserAuthority.clearForFixture();diagnostics.log("[DEV] TEST RESET READY");}
 #endif
     else if(c=='t'){const bool ok=pp::busSelfTest(bus,testPublisher,testObserver,input.endpoint,report);diagnostics.log("[BUS SELF-TEST] %s",ok?"PASS":"FAIL");}
     else if(c=='0'){input.setSimulatedSource(false);
