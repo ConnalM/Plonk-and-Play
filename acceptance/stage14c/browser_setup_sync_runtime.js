@@ -10,11 +10,19 @@ class Element{constructor(id){this.id=id;this.textContent='';this._innerHTML='';
 const ids=['logo','head','status','reason','app','overlay','notice','setupNav','resultsNav','trackNav','racersNav','settingsNav','start','change','devTab','devDrawer','devClose','devL1','devL2','devState','devLanes','devFact','devHealth','devHealthMore','devFixture'];
 global.document={activeElement:null,elements:{},querySelector(s){if(s.startsWith('#'))return this.elements[s.slice(1)]||null;return null;},querySelectorAll(s){if(s==='[data-m]:not(:disabled)')return Object.values(this.elements).filter(e=>e.dataset&&e.dataset.m&&!e.disabled);return [];},createElement(id){return new Element(id)}};for(const id of ids)document.elements[id]=new Element(id);
 const intervals=[];global.window=global;global.$=s=>document.querySelector(s);global.performance={now:()=>1000};global.setInterval=fn=>{intervals.push(fn);return intervals.length};global.clearInterval=()=>{};const realSetTimeout=setTimeout;const realClearTimeout=clearTimeout;global.setTimeout=(fn,ms)=>realSetTimeout(fn,ms===100?0:ms);global.clearTimeout=id=>realClearTimeout(id);
+// The production setup view populates its racer controls in this class-based
+// host. An absent host makes the embedded page keep fetching /racers.
+const queryById = document.querySelector.bind(document);
+const entriesHost = new Element('setup-entries');
+document.querySelector = selector => selector === '.entries' &&
+  document.elements.app.innerHTML.includes('class="entries"')
+  ? entriesHost : queryById(selector);
 let state={lifecycle:'READY',sessionMode:'NONE',resultSealed:false,practiceSummaryAvailable:false,entries:[]};let proposal={mode:'ENDURANCE',lapTarget:2,durationMinutes:10,finishBehaviour:'IMMEDIATE',startable:true,controllerEpoch:'epoch-a',proposalRevision:1,entries:[{lane:1,mugId:91},{lane:2,mugId:92}]};const context={hasMaster:true,isMaster:true,role:'Race Director'};let setupCalls=[],starts=0,delayNext=false,rejectNext=false,rejectResultNext=false,staleProposalOnce=false;
 function response(v,status=200){return{ok:status>=200&&status<300,status,async json(){return JSON.parse(JSON.stringify(v));}}}
 async function waitMaybe(){for(let i=0;i<30;i++)await Promise.resolve();}
 global.fetch=async(url,opt={})=>{
  if(url==='/state')return response(state); if(url==='/context')return response(context);
+ if(url==='/racers')return response({racers:[],assignments:[]});
  if(url==='/proposal'){if(staleProposalOnce){staleProposalOnce=false;return response({...proposal,durationMinutes:10,finishBehaviour:'IMMEDIATE',proposalRevision:1});}return response(proposal);}
  if(url==='/request/setup'){const b=JSON.parse(opt.body);setupCalls.push({...b});if(rejectNext){rejectNext=false;rejectResultNext=true;return response({submitted:true,correlationId:b.correlationId},202);}proposal={...proposal,mode:b.mode,lapTarget:b.lapTarget,durationMinutes:b.durationMinutes,finishBehaviour:Number(b.finishPolicy)===1?'COMPLETE_CURRENT_LAP':Number(b.finishPolicy)===2?'COMPLETE_FULL_RACE_DISTANCE':'IMMEDIATE',proposalRevision:proposal.proposalRevision+1};return response({submitted:true,correlationId:b.correlationId},202);}
  if(url==='/request/start'){starts++;state={...state,lifecycle:'STARTING',sessionMode:proposal.mode,durationMinutes:proposal.durationMinutes,remainingDuration:0};return response({submitted:true,correlationId:JSON.parse(opt.body).correlationId},202);}
@@ -33,7 +41,7 @@ const expect=(v,m)=>{if(!v)throw Error(m)};const settle=()=>waitMaybe();
  expect(proposal.durationMinutes===1,'rapid duration edits did not converge to the final desired value');expect(document.elements.duration.value==='1','accepted duration was not rendered');expect(setupCalls.at(-1).durationMinutes===1,'final setup request did not carry the final desired duration');const stableAfterConvergence=document.elements.duration;await intervals[0]();expect(document.elements.duration===stableAfterConvergence,'ordinary authoritative polling replaced a converged setup control'); // Direct typing is buffered locally and commits once, on Enter.
  let callsBeforeTyping=setupCalls.length;d.value='1';d.oninput();d.value='12';d.oninput();d.value='120';d.oninput();expect(setupCalls.length===callsBeforeTyping,'direct typing submitted intermediate values');d.onkeydown({key:'Enter',preventDefault(){}});await settle();await new Promise(r=>realSetTimeout(r,220));await settle();expect(proposal.durationMinutes===120,'Enter did not commit the completed typed duration');d.value='121';d.oninput();await new Promise(r=>realSetTimeout(r,500));await settle();await new Promise(r=>realSetTimeout(r,180));await settle();expect(proposal.durationMinutes===121,'typing-settle did not commit the completed duration');d.value='122';d.oninput();d.onblur();await settle();await new Promise(r=>realSetTimeout(r,180));await settle();expect(proposal.durationMinutes===122,'blur did not commit the completed duration');
  // Native number-input behavior is intentionally left to Chrome; production only consumes resulting input/change values.
-  expect(/<input id="duration" type="number" min="1" max="999" step="1"/.test(script),'duration is not a native bounded number input');expect(/<input id="laps" type="number" min="1" max="999" step="1"/.test(script),'laps is not a native bounded number input');expect(script.includes("addEventListener('wheel'"),'direct wheel listener was not installed');expect(script.includes("{passive:false}"),'wheel listener is not explicitly non-passive');expect(!script.includes('onwheel'),'production page installs a delegated wheel handler');expect(!script.includes('current+delta')&&!script.includes('current-delta'), 'production page performs manual wheel arithmetic');
+  expect(/<input id="duration" type="number" min="1" max="999" step="1"/.test(script),'duration is not a native bounded number input');expect(/<input id="laps" type="number" min="1" max="4294967295" step="1"/.test(script),'laps does not match the shared target range');expect(script.includes("addEventListener('wheel'"),'direct wheel listener was not installed');expect(script.includes("{passive:false}"),'wheel listener is not explicitly non-passive');expect(!script.includes('onwheel'),'production page installs a delegated wheel handler');expect(!script.includes('current+delta')&&!script.includes('current-delta'), 'production page performs manual wheel arithmetic');
  d=document.elements.duration;expect(typeof d.oninput==='function','native duration input does not feed the desired-value pipeline');expect(d.listeners.wheel&&d.listeners.wheel.options&&d.listeners.wheel.options.passive===false,'duration wheel listener is not direct and non-passive');let nativeValue=d.value;d.value='119';d.oninput();expect(d.value==='119'&&d.value!==nativeValue,'native input value change was not retained locally');await settle();await new Promise(r=>realSetTimeout(r,500));await settle();await new Promise(r=>realSetTimeout(r,180));await settle();expect(proposal.durationMinutes===119,'native input value change did not converge');
   // The approved product rule consumes a wheel delivered directly to the
   // numeric input, without a focus prerequisite, and delegates stepping to
@@ -49,8 +57,41 @@ const expect=(v,m)=>{if(!v)throw Error(m)};const settle=()=>waitMaybe();
  // A rejected mutation must restore the accepted P&P value and keep START fenced only until reconciliation.
  rejectNext=true;document.elements.finish.value='0';document.elements.finish.onchange();expect(document.elements.start.disabled,'START was enabled during rejected mutation');await settle();await new Promise(r=>realSetTimeout(r,200));await settle();if(!(proposal.finishBehaviour==='COMPLETE_CURRENT_LAP'&&document.elements.finish.value==='1')){console.error('reject-debug',proposal,document.elements.finish&&document.elements.finish.value,setupCalls.at(-1));throw Error('rejected setup did not restore the authoritative finish policy')}
  // START is generic and only becomes usable after convergence.
+ // A shared lap target that exceeds the Taster limit must survive opening and
+ // leaving the Browser field. Explicit Browser edits remain valid above 999.
+ const enduranceProposal = proposal;
+ proposal = {...proposal, mode:'LAP_RACE', lapTarget:1200, proposalRevision:proposal.proposalRevision+1};
+ await intervals[0]();
+ await settle();
+ let laps = document.elements.laps;
+ expect(laps.value==='1200','Browser did not display the authoritative 1200-lap target');
+ const noEditCalls = setupCalls.length;
+ laps.onblur();
+ await settle();
+ expect(setupCalls.length===noEditCalls && proposal.lapTarget===1200,
+   'leaving the unchanged Browser field submitted or replaced the shared target');
+ for (const [typed, expected] of [['999',999],['1000',1000],['1201',1201],['4294967295',4294967295]]) {
+   laps = document.elements.laps;
+   laps.value = typed;
+   laps.oninput();
+   laps.onblur();
+   await new Promise(r=>realSetTimeout(r,180));
+   await settle();
+   expect(proposal.lapTarget===expected && setupCalls.at(-1).lapTarget===expected,
+     'Browser did not submit the expected lap target for '+typed);
+ }
+ proposal = {...enduranceProposal, proposalRevision:proposal.proposalRevision+1};
+ await intervals[0]();
+ await settle();
  expect(!document.elements.start.disabled,'START stayed disabled after proposal convergence');document.elements.start.onclick();await new Promise(r=>realSetTimeout(r,50));await settle();expect(starts===1&&state.sessionMode==='ENDURANCE','generic START did not commit the accepted proposal');expect(document.elements.app._innerHTML.includes('1:00'),'STARTING Endurance did not present the configured duration before GO');
+ // The Browser is not constrained by the Taster's local 999-lap START rule.
+ state={...state,lifecycle:'READY',sessionMode:'NONE'};
+ proposal={...proposal,mode:'LAP_RACE',lapTarget:1200,proposalRevision:proposal.proposalRevision+1};
+ await intervals[0](); await settle();
+ expect(!document.elements.start.disabled,'Browser START was disabled for a valid shared 1200-lap target');
+ document.elements.start.onclick(); await new Promise(r=>realSetTimeout(r,50)); await settle();
+ expect(starts===2&&state.sessionMode==='LAP_RACE','Browser did not start a valid shared 1200-lap race');
  // Reload/reconnect semantics are authoritative: a fresh page would read P&P again.
- console.log('Stage 14C normal Browser setup synchronisation PASS: rapid coalescing, pending START fence, revision-stale poll protection, duration/finish convergence, generic START authority');
+ console.log('Stage 14C normal Browser setup synchronisation PASS: rapid coalescing, pending START fence, revision-stale poll protection, duration/finish convergence, high shared lap targets and unchanged-field blur, generic START authority');
 })().catch(e=>{console.error('Stage 14C normal Browser setup synchronisation FAIL:',e.stack||e.message);process.exitCode=1});
 

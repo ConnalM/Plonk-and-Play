@@ -64,6 +64,7 @@ struct InputIdentity {
 struct Configuration {
   uint16_t lanes = 2;
   uint32_t laps = 10;
+  uint16_t durationMinutes = 10;
   uint32_t optionalFeatures = 0;
   bool soundIfAvailable = true;
   bool powerIfAvailable = true;
@@ -76,7 +77,11 @@ struct Configuration {
   uint32_t lane2MugId = 2;
 };
 inline bool valid(const Configuration& c) {
+  // The shared record retains positive lap targets from legacy and Browser
+  // settings. The Taster bounds only its own explicit distance adjustments.
   return c.lanes > 0 && c.lanes <= PP_MAX_ENTRIES && c.laps > 0 &&
+         (c.mode != static_cast<uint8_t>(SessionMode::Endurance) ||
+          (c.durationMinutes > 0 && c.durationMinutes <= 999)) &&
          c.mode >= static_cast<uint8_t>(SessionMode::LapRace) &&
          c.mode <= static_cast<uint8_t>(SessionMode::Endurance) &&
          c.optionalFeatures == 0 && c.lane1MugId != 0 &&
@@ -298,10 +303,15 @@ class RacerSelectionPersistence {
 public:
   virtual ~RacerSelectionPersistence() = default;
   virtual bool save(uint32_t lane1MugId, uint32_t lane2MugId) = 0;
+  virtual bool saveRaceSettings(SessionMode mode, uint32_t laps,
+                                uint16_t durationMinutes) {
+    (void)mode; (void)laps; (void)durationMinutes; return true;
+  }
 };
 class Memory : public RacerSelectionPersistence {
 public:
-  static constexpr size_t RecordSize=32;
+  static constexpr size_t RecordSize=36;
+  static constexpr size_t LegacyRecordSize=32;
   // Slot 5 is an unreferenced staging object.  Slots 0 and 1 remain the only
   // remembered configuration namespace considered by load().
   static constexpr unsigned StagingSlot=5;
@@ -310,10 +320,22 @@ public:
     c=Configuration{};
     if (!store_.available()) return LoadStatus::DefaultsStorageError;
     uint8_t a[RecordSize]{},b[RecordSize]{};
-    const bool hasA=store_.read(0,a,sizeof(a)), hasB=store_.read(1,b,sizeof(b));
     Configuration ca,cb; uint32_t ga=0,gb=0;
-    const bool va=hasA&&decode(a,ca,ga), vb=hasB&&decode(b,cb,gb);
-    if (!va&&!vb) { current_=c; loaded_=true; return hasA||hasB ? LoadStatus::DefaultsInvalid : LoadStatus::DefaultsMissing; }
+    auto readSlot = [this](unsigned slot, uint8_t* current,
+                           Configuration& decoded, uint32_t& generation,
+                           bool& present) {
+      present = store_.read(slot, current, RecordSize);
+      if (present && decode(current, decoded, generation)) return true;
+      uint8_t legacy[LegacyRecordSize]{};
+      const bool legacyPresent = store_.read(slot, legacy, LegacyRecordSize);
+      present = present || legacyPresent;
+      if (legacyPresent &&
+          decode(legacy, decoded, generation)) return true;
+      return false;
+    };
+    bool presentA=false,presentB=false;
+    const bool va=readSlot(0,a,ca,ga,presentA), vb=readSlot(1,b,cb,gb,presentB);
+    if (!va&&!vb) { current_=c; loaded_=true; return presentA||presentB ? LoadStatus::DefaultsInvalid : LoadStatus::DefaultsMissing; }
     const bool useB=vb&&(!va || gb>ga);
     c=useB?cb:ca; generation_=useB?gb:ga; active_=useB?1:0; current_=c; loaded_=true;
     return LoadStatus::Remembered;
@@ -349,14 +371,23 @@ public:
     candidate.lane1MugId=lane1MugId; candidate.lane2MugId=lane2MugId;
     return save(candidate);
   }
+  bool saveRaceSettings(SessionMode mode, uint32_t laps,
+                        uint16_t durationMinutes) override {
+    if (!loaded_) { Configuration ignored{}; const LoadStatus status=load(ignored); if (status==LoadStatus::DefaultsStorageError) return false; }
+    Configuration candidate=current_;
+    candidate.mode=static_cast<uint8_t>(mode);
+    candidate.laps=laps ? laps : (candidate.laps ? candidate.laps : 10);
+    if (mode == SessionMode::Endurance || durationMinutes) candidate.durationMinutes=durationMinutes;
+    return save(candidate);
+  }
   bool resetToDefaults() { return save(Configuration{}); }
   bool erase() { return store_.available() && store_.clear(); }
   static void encode(const Configuration& c,uint32_t generation,uint8_t* p) {
-    memset(p,0,RecordSize); put(p,0x32505043); put(p+4,generation);
+    memset(p,0,RecordSize); put(p,0x33505043); put(p+4,generation);
     p[8]=static_cast<uint8_t>(c.lanes); put(p+9,c.lane1MugId); put(p+13,c.laps);
     put(p+17,c.optionalFeatures); p[21]=c.soundIfAvailable; p[22]=c.powerIfAvailable;
-    p[23]=c.mode; put(p+24,c.lane2MugId);
-    put(p+28,checksum(p,28));
+    p[23]=c.mode; put(p+24,c.lane2MugId); put(p+28,c.durationMinutes);
+    put(p+32,checksum(p,32));
   }
 private:
   Store& store_; uint32_t generation_=0; unsigned active_=1; Configuration current_{}; bool loaded_=false;
@@ -365,16 +396,25 @@ private:
   static uint32_t checksum(const uint8_t* p,size_t n) { uint32_t h=2166136261u;while(n--)h=(h^*p++)*16777619u;return h; }
   static bool decode(const uint8_t* p,Configuration& c,uint32_t& generation) {
     const uint32_t magic=get(p);
-    if((magic!=0x31505043 && magic!=0x32505043) || get(p+28)!=checksum(p,28)) return false;
-    if(magic==0x31505043) {
-      if(p[20]>1 || p[21]>1) return false;
-      c.lanes=static_cast<uint16_t>(get(p+8)); c.laps=get(p+12); c.optionalFeatures=get(p+16);
-      c.soundIfAvailable=p[20]; c.powerIfAvailable=p[21]; c.mode=p[22];
-      c.lane1MugId=1; c.lane2MugId=2;
-    } else {
-      if(p[21]>1 || p[22]>1) return false;
+    if (magic==0x33505043) {
+      if (get(p+32)!=checksum(p,32)) return false;
+      if (p[21]>1 || p[22]>1) return false;
       c.lanes=p[8]; c.lane1MugId=get(p+9); c.laps=get(p+13); c.optionalFeatures=get(p+17);
-      c.soundIfAvailable=p[21]; c.powerIfAvailable=p[22]; c.mode=p[23]; c.lane2MugId=get(p+24);
+      c.soundIfAvailable=p[21]; c.powerIfAvailable=p[22]; c.mode=p[23];
+      c.lane2MugId=get(p+24); c.durationMinutes=static_cast<uint16_t>(get(p+28));
+    } else {
+      if((magic!=0x31505043 && magic!=0x32505043) || get(p+28)!=checksum(p,28)) return false;
+      c.durationMinutes=10;
+      if(magic==0x31505043) {
+        if(p[20]>1 || p[21]>1) return false;
+        c.lanes=static_cast<uint16_t>(get(p+8)); c.laps=get(p+12); c.optionalFeatures=get(p+16);
+        c.soundIfAvailable=p[20]; c.powerIfAvailable=p[21]; c.mode=p[22];
+        c.lane1MugId=1; c.lane2MugId=2;
+      } else {
+        if(p[21]>1 || p[22]>1) return false;
+        c.lanes=p[8]; c.lane1MugId=get(p+9); c.laps=get(p+13); c.optionalFeatures=get(p+17);
+        c.soundIfAvailable=p[21]; c.powerIfAvailable=p[22]; c.mode=p[23]; c.lane2MugId=get(p+24);
+      }
     }
     generation=get(p+4);
     return generation>0&&valid(c);

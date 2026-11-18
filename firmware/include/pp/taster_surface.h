@@ -42,20 +42,24 @@ public:
         (proposalMatchesDesired() && snapshot_.proposalRevision != desiredRevision_)) {
       desiredPending_ = false;
       selectedMode_ = snapshot_.proposal.mode;
-      selectedValue_ = selectedMode_ == SessionMode::Endurance
-                           ? snapshot_.proposal.durationMinutes
-                           : snapshot_.proposal.lapTarget;
+      lapValue_ = snapshot_.proposal.lapTarget ? snapshot_.proposal.lapTarget : 10;
+      durationValue_ = clampValue(snapshot_.proposal.durationMinutes, 10);
       desiredRevision_ = snapshot_.proposalRevision;
     }
   }
 
   const TasterSnapshot& snapshot() const { return snapshot_; }
   SessionMode selectedMode() const { return selectedMode_; }
-  uint32_t selectedValue() const { return selectedValue_; }
+  uint32_t selectedValue() const {
+    return selectedMode_ == SessionMode::Endurance ? durationValue_ : lapValue_;
+  }
+  uint32_t lapValue() const { return lapValue_; }
+  uint32_t durationValue() const { return durationValue_; }
   bool setupPending() const { return desiredPending_ || requestPending_; }
   bool startEnabled() const {
     return !setupPending() && snapshot_.state.lifecycle == SessionLifecycle::Ready &&
-           snapshot_.readiness == StartReadiness::Ready;
+           snapshot_.readiness == StartReadiness::Ready &&
+           (selectedMode_ != SessionMode::LapRace || lapValue_ <= kTasterLapMaximum);
   }
   uint32_t clientId() const { return clientId_; }
 
@@ -69,17 +73,44 @@ public:
     if (snapshot_.state.lifecycle != SessionLifecycle::Ready ||
         (mode != SessionMode::LapRace && mode != SessionMode::Endurance)) return;
     selectedMode_ = mode;
-    if (selectedValue_ < 1 || selectedValue_ > 999) selectedValue_ = 10;
+    if (selectedMode_ == SessionMode::Endurance) durationValue_ = clampValue(durationValue_, 10);
     queueSetup();
   }
 
   void adjust(int delta) {
     if (snapshot_.state.lifecycle != SessionLifecycle::Ready || delta == 0) return;
-    int64_t value = static_cast<int64_t>(selectedValue_) + delta;
-    if (value < 1) value = 1;
-    if (value > 999) value = 999;
-    selectedValue_ = static_cast<uint32_t>(value);
+    uint32_t& selected = selectedMode_ == SessionMode::Endurance ? durationValue_ : lapValue_;
+    selected = adjustedValue(selected, delta);
     queueSetup();
+  }
+
+  // Apply a local value change without submitting a persistence operation.
+  // This is used while a finger is held on +/- so the display follows the
+  // user's gesture immediately, while one final authoritative setup request
+  // is sent when the gesture is released.  The normal adjust() path remains
+  // unchanged for non-touch clients.
+  bool adjustPreview(int delta) {
+    if (snapshot_.state.lifecycle != SessionLifecycle::Ready || delta == 0) {
+      return false;
+    }
+    uint32_t& selected = selectedMode_ == SessionMode::Endurance
+                             ? durationValue_
+                             : lapValue_;
+    const uint32_t before = selected;
+    selected = adjustedValue(selected, delta);
+    if (selected == before) return false;
+    if (!desiredPending_) desiredRevision_ = snapshot_.proposalRevision;
+    desiredPending_ = true;
+    return true;
+  }
+
+  // Publish the final value of a held adjustment through the existing
+  // authority/persistence boundary.  If another setup request is already in
+  // flight, service() will submit the latest desired value after it resolves.
+  bool commitAdjustment() {
+    if (!desiredPending_) return false;
+    queueSetup();
+    return true;
   }
 
   bool start() {
@@ -122,8 +153,8 @@ public:
     if (value == RequestResult::Accepted && pendingWasSetup_ && proposalMatchesDesired()) {
       desiredPending_ = false;
       selectedMode_ = snapshot_.proposal.mode;
-      selectedValue_ = selectedMode_ == SessionMode::Endurance
-                           ? snapshot_.proposal.durationMinutes : snapshot_.proposal.lapTarget;
+      lapValue_ = snapshot_.proposal.lapTarget ? snapshot_.proposal.lapTarget : 10;
+      durationValue_ = clampValue(snapshot_.proposal.durationMinutes, 10);
       desiredRevision_ = snapshot_.proposalRevision;
     }
     if (desiredPending_ && snapshot_.state.lifecycle == SessionLifecycle::Ready &&
@@ -131,31 +162,64 @@ public:
   }
 
 private:
+  static constexpr uint32_t kTasterLapMaximum = 999;
+
+  static uint32_t clampValue(uint32_t value, uint32_t fallback) {
+    if (value < 1 || value > 999) return fallback;
+    return value;
+  }
+
+  // Ten-step holds stop at a boundary first, then wrap on the next tick.
+  // This prevents 995 + 10 becoming 5 and keeps zero unrepresentable.
+  static uint32_t adjustedValue(uint32_t value, int delta) {
+    // Preserve the shared target until the user explicitly edits it here.
+    // The first adjustment enters the Taster's range at its upper boundary.
+    if (value > kTasterLapMaximum) return kTasterLapMaximum;
+    value = clampValue(value, 1);
+    if (delta > 0) return value >= kTasterLapMaximum ? 1U :
+                          static_cast<uint32_t>(std::min<int64_t>(kTasterLapMaximum, static_cast<int64_t>(value) + delta));
+    return value <= 1 ? kTasterLapMaximum :
+                     static_cast<uint32_t>(std::max<int64_t>(1, static_cast<int64_t>(value) + delta));
+  }
+
   void queueSetup() {
     desiredPending_ = true;
     pendingWasSetup_ = true;
     desiredRevision_ = snapshot_.proposalRevision;
     if (requestPending_) return;
     pendingCorrelation_ = nextCorrelation_++;
+    // Taster's two supported modes use their authoritative P&P finish
+    // policies: a LAPS race completes the full configured distance, while a
+    // TIMED race (the Endurance model) finishes the current lap after expiry.
+    const LapFinishBehaviour finish =
+        selectedMode_ == SessionMode::Endurance
+            ? LapFinishBehaviour::CompleteCurrentLap
+            : LapFinishBehaviour::CompleteFullRaceDistance;
     requestPending_ = authority_.submitSetup(pendingCorrelation_, selectedMode_,
-                                              selectedMode_ == SessionMode::Endurance ? 1 : selectedValue_,
-                                              selectedMode_ == SessionMode::Endurance ? static_cast<uint16_t>(selectedValue_) : 0,
-                                              LapFinishBehaviour::Immediate,
+                                              selectedMode_ == SessionMode::Endurance
+                                                  ? (snapshot_.proposal.lapTarget ? snapshot_.proposal.lapTarget : 10)
+                                                  : lapValue_,
+                                              selectedMode_ == SessionMode::Endurance
+                                                  ? static_cast<uint16_t>(durationValue_)
+                                                  : static_cast<uint16_t>(snapshot_.proposal.durationMinutes
+                                                                              ? snapshot_.proposal.durationMinutes : 10),
+                                              finish,
                                               snapshot_.proposalRevision);
   }
 
   bool proposalMatchesDesired() const {
     return snapshot_.proposal.mode == selectedMode_ &&
            (selectedMode_ == SessionMode::Endurance
-                ? snapshot_.proposal.durationMinutes == selectedValue_
-                : snapshot_.proposal.lapTarget == selectedValue_);
+                ? snapshot_.proposal.durationMinutes == durationValue_
+                : snapshot_.proposal.lapTarget == lapValue_);
   }
 
   TasterAuthority& authority_;
   uint64_t clientId_;
   TasterSnapshot snapshot_{};
   SessionMode selectedMode_ = SessionMode::LapRace;
-  uint32_t selectedValue_ = 10;
+  uint32_t lapValue_ = 10;
+  uint32_t durationValue_ = 10;
   uint32_t desiredRevision_ = 0;
   uint32_t pendingCorrelation_ = 0;
   uint32_t nextCorrelation_ = 1;

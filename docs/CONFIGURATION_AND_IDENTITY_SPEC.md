@@ -200,6 +200,14 @@ For Lap Race this may include:
 
 It also provides unobtrusive access to **More Race Options** and **Setup**.
 
+The shared configuration accepts positive 32-bit lap targets. Loading a
+historical configuration preserves its stored lap target and unrelated
+customer settings. The Taster's 1–999 local adjustment range does not limit
+Browser race distances. A standalone Taster must require explicit local
+adjustment before START when the displayed Lap Race target is above 999; it
+must not rewrite the retained shared value merely to make it startable. Corrupt
+or invalid records continue through the existing storage recovery rules.
+
 ### 12.2 More Race Options
 
 More Race Options contains settings that may genuinely vary from race to race but need not clutter the normal screen.
@@ -210,7 +218,13 @@ Examples include:
 - GO style;
 - final-delay style;
 - false-start response;
-- audio choice.
+- audio event choices and destination.
+
+SMUG can configure sound events individually. The Taster retains its audio
+preferences in standalone operation and across restart. Factory reset
+restores the Taster's audio defaults. See
+[Product Facilities §3](PRODUCT_FACILITIES_SPEC.md#3-audio-and-removable-storage)
+for destinations, defaults, warnings and restrictions on audio testing.
 
 An **Advanced** area may contain less-common detailed parameters such as exact random-delay limits or red-light interval.
 

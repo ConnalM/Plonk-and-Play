@@ -61,7 +61,7 @@ buttons or a browser.
 
 Taster provides exactly two locally selectable race types:
 
-- **LAPS** — 1 to 999 laps;
+- **LAPS** — local distance adjustments select 1 to 999 laps;
 - **ENDURANCE** — 1 to 999 minutes.
 
 These are the only Taster race modes. Open Practice and Timed Stage are not
@@ -76,12 +76,23 @@ boundary and restored after power-off/restart.
 At READY, the touchscreen provides:
 
 - a LAPS/ENDURANCE selector;
-- an adjustment control for the selected value, clamped to 1–999 with no wrap;
+- an adjustment control for the selected value, wrapping between 1 and 999.
+  Ten-step repeats reach the boundary before wrapping on the following step;
 - a START control for the displayed race.
 
 Selecting LAPS adjusts laps; selecting ENDURANCE adjusts minutes.
 
 START is not a second Taster-specific race mechanism. Once requested, the selected Taster setup is submitted to the normal P&P start procedure and normal Race Control/session machinery.
+
+The Taster shows a shared Lap Race target above 999 as supplied by the
+Browser or restored from storage, without altering it. Opening the screen,
+selecting a mode or adjusting Endurance duration leaves that lap target intact.
+However, standalone Taster START must reject a displayed Lap Race target above
+999 and require an explicit local distance adjustment before it can start.
+The first explicit local distance adjustment enters the local range at 999.
+The existing hold-to-adjust flow submits the new value on release. Browser-
+controlled races may use the shared positive 32-bit lap-target range; this
+Taster-only start boundary must never rewrite the shared setting silently.
 
 Taster setup is translated into the normal race modes and finish policies:
 
@@ -137,7 +148,9 @@ Taster must not grow into a general menu-driven recreation of the browser interf
 ## What the MUG sees
 
 The Taster preserves the original Wokwi screen composition: the P&P graphical
-layout, five start lights, two stable lane rows, lane-local car animations and
+layout, five start lights and two stable lane rows. Moving cars and animated
+flags remain deferred; the static presentation below supersedes the earlier
+lane-animation restart proposal. The Taster uses
 the bottom message strip. READY, RACING and FINISHED use the same basic
 two-lane layout; there is no separate Results screen and no developer or
 simulation control surface.
@@ -159,9 +172,17 @@ Numeric fields and lane rows remain in fixed regions; changing values do not
 move unrelated layout. A car or finish effect is a response to its
 authoritative event and is active only for that event.
 
-A genuine Start/Finish crossing for a lane may trigger a short graphical animation confined to that lane's row: for example, its little car whizzing across a Start/Finish marker while the new lap information appears. Lane 1 events animate Lane 1; Lane 2 events animate Lane 2. The other lane remains undisturbed.
+The accepted physical Taster timer presentation is fixed-position `MM:SS`:
+two-minute digits, a stationary colon and two-second digits. Digits are drawn
+into fixed cells so changing values never shift horizontally. This is a local
+presentation convention; the authoritative time remains the shared P&P value.
 
-The lap-crossing presentation may include an optional playful car-pass sound (the intended spirit is a brief “neeeooooowwww”). Graphics and sound are Presentation responses to authoritative race events only and have no timing or Race Engine authority.
+An authoritative lap or finish event may give only the affected lane a 450 ms
+brightness pulse. Where brightness cannot be applied, use its perimeter
+highlight instead. The other lane remains undisturbed. A finished winner keeps
+a static wreath; it is not an animation. Graphics and sound are Presentation
+responses to authoritative race events only and have no timing or Race Engine
+authority.
 
 On the winning/final lap, the appropriate lane may use a chequered-flag/finish treatment rather than the ordinary lap animation.
 
