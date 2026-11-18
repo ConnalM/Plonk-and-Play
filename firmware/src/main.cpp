@@ -313,7 +313,6 @@ const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
 pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
 #if defined(PP_WP7_PHYSICAL_RACING_TEST)
 const auto tasterEndpoint=bus.attach(pp::Role::Presentation);
-raceControl.setStandaloneTasterEndpoint(tasterEndpoint);
 pp::Wp7PhysicalRacingUi wp7PhysicalUi(boardDisplay,raceControl,noticeboard,bus,presentationEndpoint,tasterEndpoint);
 #endif
 pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthority,&history,&records,&raceEngine,
@@ -805,6 +804,10 @@ void observeControllerTrace(){
 }
 void setup(){
   Serial.begin(115200);
+  raceControl.setControllerStartAuthority(presentationEndpoint,browser);
+#if defined(PP_WP7_PHYSICAL_RACING_TEST)
+  raceControl.setStandaloneTasterEndpoint(tasterEndpoint);
+#endif
   // Read-only OTA adapter discovery.  Staging, boot selection and health
   // confirmation remain explicit WP6 boundaries; normal startup is unchanged.
   firmwareUpdateAdapter.initialize();
@@ -1083,7 +1086,7 @@ void loop(){
   wp7PhysicalUi.tick(systemTime());
 #endif
 #if defined(PP_PHASE8B_REAL_SD)
-  activeDetail.drain();
+  if (raceEngine.recordsEligible()) activeDetail.drain();
   servicePhysicalSdRecovery();
 #endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)

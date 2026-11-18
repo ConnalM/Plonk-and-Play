@@ -18,6 +18,11 @@ ProposedRaceSetup validLapRace() {
 }
 
 struct StartFixture {
+  struct Authority final : StartAuthority {
+    bool controller = false;
+    bool authorizesStart(uint64_t owner) const override { return controller && owner == 7; }
+    bool hasController() const override { return controller; }
+  } authority;
   Bus bus;
   ActiveSessionDefinition active;
   Bus::Endpoint controlEndpoint{bus.attach(Role::RaceControl)};
@@ -32,6 +37,7 @@ struct StartFixture {
     assert(bus.subscribe(tasterEndpoint, Type::RequestResult));
     assert(bus.subscribe(browserEndpoint, Type::RequestResult));
     control.setStandaloneTasterEndpoint(tasterEndpoint);
+    control.setControllerStartAuthority(browserEndpoint, authority);
     control.setProposedRaceSetup(validLapRace());
     control.setRequiredCapabilityAvailable(true);
   }
@@ -42,6 +48,7 @@ struct StartFixture {
     request.correlation = correlation;
     request.sessionMode = SessionMode::None;
     request.clientContext = context;
+    request.controlOwner = endpoint.id == browserEndpoint.id ? 7 : 0;
     assert(bus.publish(endpoint, request) == Delivery::Delivered);
     control.tick(1'000'000);
   }
@@ -64,6 +71,7 @@ void standaloneStartFreezesIneligible() {
   assert(!fixture.active.current()->officialRecordEligible());
 
   // A later controller connection cannot reclassify the active definition.
+  fixture.authority.controller = true;
   fixture.start(fixture.browserEndpoint, ClientContext::RaceDirectorSmug, 2);
   assert(fixture.response(fixture.browserEndpoint, 2).rejection == RequestRejection::LifecycleNotStartable);
   assert(!fixture.active.current()->officialRecordEligible());
@@ -71,6 +79,7 @@ void standaloneStartFreezesIneligible() {
 
 void controllerStartRemainsEligible() {
   StartFixture fixture;
+  fixture.authority.controller = true;
   fixture.start(fixture.browserEndpoint, ClientContext::RaceDirectorSmug, 3);
   assert(fixture.response(fixture.browserEndpoint, 3).requestResult == RequestResult::Accepted);
   assert(fixture.active.current()->officialRecordEligible());

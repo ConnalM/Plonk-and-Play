@@ -47,7 +47,7 @@ private:
   uint64_t fingerprint_ = 0;
   bool set_ = false;
 };
-class BrowserInterface {
+class BrowserInterface : public StartAuthority {
 public:
   struct ResultView {
     bool ready = false;
@@ -219,6 +219,7 @@ public:
     request.type = Type::StartRequest;
     request.correlation = nextInternalCorrelation();
     request.clientContext = context;
+    request.controlOwner = owner;
     // START is deliberately generic: Race Control commits the accepted P&P
     // proposal.  Browser-supplied setup values are never authoritative.
     (void)mode; (void)durationMinutes; (void)finishPolicy;
@@ -292,6 +293,8 @@ public:
                : ClientContext::Spectator;
   }
   bool isControlOwner(uint64_t token) const { return token && controlLease_.isOwner(fingerprint(token)); }
+  bool authorizesStart(uint64_t token) const override { return isControlOwner(token); }
+  bool hasController() const override { return hasMaster(); }
   bool controlOwnerConnected() const { return controlLease_.ownerConnected(); }
   bool controlTakeoverPending() const { return controlLease_.pending(); }
   uint32_t controlTakeoverRequestId() const { return controlLease_.requestId(); }

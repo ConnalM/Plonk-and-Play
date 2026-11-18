@@ -142,7 +142,7 @@ public:
   // Controlled storage-recovery boundary. It may drain a recovered active
   // stream and retry publication, but is never called from the hot lap path.
   bool recoverPersistence(){
-    if(!detailStore_||simulatedSession())return false;
+    if(!detailStore_||!recordEligible_)return false;
     const bool recovered=detailStore_->recover();
     detailStore_->drain();
     if(result_.sealed&&!persisted_&&!historyPersistFailed_)persistResult();
@@ -216,7 +216,9 @@ private:
   // retention capacity.
   void clearCompletedResult(){clearResult(result_);}
   void reset(Time go){
-    if(detailStore_&&!simulatedSession())detailStore_->abort();
+    // Abort only a previously eligible active stream. A standalone session
+    // must not touch official detail storage while its new definition loads.
+    if(detailStore_&&recordEligible_)detailStore_->abort();
     go_=go; pauseAt_=restartAt_=settlementAt_=practiceResumeAt_=winningTime_=candidateF_=expiryTime_=resumeAt_=0;
     winner_=0;complete_=completionPublished_=deadHeat_=faulted_=paused_=restartScheduled_=gridRestart_=false;pausedDuration_=0;pauseOpen_=false;
     enduranceExpired_=finishCurrentPending_=settlementSeen_=settlementPublished_=finishReady_=finishSettlementSent_=finishSettled_=false;
@@ -344,7 +346,7 @@ private:
   bool usesDetailStore()const{return detailStore_&&recordEligible_;}
   Bus&bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition&active_;HistoryStore*history_=nullptr;TrackRecordStore*records_=nullptr;ActiveDetailStore*detailStore_=nullptr;const SessionDefinition*definition_=nullptr;
   uint8_t penalties_[MaxEntries]{},observed_[MaxEntries]{};uint32_t observedRevision_=0;Time go_=0,pauseAt_=0,restartAt_=0,settlementAt_=0,practiceResumeAt_=0,winningTime_=0,candidateF_=0,expiryTime_=0,resumeAt_=0,pausedDuration_=0;bool pauseOpen_=false;
-  EntryState entries_[MaxEntries]{};LapFinishBehaviour finishBehaviour_=LapFinishBehaviour::Immediate;bool complete_=false,completionPublished_=false,deadHeat_=false,faulted_=false,paused_=false,restartScheduled_=false,gridRestart_=false,enduranceExpired_=false,finishCurrentPending_=false,settlementSeen_=false,settlementPublished_=false,finishReady_=false,finishSettlementSent_=false,finishSettled_=false,persisted_=false,persistenceFault_=false,recordPersistenceFault_=false,historyPersistFailed_=false,storageFaultPublished_=false,recordEligible_=true;
+  EntryState entries_[MaxEntries]{};LapFinishBehaviour finishBehaviour_=LapFinishBehaviour::Immediate;bool complete_=false,completionPublished_=false,deadHeat_=false,faulted_=false,paused_=false,restartScheduled_=false,gridRestart_=false,enduranceExpired_=false,finishCurrentPending_=false,settlementSeen_=false,settlementPublished_=false,finishReady_=false,finishSettlementSent_=false,finishSettled_=false,persisted_=false,persistenceFault_=false,recordPersistenceFault_=false,historyPersistFailed_=false,storageFaultPublished_=false,recordEligible_=false;
   CompletedRaceResult result_{};PracticeSummary practiceSummary_{};uint32_t winner_=0,historySequence_=0;bool detailIncomplete_=false;Message pending_[16]{};uint8_t pendingCount_=0;uint32_t seen_[16]{};uint8_t seenAt_=0;
 };
 } // namespace pp

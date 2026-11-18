@@ -93,6 +93,7 @@ struct Message {
   uint16_t source = 0; // Set by bus, never trusted from a caller.
   Time relevantTime = 0;
   uint32_t correlation = 0;
+  uint64_t controlOwner = 0;
   uint32_t eventId = 0;
   uint32_t raceEntryId = 0;
   Time lapTime = 0;
@@ -120,6 +121,12 @@ struct Message {
   union { uint32_t lapNumber = 0; uint32_t setupLapTarget; };
   union { uint16_t durationMinutes = 0; uint16_t setupDurationMinutes; };
   union { uint8_t finishPolicy = 0; uint8_t setupFinishPolicy; };
+};
+class StartAuthority {
+public:
+  virtual bool authorizesStart(uint64_t owner) const = 0;
+  virtual bool hasController() const = 0;
+  virtual ~StartAuthority() = default;
 };
 enum class Delivery { Delivered, Forbidden, Invalid, NoSubscribers, Full };
 class Bus {
