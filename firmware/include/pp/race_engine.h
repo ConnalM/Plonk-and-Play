@@ -215,7 +215,7 @@ private:
   // PP_MAX_ENTRIES-sized temporary on the caller's stack.  Keep the reset
   // operation in place so the loopTask stack does not depend on result
   // retention capacity.
-  void clearCompletedResult(){clearResult(result_);}
+  void clearCompletedResult(){clearResult(result_);historySequence_=0;}
   void reset(Time go){
     // Abort only a previously eligible active stream. A standalone session
     // must not touch official detail storage while its new definition loads.
