@@ -297,6 +297,78 @@ void subordinatePauseMustNotExecute() {
   assert(f.response(id).rejection==RequestRejection::PermissionDenied);
   assert(f.control.state()==SessionLifecycle::Racing);
 }
+
+void settlePause(Fixture& f,Time at) {
+  const auto id=f.queueOperation(f.tasterEp,SessionOperation::Pause);
+  f.pump(at); assert(f.response(id).requestResult==RequestResult::Accepted);
+  Message m{}; m.type=Type::InputSettlement; m.relevantTime=at;
+  assert(f.bus.publish(f.inputEp,m)==Delivery::Delivered);
+  f.engine.tick(); f.control.tick(at);
+  assert(f.control.state()==SessionLifecycle::Paused&&f.control.pauseSettled());
+}
+void resumeAndFreshStart() {
+  Fixture f;
+  f.start(false); const auto sid=f.active.current()->sessionId();
+  const auto go=f.go(); f.lap(1,go+1'000'000); f.lap(2,go+1'100'000);
+  settlePause(f,go+2'000'000);
+  auto id=f.queueOperation(f.tasterEp,SessionOperation::Resume);
+  f.pump(f.now+1'000'000);
+  assert(f.response(id).requestResult==RequestResult::Accepted);
+  assert(f.active.current()->sessionId()==sid&&!f.active.current()->officialRecordEligible());
+  const auto resumed=f.go();
+  f.lap(1,resumed+1'000'000); f.lap(2,resumed+1'100'000);
+  f.settle(); f.check(false);
+  id=f.queueOperation(f.tasterEp,SessionOperation::RaceAgain);
+  f.pump(f.now+1);
+  assert(f.response(id).requestResult==RequestResult::Accepted);
+  assert(f.control.state()==SessionLifecycle::Ready);
+  f.start(true); assert(f.active.current()->sessionId()!=sid);
+  assert(f.engine.historySequence()==0);
+  const auto go2=f.go();
+  f.lap(1,go2+1'000'000); f.lap(2,go2+1'100'000);
+  f.lap(1,go2+2'000'000); f.lap(2,go2+2'100'000);
+  f.settle(); f.check(true);
+  // Official completion may release its own stream once; no further
+  // standalone operations may touch it.
+  f.authority.lease.disconnected(7);
+  id=f.queueOperation(f.tasterEp,SessionOperation::RaceAgain);
+  f.pump(f.now+1);
+  assert(f.response(id).requestResult==RequestResult::Accepted);
+  const auto cleanup=f.detail.calls();
+  f.start(false);
+  assert(f.engine.historySequence()==0);
+  const auto go3=f.go();
+  f.lap(1,go3+1'000'000); f.lap(2,go3+1'100'000);
+  f.lap(1,go3+2'000'000); f.lap(2,go3+2'100'000);
+  f.settle();
+  assert(f.history.writes==1&&f.history.sequence==20&&f.storedFacts==1);
+  assert(f.detail.calls()==cleanup&&!f.engine.recoverPersistence());
+  assert(f.detail.calls()==cleanup&&f.engine.historySequence()==0);
+}
+void abandonedStandalone() {
+  Fixture f; f.start(false); auto go=f.go();
+  f.lap(1,go+1'000'000);
+  settlePause(f,go+2'000'000);
+  const auto id=f.queueOperation(f.tasterEp,SessionOperation::EndRace);
+  f.pump(f.now+1);
+  assert(f.response(id).requestResult==RequestResult::Accepted);
+  assert(f.control.state()==SessionLifecycle::Ready&&!f.active.current());
+  assert(!f.engine.completedResult().sealed&&!f.engine.persistencePending());
+  f.check(false);
+}
+void longStandalone() {
+  constexpr uint32_t target=3500;
+  Fixture f(SessionMode::LapRace,LapFinishBehaviour::CompleteFullRaceDistance,target);
+  f.start(false); const auto go=f.go();
+  for(uint32_t i=1;i<=target;++i) {
+    f.lap(1,go+Time(i)*1'000'000); f.lap(2,go+Time(i)*1'000'000+100'000);
+  }
+  f.settle(); f.check(false);
+  assert(f.engine.completedResult().entries[0].laps==target);
+  assert(f.engine.completedResult().entries[1].laps==target);
+  assert(!f.engine.detailComplete());
+}
+
 }
 int main() {
   lapRace(false); lapRace(true); lapRace(true,true);
@@ -308,5 +380,8 @@ int main() {
   std::puts("ARCHIE_RECORD_MATRIX_CORE_PASS");
   disconnectedBrowserMustNotStart();
   subordinatePauseMustNotExecute();
+  resumeAndFreshStart();
+  abandonedStandalone();
+  longStandalone();
   std::puts("ARCHIE_RECORD_MATRIX_PASS");
 }
