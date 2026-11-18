@@ -313,6 +313,7 @@ const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
 pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
 #if defined(PP_WP7_PHYSICAL_RACING_TEST)
 const auto tasterEndpoint=bus.attach(pp::Role::Presentation);
+raceControl.setStandaloneTasterEndpoint(tasterEndpoint);
 pp::Wp7PhysicalRacingUi wp7PhysicalUi(boardDisplay,raceControl,noticeboard,bus,presentationEndpoint,tasterEndpoint);
 #endif
 pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthority,&history,&records,&raceEngine,

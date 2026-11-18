@@ -95,7 +95,7 @@ public:
     request.type = Type::StartRequest;
     request.correlation = correlation;
     request.sessionMode = SessionMode::None;
-    request.clientContext = ClientContext::RaceDirectorSmug;
+    request.clientContext = ClientContext::StandaloneTaster;
     const Delivery result = bus_.publish(tasterEndpoint_, request);
     Serial.printf("[WP7 PHYS] START request=%s correlation=%lu\n",
                   result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
@@ -2067,8 +2067,8 @@ private:
     request.sessionMode = SessionMode::None;
     request.correlation = nextCorrelation_++;
     if (!request.correlation) request.correlation = nextCorrelation_++;
-    request.clientContext = ClientContext::RaceDirectorSmug;
-    const Delivery result = bus_.publish(presentationEndpoint_, request);
+    request.clientContext = ClientContext::StandaloneTaster;
+    const Delivery result = bus_.publish(tasterEndpoint_, request);
     Serial.printf("[WP7 PHYS] START request=%s correlation=%lu\n",
                   result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
                   static_cast<unsigned long>(request.correlation));

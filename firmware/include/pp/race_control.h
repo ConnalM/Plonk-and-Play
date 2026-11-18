@@ -35,6 +35,8 @@ public:
   void setRequiredCapabilityAvailable(bool available){requiredCapabilityAvailable_=available;}
   void setDetectorProvider(DetectorProvider& provider){detectorProvider_=&provider;}
   void setMugCatalog(MugCatalog& catalog){mugCatalog_=&catalog;}
+  // The physical Taster's local START is a distinct, non-official source.
+  void setStandaloneTasterEndpoint(Bus::Endpoint endpoint){standaloneTasterSource_=endpoint.id;}
   // The simulated-racing fixture is armed before START through a dedicated
   // test-only Browser action. The flag is carried by the controller-owned
   // proposal and frozen into SessionDefinition; ordinary setup requests never
@@ -354,7 +356,9 @@ private:
     proposedSetup_=normalised(candidate);setup_=&proposedSetup_;practiceSummaryPending_=false;++proposalRevision_;changed();result(request.correlation,RequestResult::Accepted);
   }
   void handleStart(const Message& request,Time now){
-    if(request.clientContext!=ClientContext::RaceDirectorSmug){reject(request.correlation,RequestRejection::PermissionDenied);return;}
+    const bool standaloneStart=request.clientContext==ClientContext::StandaloneTaster&&standaloneTasterSource_!=0&&request.source==standaloneTasterSource_;
+    const bool controllerStart=request.clientContext==ClientContext::RaceDirectorSmug&&request.source!=standaloneTasterSource_;
+    if(!standaloneStart&&!controllerStart){reject(request.correlation,RequestRejection::PermissionDenied);return;}
     // startCommitted_ reserves the race before a second closely arriving
     // request can be accepted, even if presentation has not yet refreshed.
     if(state_!=SessionLifecycle::Ready||startCommitted_){reject(request.correlation,RequestRejection::LifecycleNotStartable);return;}
@@ -368,7 +372,8 @@ private:
       return;
     }
     const uint32_t sessionId=nextSessionId_,firstEntryId=nextRaceEntryId_;
-    if(!active_.commit(requested,sessionId,firstEntryId)){reject(request.correlation,RequestRejection::SessionDefinitionUnavailable);return;}
+    const bool officialRecordEligible=controllerStart;
+    if(!active_.commit(requested,sessionId,firstEntryId,officialRecordEligible)){reject(request.correlation,RequestRejection::SessionDefinitionUnavailable);return;}
     ++nextSessionId_;nextRaceEntryId_+=requested.activeLanes;
     definition_=active_.current(); practiceSummaryPending_=false;
     startCommitted_=true;
@@ -426,7 +431,7 @@ private:
     }
     return true;
   }
-  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;DetectorProvider* detectorProvider_=nullptr;TrackConfigurationPersistence* trackConfigurationPersistence_=nullptr;RacerSelectionPersistence* racerSelectionPersistence_=nullptr;MugCatalog* mugCatalog_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
+  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;DetectorProvider* detectorProvider_=nullptr;TrackConfigurationPersistence* trackConfigurationPersistence_=nullptr;RacerSelectionPersistence* racerSelectionPersistence_=nullptr;MugCatalog* mugCatalog_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;uint16_t standaloneTasterSource_=0;
   SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0,finalDelay_=0,durationExpiry_=0,durationRemaining_=0,finishDisplayUntil_=0,goPresentationUntil_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=false,startCommitted_=false,integrityFaulted_=false,practiceSummaryPending_=false,pauseSettled_=false,durationExpired_=false,durationPublished_=false,resumeScheduled_=false,finishDisplayActive_=false;uint8_t finishDisplayDurationSeconds_=5;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
   uint32_t nextSessionId_=1,nextRaceEntryId_=1;
   ProposedRaceSetup proposedSetup_{}; uint32_t proposalRevision_=1;

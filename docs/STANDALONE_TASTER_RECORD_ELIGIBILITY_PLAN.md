@@ -1,6 +1,6 @@
 # Standalone Taster record eligibility
 
-Implementation and acceptance plan for independent review. Approval of this plan precedes implementation. The physically accepted WP8 image and its recovery checkpoint remain the reference for presentation behaviour.
+Implementation and acceptance plan for independent review. The initial host implementation is on the isolated issue-review branch; physical acceptance remains outstanding. The physically accepted WP8 image and its recovery checkpoint remain the reference for presentation behaviour.
 
 ## Binding behaviour
 
@@ -10,7 +10,7 @@ Authority references are [Race Control and Engine Design](RACE_CONTROL_ENGINE_DE
 
 ## Implementation sequence
 
-1. Trace the production START routes and fixtures. In the current XIP application, `main.cpp` attaches a separate `tasterEndpoint` alongside `presentationEndpoint`. Both use the Presentation role, and `wp7_physical_racing_ui.h` sets `ClientContext::RaceDirectorSmug` on its local START. `Bus::publish` stamps the sending endpoint in `Message::source`. Use the registered trusted ingress and controlling SMUG lease, or equivalent authenticated internal provenance if a route shares an endpoint. Keep authorisation and eligibility distinct. A presentation role or a client-provided label alone must never qualify a race as official. Check also the demo and simulated fixtures for direct START or direct definition commits, and ensure each production START route supplies trusted provenance.
+1. Trace the production START routes and fixtures. The XIP application attaches a separate `tasterEndpoint` beside the Browser `presentationEndpoint`; local physical START now publishes only through that registered endpoint as `StandaloneTaster`. `Bus::publish` stamps the sending endpoint in `Message::source`. Race Control accepts that context only from the registered endpoint and freezes it as non-official; Browser/controller START remains on its existing controller-authorised ingress. Keep authorisation and eligibility distinct. A presentation role or a client-provided label alone must never qualify a race as official. Check also the demo and simulated fixtures for direct START or direct definition commits, and ensure each production START route supplies trusted provenance.
 2. Resolve ownership at START acceptance using the existing control hierarchy. A Taster action with no controlling SMUG starts a standalone session. A Taster control action while SMUG owns control follows the existing subordinate-control rule. A trusted SMUG START uses ordinary eligibility. Define the ordering for START racing a lease transition, with a single authoritative decision at acceptance and no eligibility change during countdown. Unknown provenance must never promote a session into official recording.
 3. Pass an explicit record-eligibility decision through `ActiveSessionDefinition::commit` into the immutable `SessionDefinition`. Keep the control source auditable and keep `simulatedSession()` independent of the eligibility decision. The current definition already freezes the simulated flag and race setup but has no standalone eligibility field. Do not place eligibility in persistent settings or copy it back to the next proposal. Resume and in-session restart preserve the active definition. RACE AGAIN and RESTART RACE currently return to READY. A subsequent accepted START must make a fresh decision.
 4. Apply the frozen policy at Race Engine sinks. `recordEligible_` currently filters simulated sessions and eligible modes before lap-driven record observations. `persistResult()` currently bypasses History for simulation. Gate all PB and Track Record observations, official History appends, associated detail-store operations, and the `HistoryStored` fact on the frozen policy and existing mode rules. Keep the in-memory result available for live presentation, with no pending official write, false storage fault, or nonzero History sequence due to an intentional skip. Preserve telemetry and disposition for genuinely simulated races. Verify the bounded in-memory lap-detail path for long standalone sessions and report any display limitation without introducing an official storage fallback.
@@ -31,3 +31,27 @@ Use fresh host tests with real Race Control/Engine flow and instrumented History
 | Storage and detail bounds | Standalone racing works without official storage. No false pending or storage fault solely from skipping records. Long runs respect the bounded detail contract. Official persistence and fault handling retain their existing behaviour. |
 
 At the separately authorised physical checkpoint, record the application hash and seed official History, PB and Track Records on representative storage. Run a standalone race, connect SMUG before finish, then verify the three official views and storage snapshots through Browser reconnect and power-cycle. Repeat a newly started official SMUG race as a positive control and retain the existing simulated-race check. Record the test IDs, pre/post values, session IDs, frozen classification, visible live results and serial or request evidence. Credit physical results separately from host assertions and preserve Stage 14C and Stage 15 Phase 8B acceptance requirements. Real detector acceptance remains a WP7 hardware obligation.
+
+## Initial implementation evidence — 18 November 2026
+
+The issue-review implementation freezes `officialRecordEligible` in the immutable
+`SessionDefinition` at accepted START. Race Engine uses that frozen value to gate
+PB/Track observations, official History writes, detail-store use, pending/fault
+status and `HistoryStored`; a non-official result remains available in memory for
+live presentation with history sequence zero. This does not alter persistent
+settings or the accepted firmware image.
+
+Focused host evidence:
+
+- `standalone_taster_record_eligibility_test.cpp`: trusted local Taster START
+  is accepted and freezes ineligible; a later controller request cannot change
+  it; controller START is eligible; a standalone label from the wrong endpoint
+  is rejected.
+- `wp7_lap_target_guard_test.cpp`: existing accepted post-completion lap guard
+  still passes, plus an instrumented non-official engine completion confirms no
+  History or Track Record writes, no history sequence, pending state, fault, or
+  `HistoryStored` fact.
+
+This evidence is host-only. It does not yet cover the complete lease-transition,
+Endurance, physical-storage, power-cycle, long-detail, or real-detector matrix
+listed above; those remain explicit acceptance obligations.

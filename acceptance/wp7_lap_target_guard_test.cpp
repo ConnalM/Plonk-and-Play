@@ -5,6 +5,9 @@
 #include <cstdio>
 #include <optional>
 
+class CountingHistory final : public pp::HistoryStore { public: unsigned writes=0; bool append(const uint8_t*,size_t,uint32_t& s) override {++writes;s=writes;return true;} bool loadNewest(uint8_t,uint8_t*,size_t,size_t& n,uint32_t& s) override {n=s=0;return false;} uint8_t count() override{return 0;} bool clear() override{return true;} };
+class CountingRecords final : public pp::TrackRecordStore { public: unsigned writes=0; bool observe(uint8_t,pp::Time) override {++writes;return true;} pp::Time lanePb(uint8_t) override{return 0;} pp::Time trackRecord() override{return 0;} uint32_t era() override{return 1;} bool clearLane(uint8_t) override{return true;} bool clearTrack() override{return true;} bool clearAll() override{return true;} };
+
 namespace {
 using namespace pp;
 
@@ -216,6 +219,12 @@ void enduranceFinishCurrentLapRemainsUnchanged() {
   assert(result.entries[0].laps == 2 && result.entries[1].laps == 2);
   assert(fixture.engine.complete());
 }
+
+void standaloneRecordsAreFrozenOut() {
+  Bus bus; ActiveSessionDefinition active; auto control=bus.attach(Role::RaceControl); auto engineEp=bus.attach(Role::RaceEngine); auto input=bus.attach(Role::Input); auto presentation=bus.attach(Role::Presentation); CountingHistory history; CountingRecords records; RaceEngineModule engine(bus,engineEp,active,&history,&records);
+  assert(bus.subscribe(engineEp,Type::GoScheduled)); assert(bus.subscribe(engineEp,Type::InputEvent)); assert(bus.subscribe(engineEp,Type::FinishSettled)); assert(bus.subscribe(input,Type::FinishSettlement)); assert(bus.subscribe(presentation,Type::HistoryStored));
+  ProposedRaceSetup s{};s.mode=SessionMode::LapRace;s.activeLanes=1;s.lapTarget=1;s.entries[0].startFinish={InputIdentity{50500001,1},1,InputRole::StartFinish};s.entries[0].mugId=1;assert(active.commit(s,9,9,false)); SessionDefinition d(s,9,9,false);engine.begin(d,1000000); Message go{};go.type=Type::GoScheduled;go.relevantTime=1000000;assert(bus.publish(control,go)==Delivery::Delivered);engine.tick(); Message lap{};lap.type=Type::InputEvent;lap.eventId=1;lap.relevantTime=2000000;lap.input=s.entries[0].startFinish.input;assert(bus.publish(input,lap)==Delivery::Delivered);engine.tick(); Message settlement{};assert(bus.receive(input,settlement)&&settlement.type==Type::FinishSettlement); settlement.type=Type::FinishSettled;assert(bus.publish(input,settlement)==Delivery::Delivered);engine.tick(); assert(engine.completedResult().sealed&&engine.historySequence()==0&&!engine.persistencePending()&&!engine.persistenceFault()); assert(history.writes==0&&records.writes==0); Message fact{};assert(!bus.receive(presentation,fact));
+}
 } // namespace
 
 int main() {
@@ -223,6 +232,7 @@ int main() {
   lane2FinishesFirst();
   interleavedExactCompletion();
   enduranceFinishCurrentLapRemainsUnchanged();
+  standaloneRecordsAreFrozenOut();
   std::puts("WP7_LAP_TARGET_GUARD_PASS");
   return 0;
 }
