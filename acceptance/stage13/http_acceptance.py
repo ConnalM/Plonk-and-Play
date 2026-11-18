@@ -79,7 +79,7 @@ assert call(master,'/context')[1]['role']=='Race Director'
 assert not clean['resultSealed'] and all(e['laps']==0 for e in clean['entries'])
 assert call(master,'/fact')[1]['type']=='NONE'
 master_stream.close()
-end=time.time()+8
+end=time.time()+25  # allow the server's 10-second SSE keepalive to detect socket loss
 while time.time()<end and call(master,'/context')[1]['ownerConnected']:
  time.sleep(.1)
 assert call(master,'/context')[1]['ownerConnected'] is False
