@@ -187,14 +187,15 @@ def main():
     assert context(a).get("hasMaster") is False
     assert context(b).get("hasMaster") is False
     assert len(list(jar_a)) == 1 and len(list(jar_b)) == 1
-    status, bootstrap = call(a, "/bootstrap", "POST")
-    assert status == 200 and bootstrap.get("bootstrap") is True, bootstrap
-    assert_roles(a, b)
-
+    # A stream can precede bootstrap, as in the real Browser.
     sse_a = EventStream(a, "A").start()
     sse_b = EventStream(b, "B").start()
     sse_a.discard_initial()
     sse_b.discard_initial()
+    status, bootstrap = call(a, "/bootstrap", "POST")
+    assert status == 200 and bootstrap.get("bootstrap") is True, bootstrap
+    assert_roles(a, b)
+    assert context(a).get("ownerConnected") is True
 
     fixture(a, "reset")
     start = operation(a, "/request/start", 3001)
@@ -233,6 +234,7 @@ def main():
     status, allowed = call(a, "/request/take-control/allow", "POST")
     assert status == 200 and allowed.get("result") == "ACCEPTED", allowed
     assert_roles(b, a)
+    assert context(b).get("ownerConnected") is True
     assert state(a).get("sessionId") == session_id and state(b).get("sessionId") == session_id
     denied_after_transfer = operation(a, "/request/pause", 3003)
     assert denied_after_transfer.get("result") == "REJECTED", denied_after_transfer
@@ -250,6 +252,7 @@ def main():
     old_b.close()
     assert old_b.closed.wait(2), "old controller SSE generation remained open"
     assert_roles(b, a)
+    assert context(b).get("ownerConnected") is True
 
     # Scenario E: closing the genuine controlling connection makes deliberate
     # reacquisition eligible.  The former owner has no automatic priority on
@@ -263,11 +266,13 @@ def main():
     assert status == 200 and reacquired.get("result") == "ACCEPTED", reacquired
     assert context(a).get("isMaster") is True
     assert context(b).get("isMaster") is False
+    assert context(a).get("ownerConnected") is True
     returned_state = state(a)
     assert returned_state.get("sessionId") == session_id and returned_state.get("lifecycle") == "RACING", returned_state
     returned_b = EventStream(b, "B-return").start()
     returned_b.discard_initial()
     assert_roles(a, b)
+    assert context(a).get("ownerConnected") is True
     returned_b.close()
     sse_a.close()
     print("Stage 15 production HTTP/SSE multi-client acceptance PASS")
