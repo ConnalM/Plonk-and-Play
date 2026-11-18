@@ -142,7 +142,7 @@ public:
   // Controlled storage-recovery boundary. It may drain a recovered active
   // stream and retry publication, but is never called from the hot lap path.
   bool recoverPersistence(){
-    if(!detailStore_||!recordEligible_)return false;
+    if(!detailStore_||!historyEligible_)return false;
     const bool recovered=detailStore_->recover();
     detailStore_->drain();
     if(result_.sealed&&!persisted_&&!historyPersistFailed_)persistResult();
@@ -198,9 +198,10 @@ public:
     const Time leader=crossingForClassified(leaderForGap(),level),current=crossingForClassified(index,level);
     return current>=leader?current-leader:0;
   }
-  bool persistencePending()const{return recordEligible_&&result_.sealed&&!persisted_;} bool persistenceFault()const{return recordEligible_&&(persistenceFault_||recordPersistenceFault_);}
+  bool persistencePending()const{return historyEligible_&&result_.sealed&&!persisted_;} bool persistenceFault()const{return historyEligible_&&(persistenceFault_||recordPersistenceFault_);}
   bool simulatedSession()const{return definition_&&definition_->simulatedSession();}
   bool recordsEligible()const{return recordEligible_;}
+  bool historyEligible()const{return historyEligible_;}
   bool settlementSeen()const{return settlementSeen_;} bool settlementPublished()const{return settlementPublished_;}
 #if defined(PP_STAGE14C_ACCEPTANCE)
   // Acceptance-only boundary hook: model an entry with no legitimate timing
@@ -218,13 +219,17 @@ private:
   void reset(Time go){
     // Abort only a previously eligible active stream. A standalone session
     // must not touch official detail storage while its new definition loads.
-    if(detailStore_&&recordEligible_)detailStore_->abort();
+    if(detailStore_&&historyEligible_)detailStore_->abort();
     go_=go; pauseAt_=restartAt_=settlementAt_=practiceResumeAt_=winningTime_=candidateF_=expiryTime_=resumeAt_=0;
     winner_=0;complete_=completionPublished_=deadHeat_=faulted_=paused_=restartScheduled_=gridRestart_=false;pausedDuration_=0;pauseOpen_=false;
     enduranceExpired_=finishCurrentPending_=settlementSeen_=settlementPublished_=finishReady_=finishSettlementSent_=finishSettled_=false;
     persisted_=persistenceFault_=recordPersistenceFault_=storageFaultPublished_=false;historyPersistFailed_=false;detailIncomplete_=false;pendingCount_=seenAt_=0;for(auto&x:seen_)x=0;for(auto&o:observed_)o=false;for(auto&e:entries_){e.detail.reset();e=EntryState{};}
     clearCompletedResult(); finishBehaviour_=definition_?definition_->finishBehaviour():LapFinishBehaviour::Immediate;
-    recordEligible_=definition_&&definition_->officialRecordEligible()&&!definition_->simulatedSession()&&(definition_->mode()==SessionMode::LapRace||definition_->mode()==SessionMode::Endurance);
+    // Official History and active streamed detail have their own eligibility.
+    // Stage 13 test images historically suppress PB/Track observations only;
+    // their History reconstruction acceptance must remain exercisable.
+    historyEligible_=definition_&&definition_->officialRecordEligible()&&!definition_->simulatedSession()&&(definition_->mode()==SessionMode::LapRace||definition_->mode()==SessionMode::Endurance);
+    recordEligible_=historyEligible_;
 #if defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE)
     recordEligible_=false;
 #endif
@@ -325,7 +330,7 @@ private:
     if(bus_.publish(endpoint_,m)==Delivery::Delivered){completionPublished_=true;complete_=true;}
   }
   void latchPersistenceFault(Time at,bool record,PersistenceFailureReason reason){if(record)recordPersistenceFault_=true;else historyPersistFailed_=true;persistenceFault_=true;if(storageFaultPublished_)return;storageFaultPublished_=true;Message fault{};fault.type=Type::StorageFault;fault.relevantTime=at;fault.probe=static_cast<uint32_t>(reason);bus_.publish(endpoint_,fault);publishNoticeboardChanged();}
-  void persistResult(){if(!result_.sealed||persisted_||historyPersistFailed_)return;if(!recordEligible_){persisted_=true;historySequence_=0;return;}if(!history_)return;if(usesDetailStore()){detailStore_->drain();if(detailStore_->detailLost()){detailIncomplete_=true;for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=false;historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false,PersistenceFailureReason::DetailLost);return;}if(!detailStore_->finalize()){if(detailStore_->storagePending())return;detailIncomplete_=true;for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=false;historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false,PersistenceFailureReason::DetailFinalize);return;}if(!detailStore_->detailComplete()){detailIncomplete_=true;for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=false;historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false,PersistenceFailureReason::DetailIncomplete);return;}for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=true;}if(!completeDetail()||detailIncomplete_){historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false,PersistenceFailureReason::ResultDetailIncomplete);return;}uint32_t sequence=0;const bool stored=usesDetailStore()?history_->appendDetailed(reinterpret_cast<const void*>(&result_),sizeof(result_),*detailStore_,sequence):history_->append(reinterpret_cast<const uint8_t*>(&result_),sizeof(result_),sequence);if(stored){historySequence_=sequence;persisted_=true;Message storedFact{};storedFact.type=Type::HistoryStored;storedFact.historySequence=sequence;storedFact.relevantTime=result_.finishTime;bus_.publish(endpoint_,storedFact);publishNoticeboardChanged();}else{latchPersistenceFault(result_.finishTime,false,usesDetailStore()?PersistenceFailureReason::HistoryAppendDetailed:PersistenceFailureReason::HistoryAppend);}}
+  void persistResult(){if(!result_.sealed||persisted_||historyPersistFailed_)return;if(!historyEligible_){persisted_=true;historySequence_=0;return;}if(!history_)return;if(usesDetailStore()){detailStore_->drain();if(detailStore_->detailLost()){detailIncomplete_=true;for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=false;historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false,PersistenceFailureReason::DetailLost);return;}if(!detailStore_->finalize()){if(detailStore_->storagePending())return;detailIncomplete_=true;for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=false;historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false,PersistenceFailureReason::DetailFinalize);return;}if(!detailStore_->detailComplete()){detailIncomplete_=true;for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=false;historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false,PersistenceFailureReason::DetailIncomplete);return;}for(uint8_t i=0;i<result_.entryCount;++i)result_.entries[i].detailComplete=true;}if(!completeDetail()||detailIncomplete_){historyPersistFailed_=true;latchPersistenceFault(result_.finishTime,false,PersistenceFailureReason::ResultDetailIncomplete);return;}uint32_t sequence=0;const bool stored=usesDetailStore()?history_->appendDetailed(reinterpret_cast<const void*>(&result_),sizeof(result_),*detailStore_,sequence):history_->append(reinterpret_cast<const uint8_t*>(&result_),sizeof(result_),sequence);if(stored){historySequence_=sequence;persisted_=true;Message storedFact{};storedFact.type=Type::HistoryStored;storedFact.historySequence=sequence;storedFact.relevantTime=result_.finishTime;bus_.publish(endpoint_,storedFact);publishNoticeboardChanged();}else{latchPersistenceFault(result_.finishTime,false,usesDetailStore()?PersistenceFailureReason::HistoryAppendDetailed:PersistenceFailureReason::HistoryAppend);}}
   static bool before(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){if(a.classifiedLaps!=b.classifiedLaps)return a.classifiedLaps>b.classifiedLaps;if(f==LapFinishBehaviour::Immediate)return false;if(!a.completionTime)return false;if(!b.completionTime)return true;return a.completionTime<b.completionTime;}
   static bool beforeLive(const EntryState&a,const EntryState&b,LapFinishBehaviour f){const uint32_t ac=a.laps>a.lapPenalty?a.laps-a.lapPenalty:0;const uint32_t bc=b.laps>b.lapPenalty?b.laps-b.lapPenalty:0;if(ac!=bc)return ac>bc;if(f==LapFinishBehaviour::Immediate)return false;if(!a.lastCrossing)return false;if(!b.lastCrossing)return true;return a.lastCrossing<b.lastCrossing;}
   static bool samePlace(const ResultEntry&a,const ResultEntry&b,LapFinishBehaviour f){return a.classifiedLaps==b.classifiedLaps&&(f==LapFinishBehaviour::Immediate||a.completionTime==b.completionTime);}
@@ -343,10 +348,10 @@ private:
   bool completeDetail()const{for(uint8_t i=0;i<result_.entryCount;++i)if(!result_.entries[i].detailComplete)return false;return true;}
   static void swapBuffer(LapRecordBuffer&a,LapRecordBuffer&b){LapRecord*records=a.records;uint32_t count=a.recordCount,capacity=a.recordCapacity,dropped=a.droppedCount;bool complete=a.complete;a.records=b.records;a.recordCount=b.recordCount;a.recordCapacity=b.recordCapacity;a.droppedCount=b.droppedCount;a.complete=b.complete;b.records=records;b.recordCount=count;b.recordCapacity=capacity;b.droppedCount=dropped;b.complete=complete;}
   static void swapEntries(ResultEntry&a,ResultEntry&b){uint32_t u32;uint8_t u8;bool bl;Time t;char name[MugNameMaxBytes+1];u32=a.raceEntryId;a.raceEntryId=b.raceEntryId;b.raceEntryId=u32;u32=a.mugId;a.mugId=b.mugId;b.mugId=u32;memcpy(name,a.mugName,sizeof(name));memcpy(a.mugName,b.mugName,sizeof(name));memcpy(b.mugName,name,sizeof(name));u32=a.laps;a.laps=b.laps;b.laps=u32;u32=a.classifiedLaps;a.classifiedLaps=b.classifiedLaps;b.classifiedLaps=u32;u32=a.rank;a.rank=b.rank;b.rank=u32;u32=a.lapsBehind;a.lapsBehind=b.lapsBehind;b.lapsBehind=u32;u32=a.lapPenalty;a.lapPenalty=b.lapPenalty;b.lapPenalty=u32;u8=a.lane;a.lane=b.lane;b.lane=u8;bl=a.tied;a.tied=b.tied;b.tied=bl;bl=a.completed;a.completed=b.completed;b.completed=bl;bl=a.detailComplete;a.detailComplete=b.detailComplete;b.detailComplete=bl;t=a.completionTime;a.completionTime=b.completionTime;b.completionTime=t;t=a.bestLap;a.bestLap=b.bestLap;b.bestLap=t;swapBuffer(a.detail,b.detail);a.records=a.detail.records;b.records=b.detail.records;a.recordCount=a.detail.recordCount;b.recordCount=b.detail.recordCount;}
-  bool usesDetailStore()const{return detailStore_&&recordEligible_;}
+  bool usesDetailStore()const{return detailStore_&&historyEligible_;}
   Bus&bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition&active_;HistoryStore*history_=nullptr;TrackRecordStore*records_=nullptr;ActiveDetailStore*detailStore_=nullptr;const SessionDefinition*definition_=nullptr;
   uint8_t penalties_[MaxEntries]{},observed_[MaxEntries]{};uint32_t observedRevision_=0;Time go_=0,pauseAt_=0,restartAt_=0,settlementAt_=0,practiceResumeAt_=0,winningTime_=0,candidateF_=0,expiryTime_=0,resumeAt_=0,pausedDuration_=0;bool pauseOpen_=false;
-  EntryState entries_[MaxEntries]{};LapFinishBehaviour finishBehaviour_=LapFinishBehaviour::Immediate;bool complete_=false,completionPublished_=false,deadHeat_=false,faulted_=false,paused_=false,restartScheduled_=false,gridRestart_=false,enduranceExpired_=false,finishCurrentPending_=false,settlementSeen_=false,settlementPublished_=false,finishReady_=false,finishSettlementSent_=false,finishSettled_=false,persisted_=false,persistenceFault_=false,recordPersistenceFault_=false,historyPersistFailed_=false,storageFaultPublished_=false,recordEligible_=false;
+  EntryState entries_[MaxEntries]{};LapFinishBehaviour finishBehaviour_=LapFinishBehaviour::Immediate;bool complete_=false,completionPublished_=false,deadHeat_=false,faulted_=false,paused_=false,restartScheduled_=false,gridRestart_=false,enduranceExpired_=false,finishCurrentPending_=false,settlementSeen_=false,settlementPublished_=false,finishReady_=false,finishSettlementSent_=false,finishSettled_=false,persisted_=false,persistenceFault_=false,recordPersistenceFault_=false,historyPersistFailed_=false,storageFaultPublished_=false,recordEligible_=false,historyEligible_=false;
   CompletedRaceResult result_{};PracticeSummary practiceSummary_{};uint32_t winner_=0,historySequence_=0;bool detailIncomplete_=false;Message pending_[16]{};uint8_t pendingCount_=0;uint32_t seen_[16]{};uint8_t seenAt_=0;
 };
 } // namespace pp
