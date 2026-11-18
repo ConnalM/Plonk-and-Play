@@ -41,7 +41,8 @@ The factory/default Taster assumes the standard base hardware:
 - default session role proposal: Sensor 1 = Lane 1 Start/Finish;
 - default session role proposal: Sensor 2 = Lane 2 Start/Finish;
 - recommended sensors-before-Start/Finish physical arrangement;
-- 10-lap Lap Race.
+- LAPS selected, with a target of 10 laps;
+- remembered Endurance duration of 5 minutes (approved 18 November 2026).
 
 No sensor-role, lane-count or race-mode configuration is required before using the Factory Taster. These factory role proposals become fixed session roles when START is accepted; they do not make the Input Module aware of lane or Start/Finish meaning.
 
@@ -67,7 +68,8 @@ Taster provides exactly two locally selectable race types:
 These are the only Taster race modes. Open Practice and Timed Stage are not
 offered on the local touchscreen.
 
-On first/factory use, READY defaults to **10 LAPS**.
+On first/factory use, READY defaults to **10 LAPS**. The factory remembered
+Endurance duration is **5 minutes**.
 
 Thereafter the last selected race type, the last selected lap distance and the
 last selected Endurance duration are retained through the existing Memory/Store
@@ -225,7 +227,10 @@ touchscreen. A configured Taster must remain self-contained: the browser must
 not allow a Taster configuration that subsequently requires a browser merely
 to run it.
 
-A RESTORE FACTORY TASTER function should return the product to the guaranteed standard two-lane, 10-lap standalone experience.
+RESTORE FACTORY TASTER restores LAPS, 10 laps and the remembered five-minute
+Endurance duration, factory lane labels and graphics. It preserves shared
+audio preferences, existing track configuration and saved racer assignments.
+Standalone operation still requires a compatible two-lane installation.
 
 ### Factory car graphics
 
