@@ -34,9 +34,12 @@ int main() {
   const auto engineEndpoint=bus.attach(Role::RaceEngine), sourceEndpoint=bus.attach(Role::Input), controlEndpoint=bus.attach(Role::RaceControl);
   bus.subscribe(engineEndpoint,Type::GoScheduled);bus.subscribe(engineEndpoint,Type::InputEvent);bus.subscribe(engineEndpoint,Type::FinishSettled);bus.subscribe(sourceEndpoint,Type::FinishSettlement);bus.subscribe(controlEndpoint,Type::CompetitionComplete);
   ProposedRaceSetup setup{};setup.activeLanes=1;setup.lapTarget=3500;setup.mode=SessionMode::LapRace;setup.entries[0].startFinish={InputModule::simulatedDetectorIdentity(),1,InputRole::StartFinish};setup.entries[0].mugId=903;
-  if(!active.commit(setup,1,1))return 1; SessionDefinition definition(setup,1,1); Stream stream; Backend backend; VersionedHistoryStore history(backend);
+  if (!active.commit(setup,1,1)) return 1;
+  SessionDefinition definition(setup,1,1);
+  Stream stream; Backend backend; VersionedHistoryStore history(backend);
   RaceEngineModule engine(bus,engineEndpoint,active,&history,nullptr,&stream); engine.begin(definition,1000000);
-  Message go{};go.type=Type::GoScheduled;go.relevantTime=1000000;bus.publish(sourceEndpoint,go);engine.tick();
+  Message go{};go.type=Type::GoScheduled;go.relevantTime=1000000;if(bus.publish(controlEndpoint,go)!=Delivery::Delivered) return 1;
+  engine.tick();
   const auto input=InputModule::simulatedDetectorIdentity();for(uint32_t lap=1;lap<=3500;++lap){Message p{};p.type=Type::InputEvent;p.eventId=lap;p.input=input;p.relevantTime=1000000+Time(lap)*100000;bus.publish(sourceEndpoint,p);engine.tick();}
   Message settled{};settled.type=Type::FinishSettled;settled.relevantTime=351000000;bus.publish(sourceEndpoint,settled);engine.tick();
   const auto& result=engine.completedResult();const bool boundedActive=result.entries[0].recordCount==3500&&result.entries[0].detail.records==nullptr&&stream.records.size()==3500;
