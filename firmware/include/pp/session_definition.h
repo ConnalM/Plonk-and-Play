@@ -3,6 +3,11 @@
 #include <new>
 
 namespace pp {
+#if defined(ARDUINO)
+constexpr bool DefaultOfficialRecordEligibility = false;
+#else
+constexpr bool DefaultOfficialRecordEligibility = true;
+#endif
 enum class InputRole : uint8_t { StartFinish };
 enum class LapFinishBehaviour : uint8_t { Immediate, CompleteCurrentLap, CompleteFullRaceDistance };
 struct SessionInputRole { InputIdentity input; uint8_t lane; InputRole role; };
@@ -105,7 +110,7 @@ public:
   explicit SessionDefinition(SessionInputRole a,uint32_t id=1,uint32_t target=0,LapFinishBehaviour f=LapFinishBehaviour::Immediate):sessionId_(0),count_(1),lapTarget_(target),finish_(f) {
     roles_[0]=a; entries_[0]=RaceEntryDefinition{id,0,a.lane};
   }
-  SessionDefinition(const ProposedRaceSetup& original,uint32_t session,uint32_t firstId,bool officialRecordEligible=true):sessionId_(session),lapTarget_(original.lapTarget),durationMinutes_(original.durationMinutes),finish_(original.finish),simulatedSession_(original.simulatedSession),officialRecordEligible_(officialRecordEligible),mode_(original.mode) {
+  SessionDefinition(const ProposedRaceSetup& original,uint32_t session,uint32_t firstId,bool officialRecordEligible=DefaultOfficialRecordEligibility):sessionId_(session),lapTarget_(original.lapTarget),durationMinutes_(original.durationMinutes),finish_(original.finish),simulatedSession_(original.simulatedSession),officialRecordEligible_(officialRecordEligible),mode_(original.mode) {
     const ProposedRaceSetup s=normalised(original); count_=s.activeLanes;
     redLightCount_=s.redLightCount; startSignal_=s.startSignal; startTiming_=s.startTiming; redIntervalUs_=s.redIntervalUs;
     fixedFinalDelayUs_=s.fixedFinalDelayUs; falseStartCapability_=s.falseStartCapability; falseStartPolicy_=s.falseStartPolicy;
@@ -152,7 +157,7 @@ class ActiveSessionDefinition {
 public:
   void clearForFixture(){value_=nullptr;replacementPermitted_=false;++revision_;}
   void permitReplacement(){replacementPermitted_=value_!=nullptr;}
-  bool commit(const ProposedRaceSetup& s,uint32_t session,uint32_t entry,bool officialRecordEligible=true){if((value_&&!replacementPermitted_)||!valid(s))return false;value_=new(storage_) SessionDefinition(s,session,entry,officialRecordEligible);replacementPermitted_=false;++revision_;return true;}
+  bool commit(const ProposedRaceSetup& s,uint32_t session,uint32_t entry,bool officialRecordEligible=DefaultOfficialRecordEligibility){if((value_&&!replacementPermitted_)||!valid(s))return false;value_=new(storage_) SessionDefinition(s,session,entry,officialRecordEligible);replacementPermitted_=false;++revision_;return true;}
   const SessionDefinition* current()const{return value_;}
   uint32_t revision()const{return revision_;}
 private:

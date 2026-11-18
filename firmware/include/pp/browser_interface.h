@@ -294,7 +294,9 @@ public:
   }
   bool isControlOwner(uint64_t token) const { return token && controlLease_.isOwner(fingerprint(token)); }
   bool authorizesStart(uint64_t token) const override { return isControlOwner(token); }
-  bool hasController() const override { return hasMaster(); }
+  // A retained Master identity survives restart/disconnect; only a connected
+  // owner is an active controller that must block local Taster START.
+  bool hasController() const override { return controlLease_.ownerConnected(); }
   bool controlOwnerConnected() const { return controlLease_.ownerConnected(); }
   bool controlTakeoverPending() const { return controlLease_.pending(); }
   uint32_t controlTakeoverRequestId() const { return controlLease_.requestId(); }
