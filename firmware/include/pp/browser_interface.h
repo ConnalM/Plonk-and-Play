@@ -4,6 +4,8 @@
 #include <esp_system.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <atomic>
+#include <new>
 #include "noticeboard.h"
 #include "system_time.h"
 #include "diagnostic_trace.h"
@@ -11,6 +13,7 @@
 #include "diagnostic_retrieval.h"
 #include "diagnostic_export.h"
 #include "control_lease.h"
+#include "published_control_authority.h"
 #include "external_wifi.h"
 #include "firmware_update.h"
 #include "mug_catalog.h"
@@ -76,7 +79,9 @@ public:
     if (controlLease_.hasOwner()) return true;
     uint64_t persisted = 0;
     if (!authority_->loadMaster(persisted) || !persisted) return false;
-    return controlLease_.restore(persisted);
+    const bool restored = controlLease_.restore(persisted);
+    if (restored) publishControlAuthority();
+    return restored;
   }
   void setDiagnosticTrace(diagnostic::ControllerOperationTrace* trace) { diagnosticTrace_ = trace; }
   void setDiagnosticBuildIdentity(const char* identity) {
@@ -152,6 +157,9 @@ public:
     const bool connected = WiFi.status() == WL_CONNECTED;
 #endif
     const uint32_t now = millis();
+    // A failed stop leaves the HTTP task potentially alive. Do not reopen or
+    // publish controller authority until the old task has actually stopped.
+    if (serverStopping_) { stopServer(); if (serverStopping_) return; }
     if (!connected) {
       wifiConnected_ = false;
       if (server_) stopServer();
@@ -195,15 +203,19 @@ public:
     // Noticeboard and presentation changes are coalesced independently for
     // each bounded Browser SSE session.  A slow client cannot block another
     // client or any authoritative P&P work.
-    if (server_) {
-      for (size_t i = 0; i < MaxSseClients; ++i) {
-        SseSession* session = sseSessions_[i];
-        if (!session || !session->valid) continue;
-        const bool changed = noticeRevision_ != session->sentRevision;
-        const bool presentationChanged = presentationSequence_ != session->sentPresentationSequence;
-        const bool keepalive = static_cast<uint32_t>(now - session->lastSendMs) >= 10000U;
-        if ((changed || presentationChanged || session->controlPending || session->controlRefreshPending || keepalive) && !session->workQueued) {
-          queueEventWork(session);
+    // Only the HTTPD task may inspect or dereference an SSE session. Queue
+    // bounded polling work on revision changes and periodically for retries
+    // and heartbeat. The main loop never holds a socket/session pointer.
+    if (server_ && (noticeRevision_ != lastSsePollRevision_ ||
+                    presentationSequence_ != lastSsePollPresentation_ ||
+                    static_cast<uint32_t>(now - lastSsePollMs_) >= 25U)) {
+      if (!ssePollQueued_.exchange(true)) {
+        if (httpd_queue_work(server_, &BrowserInterface::pollSseWork, this) == ESP_OK) {
+          lastSsePollRevision_ = noticeRevision_;
+          lastSsePollPresentation_ = presentationSequence_;
+          lastSsePollMs_ = now;
+        } else {
+          ssePollQueued_.store(false);
         }
       }
     }
@@ -253,7 +265,16 @@ public:
     Pending& pending=pending_[nextPending_++ % ResultCapacity]; pending.internal=request.correlation;
     pending.visible=visibleCorrelation; pending.owner=owner; pending.ready=true; return true;
   }
-  void clearForFixture(){controlLease_.reset();clearRaceForFixture();}
+  bool clearForFixture() {
+    // The serial-only full reset must not mutate the HTTP-owned lease while
+    // the HTTPD task is running. A subsequent tick restarts the server.
+    stopServer();
+    if (server_) return false;
+    controlLease_.reset();
+    publishControlAuthority();
+    clearRaceForFixture();
+    return true;
+  }
   void clearRaceForFixture(){for(auto& p:pending_)p.ready=false;for(auto& r:results_)r.ready=false;hasFact_=false;lastFact_={};noticeRevision_=0;factRevision_=0;scheduledGo_=0;}
   void setFixtureCallbacks(bool (*pass)(uint8_t), void (*reset)(), bool (*arm)()=nullptr){fixturePass_=pass;fixtureReset_=reset;fixtureArm_=arm;}
   bool submitOperation(uint32_t visibleCorrelation, SessionOperation operation, ClientContext context, uint64_t owner, bool confirmed=false, uint64_t traceId=0) {
@@ -277,49 +298,48 @@ public:
     }
     return false;
   }
-  // Setting the in-RAM binding before persistence prevents another request in
-  // this Browser Interface instance from racing in and replacing it. A failed
-  // persistence attempt restores the no-Master state.
+  // Mutable lease transitions are HTTPD-owned (except startup and a fully
+  // stopped serial fixture/server reset). Publish only the committed state.
   bool bootstrap(uint64_t token) {
     if (!token || controlLease_.hasOwner()) return false;
     const uint64_t candidate = fingerprint(token);
     if (authority_->saveMaster(candidate) && controlLease_.restore(candidate)) {
       if (findSseSessionByFingerprint(candidate)) controlLease_.connected(candidate);
+      publishControlAuthority();
       return true;
     }
     return false;
   }
-  bool hasMaster() const { return controlLease_.hasOwner(); }
+  bool hasMaster() const { return publishedAuthority_.read().owner != 0; }
   ClientContext context(uint64_t token) const {
-    return token && controlLease_.isOwner(fingerprint(token))
-               ? ClientContext::RaceDirectorSmug
-               : ClientContext::Spectator;
+    return isControlOwner(token) ? ClientContext::RaceDirectorSmug : ClientContext::Spectator;
   }
-  bool isControlOwner(uint64_t token) const { return token && controlLease_.isOwner(fingerprint(token)); }
+  bool isControlOwner(uint64_t token) const {
+    return token && publishedAuthority_.read().owner == fingerprint(token);
+  }
   bool authorizesStart(uint64_t token) const override {
-    return isControlOwner(token) && controlLease_.ownerConnected();
+    return token && publishedAuthority_.authorizes(fingerprint(token));
   }
-  // A retained Master identity survives restart/disconnect; only a connected
-  // owner is an active controller that must block local Taster START.
-  bool hasController() const override { return controlLease_.ownerConnected(); }
-  bool controlOwnerConnected() const { return controlLease_.ownerConnected(); }
-  bool controlTakeoverPending() const { return controlLease_.pending(); }
-  uint32_t controlTakeoverRequestId() const { return controlLease_.requestId(); }
+  // Retained identity is not interchangeable with connected authority.
+  bool hasController() const override { return publishedAuthority_.hasController(); }
+  bool controlOwnerConnected() const { return publishedAuthority_.hasController(); }
+  bool controlTakeoverPending() const { return publishedAuthority_.read().requester != 0; }
+  uint32_t controlTakeoverRequestId() const { return publishedAuthority_.read().requestId; }
   bool controlTakeoverRequestedBy(uint64_t token) const {
-    return token && controlLease_.requester() == fingerprint(token);
+    return token && publishedAuthority_.read().requester == fingerprint(token);
   }
   ControlLeaseResult requestControl(uint64_t token, uint32_t& requestId) {
     const uint64_t candidate = fingerprint(token);
-    const ControlLease::Snapshot before = controlLease_.snapshot();
-    const ControlLeaseResult result = controlLease_.request(candidate, requestId);
-    if (result == ControlLeaseResult::Accepted &&
-        (!authority_->saveMaster(controlLease_.owner()))) {
-      controlLease_.restoreSnapshot(before);
+    ControlLease next = controlLease_;
+    const ControlLeaseResult result = next.request(candidate, requestId);
+    if (result == ControlLeaseResult::Accepted && !authority_->saveMaster(next.owner())) {
       requestId = 0;
       return ControlLeaseResult::NotOwner;
     }
-    if (result == ControlLeaseResult::Accepted && findSseSessionByFingerprint(controlLease_.owner()))
-      controlLease_.connected(controlLease_.owner());
+    if (result == ControlLeaseResult::Accepted && findSseSessionByFingerprint(next.owner()))
+      next.connected(next.owner());
+    controlLease_ = next;
+    publishControlAuthority();
     if (result == ControlLeaseResult::Pending) {
       SseSession* ownerSession = findSseSessionByFingerprint(controlLease_.owner());
       if (ownerSession) {
@@ -335,28 +355,34 @@ public:
   }
   ControlLeaseResult respondControl(uint64_t token, bool allow, uint32_t& requestId) {
     const uint64_t candidate = fingerprint(token);
-    const ControlLease::Snapshot before = controlLease_.snapshot();
-    const ControlLeaseResult result = controlLease_.respond(candidate, allow, requestId);
-    if (result == ControlLeaseResult::Accepted &&
-        (!authority_->saveMaster(controlLease_.owner()))) {
-      controlLease_.restoreSnapshot(before);
+    ControlLease next = controlLease_;
+    const ControlLeaseResult result = next.respond(candidate, allow, requestId);
+    if (result == ControlLeaseResult::Accepted && !authority_->saveMaster(next.owner())) {
+      requestId = 0;
       return ControlLeaseResult::NotOwner;
     }
-    if (result == ControlLeaseResult::Accepted && findSseSessionByFingerprint(controlLease_.owner()))
-      controlLease_.connected(controlLease_.owner());
+    if (result == ControlLeaseResult::Accepted && findSseSessionByFingerprint(next.owner()))
+      next.connected(next.owner());
+    controlLease_ = next;
+    publishControlAuthority();
     if (result == ControlLeaseResult::Accepted || result == ControlLeaseResult::Refused) {
       queueControlRefresh();
     }
     return result;
   }
-  void controlConnected(uint64_t token) { if (token) controlLease_.connected(fingerprint(token)); }
-  void controlDisconnected(uint64_t token) { if (token) controlLease_.disconnected(fingerprint(token)); }
+  void controlConnected(uint64_t token) {
+    if (token) { controlLease_.connected(fingerprint(token)); publishControlAuthority(); }
+  }
+  void controlDisconnected(uint64_t token) {
+    if (token) { controlLease_.disconnected(fingerprint(token)); publishControlAuthority(); }
+  }
   ControlLeaseResult controlResultFor(uint64_t token) const {
-    if (!token || controlLease_.lastRequestId() == 0) return ControlLeaseResult::NoPending;
+    const auto state = publishedAuthority_.read();
+    if (!token || state.lastRequestId == 0) return ControlLeaseResult::NoPending;
     const uint64_t candidate = fingerprint(token);
-    if (candidate == controlLease_.requester() || candidate == controlLease_.lastRequester() ||
-        (controlLease_.lastResult() == ControlLeaseResult::Accepted && controlLease_.isOwner(candidate))) {
-      return controlLease_.lastResult();
+    if (candidate == state.requester || candidate == state.lastRequester ||
+        (state.lastResult == ControlLeaseResult::Accepted && state.owner == candidate)) {
+      return state.lastResult;
     }
     return ControlLeaseResult::NoPending;
   }
@@ -623,7 +649,13 @@ private:
   VolatileAuthorityStore fallback_;
   ExternalWifiManager network_{};
   httpd_handle_t server_ = nullptr;
+  // HTTPD owns mutable lease/session state; cross-task readers see only this publication.
   ControlLease controlLease_{};
+  PublishedControlAuthority publishedAuthority_{};
+  void publishControlAuthority() { publishedAuthority_.publish(controlLease_.snapshot()); }
+  bool serverStopping_ = false; // main-loop owned
+  std::atomic<bool> ssePollQueued_{false};
+  uint32_t lastSsePollRevision_ = 0, lastSsePollPresentation_ = 0, lastSsePollMs_ = 0;
   uint64_t controllerEpoch_ = 0;
   diagnostic::ControllerOperationTrace* diagnosticTrace_ = nullptr;
   const char* diagnosticBuildIdentity_ = "unknown";
@@ -698,7 +730,6 @@ private:
     volatile bool controlPending = false;
     volatile bool controlRefreshPending = false;
     volatile uint32_t controlRequestId = 0;
-    bool deferDelete = false;
   };
   struct SseWork {
     BrowserInterface* owner = nullptr;
@@ -1296,7 +1327,24 @@ private:
       browser->removeSseSession(session);
       browser->controlDisconnected(session->clientToken);
     }
-    if (!session->deferDelete) delete session;
+    delete session;
+  }
+  static void pollSseWork(void* argument) {
+    auto* browser = static_cast<BrowserInterface*>(argument);
+    if (!browser) return;
+    const uint32_t now = millis();
+    for (size_t i = 0; i < MaxSseClients; ++i) {
+      SseSession* session = browser->sseSessions_[i];
+      if (!session || !session->valid) continue;
+      const bool changed = browser->noticeRevision_ != session->sentRevision;
+      const bool presentationChanged = browser->presentationSequence_ != session->sentPresentationSequence;
+      const bool keepalive = static_cast<uint32_t>(now - session->lastSendMs) >= 10000U;
+      if ((changed || presentationChanged || session->controlPending ||
+           session->controlRefreshPending || keepalive) && !session->workQueued) {
+        browser->queueEventWork(session);
+      }
+    }
+    browser->ssePollQueued_.store(false);
   }
   static void eventWork(void* argument) {
     auto* work = static_cast<SseWork*>(argument);
@@ -1357,7 +1405,7 @@ private:
   SseSession* allocateSseSession(uint64_t token) {
     for (size_t i = 0; i < MaxSseClients; ++i) {
       if (!sseSessions_[i]) {
-        auto* session = new SseSession{};
+        auto* session = new (std::nothrow) SseSession{};
         if (!session) return nullptr;
         session->owner = this;
         session->server = server_;
@@ -1384,7 +1432,7 @@ private:
   }
   void queueEventWork(SseSession* session) {
     if (!server_ || !session || !session->valid || session->server != server_ || session->workQueued) return;
-    auto* work = new SseWork{};
+    auto* work = new (std::nothrow) SseWork{};
     if (!work) return;
     work->owner = this;
     work->clientToken = session->clientToken;
@@ -1551,12 +1599,12 @@ private:
       static_cast<unsigned long long>(systemTime()));
 #endif
     if (!browser || fd < 0) { trace.complete(ESP_ERR_INVALID_ARG); return ESP_FAIL; }
-    if (SseSession* previous = browser->findSseSession(browserToken)) {
-      browser->invalidateSseSession(previous, true, false);
-    }
+    // Keep a known live old generation until the new response has started.
+    // A failed replacement must not retire a healthy controlling stream.
+    SseSession* previous = browser->findSseSession(browserToken);
     size_t slotCount = 0;
     for (size_t i = 0; i < MaxSseClients; ++i) if (browser->sseSessions_[i]) ++slotCount;
-    if (slotCount >= MaxSseClients) {
+    if (!previous && slotCount >= MaxSseClients) {
       httpd_resp_set_status(request, "503 Service Unavailable");
       trace.complete(ESP_ERR_NO_MEM);
       return ESP_FAIL;
@@ -1577,16 +1625,27 @@ private:
       Serial.printf("[SSE] initial_result fd=%d result=%d at_us=%llu\n", fd, int(sent),
         static_cast<unsigned long long>(systemTime()));
 #endif
+      if (previous && previous->fd == fd) browser->invalidateSseSession(previous, true);
       trace.complete(sent); return ESP_FAIL;
     }
+    if (previous) browser->invalidateSseSession(previous, previous->fd != fd, false);
     // Keep the chunked response open for the EventSource client.  Subsequent
     // notifications are sent from the HTTPD work queue, never by blocking
     // this request handler.  The context also marks this socket as the
     // browser's asynchronous notification session for diagnostics.
     auto* session = browser->allocateSseSession(browserToken);
-    if (!session) { trace.complete(ESP_ERR_NO_MEM); return ESP_FAIL; }
+    if (!session) {
+      browser->controlDisconnected(browserToken);
+      trace.complete(ESP_ERR_NO_MEM); return ESP_FAIL;
+    }
     session->fd = fd;
     httpd_sess_set_ctx(browser->server_, fd, session, &BrowserInterface::freeSseSession);
+    if (httpd_sess_get_ctx(browser->server_, fd) != session) {
+      browser->removeSseSession(session);
+      browser->controlDisconnected(browserToken);
+      delete session;
+      trace.complete(ESP_FAIL); return ESP_FAIL;
+    }
     session->sentRevision = browser->noticeRevision_;
     session->sentPresentationSequence = browser->presentationSequence_;
     session->lastSendMs = millis();
@@ -3181,34 +3240,33 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       const esp_err_t registered = httpd_register_uri_handler(server_, &route);
       if (registered != ESP_OK) {
         serverStartError_ = int(registered);
-        httpd_stop(server_);
-        server_ = nullptr;
+        stopServer();
         return;
       }
     }
+    publishedAuthority_.resumeTransport();
     ++serverStarts_;
     serverStartError_ = 0;
   }
   void stopServer() {
     if (!server_) return;
-    SseSession* closing[MaxSseClients]{};
-    size_t closingCount = 0;
-    for (size_t i = 0; i < MaxSseClients; ++i) {
-      SseSession* session = sseSessions_[i];
-      if (!session) continue;
-      session->deferDelete = true;
-      closing[closingCount++] = session;
-      session->valid = false;
-      removeSseSession(session);
-      controlDisconnected(session->clientToken);
-      httpd_sess_trigger_close(session->server, session->fd);
+    // Revoke connected authority immediately. HTTPD may finish a handler or
+    // invoke freeSseSession during stop, but cannot republish connectivity
+    // while the transport is suspended. Do not touch the session table from
+    // the main loop until the HTTP task has stopped.
+    serverStopping_ = true;
+    publishedAuthority_.suspendTransport();
+    const esp_err_t stopped = httpd_stop(server_);
+    if (stopped != ESP_OK) {
+      serverStartError_ = int(stopped);
+      return;
     }
-    ++serverStops_;
-    const httpd_handle_t old = server_;
     server_ = nullptr;
-    const esp_err_t stopped = httpd_stop(old);
-    if (stopped != ESP_OK) serverStartError_ = int(stopped);
-    for (size_t i = 0; i < closingCount; ++i) delete closing[i];
+    serverStopping_ = false;
+    ssePollQueued_.store(false);
+    controlLease_.disconnected(controlLease_.owner());
+    publishControlAuthority();
+    ++serverStops_;
   }
 };
 }  // namespace pp
