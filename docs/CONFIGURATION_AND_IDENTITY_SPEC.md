@@ -200,6 +200,13 @@ For Lap Race this may include:
 
 It also provides unobtrusive access to **More Race Options** and **Setup**.
 
+The controlling browser's Integrated Display settings allow direct editing of
+the remembered standalone race mode, lap target and Endurance duration. These
+use the shared remembered Race Setup. Factory defaults are LAPS, 10 laps and
+5 minutes for Endurance (approved 18 November 2026). Restoring the display
+defaults preserves track configuration, saved racer assignments and shared
+sound preferences; it is distinct from system factory reset.
+
 The shared configuration accepts positive 32-bit lap targets. Loading a
 historical configuration preserves its stored lap target and unrelated
 customer settings. The Taster's 1–999 local adjustment range does not limit
