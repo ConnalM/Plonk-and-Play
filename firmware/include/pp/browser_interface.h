@@ -283,7 +283,10 @@ public:
   bool bootstrap(uint64_t token) {
     if (!token || controlLease_.hasOwner()) return false;
     const uint64_t candidate = fingerprint(token);
-    if (authority_->saveMaster(candidate) && controlLease_.restore(candidate)) return true;
+    if (authority_->saveMaster(candidate) && controlLease_.restore(candidate)) {
+      if (findSseSessionByFingerprint(candidate)) controlLease_.connected(candidate);
+      return true;
+    }
     return false;
   }
   bool hasMaster() const { return controlLease_.hasOwner(); }
@@ -315,6 +318,8 @@ public:
       requestId = 0;
       return ControlLeaseResult::NotOwner;
     }
+    if (result == ControlLeaseResult::Accepted && findSseSessionByFingerprint(controlLease_.owner()))
+      controlLease_.connected(controlLease_.owner());
     if (result == ControlLeaseResult::Pending) {
       SseSession* ownerSession = findSseSessionByFingerprint(controlLease_.owner());
       if (ownerSession) {
@@ -337,6 +342,8 @@ public:
       controlLease_.restoreSnapshot(before);
       return ControlLeaseResult::NotOwner;
     }
+    if (result == ControlLeaseResult::Accepted && findSseSessionByFingerprint(controlLease_.owner()))
+      controlLease_.connected(controlLease_.owner());
     if (result == ControlLeaseResult::Accepted || result == ControlLeaseResult::Refused) {
       queueControlRefresh();
     }
