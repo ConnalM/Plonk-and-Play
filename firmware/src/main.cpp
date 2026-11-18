@@ -1086,7 +1086,7 @@ void loop(){
   wp7PhysicalUi.tick(systemTime());
 #endif
 #if defined(PP_PHASE8B_REAL_SD)
-  if (raceEngine.recordsEligible()) activeDetail.drain();
+  if (raceEngine.historyEligible()) activeDetail.drain();
   servicePhysicalSdRecovery();
 #endif
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
