@@ -43,7 +43,7 @@ The design describes **one product**, with shared authority and client-specific 
 - [Integrated Display READY](#pp-taster-spec--ready) owns the local adjustment limit; it never limits the shared positive 32-bit Browser/stored target.
 - [Integrated Display factory settings](#pp-taster-spec--factory-taster) and [restoration](#pp-taster-spec--smug-configurable-taster) own the 10-lap LAPS and five-minute Endurance defaults and the protection of physical track, racer assignments and sound.
 - [Shared sound](#product-facilities-spec--35-preferences-defaults-and-testing) governs both Browser and standalone; no second preference store.
-- [Accepted physical display constraints](#physical-integrated-display-constraints) supersede earlier moving-animation implementation proposals. V18 Browser is source-reviewed and recommended for owner approval; production implementation and acceptance remain open.
+- [Accepted physical display constraints](#physical-integrated-display-constraints) supersede earlier moving-animation implementation proposals. V18 Browser is owner-approved as the implementation design baseline (19 November 2026), subject to testing and any corrections revealed by testing. Production implementation and acceptance remain open.
 - The [Master Project Plan](MASTER_PROJECT_PLAN.md) alone determines current, later-v1 and post-v1 work. No earlier stage exclusion/deferral automatically creates an open task or overrides later owner-approved scope.
 
 
@@ -5657,7 +5657,7 @@ The Master Project Plan determines current v1 scope, including History/Details, 
 -   07_LAP_FINISH_ANIMATION.html --- lap/finish animation and fixed
     finished-lane flag-slot reference.
 
-These files preserve original visual references. The later consolidated [V18 Browser design](https://github.com/ConnalM/Plonk-and-Play/blob/ec46ff5b8df07d1477fa40543423509c778a22d1/design/smugland/PP_Browser_v18_navigation.html) is the current **owner approval candidate**, not yet approved/frozen. V17/V18 source review confirms the corrected lane model, complete-entry rotation, finish-display handoff, four preset layouts and retained factory restoration. Only agreed governing semantics may be implemented. Representative and future-mode fixtures must not become race logic or scope commitments. The Master Project Plan records the approval/production acceptance gate.
+These files preserve original visual references. The later consolidated [V18 Browser design](https://github.com/ConnalM/Plonk-and-Play/blob/ec46ff5b8df07d1477fa40543423509c778a22d1/design/smugland/PP_Browser_v18_navigation.html) is the **owner-approved design baseline** (19 November 2026), subject to testing. Gina's current design assignment is complete. Changes revealed by actual testing may refine the design through normal scope control; this is not production acceptance. V17/V18 source review confirms the corrected lane model, complete-entry rotation, finish-display handoff, four preset layouts and retained factory restoration. Only agreed governing semantics may be implemented. Representative and future-mode fixtures must not become race logic or scope commitments. The Master Project Plan records the approval/production acceptance gate.
 
 <a id="physical-integrated-display-constraints"></a>
 ### Physical Integrated Display constraints
