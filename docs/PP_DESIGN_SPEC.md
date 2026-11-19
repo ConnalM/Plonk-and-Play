@@ -26,7 +26,7 @@ The design describes **one product**, with shared authority and client-specific 
 - [Integrated Display READY](#pp-taster-spec--ready) owns the local adjustment limit; it never limits the shared positive 32-bit Browser/stored target.
 - [Integrated Display factory settings](#pp-taster-spec--factory-taster) and [restoration](#pp-taster-spec--smug-configurable-taster) own the 10-lap LAPS and five-minute Endurance defaults and the protection of physical track, racer assignments and sound.
 - [Shared sound](#product-facilities-spec--35-preferences-defaults-and-testing) governs both Browser and standalone; no second preference store.
-- [Accepted physical display constraints](#physical-integrated-display-constraints) supersede earlier moving-animation implementation proposals. V16 Browser remains a review candidate.
+- [Accepted physical display constraints](#physical-integrated-display-constraints) supersede earlier moving-animation implementation proposals. V18 Browser is source-reviewed and recommended for owner approval; production implementation and acceptance remain open.
 - The [Master Project Plan](MASTER_PROJECT_PLAN.md) alone determines current, later-v1 and post-v1 work. No earlier stage exclusion/deferral automatically creates an open task or overrides later owner-approved scope.
 
 
@@ -1021,9 +1021,7 @@ The startup/reconciliation ordering is governed by SYSTEM_LIFECYCLE.md: load rem
 
 **Implementation status: ACCEPTED — automated, regression and real-ESP32 hardware verification passed on 2026-10-05.**
 
-Stage 14A removes the current hard-coded two-entry implementation limitation before Practice or Endurance is implemented. It generalises the existing Lap Race data model and execution paths to support a variable number of active Race Entries while preserving all accepted Stage 1–13 behaviour.
-
-Stage 14A does not implement Practice, Endurance, open-ended running, timed races, new finish rules, retirement, withdrawal, DNF, or any other new race mode.
+The variable-entry contract generalises the previously fixed two-entry data model and execution paths, supporting variable active Race Entries and preserving shared race semantics. Each mode defines its own activity/finish rules.
 
 <a id="stage-14a-design--product-boundary"></a>
 #### Product boundary
@@ -1212,7 +1210,7 @@ Relevant governing constraints are in `docs/SYSTEM_REQUIREMENTS.md`, `docs/SYSTE
 - Default Taster and two-entry behaviour must not be changed by generalized storage.
 - The full Stage 1–13 automated/regression suite must remain passing.
 
-No Practice or Endurance design is introduced by this document. Stage 14A implementation is complete; Practice and Endurance remain outside this stage.
+The variable-entry contract applies across supported modes including Open Practice and Endurance; original Stage 14A acceptance remains historical evidence.
 
 
 ## Race Control and Race Engine
@@ -1650,7 +1648,7 @@ Normal circuit racing is called **Lap**, not Circuit.
 <a id="race-modes-product-spec--11-restricted-taster-subset"></a>
 ##### 1.1 Restricted Taster subset
 
-The normal Browser may expose the complete mode hierarchy above. The Taster
+The Browser exposes available supported modes; the Master Project Plan governs the v1 release boundary. Planned modes are not runnable before implementation. The Taster
 exposes only two local choices:
 
 - **LAPS** — the local presentation of `Lap Race`;
@@ -1748,20 +1746,17 @@ Practice is a proper subset of Lap, not a race with a fake winner.
 
 Practice has no normal winner/finish condition and does not require a start sequence.
 
-Practice may be:
-
-- **Open**;
-- **Timed**.
+Practice has Open and planned Timed variants. Open Practice is the v1 mode; Timed Practice remains post-v1. See [Open Practice](#stage-14b-design--product-boundary) for the binding session/result rules.
 
 Recorded information may include:
 
 - lap count;
 - last lap;
-- personal/session best;
+- session best (not an official PB update);
 - session fastest;
 - sectors where fitted;
 - best sectors;
-- +/- versus personal best;
+- comparison with a previously retained personal best where supported (read-only; no Practice record update);
 - theoretical best from the sum of best sectors.
 
 The normal solo path should remain simple: **Practice → lane → Start**.
@@ -1831,9 +1826,7 @@ A generic post-race +10 second penalty is not appropriate to fixed-duration scor
 
 Time-expiry warnings are configurable.
 
-A useful default may include 1 minute, 30 seconds, 10 seconds, 5-4-3-2-1 and zero.
-
-Configuration may provide Default / Off / Custom and presentation by display, audio or both.
+The approved audio warning options and factory defaults are defined in [approved shared audio settings](#product-facilities-spec--35-preferences-defaults-and-testing). Any additional visual warning style is a presentation choice, not a second warning schedule.
 
 At zero:
 
@@ -1854,7 +1847,7 @@ PAUSE and every approved restart countdown apply to the whole session. Time
 spent paused or in the restart countdown does not add racing time. RESUME
 continues from the authoritative timing boundary already established by P&P.
 
-The shared display conventions are:
+The shared display conventions are below. The physical 800 × 480 Integrated Display deliberately uses the accepted compact MM:SS whole-second live and frozen Lap Race clock instead of Browser whole-second live values / hundredths finished duration. This is a formatting exception only; authoritative duration excludes paused/restart time. Endurance overtime follows the shared rules.
 
 - live elapsed/remaining race timers use whole seconds and remain in seconds
   beyond `3599`; they continue as `3600`, `3601`, and so on without resetting
@@ -2298,7 +2291,7 @@ Attract Mode is the deliberate exception because it is presentation rather than 
 <a id="stage-13-design--stage-13-design--complete-lap-race"></a>
 ### Stage 13 Design — Complete Lap Race
 
-**Status: FROZEN before Stage 13 implementation**
+**Contract:** Lap Race start, false-start, abandonment and record semantics; implementation status is in the Master Project Plan.
 
 Stage 13 completes the ordinary two-lane Lap Race boundary. It adds the authoritative start-light sequence, generic false-start reporting with Lap Race consequences, destructive post-pause abandonment operations, persistent completed-race History, and persistent Lap Race PB/Track Record foundations.
 
@@ -2343,7 +2336,7 @@ If a delayed eligible pre-pause event completes the race before acceptance, FINI
 <a id="stage-13-design--persistent-history"></a>
 #### Persistent History
 
-Each settled completed race is stored automatically as a faithful persistent representation of the authoritative Stage 12 result. A persistent sequence identity orders records newest first and remains unique across power cycles, Race Again and rolling deletion. Civil time is optional metadata only when supplied by a trustworthy source; ordering never depends on an RTC.
+Each settled completed race eligible for official History under [Session source and record policy](#race-control-engine-design--41-session-source-and-record-policy) is stored automatically as a faithful persistent representation of the sealed Result, subject to storage integrity. A persistent sequence identity orders records newest first and remains unique across power cycles, Race Again and rolling deletion. Civil time is optional metadata only when supplied by a trustworthy source; ordering never depends on an RTC.
 
 History contains enough immutable Session Definition, result, ranking, W/F, finish-behaviour and lap-record data to reconstruct Stage 12 Results and Details. Abandoned races are absent. A substantial implementation-selected rolling capacity may evict the oldest record. Clear History is deliberate and separate from record clearing.
 
@@ -2354,25 +2347,16 @@ Controller restart recovers persistent History and records but does not reconstr
 <a id="stage-13-design--pbs-and-track-records"></a>
 #### PBs and Track Records
 
-The default standalone record context is record-eligible:
+The factory track/competitor context is DEFAULT TRACK and generic LANE 1 / LANE 2. These identities are not an eligibility grant. An eligible controlling Browser session may use them; a standalone Integrated Display session is never official. See [Session source and record policy](#race-control-engine-design--41-session-source-and-record-policy).
 
-- Track: `DEFAULT TRACK`;
-- competitors: `LANE 1` and `LANE 2`.
-
-SMUG configuration may later replace these identities without Stage 13 implementing the complete Track/MUG configuration system.
-
-A genuine valid completed timed lap may update the selected competitor PB and Track Record at lap completion, even if its containing race later ends through End Race. A lap is eligible when its own authoritative timing and validity are sound at the lap-completion boundary. A later race fault does not retrospectively invalidate an already-established eligible PB/Track Record unless that fault establishes that the lap itself was invalid. Honour-Restart timing is eligible; Grid-discarded incomplete progress and demo/acceptance simulated laps are not.
+A genuine valid completed timed lap in a record-eligible session may update the selected competitor PB and Track Record at lap completion, even if its containing race later ends through End Race. A lap is eligible when its own authoritative timing and validity are sound at the lap-completion boundary. A later race fault does not retrospectively invalidate an already-established eligible PB/Track Record unless that fault establishes that the lap itself was invalid. Honour-Restart timing is eligible; Grid-discarded incomplete progress and demo/acceptance simulated laps are not.
 
 PB/record clearing supports individual MUG PB, Track Record, and all records for a Track. Each requires deliberate confirmation, preserves History, and starts a new persistent record era. Old History cannot resurrect a cleared record automatically. Clearing History does not clear PBs or records.
 
 <a id="stage-13-design--boundaries-and-deferrals"></a>
 #### Boundaries and deferrals
 
-Stage 13 does not implement Practice, Endurance, Timed Stage, Drag, sectors, wireless/distributed input, Power Module behaviour, physical full RMS Yellow/Red enforcement, multi-lane expansion, car-specific records, physical-track equivalence detection, civil-time/RTC requirements, a full Track/MUG configuration system, a polished Browser redesign, Screen Designer, championship/event management, general multi-controller conflict resolution, future-mode penalty systems, active-race persistence/recovery, History browsing on the small Taster display, or automatic History rescanning after record-era clearing.
-
-The Browser remains a presentation and request boundary. Race Control remains lifecycle/operation authority; Race Engine remains competition/result authority; Input Module remains role-neutral event and settlement authority; Facts remain events rather than a History database.
-
-> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
+The original Stage 13 scope is historical, not a product limit. Current scope and outstanding work are in the [Master Project Plan](MASTER_PROJECT_PLAN.md). Race Control owns lifecycle; Race Engine competition and results; Input Module role-neutral events/settlement. Browser requests and presents; Facts do not become a History database.
 
 <a id="stage-14b-design--stage-14b-design--open-practice"></a>
 ### Stage 14B Design — Open Practice
@@ -2463,13 +2447,7 @@ The existing Relevant-Time, Message Bus settlement/fence and authoritative event
 <a id="stage-14b-design--operations-and-authority"></a>
 #### Operations and authority
 
-The existing generic session-operation contract is used. The architecture already defines generic RESUME and session stop concepts, but the current firmware operation enum has PAUSE and `EndRace` and does not yet provide generic `Resume` or `EndSession` values. `EndRace` is not semantically suitable because it represents race abandonment/ending.
-
-The smallest compatible contract change is therefore:
-
-- append generic `Resume` and `EndSession` operation values;
-- continue using the existing `SESSION_OPERATION_REQUEST` and `SESSION_OPERATION` Message Bus types;
-- let Race Control validate and interpret those generic operations according to the active Session Definition mode.
+Use generic `Resume` and `EndSession` with existing `SESSION_OPERATION_REQUEST` / `SESSION_OPERATION` types. Race Control interprets according to active mode. `EndRace` represents competitive abandonment, not Practice completion.
 
 No Practice-specific operation or Message Bus type is introduced. Existing Message Bus numeric values remain unchanged; any appended values are never renumbered.
 
@@ -2489,7 +2467,7 @@ Open Practice must be selectable and operable through the real Browser/product p
 
 Polished UI is outside this slice.
 
-The existing Taster surface remains unchanged: it continues to provide its documented two-lane Lap Race controls. This slice does not add Practice selection to Taster.
+The Integrated Display exposes no Practice controls; its restricted modes are governed by [standalone controls](#pp-taster-spec--standalone-controls).
 
 The frozen normal Browser exposes **PAUSE** while Open Practice is active. Once
 P&P reports authoritative PAUSED it exposes **RESUME**, **RESTART** and **END
@@ -2504,7 +2482,7 @@ Authoritative State includes session mode, lifecycle, active entry collection, p
 
 No winner, rank, finish time, official result or result-sealed Practice state is created. Existing common PAUSED and RESUMED Facts may be reused where their semantics remain exact. Any Practice-ended Fact is optional and must use the normal Message Bus path.
 
-An optional lightweight non-official end summary may be implemented only if it is essentially free and non-disruptive. It is not an acceptance requirement and must never become an official Results object.
+The later approved [Practice Summary flow](#browser-flow-results-history-spec--practice-setup-and-control) requires a session-local summary on END SESSION. It is not a competitive CompletedRaceResult, History or record update.
 
 <a id="stage-14b-design--persistence-history-and-records"></a>
 #### Persistence, History and records
@@ -2516,19 +2494,7 @@ Existing controller-restart rules remain authoritative: an interrupted active Pr
 <a id="stage-14b-design--explicit-exclusions"></a>
 #### Explicit exclusions
 
-This slice does not define or implement:
-
-- Timed Practice;
-- Endurance;
-- Timed Stage/Rally;
-- Drag;
-- winner/ranking/finish policies;
-- official PB or Track Record processing;
-- persistent Practice History;
-- sector timing or theoretical-best calculations as required features;
-- new Yellow/Red/RMS or Power Module behaviour;
-- new Taster Practice controls;
-- polished final UI.
+Open Practice has no winner/rank/competitive finish, official History/records or local Integrated Display mode. Timed Practice and future features follow the Master Project Plan, not historical slice limits.
 
 <a id="stage-14b-design--compatibility-requirement"></a>
 #### Compatibility requirement
@@ -2542,14 +2508,14 @@ All applicable Stage 1–14A behaviour and acceptance remains unchanged. The com
 
 **Status: ACCEPTED / FROZEN**
 
-This document defines the frozen Endurance implementation slice after accepted Stage 14B. It does not by itself authorize implementation. Stages 1–14B remain frozen and unchanged.
+The Endurance contract extends the shared racing architecture. Current acceptance and release scope are in the Master Project Plan; earlier stages remain evidence.
 
 <a id="stage-14c-design--product-boundary"></a>
 #### Product boundary
 
-Endurance is official timed competition using the existing Lap Race mechanics. A configured duration replaces the Lap Race lap target. The active competitors are the configured active Race Entries; the implementation capacity is not a product maximum.
+Endurance is timed competition using the existing Lap Race mechanics. Eligibility for official results and records follows [Session source and record policy](#race-control-engine-design--41-session-source-and-record-policy); the mode alone does not confer eligibility. A configured duration replaces the Lap Race lap target. The active competitors are the configured active Race Entries; the implementation capacity is not a product maximum.
 
-Stage 14C implements only Endurance. It does not implement Timed Practice, sectors, theoretical-best calculations, pit stops, fuel, mandatory pit rules, Stop/Go, new Yellow/Red/RMS behaviour, new Power Module behaviour, Timed Stage, Drag, unrelated Browser redesign, or active-race persistence/recovery.
+Other modes and optional features follow their own design sections and release scope in the Master Project Plan. Interrupted active races are not reconstructed after uncontrolled restart.
 
 <a id="stage-14c-design--duration-and-setup"></a>
 #### Duration and setup
@@ -2667,16 +2633,16 @@ The Taster exposes the restricted **LAPS** and **ENDURANCE** choices from
 contract; it is not a separate TIMED race mode. The Taster preserves the
 simple interaction model and does not add unrelated controls.
 
-Expiry warnings are limited to authoritative continuously available remaining time and the authoritative zero boundary. Configurable warning schedules, audio and light warnings remain deferred.
+Warnings consume authoritative remaining time and the shared zero boundary. Configurable audio warnings follow [approved shared audio settings](#product-facilities-spec--35-preferences-defaults-and-testing), which superseded the original Stage 14C presentation limitation.
 
 <a id="stage-14c-design--results-history-and-records"></a>
 #### Results, History and records
 
-Normally completed Endurance sessions create official Results and persistent History. The stored result must include enough versioned data to reconstruct duration, finish policy, lap totals, ranking, finish/overtime information, penalties and retained valid lap details after controller restart.
+Normally completed Endurance sessions seal an authoritative Result. Only record-eligible sessions under [Session source and record policy](#race-control-engine-design--41-session-source-and-record-policy) enter official History, subject to [persistent storage](#persistent-storage-foundation-design--pp-persistent-storage-foundation-design). Stored results retain duration, finish policy, lap totals, ranking, finish/overtime information, penalties and valid lap details for reconstruction.
 
 Manual END RACE produces no normal completed result or History record. Interrupted active Endurance remains volatile under the accepted Stage 11–13 controller-restart rules.
 
-Valid completed Endurance laps are eligible for PB and Track Record updates, including a valid final Finish-Current-Lap lap. Partial/incomplete laps are not eligible. Existing validity and integrity rules apply. Practice remains excluded.
+In an eligible session, valid completed Endurance laps may update PB and Track Record, including the valid final Finish Current Lap crossing. Partial/incomplete laps and non-official sessions are excluded; validity and integrity rules apply.
 
 <a id="stage-14c-design--compatibility-and-open-implementation-choices"></a>
 #### Compatibility and open implementation choices
@@ -3334,7 +3300,7 @@ Those are defined only when required by implementation, while preserving the sem
 
 
 <a id="message-contract--stage-12-result-messages-frozen-design-implementation-not-yet-authorised"></a>
-#### Stage 12 result messages (frozen design; implementation not yet authorised)
+#### Stage 12 result messages (settled message contract)
 
 Stage 12 proposes appending, without renumbering existing types: `FINISH_SETTLEMENT=18` (Race Engine requests an Input Module FIFO fence through the normal Message Bus) and `FINISH_SETTLED=19` (Input Module acknowledges delivery of locally accepted input covered by the fence). Race Engine remains the sole publisher of authoritative competition result data; no separate Browser result message is proposed. The proposed payloads carry candidate/settled Relevant Time F, finish behaviour and result identity; Race Engine remains the sole publisher of authoritative competition result data. Exact names, numeric values, payload fields, reliability and settlement ownership are constrained by the frozen Stage 12 design and acceptance plan; implementation remains unauthorised until separately approved.
 
@@ -3554,14 +3520,7 @@ temporary stream is drained, finalized and verified, then the summary and
 detail are encoded and published through one linked transactional History
 commit. Temporary streams are never enumerated as History.
 
-Existing LAP, Endurance and Practice semantics remain unchanged. Completed
-SMUG-controlled LAP and Endurance results may enter official History; abandoned
-races and Practice do not create official History. The WP8 standalone Taster
-is an additional authoritative non-official session source: its sealed result
-remains available to the local presentation, but it does not append History or
-update PB/Track Record data. Development simulation remains separately
-non-official. Record policy is frozen in Session Definition at START and is not
-changed by later control handover.
+Storage enforces [Session source and record policy](#race-control-engine-design--41-session-source-and-record-policy) at the Race Engine persistence gate, including exclusion from official streams, History and records. Abandoned races and Practice create no official History. A non-official sealed Result remains available in bounded live state without an official storage transaction.
 
 <a id="persistent-storage-foundation-design--atomic-persistence"></a>
 #### Atomic persistence
@@ -3700,9 +3659,9 @@ Facts/Events describe things that happened. The Noticeboard describes what is tr
 <a id="stage-12-design--stage-12-design--completed-results-and-post-race-flow"></a>
 ### Stage 12 Design � Completed Results and Post-Race Flow
 
-**Status: FROZEN DESIGN � Stage 12 implementation not yet authorised**
+**Contract:** Completed-result design (original Stage 12); current delivery and acceptance status are in the Master Project Plan.
 
-Stage 12 adds an authoritative in-RAM completed-race result and the minimal Results, Details, Home and Race Again flow. It does not add persistence, History, controller-restart recovery, or a production restart-from-zero operation while a race is active.
+The authoritative in-RAM completed-result boundary underpins Results, Details, Home and Race Again. History extends it through [persistent storage](#persistent-storage-foundation-design--pp-persistent-storage-foundation-design); an uncontrolled restart does not reconstruct an interrupted active race.
 
 <a id="stage-12-design--ownership-and-lifetime"></a>
 #### Ownership and lifetime
@@ -3721,13 +3680,12 @@ The exact finish-rule algorithms and settlement-pending rejection reason are fro
 <a id="stage-12-design--browser-flow"></a>
 #### Browser flow
 
-FINISHED State offers Results and read-only Details. Details shows genuine retained lap records only. BACK returns to Results. Spectators may view both. Race Director authority is required for Race Again and any Home operation that changes authoritative session flow. Race Again restores the completed setup as proposed without starting. HOME returns to normal mode selection and does not factory-reset remembered setup.
+FINISHED offers Results and read-only Details of genuine retained lap records. BACK returns to Results. Spectators may view both. Race Again requires Race Director authority and restores completed setup as proposed without starting. HOME is Browser-local navigation; it does not change FINISHED or factory-reset remembered setup.
 
 <a id="stage-12-design--explicit-deferrals"></a>
 #### Explicit deferrals
 
-Persistent Results/History, rolling history, PBs, track records, persistence schema, controller-restart result recovery, PAUSE-to-Restart-Race, PAUSE-to-End-Race, other modes, championship management and polished UI remain deferred.
-
+Historical Stage 12 deferrals are not current tasks. Later accepted History, records, pause/abandon and modes supersede the slice limits. Outstanding work and post-v1 candidates are in the [Master Project Plan](MASTER_PROJECT_PLAN.md).
 
 <a id="stage-12-design--decisions-1421-incorporated"></a>
 #### Decisions 14�21 incorporated
@@ -3905,13 +3863,7 @@ It need not clutter the default live scoreboard. It can instead appear in result
 <a id="common-display-spec--7-finish-behaviour-and-transition-to-results"></a>
 #### 7. Finish Behaviour and Transition to Results
 
-When the race has fully finished, the live display enters a short Finish Display.
-
-Default duration: **5 seconds**, configurable including zero.
-
-The Finish Display can provide suitable theatre — winner, finishing position, chequered treatment, winning time/laps etc.
-
-A Race Director button press during this period skips the remaining delay and proceeds immediately to Results.
+See [Competitive Finish Display](#implementation-spec--competitive-finish-display) for Browser-only timed Finish Display, default five seconds (zero supported), authorised skip and reconstruction. The Integrated Display keeps its fixed finished-state behaviour until RACE AGAIN. Winner/chequered treatment is presentation, not a new timing authority.
 
 <a id="common-display-spec--8-results-screen"></a>
 #### 8. Results Screen
@@ -4693,21 +4645,9 @@ racer identities and are not assigned through the MUG catalog. They do not alter
 <a id="pp-taster-spec--control-hierarchy-and-records"></a>
 ##### Control hierarchy and records
 
-The Taster controls P&P when no SMUGLAND controller is connected. A connected
-SMUGLAND controller automatically supersedes Taster control; Taster remains a
-subordinate display and its control requests are disabled. When SMUGLAND
-disconnects, the controller returns control to Taster without creating a new
-race authority.
+The Integrated Display controls supported requests when no controlling Browser is connected. A connected controlling Browser takes precedence automatically; the local display remains subordinate and its control requests are disabled. On disconnection, control may return through the committed lease boundary, without a second authority.
 
-The session's control source is frozen when START is accepted:
-
-- a standalone Taster race is non-official and contributes no History, PB or
-  Track Record data;
-- a SMUG-controlled race follows the normal official-record rules;
-- a development simulation is non-official.
-
-Changing Browser/Taster connectivity during an active race never changes the
-frozen record policy for that race.
+For official-record eligibility, source freezing and handover see [Session source and record policy](#race-control-engine-design--41-session-source-and-record-policy).
 
 <a id="pp-taster-spec--minimug-principle"></a>
 #### MINIMUG principle
@@ -4779,7 +4719,7 @@ Secondary Home actions include **Race Again**, **Results & History** and **Setup
 <a id="browser-flow-results-history-spec--browser-presentation-architecture"></a>
 #### Browser presentation architecture
 
-P&P ships with a small number of good **out-of-the-box (OOTB) race-screen designs** rather than requiring a MUG or SMUG to design a screen before racing. The initial target is at least a clear **Classic** race display and a more information-rich **Race Control** display.
+P&P ships with a small number of good **out-of-the-box (OOTB) race-screen designs** rather than requiring a MUG or SMUG to design a screen before racing. The four retained Browser presets for owner review are **Classic, Pit Wall, Grandstand and Timing Tower**; see [visual reference handover](#implementation-spec--approved-visual-references). Production implementation retains the shared reusable model, not four race engines.
 
 The standard Browser race displays shall be constructed from **reusable presentation components** using the same declarative screen-layout model intended for future SMUG-editable screens. OOTB screen designs are presets, not separately hard-coded interfaces.
 
@@ -4807,7 +4747,7 @@ Custom screens remain presentation only. Their available live data comes from P&
 The normal setup presents:
 - lane/MUG assignment;
 - optional car only when car recording is enabled;
-- SWAP LANES;
+- ROTATE LANES, Reverse direction, automatic rotation and direct entry rearrangement (see [Race Entry assignment and rotation](#race-setup-lane-assignment-spec--race-setup--lane-assignment-and-rotation-behaviour));
 - target laps using decrement / editable value / increment;
 - finish behaviour;
 - MORE RACE OPTIONS;
@@ -4820,13 +4760,13 @@ Settings auto-save where intention is unambiguous.
 <a id="browser-flow-results-history-spec--practice-setup-and-control"></a>
 #### Practice setup and control
 
-Practice offers **Open** or **Timed** as visible either/or choices.
+Practice exposes Open Practice in v1. The planned Timed Practice variant may be shown as unavailable; it must not be startable until authorised and implemented.
 
 Open Practice continues until SMUG/Race Control selects **END PRACTICE** in
 the normal Browser. This presentation action invokes the authoritative
 Practice **END SESSION** operation.
 
-Timed Practice ends automatically at its configured duration; SMUG may also end it early.
+When implemented post-v1, Timed Practice ends automatically at its configured duration; Race Control may also end it early.
 
 Session-level controls belong to SMUG/Race Control, not ordinary MUG displays.
 
@@ -4936,18 +4876,15 @@ Show:
 
 DETAILS exposes the lap-by-lap data and other available information such as penalties, sectors or speed where relevant.
 
-Results are stored automatically. There is no routine Save Results action.
+Record-eligible completed results enter History automatically under [Session source and record policy](#race-control-engine-design--41-session-source-and-record-policy) and the storage contract. There is no routine Save Results action; a live non-official result does not become History.
 
 <a id="browser-flow-results-history-spec--results--history"></a>
 #### Results & History
 
-History is a simple newest-first list of completed **official** sessions across
-the supported modes. Standalone Taster results are deliberately excluded from
-this Browser History because they are local, non-official results; a
-SMUG-controlled session uses the normal History path.
+History is a simple newest-first list of completed **official** sessions, as determined by [Session source and record policy](#race-control-engine-design--41-session-source-and-record-policy) and storage integrity.
 
 A basic mode filter may be provided:
-**All | Lap | Practice | Endurance | Timed Stage | Drag**.
+**All | Lap | Endurance** in v1; future official modes may add filters when implemented. Open Practice has no official History.
 
 Selecting a history item reopens its result/details.
 
@@ -4964,10 +4901,7 @@ The exact factory buffer size is an implementation choice to be set after realis
 
 Persistent record summaries are independent of the rolling session buffer. Expiry of an old session must not make a valid PB or track record revert merely because its originating session has fallen out of History.
 
-The Browser must not infer official eligibility from the visible result or from
-the client that is currently connected. Race Control freezes the trusted
-session source and record policy at START, and the Race Engine applies that
-policy before History, PB or Track Record persistence.
+The Browser displays committed History and records; it never infers eligibility. See [Session source and record policy](#race-control-engine-design--41-session-source-and-record-policy).
 
 <a id="browser-flow-results-history-spec--v1-records"></a>
 ##### v1 records
@@ -5461,8 +5395,7 @@ pending values.
 <a id="implementation-spec--lap-race-setup"></a>
 #### Lap Race setup
 
-Target laps 1--999, Race Entries, Rotate Lanes, Reverse direction and
-Automatically rotate after each race.
+Target laps use the [shared positive 32-bit configuration boundary](#configuration-and-identity-spec--121-normal-race-screen); the 1–999 local adjustment limit applies only to standalone Integrated Display. Race Entries and lane controls follow [Race Entry assignment and rotation](#race-setup-lane-assignment-spec--race-setup--lane-assignment-and-rotation-behaviour). The known extreme lap-target-plus-penalty arithmetic defect remains a delivery task, not a changed product limit.
 
 Exactly three finish behaviours:
 
@@ -5476,8 +5409,7 @@ P&P has genuine authoritative secondary options.
 <a id="implementation-spec--endurance-setup"></a>
 #### Endurance setup
 
-Duration 1--999 whole minutes, default 10 minutes, Race Entries and
-applicable lane controls.
+Duration 1–999 whole minutes, with the shared remembered default defined in [Integrated Display factory settings](#pp-taster-spec--factory-taster); Race Entries and lane controls follow [Race Entry assignment and rotation](#race-setup-lane-assignment-spec--race-setup--lane-assignment-and-rotation-behaviour).
 
 Exactly two finish behaviours: STOP AT ZERO or FINISH CURRENT LAP.
 
@@ -5643,8 +5575,7 @@ follows authoritative P&P Practice semantics.
 P&P owns whether Finish Display is active, its timing and when it ends.
 Browser owns appearance.
 
-Default presentation duration is 5 seconds where configured, including
-zero where supported.
+The Browser default Finish Display duration is 5 seconds, configurable including zero (zero immediately proceeds to Results).
 
 Final live scoreboard freezes. Browser must not independently start its
 own five-second timer.
@@ -5652,8 +5583,7 @@ own five-second timer.
 Reload during Finish Display reconstructs the current authoritative
 point; it does not restart the delay.
 
-RESULTS › may request skipping the remaining Finish Display where P&P
-permits it.
+The controlling Race Director may request skipping the remaining Finish Display; an observation-only client may not mutate this state. The authoritative state and deadline determine the transition.
 
 <a id="implementation-spec--results"></a>
 #### Results
@@ -5893,19 +5823,7 @@ Changing a MUG should normally require only selecting a different name from the 
 <a id="configuration-and-identity-spec--8-swap-lanes"></a>
 #### 8. Swap Lanes
 
-Provide a quick **SWAP LANES** action.
-
-This exchanges the complete lane entries, including the MUG and optional selected car where car recording is enabled.
-
-Example:
-
-**Connal — Lane 1 | Hazel — Lane 2**
-
-becomes:
-
-**Hazel — Lane 1 | Connal — Lane 2**
-
-This provides useful manual lane rotation in v1 without requiring a full Competition Mode.
+The former SWAP LANES label is superseded by ROTATE LANES (two lanes necessarily exchange). See [Race Entry assignment and rotation](#race-setup-lane-assignment-spec--race-setup--lane-assignment-and-rotation-behaviour) for the governing contract: fixed physical lanes, complete pending Race Entries including optional Car move together.
 
 <a id="configuration-and-identity-spec--9-remembering-the-last-setup"></a>
 #### 9. Remembering the last setup
@@ -5992,7 +5910,7 @@ For Lap Race this may include:
 - MUG/lane assignments;
 - target laps;
 - finish behaviour;
-- Swap Lanes;
+- ROTATE LANES, Reverse direction and automatic rotation; direct Race Entry rearrangement (see [Race Entry assignment and rotation](#race-setup-lane-assignment-spec--race-setup--lane-assignment-and-rotation-behaviour));
 - START.
 
 It also provides unobtrusive access to **More Race Options** and **Setup**.
@@ -6247,7 +6165,7 @@ Numeric Race Setup controls such as target laps should support efficient small a
 
 For target laps:
 
-- valid range is **1–999**;
+- the Browser uses the shared positive 32-bit target range in [configuration](#configuration-and-identity-spec--121-normal-race-screen); only the local Integrated Display adjustment range is 1–999;
 - direct text entry is supported;
 - keyboard Up/Down may increment/decrement;
 - mouse wheel over the numeric control increments/decrements;
@@ -6390,12 +6308,7 @@ For the first Lap Race, the Session Definition contains only what is required to
 
 The Session Definition contains the Race Setup **and the session-specific roles assigned to every input, output and other capability required to interpret and execute that session**. Only relevant capabilities need a session role. For example, the same physical detector may be Lane 2 Start/Finish in one session and a Drag finish or speed-trap input in another. Its hardware identity and Input Module behaviour do not change.
 
-The Session Definition also freezes the trusted session source and record
-policy established when START is accepted. The supported classifications are
-standalone Taster (non-official records), SMUG-controlled P&P (normal official
-record rules) and development simulation (non-official). A later Browser
-connection or disconnection never changes the classification of an active
-session.
+Session Definition freezes trusted source and record eligibility at accepted START, governed by [Session source and record policy](#race-control-engine-design--41-session-source-and-record-policy).
 
 Race Control and the Race Engine operate from that fixed Session Definition rather than repeatedly reading mutable configuration and discovering that operation, device roles or rules have silently changed. **PAUSE does not unlock race-affecting configuration:** the same immutable Session Definition remains in force through PAUSE and RESUME. A change that would alter the Session Definition requires the active session to be ended/abandoned and a new session to be started from a newly accepted Race Setup.
 
