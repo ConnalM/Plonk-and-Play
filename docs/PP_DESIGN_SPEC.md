@@ -4415,7 +4415,7 @@ When SMUG controls the installation, the same physical Integrated Display operat
 - READY: show the selected race type, target laps or duration where applicable, and participating racers. No local race controls.
 - STARTING: give the authoritative starting lights the whole screen for Lap Race, Endurance and optional Practice start. Immediate Open Practice has no countdown.
 - GO: render the authoritative GO indication, respecting the configured Lights Out/Green style and existing one-second green duration.
-- RACING: show race information only; do not reserve permanent screen space for inactive lights.
+- RACING: show race information only; do not reserve permanent screen space for inactive lights. For Lap Race, the agreed layout keeps racers in fixed physical lane order, updating their race positions within the lane panels. Show the gap to the car ahead where space permits.
 - PAUSED: freeze race information with flashing yellow lights overlaid where applicable.
 - RESUMING: overlay the authoritative restart lights where applicable; ordinary immediate Practice Resume remains unchanged.
 - FINISHED: show final race information. Open Practice instead follows its normal session-summary lifecycle.
