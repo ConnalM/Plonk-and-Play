@@ -272,6 +272,7 @@ def record_snapshot(owner):
 def passage(owner, lane):
     before = state(owner)
     assert before["lifecycle"] == "RACING" and before["simulatedSession"] is True, before
+    revision_before = get_json(owner, "/noticeboard")["revision"]
     entry = next(e for e in before["entries"] if e["lane"] == lane)
     fixture(owner, f"lane{lane}")
     after = wait_until(lambda: state(owner), lambda v: any(
@@ -280,7 +281,11 @@ def passage(owner, lane):
     # The fixture holds the simulated source asserted for 150 ms; permit release
     # before another passage even if the lap count is visible immediately.
     time.sleep(0.25)
-    return after, entry["raceEntryId"], entry["laps"] + 1
+    fact = get_json(owner, "/fact")
+    assert fact["type"] == "LAP_COMPLETED" and fact["raceEntryId"] == entry["raceEntryId"] and fact["lapNumber"] == entry["laps"] + 1, fact
+    revision = wait_until(lambda: get_json(owner, "/noticeboard"),
+                          lambda v: v["revision"] > revision_before, timeout=5)["revision"]
+    return after, revision
 
 
 def session_identity(s):
@@ -289,11 +294,14 @@ def session_identity(s):
     return s["scheduledGo"], tuple((e["lane"], e["raceEntryId"]) for e in s["entries"])
 
 
-def paired_lap(a_stream, b_stream, entry_id, laps):
-    matches = lambda e: e.get("lapEntry") == entry_id and e.get("lap") == laps and e.get("eventId", 0) != 0
+def paired_lap(a_stream, b_stream, revision):
+    # Ordinary SSE invalidations expose a revision; lap/event IDs on the
+    # wire are Stage14C-specific instrumentation, not a general contract.
+    # passage() separately verifies the exact factual lap and current state.
+    matches = lambda e: e["revision"] == revision
     ea = a_stream.wait_notification(predicate=matches)
     eb = b_stream.wait_notification(predicate=matches)
-    assert (ea["revision"], ea["eventId"]) == (eb["revision"], eb["eventId"]), (ea, eb)
+    assert ea["revision"] == eb["revision"] == revision, (ea, eb)
 
 
 def restore_proposal(owner, original, correlation):
@@ -335,11 +343,11 @@ def main():
     # real state invalidation from the same fixture passage.
     denied = operation(b, "/request/pause", 3002)
     assert denied.get("result") == "REJECTED", denied
-    _, entry, laps = passage(a, 1)
-    paired_lap(sse_a, sse_b, entry, laps)
+    observed, revision = passage(a, 1)
+    paired_lap(sse_a, sse_b, revision)
     after = state(b)
     assert session_identity(after) == session_id and after["lifecycle"] == "RACING", after
-    assert any(e["raceEntryId"] == entry and e["laps"] == laps for e in after["entries"]), after
+    assert after["entries"] == observed["entries"], (after, observed)
 
     # Scenario B: one pending takeover, delivered to the actual controller,
     # then KEEP leaves authority and race state unchanged.
@@ -363,8 +371,8 @@ def main():
     assert session_identity(state(a)) == session_id and session_identity(state(b)) == session_id
     denied_after_transfer = operation(a, "/request/pause", 3003)
     assert denied_after_transfer.get("result") == "REJECTED", denied_after_transfer
-    _, entry, laps = passage(b, 2)
-    paired_lap(sse_a, sse_b, entry, laps)
+    _, revision = passage(b, 2)
+    paired_lap(sse_a, sse_b, revision)
     assert state(a).get("lifecycle") == "RACING"
 
     # Scenario D: replacing the controlling client's SSE with the same cookie
