@@ -2,15 +2,21 @@
 
 This uses the same cookie-store and HTTP boundary as the Stage 11–13
 acceptance probes.  It deliberately does not model Race Control locally.
-Run it against a freshly booted acceptance controller, for example:
+Run only against an explicitly authorised, idle physical acceptance controller
+with the simulation-arm callback enabled, e.g.:
 
-    python multiclient_http_acceptance.py http://127.0.0.1:9080
+    python multiclient_http_acceptance.py http://192.168.4.1 --acceptance
+
+A retained disconnected owner is normal. Never erase NVS/records to obtain a
+fresh lease. These synthetic passages prove HTTP/SSE, not real detectors or
+official record writes. Test setup and ownership may be changed.
 """
 
 from __future__ import annotations
 
 import json
 import queue
+import socket
 import sys
 import threading
 import time
@@ -20,7 +26,12 @@ from urllib.request import (Request, HTTPCookieProcessor, ProxyHandler,
                             build_opener)
 
 
-BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:9080"
+BASE = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else ""
+
+
+def require_authorised_target():
+    if len(sys.argv) != 3 or sys.argv[2] != "--acceptance" or not BASE.startswith("http://"):
+        raise SystemExit("Supply the authorised idle acceptance-controller HTTP URL and --acceptance; no default endpoint.")
 
 
 def client():
@@ -68,8 +79,8 @@ def wait_state(opener, lifecycle, timeout=8):
     raise AssertionError(f"expected {lifecycle}, last={last}")
 
 
-def operation(opener, path, correlation, timeout=5):
-    status, value = call(opener, path, "POST", {"correlationId": correlation})
+def operation(opener, path, correlation, timeout=5, **fields):
+    status, value = call(opener, path, "POST", {"correlationId": correlation, **fields})
     assert status == 202, (path, status, value)
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -92,6 +103,7 @@ class EventStream:
         self.started = threading.Event()
         self.closed = threading.Event()
         self.response = None
+        self.remote_closed = threading.Event()
         self.thread = threading.Thread(target=self._read, daemon=True)
 
     def start(self):
@@ -109,12 +121,14 @@ class EventStream:
                     "Connection": "keep-alive",
                 },
             )
-            self.response = self.opener.open(request, timeout=10)
+            self.response = self.opener.open(request, timeout=35)
+            assert self.response.status == 200 and self.response.headers.get_content_type() == "text/event-stream"
             self.started.set()
             data = []
             while not self.stop_requested.is_set():
                 raw = self.response.readline()
                 if not raw:
+                    self.remote_closed.set()
                     break
                 line = raw.decode(errors="replace").rstrip("\r\n")
                 if line.startswith("data:"):
@@ -127,39 +141,48 @@ class EventStream:
                         self.events.put(payload)
                     data = []
         except Exception as error:  # surfaced by wait/close assertions
+            if isinstance(error, ConnectionResetError) and not self.stop_requested.is_set():
+                self.remote_closed.set()
             self.events.put(error)
             self.started.set()
         finally:
+            if self.response is not None:
+                self.response.close()
             self.closed.set()
 
     def discard_initial(self):
         """Discard the initial revision event, retaining later notifications."""
-        try:
-            self.events.get(timeout=3)
-        except queue.Empty as error:
-            raise AssertionError(f"{self.name} missing initial SSE event") from error
+        event = self.wait_notification(timeout=5)
+        assert isinstance(event["revision"], int), event
+        return event
 
-    def wait_notification(self, timeout=5):
-        deadline = time.time() + timeout
-        while time.time() < deadline:
+    def wait_notification(self, timeout=10, predicate=None):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
             try:
-                event = self.events.get(timeout=max(0.05, deadline - time.time()))
+                event = self.events.get(timeout=max(0.05, deadline - time.monotonic()))
             except queue.Empty:
                 break
             if isinstance(event, Exception):
                 raise AssertionError(f"{self.name} SSE failed: {event}") from event
-            if isinstance(event, dict) and "revision" in event:
+            if isinstance(event, dict) and "revision" in event and (predicate is None or predicate(event)):
                 return event
         raise AssertionError(f"{self.name} did not receive an invalidation")
 
     def close(self):
         self.stop_requested.set()
-        if self.response is not None:
+        # Interrupt the blocking reader before closing its buffered response.
+        # CPython urllib HTTPResponse exposes the underlying connected socket.
+        response = self.response
+        raw = getattr(getattr(response, "fp", None), "raw", None)
+        sock = getattr(raw, "_sock", None)
+        if sock is not None:
             try:
-                self.response.close()
-            except Exception:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
                 pass
-        self.thread.join(timeout=2)
+        self.thread.join(timeout=5)
+        assert self.closed.is_set(), f"{self.name} SSE reader did not stop"
 
 
 def fixture(opener, action):
@@ -176,45 +199,147 @@ def assert_roles(owner, spectator):
     assert spectator_context.get("isMaster") is False, spectator_context
     assert spectator_context.get("role") == "Spectator", spectator_context
 
+def get_json(opener, path):
+    status, value = call(opener, path)
+    assert status == 200 and isinstance(value, dict), (path, status, value)
+    return value
+
+
+def wait_until(probe, predicate, timeout=25):
+    deadline = time.monotonic() + timeout
+    last = None
+    while time.monotonic() < deadline:
+        last = probe()
+        if predicate(last):
+            return last
+        time.sleep(0.1)
+    raise AssertionError(f"controller condition not met: {last}")
+
+
+def acquire_owner(owner, spectator):
+    current = context(owner)
+    assert not current["ownerConnected"] and not current["takeoverPending"], (
+        "Close existing controlling Browser and wait for disconnect; do not seize active control", current)
+    if current["hasMaster"]:
+        status, value = call(owner, "/request/take-control", "POST")
+        assert status == 200 and value["result"] == "ACCEPTED", (status, value)
+    else:
+        status, value = call(owner, "/bootstrap", "POST")
+        assert status == 200 and value["bootstrap"] is True, (status, value)
+    wait_until(lambda: context(owner), lambda c: c["ownerConnected"] and c["isMaster"])
+    assert_roles(owner, spectator)
+
+
+def set_proposal(owner, correlation, mode, target, duration, finish):
+    proposal = get_json(owner, "/proposal")
+    result = operation(owner, "/request/setup", correlation,
+                       mode=mode, lapTarget=target, durationMinutes=duration,
+                       finishPolicy=finish, proposalRevision=proposal["proposalRevision"])
+    assert result["result"] == "ACCEPTED", result
+    updated = get_json(owner, "/proposal")
+    assert updated["mode"] == mode and updated["lapTarget"] == target and updated["durationMinutes"] == duration
+    assert updated["finishBehaviour"] == ("IMMEDIATE", "COMPLETE_CURRENT_LAP", "COMPLETE_FULL_RACE_DISTANCE")[finish]
+    return updated
+
+
+def arm_simulation(owner):
+    assert state(owner)["lifecycle"] == "READY", "Only arm a READY acceptance controller"
+    status, value = call(owner, "/fixture", "POST", {"action": "arm"})
+    assert status == 200, ("Simulation-arm callback required. DO NOT inject fixture passages on an unarmed image.", status, value)
+    p = get_json(owner, "/proposal")
+    assert p["simulatedSession"] is True and p["startable"] is True, p
+    return p
+
+
+def start_simulated(owner, correlation):
+    # Explicitly validate frozen source after START before any synthetic input.
+    assert get_json(owner, "/proposal")["simulatedSession"] is True
+    start = operation(owner, "/request/start", correlation)
+    assert start["result"] == "ACCEPTED", start
+    racing = wait_state(owner, "RACING", timeout=20)
+    assert racing["simulatedSession"] is True, racing
+    return racing
+
+
+def record_snapshot(owner):
+    history = get_json(owner, "/history")
+    r = get_json(owner, "/records")
+    # entries[] is sized by current active entry count, so compare the stable
+    # official record summaries for the exact two-lane test configuration.
+    return history, tuple(r[key] for key in ("era", "lane1Pb", "lane2Pb", "trackRecord"))
+
+
+def passage(owner, lane):
+    before = state(owner)
+    assert before["lifecycle"] == "RACING" and before["simulatedSession"] is True, before
+    entry = next(e for e in before["entries"] if e["lane"] == lane)
+    fixture(owner, f"lane{lane}")
+    after = wait_until(lambda: state(owner), lambda v: any(
+        e["raceEntryId"] == entry["raceEntryId"] and e["laps"] == entry["laps"] + 1
+        for e in v["entries"]), timeout=5)
+    # The fixture holds the simulated source asserted for 150 ms; permit release
+    # before another passage even if the lap count is visible immediately.
+    time.sleep(0.25)
+    return after, entry["raceEntryId"], entry["laps"] + 1
+
+
+def session_identity(s):
+    # /state has no sessionId in this firmware; fresh Race Entry IDs and
+    # committed GO are the authoritative per-race reconstruction identity.
+    return s["scheduledGo"], tuple((e["lane"], e["raceEntryId"]) for e in s["entries"])
+
+
+def paired_lap(a_stream, b_stream, entry_id, laps):
+    matches = lambda e: e.get("lapEntry") == entry_id and e.get("lap") == laps and e.get("eventId", 0) != 0
+    ea = a_stream.wait_notification(predicate=matches)
+    eb = b_stream.wait_notification(predicate=matches)
+    assert (ea["revision"], ea["eventId"]) == (eb["revision"], eb["eventId"]), (ea, eb)
+
+
+def restore_proposal(owner, original, correlation):
+    # Only clear the test's own volatile race. Never erase NVS/history/records.
+    fixture(owner, "reset")
+    wait_state(owner, "READY")
+    finish = ("IMMEDIATE", "COMPLETE_CURRENT_LAP", "COMPLETE_FULL_RACE_DISTANCE").index(original["finishBehaviour"])
+    restored = set_proposal(owner, correlation, original["mode"], original["lapTarget"],
+                            original["durationMinutes"], finish)
+    assert restored["entries"] == original["entries"], (restored, original)
+    assert restored["simulatedSession"] == original["simulatedSession"], (
+        "Fixture reset did not restore original simulation-arm state; stop for review", restored)
+
 
 def main():
+    require_authorised_target()
     a, jar_a = client()
     b, jar_b = client()
 
-    # A fresh acceptance controller starts with no retained Master.  The
-    # cookie jars prove independent Browser identities, rather than tabs in a
-    # shared profile.
-    assert context(a).get("hasMaster") is False
-    assert context(b).get("hasMaster") is False
+    original = get_json(a, "/proposal")
+    assert state(a)["lifecycle"] == "READY" and original["activeLanes"] == 2
+    assert not original["simulatedSession"], "Begin unarmed so restoration can be proved"
+    assert not context(a)["ownerConnected"], "Close the existing controlling Browser first"
+    context(b)
     assert len(list(jar_a)) == 1 and len(list(jar_b)) == 1
-    # A stream can precede bootstrap, as in the real Browser.
+    assert list(jar_a)[0].value != list(jar_b)[0].value
     sse_a = EventStream(a, "A").start()
     sse_b = EventStream(b, "B").start()
     sse_a.discard_initial()
     sse_b.discard_initial()
-    status, bootstrap = call(a, "/bootstrap", "POST")
-    assert status == 200 and bootstrap.get("bootstrap") is True, bootstrap
-    assert_roles(a, b)
-    assert context(a).get("ownerConnected") is True
-
-    fixture(a, "reset")
-    start = operation(a, "/request/start", 3001)
-    assert start.get("result") == "ACCEPTED", start
-    racing = wait_state(a, "RACING")
-    session_id = racing.get("sessionId")
+    acquire_owner(a, b)
+    records = record_snapshot(a)
+    arm_simulation(a)  # fail before altering remembered race settings if unavailable
+    set_proposal(a, 3000, "LAP_RACE", 10, max(1, original["durationMinutes"]), 2)
+    racing = start_simulated(a, 3001)
+    session_id = session_identity(racing)
 
     # Scenario A: spectator action is rejected, while both streams receive a
     # real state invalidation from the same fixture passage.
     denied = operation(b, "/request/pause", 3002)
     assert denied.get("result") == "REJECTED", denied
-    before = state(a)
-    fixture(a, "lane1")
-    event_a = sse_a.wait_notification()
-    event_b = sse_b.wait_notification()
+    _, entry, laps = passage(a, 1)
+    paired_lap(sse_a, sse_b, entry, laps)
     after = state(b)
-    assert event_a.get("revision") == event_b.get("revision"), (event_a, event_b)
-    assert after.get("sessionId") == session_id and after.get("lifecycle") == "RACING", after
-    assert after.get("entries", [{}])[0].get("laps", 0) > before.get("entries", [{}])[0].get("laps", 0)
+    assert session_identity(after) == session_id and after["lifecycle"] == "RACING", after
+    assert any(e["raceEntryId"] == entry and e["laps"] == laps for e in after["entries"]), after
 
     # Scenario B: one pending takeover, delivered to the actual controller,
     # then KEEP leaves authority and race state unchanged.
@@ -225,7 +350,7 @@ def main():
     status, kept = call(a, "/request/take-control/keep", "POST")
     assert status == 200 and kept.get("result") == "REFUSED", kept
     assert_roles(a, b)
-    assert state(a).get("sessionId") == session_id
+    assert session_identity(state(a)) == session_id
 
     # Scenario C: ALLOW atomically moves the lease; the former controller
     # remains a live spectator and the race continues without reconstruction.
@@ -235,13 +360,11 @@ def main():
     assert status == 200 and allowed.get("result") == "ACCEPTED", allowed
     assert_roles(b, a)
     assert context(b).get("ownerConnected") is True
-    assert state(a).get("sessionId") == session_id and state(b).get("sessionId") == session_id
+    assert session_identity(state(a)) == session_id and session_identity(state(b)) == session_id
     denied_after_transfer = operation(a, "/request/pause", 3003)
     assert denied_after_transfer.get("result") == "REJECTED", denied_after_transfer
-    fixture(b, "lane2")
-    event_a = sse_a.wait_notification()
-    event_b = sse_b.wait_notification()
-    assert event_a.get("revision") == event_b.get("revision"), (event_a, event_b)
+    _, entry, laps = passage(b, 2)
+    paired_lap(sse_a, sse_b, entry, laps)
     assert state(a).get("lifecycle") == "RACING"
 
     # Scenario D: replacing the controlling client's SSE with the same cookie
@@ -249,8 +372,8 @@ def main():
     old_b = sse_b
     sse_b = EventStream(b, "B-reconnect").start()
     sse_b.discard_initial()
-    old_b.close()
-    assert old_b.closed.wait(2), "old controller SSE generation remained open"
+    assert old_b.remote_closed.wait(5), "server did not close the replaced SSE generation"
+    assert old_b.closed.wait(5), "old controller reader remained open"
     assert_roles(b, a)
     assert context(b).get("ownerConnected") is True
 
@@ -258,24 +381,24 @@ def main():
     # reacquisition eligible.  The former owner has no automatic priority on
     # reconnect and remains a spectator after A acquires the lease.
     sse_b.close()
-    deadline = time.time() + 5
-    while time.time() < deadline and context(a).get("ownerConnected") is True:
-        time.sleep(0.1)
-    assert context(a).get("ownerConnected") is False, context(a)
+    wait_until(lambda: context(a), lambda c: c["ownerConnected"] is False, timeout=25)
     status, reacquired = call(a, "/request/take-control", "POST")
     assert status == 200 and reacquired.get("result") == "ACCEPTED", reacquired
     assert context(a).get("isMaster") is True
     assert context(b).get("isMaster") is False
     assert context(a).get("ownerConnected") is True
     returned_state = state(a)
-    assert returned_state.get("sessionId") == session_id and returned_state.get("lifecycle") == "RACING", returned_state
+    assert session_identity(returned_state) == session_id and returned_state.get("lifecycle") == "RACING", returned_state
     returned_b = EventStream(b, "B-return").start()
     returned_b.discard_initial()
     assert_roles(a, b)
     assert context(a).get("ownerConnected") is True
+    assert record_snapshot(a) == records, "synthetic sessions altered official records"
+    restore_proposal(a, original, 3004)
+    assert record_snapshot(a) == records
     returned_b.close()
     sse_a.close()
-    print("Stage 15 production HTTP/SSE multi-client acceptance PASS")
+    print("Stage 15 real-controller HTTP/SSE multi-client acceptance PASS (simulated input only)")
     print("scenarios=A controller/spectator, B KEEP, C ALLOW, D reconnect, E disconnect/reacquire")
 
 
@@ -283,5 +406,5 @@ if __name__ == "__main__":
     try:
         main()
     except (AssertionError, HTTPError, URLError, OSError, TimeoutError) as error:
-        print(f"Stage 15 production HTTP/SSE multi-client acceptance FAIL: {error}")
+        print(f"Stage 15 real-controller HTTP/SSE acceptance FAIL; inspect live controller, do not automatically reset or erase: {error}")
         raise
