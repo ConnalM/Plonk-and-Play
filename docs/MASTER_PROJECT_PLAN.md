@@ -1,7 +1,7 @@
 # P&P Consolidated Completion Plan
 
 **Status:** Authoritative project-control plan — corrected 4 November 2026
-**Purpose:** One route from the present engineering system to a releasable P&P v1.
+**Purpose:** One roadmap and backlog for P&P: current v1 work, later v1 work and post-v1/v2 candidates. Current release delivery remains the priority.
 
 This file supersedes the old Stage plan, the earlier WP0–WP12 execution plan and ad-hoc gap lists **as project roadmaps**. Those documents remain authoritative specifications and evidence where applicable. Nothing already proved is to be rerun merely because this plan is newer.
 
@@ -17,7 +17,7 @@ Every known requirement or unresolved obligation must have exactly one dispositi
 - **DEFERRED POST-v1** — deliberately outside v1;
 - **SUPERSEDED** — historical path/wording no longer applicable.
 
-No separate Stage/WP/gap list may become a competing execution plan.
+No separate Stage/WP/gap list may become a competing execution plan. The owner-approved documentation structure (19 November 2026) requires all outstanding work, including later-v1 obligations and v2 candidates, to have a single home in this plan. Record release disposition, WP/dependency, priority, owner and status for each item as applicable; reference the governing design and acceptance criteria rather than restating them. The deferred post-v1 register below is not a commitment to ship any particular v2 feature.
 
 ### Development rhythm
 
@@ -66,7 +66,7 @@ Product promise:
 
 > Take P&P out of the box, connect the sensors, switch it on and race — without a PC, router, account or technical setup.
 
-Deferred post-v1: Personal MUG, dedicated TV/projector display, Timed Practice, Stage/Rally/Hill Climb, Drag, wireless detectors, Screen Designer, championships/events, Rex/REU-dependent facilities and other later expansion unless explicitly promoted by Connal through scope control.
+Post-v1 candidates are recorded in the single backlog under §7; none enter v1 unless explicitly promoted by the Project Owner through scope control.
 
 ## 4. Work packages and closure gates
 
@@ -332,7 +332,7 @@ priority and stale-queue handling, silent PAUSED lights, restart/reset
 persistence, offline tone fallback and diagnostics. Racing must remain
 responsive with audio enabled and when media fails.
 
-**Deferred post-v1:** personalised spoken announcements using MUG names.
+Personalised spoken announcements using MUG names remain in the post-v1 backlog (§7).
 
 WP8 is an entry dependency for the deferred physical Taster obligations recorded
 under WP5: once the physical display/Taster candidate exists, the mandatory
@@ -689,3 +689,29 @@ Routine status should contain only:
 - next gate.
 
 Technical detail remains in the underlying specifications, reconciliation, commits and acceptance evidence unless Connal asks for it.
+
+## 7. Post-v1 / v2 candidate backlog
+
+These entries preserve the existing deferred scope decisions. They are not a
+separate plan or a commitment to a v2 release feature set. Prioritisation and
+design approval remain outstanding; no entry may be promoted into v1 without
+the Project Owner's explicit approval.
+
+| Candidate | Disposition |
+|---|---|
+| Personal MUG displays | Post-v1 |
+| Dedicated TV/projector display | Post-v1 |
+| Timed Practice | Post-v1 |
+| Stage/Rally/Hill Climb | Post-v1 |
+| Drag | Post-v1 |
+| Wireless detectors | Post-v1 |
+| Screen Designer | Post-v1 |
+| Championships/events | Post-v1 |
+| Rex/REU-dependent facilities | Post-v1 |
+| Personalised spoken announcements using racer names | Post-v1 |
+| Other later expansion | Post-v1 unless explicitly promoted |
+
+This is the initial migrated register, not a completed audit of all deferred
+features. Reconcile other existing specification and historical planning
+documents into this single backlog, distinguishing later-v1 obligations from
+post-v1 candidates before declaring consolidation complete.
