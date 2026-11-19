@@ -1,351 +1,48 @@
-# Plonk & Play™ — Configuration and Identity Specification
-
-**Status:** Committed product-design specification  
-**Scope:** Basic v1 MUG, car and lane configuration.  
-**Principle:** Identity enhances P&P; it must never be required to use P&P.
-
-## 1. Immediate use without setup
-
-P&P must remain genuinely Plonk & Play.
-
-A new/default two-lane system can operate as:
-
-- **Lane 1 — MUG 1**
-- **Lane 2 — MUG 2**
-
-The user does not have to create profiles, cars or a database before racing.
-
-## 2. Persistent MUG identity
-
-A saved MUG has:
-
-- a permanent internal ID;
-- a user-visible name.
-
-For v1, **Name is the only required profile field**.
-
-The internal ID, not the displayed name, owns historical identity. Renaming a MUG must therefore not orphan or split their previous results.
-
-Richer profile information may be added later without changing this identity model.
-
-## 3. Selecting MUGs
-
-Tapping a lane's MUG name opens a simple selection list/dropdown containing saved MUG names plus appropriate temporary/default choices.
-
-Example:
-
-- Connal
-- Hazel
-- Baird
-- Freya
-- Guest
-- No MUG / Clear
-- **+ New MUG**
-
-A MUG already assigned to another active lane remains visible but is greyed/unavailable rather than silently disappearing.
-
-Selecting **No MUG / Clear** returns the lane to its anonymous/default identity such as **MUG 1**.
-
-## 4. Text-entry Clear control
-
-Where clearing an editable text value is a sensible operation, P&P should provide a one-action **Clear** control rather than requiring repeated backspace/delete actions.
-
-This applies to MUG-name entry and should be treated as a general UI principle.
-
-## 5. Guest MUGs
-
-A Guest can race without being added permanently to the saved MUG list.
-
-Guest name is optional:
-
-- blank → display **Guest**;
-- entered, e.g. **Dave** → use Dave for the current race/session without automatically creating a permanent profile.
-
-A temporary named Guest can be promoted directly to a permanent saved MUG without re-entering the name.
-
-This may be offered while entering the Guest name (for example **Remember Dave**) and/or after the race (**Remember this MUG**).
-
-General principle:
-
-> Temporary identity data should be promotable to permanent identity without requiring re-entry.
-
-## 6. Cars
-
-Car recording is optional and should not clutter the normal setup screen by default.
-
-Cars are independent entities. A car does **not** belong permanently to a particular MUG.
-
-When car recording is enabled, a race entry may reference an optional saved car.
-
-Therefore the conceptual relationship is:
-
-**Race Entry = MUG + Lane + optional Car**
-
-The same car may be driven by different MUGs in different races/heats.
-
-This supports shared cars, including groups of younger/informal racers, without distorting the data model.
-
-For v1, if car profiles are exposed, a simple user-visible car name is sufficient. Manufacturer/model/year/catalogue-style data is not required.
-
-## 7. Lane assignment
-
-For a normal two-lane Lap setup, the presentation should remain approximately:
-
-**LAP RACE — 10 laps**
-
-- **Lane 1 — Connal**
-- **Lane 2 — Hazel**
-
-**START**
-
-Changing a MUG should normally require only selecting a different name from the lane dropdown.
-
-## 8. Swap Lanes
-
-Provide a quick **SWAP LANES** action.
-
-This exchanges the complete lane entries, including the MUG and optional selected car where car recording is enabled.
-
-Example:
-
-**Connal — Lane 1 | Hazel — Lane 2**
-
-becomes:
-
-**Hazel — Lane 1 | Connal — Lane 2**
-
-This provides useful manual lane rotation in v1 without requiring a full Competition Mode.
-
-## 9. Remembering the last setup
-
-P&P automatically remembers the most recently used straightforward race setup, including MUG/lane assignment and normal race settings.
-
-Returning to the same mode should therefore normally present the previous useful setup, allowing regular users to reach START with minimal interaction.
-
-A separate Save Setup / Load Setup system is not required for v1.
-
-Named presets may be added later if real use demonstrates a need.
-
-## 10. Future compatibility without v1 scope creep
-
-The first implementation provides only the configuration and identity features needed for straightforward racing.
-
-Its data model and interfaces must not unnecessarily prevent later support for:
-
-- richer MUG profiles;
-- richer car profiles;
-- long-term MUG/car statistics;
-- multi-race competitions;
-- automatic lane rotation;
-- heats/rounds;
-- other event structures.
-
-These are **not v1 requirements** merely because the data model leaves room for them.
-
-The design must not assume that:
-
-- one MUG permanently belongs to one lane;
-- one car permanently belongs to one MUG;
-- a race must always be completely standalone.
-
-> **Design broadly. Implement narrowly.**
-
-
-## 11. Track configuration
-
-The v1 product assumes one remembered physical Track Configuration rather than requiring a named multi-track database.
-
-Normal use must not require the MUG to create or name a track before racing.
-
-The Track Configuration contains information P&P actually uses, including:
-
-- configured lane count;
-- remembered/default device-role proposals used when forming a Race Setup and, on accepted START, the Session Definition;
-- Start/Finish arrangement;
-- optional track length;
-- optional track scale.
-
-Track length enables appropriate speed calculations. Track scale enables scale-equivalent speed calculations.
-
-The underlying design must not unnecessarily prevent multiple saved physical Track Configurations being added later.
-
-### 11.1 Rally stages are not tracks
-
-A Rally Stage is an event/run definition layered on top of the current physical Track Configuration; it is not another physical track record.
-
-Stages may differ in how the installation is used, for example:
-
-- loop, 2 laps;
-- loop, 3 laps;
-- A→B;
-- B→A.
-
-Stages may optionally be given user-visible names.
-
-## 12. Configuration presentation
-
-P&P separates **what are we doing now?** from **what is this installation?**
-
-### 12.1 Normal race screen
-
-The ordinary race screen contains the small number of settings commonly needed for the imminent race.
-
-For Lap Race this may include:
-
-- MUG/lane assignments;
-- target laps;
-- finish behaviour;
-- Swap Lanes;
-- START.
-
-It also provides unobtrusive access to **More Race Options** and **Setup**.
-
-The controlling browser's Integrated Display settings allow direct editing of
-the remembered standalone race mode, lap target and Endurance duration. These
-use the shared remembered Race Setup. Factory defaults are LAPS, 10 laps and
-5 minutes for Endurance (approved 18 November 2026). Restoring the display
-defaults preserves track configuration, saved racer assignments and shared
-sound preferences; it is distinct from system factory reset.
-
-The shared configuration accepts positive 32-bit lap targets. Loading a
-historical configuration preserves its stored lap target and unrelated
-customer settings. The Taster's 1–999 local adjustment range does not limit
-Browser race distances. A standalone Taster must require explicit local
-adjustment before START when the displayed Lap Race target is above 999; it
-must not rewrite the retained shared value merely to make it startable. Corrupt
-or invalid records continue through the existing storage recovery rules.
-
-### 12.2 More Race Options
-
-More Race Options contains settings that may genuinely vary from race to race but need not clutter the normal screen.
-
-Examples include:
-
-- start-light count;
-- GO style;
-- final-delay style;
-- false-start response;
-- audio event choices and destination.
-
-SMUG can configure sound events individually. The Taster retains its audio
-preferences in standalone operation and across restart. Factory reset
-restores the Taster's audio defaults. See
-[Product Facilities §3](PRODUCT_FACILITIES_SPEC.md#3-audio-and-removable-storage)
-for destinations, defaults, warnings and restrictions on audio testing.
-
-An **Advanced** area may contain less-common detailed parameters such as exact random-delay limits or red-light interval.
-
-### 12.3 Setup
-
-Setup describes the P&P installation rather than today's race.
-
-Logical areas include:
-
-- **Track** — length, scale, Start/Finish arrangement;
-- **Hardware** — detected sensors/modules, remembered/default role proposals and optional hardware;
-- **MUGs** — management of saved identities;
-- **Cars** — only where optional car recording is enabled;
-- **Sound & Display**;
-- **System** — networking, update, backup/restore, diagnostics and similar system functions. External Wi-Fi configuration belongs in the **Network** section of **Settings → Advanced → Diagnostics**; it is not a separate authority or setup area.
-
-Normal MUG creation/selection remains available directly from the race screen; a MUG-management area must not become a prerequisite to racing.
-
-## 13. Save and confirmation behaviour
-
-P&P should not require routine SAVE/APPLY interaction when the user's intention is already unambiguous.
-
-Race settings become the current/remembered **Race Setup** as they are changed. The SMUG edits Race Setup; P&P creates the fixed internal Session Definition only when START is accepted.
-
-Installation settings are stored when changed/confirmed.
-
-Confirmation is reserved for actions that are destructive, disruptive or genuinely ambiguous, such as deleting persistent information, materially reassigning hardware or performing a factory reset.
-
-> **Save automatically where intention is unambiguous. Confirm where an action is destructive, disruptive or ambiguous.**
-
-
-## 14. Out-of-box base configuration
-
-The base product should require **zero software configuration** when installed according to the recommended quick-start arrangement.
-
-Factory/default base role proposals are:
-
-- Sensor 1 → Lane 1 Start/Finish;
-- Sensor 2 → Lane 2 Start/Finish;
-
-These are remembered/default installation proposals, not racing meaning owned by the Input Module. When START is accepted, the roles actually required for that race are frozen into the Session Definition. The same physical input may therefore serve a different role in another session without changing the Input Module.
-- recommended/default physical sensor arrangement → sensor before the Start/Finish line.
-
-The Quick Setup documentation must show the matching physical arrangement clearly.
-
-With this default physical arrangement, straightforward lap counting works immediately. Capabilities that require a different sensor relationship, including applicable false-start detection and reaction timing, are not available merely by pretending the default installation can measure them.
-
-Those unavailable capabilities may remain visible but greyed/locked with an explanation of the physical/configuration change required to enable them.
-
-A MUG who installs the sensors differently can change the remembered arrangement later under Track Setup. A clear diagram should be used rather than relying only on technical wording.
-
-Optional information such as track length, track scale and MUG names must not become first-boot requirements.
-
-## 15. MUGGLE quick-setup guide
-
-The base product requires a short, highly visual **MUGGLE Guide** for first use.
-
-Its purpose is not to replace the full manual. Its job is to get an ordinary MUG from unopened/unconfigured product to a working basic race with the fewest possible decisions.
-
-The intended flow is approximately:
-
-1. **PLONK** — position the two sensors exactly as illustrated in the recommended/default arrangement.
-2. **PLUG** — connect Sensor 1/Lane 1 and Sensor 2/Lane 2 and power P&P.
-3. **CONNECT** — connect a phone/tablet/computer to P&P's factory local
-   Wi-Fi access point and open the Browser address shown by P&P.
-4. **PLAY** — choose the basic race setting such as laps and press START.
-
-### 15.1 Factory local network
-
-P&P provides its own local Wi-Fi access point automatically from first boot.
-Normal racing is local and does not require a house/club Wi-Fi network or
-Internet access. The factory access point is deliberately open, with no
-Wi-Fi password; the Taster or other local P&P presentation shows the network
-name and Browser address needed for connection. A QR connection aid may be
-added later.
-
-Wi-Fi association is only transport connectivity. It does not assign SMUG,
-Master or Race Director authority. The existing P&P control-lease rules decide
-which Browser/client may issue control requests.
-
-Optional external house/club Wi-Fi is available through the Network section of
-Settings → Advanced → Diagnostics and is never required for racing. One
-external network may be remembered for reconnection. Any connected Browser may
-view sanitized AP/STA status and request a scan; choosing an SSID remains local
-presentation state until submission. When a remembered network is disconnected,
-the controlling SMUG may issue **RECONNECT**, which uses the ESP32 driver's
-already-stored STA configuration and sends no SSID or password. **RECONFIGURE**
-is the separate credential-writing operation for changing the remembered
-network. Connect/Reconfigure, Reconnect, Disconnect and Forget Network require
-the current controlling SMUG/Race Director lease and are rejected
-authoritatively for other clients. Association with either the factory AP or
-the external network grants connectivity only and never grants control.
-
-The factory AP remains automatic, open and independent. HTTP and racing remain
-available as soon as the AP is ready, regardless of station failure or loss.
-The external password may be accepted for provisioning and persisted only as
-needed for reconnection, but must never subsequently be returned, displayed,
-logged, diagnosed, exported, or included in History/Results or support data.
-The ESP-IDF/Arduino Wi-Fi driver's flash-backed STA configuration is the sole
-persistent credential store for that remembered network; P&P does not maintain
-a duplicate SSID/password record. Disconnect retains the driver configuration
-but suppresses automatic reconnection for the remainder of the boot. Explicit
-Reconnect clears that suppression without writing credentials. Explicit
-Reconfigure clears that suppression and may replace the driver's stored
-configuration. Reboot clears suppression and permits automatic reconnection.
-Forget Network erases the driver's persisted STA configuration and P&P's configured
-state, with authoritative failure if the operation cannot be completed.
-Network status is sanitized and may include AP/STA state, addresses, signal,
-failure information and mDNS status. `plonk-and-play.local` is preferred when
-available, with the assigned LAN IP as fallback. Connection, retry and scan
-work must remain non-blocking; exact timing constants are not product-fixed.
-
-A small **Want more?** section may point towards optional MUG names, track length/scale, alternative sensor arrangements, enhanced start/false-start functions, Rally, Drag and other capabilities.
-
-Product requirement:
-
-> **If the MUG follows the MUGGLE Guide's recommended physical installation, the software defaults must match it and no Setup step should be required before basic racing.**
+# Plonk & Play™ — Configuration and Identity Specification — retired
+
+**RETIRED as a separate governing specification on 19 November 2026.** The authoritative content has moved into the single [P&P Design Specification](PP_DESIGN_SPEC.md#configuration-and-identity-spec--plonk--play--configuration-and-identity-specification). Do not edit requirements here.
+
+[Original preserved revision](https://github.com/ConnalM/Plonk-and-Play/blob/c6b8bbafb7eff9c209d8481263685b61a1af5a6e/docs/CONFIGURATION_AND_IDENTITY_SPEC.md) (historical only).
+
+## Legacy section links
+
+<a id="1-immediate-use-without-setup"></a>
+- [1. Immediate use without setup](PP_DESIGN_SPEC.md#configuration-and-identity-spec--1-immediate-use-without-setup)
+<a id="2-persistent-mug-identity"></a>
+- [2. Persistent MUG identity](PP_DESIGN_SPEC.md#configuration-and-identity-spec--2-persistent-mug-identity)
+<a id="3-selecting-mugs"></a>
+- [3. Selecting MUGs](PP_DESIGN_SPEC.md#configuration-and-identity-spec--3-selecting-mugs)
+<a id="4-text-entry-clear-control"></a>
+- [4. Text-entry Clear control](PP_DESIGN_SPEC.md#configuration-and-identity-spec--4-text-entry-clear-control)
+<a id="5-guest-mugs"></a>
+- [5. Guest MUGs](PP_DESIGN_SPEC.md#configuration-and-identity-spec--5-guest-mugs)
+<a id="6-cars"></a>
+- [6. Cars](PP_DESIGN_SPEC.md#configuration-and-identity-spec--6-cars)
+<a id="7-lane-assignment"></a>
+- [7. Lane assignment](PP_DESIGN_SPEC.md#configuration-and-identity-spec--7-lane-assignment)
+<a id="8-swap-lanes"></a>
+- [8. Swap Lanes](PP_DESIGN_SPEC.md#configuration-and-identity-spec--8-swap-lanes)
+<a id="9-remembering-the-last-setup"></a>
+- [9. Remembering the last setup](PP_DESIGN_SPEC.md#configuration-and-identity-spec--9-remembering-the-last-setup)
+<a id="10-future-compatibility-without-v1-scope-creep"></a>
+- [10. Future compatibility without v1 scope creep](PP_DESIGN_SPEC.md#configuration-and-identity-spec--10-future-compatibility-without-v1-scope-creep)
+<a id="11-track-configuration"></a>
+- [11. Track configuration](PP_DESIGN_SPEC.md#configuration-and-identity-spec--11-track-configuration)
+<a id="111-rally-stages-are-not-tracks"></a>
+- [11.1 Rally stages are not tracks](PP_DESIGN_SPEC.md#configuration-and-identity-spec--111-rally-stages-are-not-tracks)
+<a id="12-configuration-presentation"></a>
+- [12. Configuration presentation](PP_DESIGN_SPEC.md#configuration-and-identity-spec--12-configuration-presentation)
+<a id="121-normal-race-screen"></a>
+- [12.1 Normal race screen](PP_DESIGN_SPEC.md#configuration-and-identity-spec--121-normal-race-screen)
+<a id="122-more-race-options"></a>
+- [12.2 More Race Options](PP_DESIGN_SPEC.md#configuration-and-identity-spec--122-more-race-options)
+<a id="123-setup"></a>
+- [12.3 Setup](PP_DESIGN_SPEC.md#configuration-and-identity-spec--123-setup)
+<a id="13-save-and-confirmation-behaviour"></a>
+- [13. Save and confirmation behaviour](PP_DESIGN_SPEC.md#configuration-and-identity-spec--13-save-and-confirmation-behaviour)
+<a id="14-out-of-box-base-configuration"></a>
+- [14. Out-of-box base configuration](PP_DESIGN_SPEC.md#configuration-and-identity-spec--14-out-of-box-base-configuration)
+<a id="15-muggle-quick-setup-guide"></a>
+- [15. MUGGLE quick-setup guide](PP_DESIGN_SPEC.md#configuration-and-identity-spec--15-muggle-quick-setup-guide)
+<a id="151-factory-local-network"></a>
+- [15.1 Factory local network](PP_DESIGN_SPEC.md#configuration-and-identity-spec--151-factory-local-network)
