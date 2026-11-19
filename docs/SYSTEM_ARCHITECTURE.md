@@ -1,1082 +1,132 @@
-# Plonk & Play™ System Architecture
-
-**Status:** Version 1.0  
-**Purpose:** Record the architecture agreed so far. This document defines responsibilities and boundaries, not software classes, files, processors, protocols or detailed product implementation.
-
-This document is subordinate to the Design Constitution and System Requirements.
-
-## 1. Architectural approach
-
-Plonk & Play™ separates responsibilities so that hardware, transport, race rules, presentation and storage can evolve independently.
-
-Working principles:
-
-- **Design broadly. Implement narrowly.**
-- Engineer in proportion to the product: P&P is a consumer slot-car system, not a safety-critical control system.
-- Hardware describes what it **is** and what it **can do**.
-- Configuration describes what it is **being used for**.
-- Race Control owns session operation/lifecycle; the Race Engine interprets competition events and owns competition state, rules and calculations.
-- Replace locally. Fail locally.
-- New functionality should predominantly require new code, not changes to unrelated existing code.
-
-The architecture must not assume that today's known sensors, outputs, race modes, lane count or optional features are exhaustive.
-
-## 2. High-level responsibilities
-
-The system currently comprises these responsibility areas:
-
-1. Input Module / Input Devices
-2. Race Control
-3. Race Engine
-4. Output Module / Output Devices
-5. Presentation and User Interaction
-6. Supporting responsibilities/services:
-   - Registry / Discovery
-   - P&P System Time
-   - Memory / Persistence
-   - Test / Diagnostics
-   - Update / Recovery
-
-Configuration, Race Setup, Session Definition, Registry and authoritative State are information/state rather than extra operational modules merely because other parts of P&P use them. These are architectural responsibilities and information relationships, not a proposed source-code directory structure.
-
-## 3. Devices, capabilities and physical mounting
-
-A **device** is something intelligent/addressable that P&P can discover or communicate with.
-
-A device may expose one or more **capabilities**, for example detector inputs, controllable outputs, local timestamping or other future capabilities.
-
-A **detector** is one particular input capability that can report physical state changes.
-
-Example:
-
-```text
-Device ABC123
-├── Detector 1
-├── Detector 2
-├── Detector 3
-└── Detector 4
-```
-
-A gantry, bridge, bracket or enclosure is normally a physical/mechanical concept, not an architectural module. One physical gantry might contain one detector or eight.
-
-However, physical grouping and location are useful to the person configuring the system. Configuration may therefore retain human-friendly metadata such as **"Main gantry"**, **"Back straight"** or **"Pit box"**.
-
-Race logic must not depend on that physical description.
-
-## 4. Input architecture
-
-### 4.1 Input Module and Input Devices
-
-The **Input Module** is the P&P subsystem boundary through which physical, simulated or test competition input becomes clean standard P&P physical Input Events. It may contain any number of **Input Devices**. It owns the hardware/source-facing work required to identify which stable input capability produced a clean trigger and when. It does **not** assign lane, Start/Finish, sector, drag, speed-trap or other competition meaning to that input. The resulting physical Input Events are published onto the common P&P communications bus; the Race Engine interprets the events relevant to the active session using the fixed Session Definition.
-
-An **Input Device** is one complete working source of physical input. It owns everything specific to that source that is required to produce a clean standard physical Input Event. For a ToF detector this can include sensor reading, thresholds, filtering, debounce/hysteresis, re-arming and device-specific protocol handling. A keyboard or test-harness Input Device performs its own equivalent source-specific handling.
-
-Each Input Device translates its own native behaviour into the standard physical P&P input contract. Adding a new Input Device type must not require a central translator to be modified merely to understand that device's native output.
-
-An intelligent remote device may perform some or all of this source-specific interpretation locally before the Input Module publishes the standard physical event. Physical distribution does not change the logical ownership: Input Devices are components of the Input Module, and their internal communication is not a separate P&P message merely because a particular implementation uses a remote or wireless device.
-
-The Input Module publishes the clean physical Input Event with the stable input/capability identity and original event time. It does not convert that identity into a racing role. The Race Engine uses the active Session Definition to interpret the input identity for the current session. It therefore does not need to know whether the event originated from ToF hardware, a keyboard, a test harness or another future source, nor which physical transport carried it.
-
-### 4.2 Detector events
-
-For the first detector-style input contract, the standard P&P event is a clean trigger with a stable input/capability identity and timestamp, conceptually:
-
-```text
-INPUT ID : TIMESTAMP
-```
-
-The timestamp represents when the clean physical trigger occurred as closely as practical, not when a communications packet happened to arrive at Race Control.
-
-Signal conditioning, debounce, hysteresis, clearing and re-arming belong close to the detector. **Raw sensor samples, interrupt chatter and pre-conditioning transitions are internal to the Input Device and are not published onto the P&P Message Bus.** Only after the Input Device has recognised a clean meaningful trigger does the Input Module publish the standard physical `INPUT_EVENT`. The Input Device may need to observe both detection and clearing internally, but the first P&P detector contract does not publish a subsequent INACTIVE/clear event merely to report that re-arming has occurred. Once the meaningful trigger has been published, that event's work is done. Race meaning remains outside the Input Module.
-
-A future input type may define different event/state semantics where they are genuinely required.
-
-A race-domain plausibility rule such as rejecting an impossibly short lap is not detector debounce or signal conditioning; it belongs to the race/timing logic interpreting otherwise valid clean detector events.
-
-Detector-specific conditioning parameters are owned by the detector/adapter. They need only become P&P installation configuration if the product requires them to be user- or installation-configurable; otherwise they may remain implementation details of that detector/adapter.
-
-### 4.3 Extensible events
-
-The higher-level event boundary must not assume that every future input is necessarily a detector state or lane event.
-
-Conceptually an event can carry:
-
-```text
-source
-event type
-timestamp
-event data
-```
-
-This allows future event types to be added without redefining unrelated existing components.
-
-### 4.4 Device roles and session interpretation
-
-Source-specific translation is already complete inside the Input Device. Assignment of a stable Input Device/capability identity to a racing purpose is **session-role information**, not an Input Module responsibility and not a separate module or bus participant.
-
-Before START, working configuration and Race Setup may propose how available capabilities will be used. When START is accepted, the roles required for that session are frozen into the Session Definition. During the session the Input Module continues to publish the same device/capability event regardless of its assigned racing role; the Race Engine interprets that identity using the active Session Definition.
-
-The Session Definition therefore translates a stable input capability into its role for this particular session.
-
-Example:
-
-```text
-ABC123:1 : 123.456
-        ↓
-Lane 1 : START_FINISH : 123.456
-```
-
-The Input Module does not know this assignment. For example, `ABC123:1 : 123.456` remains the same physical Input Event whether the active Session Definition assigns `ABC123:1` as Lane 1 Start/Finish, a sector detector, a drag finish or a speed-trap input.
-
-The Race Engine combines the physical Input Event with the active Session Definition and current competition state to determine its racing significance. Lane identity is therefore not required in the Input Module event.
-
-The same physical detector can be reassigned to a different role for a later session without becoming a different kind of sensor or changing the Input Module contract.
-
-### 4.5 Transport independence and Transport Adapters
-
-An Input Device is defined by the standard P&P Input Events it produces, not by whether it is local, wired or wireless.
-
-A local detector, a wired remote detector and a wireless intelligent detector may therefore all publish the same standard detector event. Their different communications mechanisms are handled by **Transport Adapters** at the edge of the common P&P communications bus.
-
-A Transport Adapter bridges a physical or software communications mechanism to the logical P&P bus. It may support, for example, an in-process connection, GPIO/I2C-connected hardware, ESP-NOW, Wi-Fi/WebSocket or a future wired remote transport. It has no race meaning and must not reinterpret an Input Event as a lap, false start or other competition fact.
-
-Transport Adapters may be bidirectional where required for discovery, configuration, status, time synchronisation or updates. Remote timestamping must remain reliably related to P&P System Time, and remote-device availability is represented through the normal Discovery/Registry responsibilities.
-
-> **Transport changes how a P&P message travels, not what the message means.**
-
-### 4.6 Separation of knowledge
-
-The intended separation is:
-
-> **Each Input Device knows how to produce a clean standard physical P&P Input Event.**  
-> **The Input Module publishes which stable input/capability produced the clean event, and when; it does not assign race meaning.**  
-> **The active Session Definition assigns session-specific roles; the Race Engine interprets input events against those frozen roles.**  
-> **Race Control owns session operation; the Race Engine owns competition interpretation.**
-
-## 5. Device failure and replacement
-
-The hardware/device layer detects and reports device/capability status to Registry. Registry maintains P&P's current availability information. Neither decides the race consequence of losing a device or capability.
-
-For example:
-
-- loss of an optional sector detector need not stop lap timing;
-- loss of a speed trap need not stop a race;
-- loss of the only Start/Finish detector may make accurate lap racing impossible.
-
-Race Control decides the consequence according to the active session and available capabilities.
-
-A replacement device identifies itself and its capabilities, not its assumed physical role. Configuration/Discovery may transfer remembered assignments automatically where replacement is unambiguous. Where there is a genuine choice, the user is asked.
-
-## 6. Registry and Discovery
-
-Registry and Discovery answer the related question:
-
-> **What equipment actually exists?**
-
-They are deliberately not the same kind of architectural thing:
-
-- **Discovery** is an active responsibility. It finds equipment, learns what it claims to provide, detects relevant availability changes and updates Registry.
-- **Registry** is shared authoritative equipment state, not an operational module. It maintains P&P's current knowledge of equipment: identity, capabilities, version and availability.
-
-Registry does not decide the operational significance of the information it holds. Other responsibilities may read Registry information or react to Registry changes through standard P&P communication. For example, loss of a required detector may matter to Race Control, while the same change may also be presented by a human interface or observed by diagnostics.
-
-Where useful, equipment/capability changes may be published on the common P&P communications bus. Publication reports the change; it does not transfer responsibility for deciding its consequence to Registry.
-
-Conceptually:
-
-```text
-Physical / remote devices
-          ↓
-      Discovery
-          ↓
-       Registry
-          ↕
-    Configuration
-```
-
-Registry describes what exists. Configuration describes what P&P has decided to use it for. Neither should absorb the other's responsibility.
-
-### 6.1 Stable identity
-
-Every intelligent device must have a stable identity that does not change merely because it is unplugged, moved, given a different network address or communicates through a different transport.
-
-Individual capabilities also require stable identities within the device.
-
-For example:
-
-```text
-Device ABC123
- ├─ Detector 1
- ├─ Detector 2
- ├─ Detector 3
- └─ Detector 4
-```
-
-Configuration can therefore remember an assignment such as:
-
-```text
-ABC123:1 → Lane 1 Start/Finish
-```
-
-If ABC123 disappears and later returns, its remembered assignments remain available without requiring the customer to configure it again.
-
-Physical movement of the same device does not change its identity. Where P&P cannot determine that the customer has physically repurposed a device, the customer must change the assignment.
-
-### 6.2 Replacement devices
-
-A newly discovered device with similar capabilities to a missing known device must not silently inherit that device's identity.
-
-Where replacement is strongly suggested and unambiguous, P&P may ask a simple human question such as whether the new unit replaces the missing one. Confirmation can then transfer the existing assignments.
-
-Where there is a genuine choice, P&P asks rather than guesses.
-
-### 6.3 Simple directly connected hardware
-
-Not every physical sensor needs its own intelligent identity.
-
-For simple hardware connected directly to a stable controller capability, the connection/capability itself may provide the persistent identity.
-
-For example:
-
-```text
-Main Controller
- ├─ Detector Port 1
- └─ Detector Port 2
-```
-
-Configuration may remember:
-
-```text
-Controller:Detector1 → Lane 1 Start/Finish
-Controller:Detector2 → Lane 2 Start/Finish
-```
-
-Replacing a simple sensor connected to Detector Port 1 with another compatible sensor therefore need not require reconfiguration.
-
-Principle:
-
-> **Intelligent devices identify themselves. Simple devices are identified by the stable capability/connection through which P&P sees them.**
-
-This distinction must not affect race rules. After Input Device abstraction, both sources produce the same standard physical Input Events identified by stable input/capability identity. The active Session Definition, not the Input Module, assigns their session-specific racing roles.
-
-### 6.4 Capability-level availability
-
-Availability is not necessarily only a whole-device PRESENT/MISSING property.
-
-Where hardware permits it, Registry can represent availability at capability level. A multi-input device may remain present while one detector/input is unavailable.
-
-For example:
-
-```text
-ABC123
-  Device: PRESENT
-  Detector 1: AVAILABLE
-  Detector 2: AVAILABLE
-  Detector 3: UNAVAILABLE
-  Detector 4: AVAILABLE
-```
-
-Registry reports availability. It does not decide the racing consequence.
-
-> **Availability belongs to devices and capabilities. The significance of unavailability belongs to the function currently using them.**
-
-Thus loss of a speed-trap capability need not prevent an otherwise valid race, while loss of a required Start/Finish capability may prevent a particular race configuration from operating normally.
-
-### 6.5 Transport-independent discovery
-
-Different physical/communications transports may require different discovery mechanisms, but they must feed the same logical Registry.
-
-Conceptually:
-
-```text
-        WIRED                         WIRELESS
-          ↓                              ↓
-   transport-specific             transport-specific
-      discovery                      discovery
-          └──────────────┬───────────────┘
-                         ↓
-                      REGISTRY
-```
-
-A discovered intelligent device should provide, where applicable:
-
-- stable identity;
-- available capabilities/resources;
-- relevant supported features;
-- software/firmware version;
-- current availability/status.
-
-The exact discovery protocol is deliberately not specified.
-
-> **Transport discovers a device. Transport does not define the device.**
-
-A device may eventually support more than one transport without becoming two different logical devices.
-
-### 6.6 Power-on reconciliation and readiness
-
-At power-on P&P discovers currently available equipment and reconciles it with remembered Registry/Configuration information.
-
-Normal unchanged installation:
-
-```text
-Power on
-   ↓
-Discover equipment
-   ↓
-Recognise known devices/capabilities
-   ↓
-Restore remembered configuration
-   ↓
-Ready
-```
-
-The customer should not be required to reconfirm information P&P already knows.
-
-If an optional capability is absent, P&P should report the reduced capability without unnecessarily preventing unrelated functions.
-
-If a capability required by the requested session is absent, that session cannot truthfully be considered ready, but this does not necessarily make the entire P&P system unusable for other session types.
-
-Therefore:
-
-> **Readiness is capability- and activity-based, not one global READY / NOT READY state.**
-
-When new equipment appears, P&P should infer its use only where the answer is genuinely unambiguous. Where its physical purpose cannot be discovered, the customer is asked only for the missing information.
-
-Overall startup principle:
-
-> **Don't make the customer confirm things P&P already knows. Don't hide things the customer actually needs to know. Ask only about things the machine cannot determine.**
-
-## 7. Configuration, Race Setup and working RAM
-
-Configuration answers:
-
-> **What have we decided to use this equipment and system for?**
-
-Configuration is information, not a standalone operational module. Persistent configuration is owned by Memory. At startup, P&P loads the configuration needed for operation into working RAM; the appropriate modules then use their working configuration locally. They do not turn ordinary local configuration lookups into P&P messages or repeatedly consult persistent storage for timing-critical work.
-
-The P&P Message Bus remains the normal route when one P&P component needs to communicate with another. Local access by a module to configuration/state already available to that module in working RAM is not inter-component communication and does not require the bus.
-
-Configuration is distinct from Registry / Discovery and from live Race Control state.
-
-### 7.1 Installation configuration
-
-Persistent installation information includes device identities, capabilities, remembered/default role proposals and physical information such as:
-
-```text
-Device ABC123 = "Main gantry"
-ABC123:1 = available detector capability
-ABC123:2 = available detector capability
-Remembered/default proposal: ABC123:1 → Lane 1 : Start/Finish
-Remembered/default proposal: ABC123:2 → Lane 2 : Start/Finish
-
-Device DEF456 = "Back straight"
-DEF456:1 → Lane 1 : Sector 1
-DEF456:2 → Lane 2 : Sector 1
-```
-
-This survives between races and power cycles.
-
-Installation configuration may also contain physical parameters required to interpret configured functions, such as the distance between detection points forming a speed trap.
-
-### 7.2 Race Setup
-
-Before START, the SMUG edits **Race Setup**: the mutable working choices for the proposed race/session, for example:
-
-```text
-Mode = Lap race
-Length = 20 laps
-Fuel = On
-```
-
-Race Setup is working data, not a module. P&P may remember the last useful Race Setup or future named presets in Memory, but the SMUG does not edit a Session Definition directly.
-
-### 7.3 User / presentation preferences
-
-Preferences such as display choices, units, sounds and similar user choices are distinct from both installation configuration and live race state.
-
-### 7.4 Configuration versus live state
-
-Configuration describes **how P&P should behave**.
-
-Live race/session state describes **what is happening or has happened as a result**, with ownership divided between Race Control session state and Race Engine competition state as defined in `RACE_CONTROL_ENGINE_DESIGN.md`.
-
-For example, current lap, current fuel level, race running/paused state and current position are not Configuration.
-
-### 7.5 Startup reconciliation
-
-At startup P&P compares remembered configuration with currently discovered hardware:
-
-- **known + present** — restore and continue;
-- **known + missing** — retain its assignments/configuration but mark it unavailable;
-- **new + unambiguous** — infer/restore an appropriate assignment where safe;
-- **new + ambiguous** — ask the user.
-
-Principle:
-
-> **Restore what is known. Infer what is unambiguous. Ask only when there is a genuine choice.**
-
-A startup summary may show the interpreted current configuration briefly so the user can verify it or choose to change setup. Exact UI behaviour is not yet specified.
-
-### 7.6 Configuration changes during operation
-
-Configuration changes must be controlled according to their effect on the live system.
-
-Some changes may be safe at any time, some only while idle and some must not change underneath an active race.
-
-When START is accepted, P&P validates the proposed Race Setup against the applicable installation/capability information and creates the fixed **Session Definition** in working RAM. The Session Definition is immutable working data for that session, not a module or P&P Message Bus participant and not something the SMUG edits directly.
-
-For the first Lap Race, the Session Definition contains only what is required to interpret and execute that session: session identity; race rules; Race Entries; the required input-role and output-role assignments; and any physical/rule parameters needed by those rules. A Race Entry has its own stable ID for the session and retains the stable MUG ID plus the MUG display name frozen when START was accepted; optional Car identity follows the same principle when Cars are enabled. Installed capabilities unused by the session need not be copied into the Session Definition. Hardware implementation details such as GPIOs, transport addresses and detector thresholds do not belong in it.
-
-The Session Definition contains the Race Setup **and the session-specific roles assigned to every input, output and other capability required to interpret and execute that session**. Only relevant capabilities need a session role. For example, the same physical detector may be Lane 2 Start/Finish in one session and a Drag finish or speed-trap input in another. Its hardware identity and Input Module behaviour do not change.
-
-The Session Definition also freezes the trusted session source and record
-policy established when START is accepted. The supported classifications are
-standalone Taster (non-official records), SMUG-controlled P&P (normal official
-record rules) and development simulation (non-official). A later Browser
-connection or disconnection never changes the classification of an active
-session.
-
-Race Control and the Race Engine operate from that fixed Session Definition rather than repeatedly reading mutable configuration and discovering that operation, device roles or rules have silently changed. **PAUSE does not unlock race-affecting configuration:** the same immutable Session Definition remains in force through PAUSE and RESUME. A change that would alter the Session Definition requires the active session to be ended/abandoned and a new session to be started from a newly accepted Race Setup.
-
-### 7.7 Optional driver/car data
-
-A small persistent list of drivers and/or cars is a possible product feature, particularly for more competitors than available lanes. It is not currently considered a fundamental architectural issue and is not committed as a feature.
-
-## 7.7 Authoritative Noticeboard
-
-The **Noticeboard** is P&P's authoritative current externally presentable view of itself. It contains everything relevant and current needed to understand P&P or an active session, plus any current information made available to a Browser, Taster or other presentation interface. It is information/state assembled from the responsibilities that own that truth; it is not another operational module and does not become another owner of the underlying information.
-
-During a session this includes the relevant Session Definition information as well as live session/competition state. Outside a race it can include current Race Setup, available options, capability/availability information, selectable saved identities and user-facing status/fault information where an interface needs them. The Noticeboard is not History and does not expose private hardware/implementation detail merely because it exists. A Browser/Taster obtains current externally presentable P&P information through the Noticeboard rather than directly interrogating owning modules. **The Noticeboard is read-only as an architectural view: no consumer writes through it to alter Race Control, Race Engine, configuration, Registry or any other authoritative owner.** Changes originate with the responsibility that owns the truth; the Noticeboard merely exposes the resulting current externally presentable state.
-
-A material change to the Noticeboard can cause a standard **`NOTICEBOARD_CHANGED`** notification. The notification does not carry a replacement copy of State; interested consumers look again at the current authoritative information they need.
-
-For WP8 the Noticeboard must also make the current Taster/SMUG control role,
-startup race-readiness, selected lane graphics, frozen racer identities and
-the live per-lane completion/winner information available to presentation
-clients where those values are relevant. These remain views assembled from
-their owning authorities; the Taster and Browser do not publish them back as
-state.
-
-The Noticeboard does not conceptually require a public version number. Revision counters, dirty flags or sequence numbers may be used internally if useful, but are implementation mechanisms unless a later concrete requirement says otherwise.
-
-The passage of time alone does not require repeated Noticeboard changes. For example, a display can derive a counting race clock from authoritative start/GO time, duration and P&P System Time without generating a `NOTICEBOARD_CHANGED` notification every second.
-
-Facts/Events describe things that happened. The Noticeboard describes what is true now as a result. A current fact such as the fastest lap remains represented as current State until it is superseded or ceases to be relevant.
-
-## 8. P&P System Time
-
-P&P System Time is a **shared service**, not an operational module. It provides the common authoritative time domain used by modules and devices that need to describe, compare or schedule instants.
-
-The common P&P communications bus transports messages that may contain timestamps or scheduled instants; System Time gives those values their common meaning. The bus does not itself establish timing authority.
-
-The System Controller is the authority for the common P&P time domain. P&P System Time defines common instants; it does not require every distributed local clock to display the same numerical value.
-
-Intelligent devices may use local high-resolution clocks. Where timing information must be compared across devices, local timestamps must be reliably relatable or convertible to P&P System Time with sufficient accuracy for the function.
-
-Important input events should be timestamped at or near their source so communications latency does not determine official timing. Local intervals may be measured using a device's own stable clock.
-
-Straightforward synchronisation is preferred where practical. A known clock relationship is also acceptable, including measured offset and drift correction or rechecking where required. Approximate clocks whose effective timing reference is packet arrival are not acceptable.
-
-The specific synchronisation algorithm is deliberately not chosen. This requirement is not justification for unnecessarily elaborate clock-synchronisation machinery. **In a single-System-Controller implementation, the controller's suitable high-resolution monotonic clock may directly provide P&P System Time; no clock-synchronisation protocol is required merely to satisfy the abstraction.** Offset/drift synchronisation is required only where another timing source has an independent clock whose timestamps must share the P&P time domain.
-
-Across defined P&P boundaries, timestamps must use one defined P&P representation with sufficient resolution for the supported timing functions and sufficient range that representation rollover cannot occur during any supported session. Local hardware clocks may use different native units, widths or rollover behaviour; conversion into or out of the P&P representation belongs at the appropriate boundary. The exact P&P unit and integer representation are selected during implementation design, but must be common at those boundaries.
-
-The same common time domain supports scheduled time-critical outputs. A scheduled action such as GO at a specified P&P time denotes one common instant; a remote module may convert that instant to its local clock and execute locally.
-
-## 9. Race Control
-
-Race Control and the Race Engine together form the **single authoritative race/session authority**, with non-overlapping ownership defined in `RACE_CONTROL_ENGINE_DESIGN.md`.
-
-### 9.0 Normal live communication
-
-The common P&P communications bus is the normal route for communication between P&P components, including communication between Race Control and the Race Engine.
-
-This does **not** create a universal decision-making dispatcher or receptionist. The bus transports standard P&P messages; responsibility and authority remain with the component that owns the meaning.
-
-Examples:
-
-- Presentation clients such as the browser or Taster publish authorised operational **Requests**; the P&P responsibility that owns the requested change consumes the Request. Race Control consumes session-operation Requests such as START, PAUSE and RESUME.
-- The Input Module publishes clean standard physical Input Events identifying the stable input/capability and event time; the Race Engine interprets relevant events using the device roles frozen in the active Session Definition.
-- Race Control may publish an authoritative scheduled GO; the Race Engine and relevant presentation/output consumers may consume the same publication.
-- The Race Engine may publish competition completion; Race Control consumes that fact and applies the session-lifecycle consequence.
-- A local PAUSE delivery fence, where required, is likewise composed of defined common-bus messages. Race Control does not inspect an Input Module backlog, and the Input Module does not acquire lane, MUG, lifecycle, or competition-rule authority.
-
-Race Control and the Race Engine therefore do not require a privileged private communications path merely because both are contained within the System Controller. Their ownership boundaries remain distinct while their defined inter-component communication uses the same common bus as the rest of P&P.
-
-The **System Controller (SC)** is the enclosing authoritative race-controller platform containing Race Control and the Race Engine. It is not an additional functional module and is not an extra message-routing hop.
-
-Race Control owns session operation and lifecycle, including preparation, start procedure, authoritative GO, Pause/Resume/Stop and coordination of operational logical actions. The Race Engine owns competition interpretation, competition state, rules, calculations, results and competition-completion conditions.
-
-They do not depend on sensor models, GPIOs, wireless addresses, physical gantries, browser implementation or storage media.
-
-### 9.1 Race modes
-
-Different race forms are treated as replaceable Race Engine rule sets within the common Race Control / Race Engine framework rather than separate hardware/timing systems.
-
-Known customer-facing modes include:
-
-- Lap Race;
-- Practice;
-- Endurance;
-- Timed Stage;
-- Drag;
-- future modes.
-
-A new mode should ideally add its rules without altering unrelated existing modes.
-
-### 9.2 Optional race features
-
-Features that can operate across multiple race modes should not be buried inside one mode.
-
-Fuel is the current example:
-
-```text
-Lap Race + fuel
-Lap Race without fuel
-Endurance + fuel
-Endurance without fuel
-```
-
-Future optional race features may be added where justified without pre-building speculative functionality.
-
-Optional features maintain their own feature state and respond to relevant race events. Where a feature affects competition state or scoring, its consequence is applied through the Race Engine's defined competition boundary; where it requires an operational action, Race Control coordinates that action. The feature does not directly control hardware or redefine the Race Mode.
-
-P&P is analogue-first. Optional features must not assume that a physical effect can be imposed on a lane or car. For example, simulated fuel can provide display, sound and procedural race behaviour without any physical intervention. Physical enforcement such as removing power from one lane is available only where installed hardware exposes an appropriate capability. A future lane-power or other control module may add that capability without changing the Fuel feature's fundamental role.
-
-### 9.3 Race/session state and calculations
-
-Authoritative live information has one owner according to meaning:
-
-- Race Control owns session lifecycle/operational state such as preparing, starting, running, paused or stopped;
-- the Race Engine owns competition state such as current lap, lap/sector times, positions, competition elapsed time, results and competition-affecting feature state.
-
-An incoming competition event changes authoritative competition state once. Where the relative timing of events affects the authoritative competition result, the Race Engine uses their P&P System Time timestamps rather than communication arrival order. The architecture must permit delayed or out-of-order events to be correctly sequenced where necessary. The detailed buffering or sequencing mechanism is an implementation/subsystem-design decision.
-
-Displays, sound and other consumers must not maintain competing calculations of the race.
-
-Derived calculations such as lap time, sector time, reaction time and speed may remain race-domain calculations unless a future requirement demonstrates a genuine need for a separate measurement-processing responsibility.
-
-### 9.4 Race facts versus actions
-
-Race Control reports **facts/events** independently of how they are presented.
-
-Example:
-
-```text
-FASTEST_LAP
-lane = 3
-time = 5.21
-```
-
-A sound system might announce it, a browser might highlight it and history storage might retain it.
-
-Separately, Race Control can request **logical actions**, such as scheduled start lights or track power changes. Output hardware details remain outside Race Control.
-
-## 10. Output architecture
-
-The output path mirrors the input separation:
-
-```text
-Race Control / other authorised producer
-     ↓
-Session/race responsibility resolves required role using Session Definition
-     ↓
-Logical action addressed to stable Output Device/capability on the P&P Message Bus
-     ↓
-Output Module / Output Device hardware abstraction
-     ↓
-Physical hardware
-```
-
-**Output role assignment is session data, not a separate module.** When START is accepted, the relevant output roles are frozen into the Session Definition. A race/session responsibility can therefore resolve a semantic need such as `Lane 2 Track Power` to the stable output capability assigned to that role for this session, then publish the resulting device-level logical action. The Output Module does not need to know what racing role that output is serving.
-
-Each Output Device owns the hardware-specific implementation required to carry out its standard P&P device action. Race Control and the Race Engine may know the stable output identity selected by the Session Definition, but they do not know GPIOs, addresses or device-specific command protocols.
-
-### 10.1 Time-critical outputs
-
-Where timing matters, outputs should be scheduled against P&P System Time rather than relying on command-arrival time.
-
-A start sequence may therefore be transmitted ahead of time with authoritative execution times. A capable local output device can queue and execute those actions against its synchronised clock.
-
-### 10.2 Failure behaviour
-
-Every output that materially affects racing requires a defined behaviour if its controlling device fails.
-
-The precise failure behaviour of particular products, including track-power hardware, is a later hardware/product decision.
-
-### 10.3 Track power
-
-Track power is architecturally supported as a logical output capability.
-
-It only qualifies as a Plonk & Play™ product feature where the physical installation can itself be made genuinely simple, for example through a suitable plug-in power-control accessory rather than requiring the customer to cut and splice track wiring.
-
-## 11. Sound
-
-Sound is an output/presentation capability, not part of Race Control.
-
-The authoritative race responsibility may publish a fact such as `FASTEST_LAP`; the sound capability decides how that fact is rendered as speech/audio.
-
-Sound may also be requested as a scheduled logical action where timing matters, such as start-sequence beeps. Such actions use P&P System Time in the same way as other time-critical outputs rather than depending on message-arrival time.
-
-The likely product direction includes pre-recorded audio files on removable storage and sufficiently capable audio hardware for decent trackside sound. Exact hardware and audio format are not yet fixed.
-
-Sound hardware and persistent storage may eventually share physical storage if suitable hardware permits it, but the architecture must not depend on that physical arrangement.
-
-## 12. Presentation and user interaction
-
-Presentation observes authoritative P&P state. It does not create or maintain a competing race state.
-
-A newly connected or reconnected display must be able to obtain the complete current state required to present the session rather than replaying every event it missed.
-
-Multiple clients may simultaneously present different views of the same race, for example:
-
-- full Race Director view;
-- individual lane/driver view;
-- spectator display;
-- future trackside display.
-
-Loss, sleep or disconnection of a browser must not stop the race.
-
-### 12.0 Local Browser access
-
-P&P provides its own local Wi-Fi access point automatically out of the box.
-The factory access point is deliberately open, without a Wi-Fi password.
-SMUGs and MUGs connect their phone, tablet or computer to that local network
-and use the P&P Browser address presented by P&P. Normal racing does not
-require house/club Wi-Fi or Internet access.
-
-Wi-Fi association grants connectivity only; it never grants Master,
-controlling-SMUG or Race Director authority. Those remain governed by the
-single P&P control lease. P&P may additionally operate as an AP+STA device:
-one remembered external house/club Wi-Fi network may be configured from
-**Settings → Advanced → Diagnostics → Network**. The P&P HTTP service becomes
-available as soon as the factory AP is ready and is never gated by station
-connection. The same P&P Browser/API/SSE authority is available through the
-factory AP and, when connected, the assigned external-network address.
-
-Network status and an explicit Wi-Fi scan are observational and may be viewed
-or requested by any connected Browser. Selecting an SSID is local Browser UI
-state until submitted. When a remembered network is disconnected, the
-controlling SMUG may issue **RECONNECT**; this uses the driver's stored STA
-configuration, has no SSID/password payload and cannot overwrite credentials.
-**RECONFIGURE** is the separate credential-writing operation for changing the
-remembered network. Reconnect, Disconnect, Reconfigure and Forget Network are
-authoritative mutations and require the current Master/Race
-Director/controlling-SMUG lease. A non-controlling mutation is rejected by
-P&P. Network association never grants or transfers that lease.
-
-The factory AP remains automatic, deliberately open and independent of the
-external network. External connection/reconnection must be non-blocking;
-failure or loss of the external network must not affect the AP, HTTP service,
-racing, timing, results or authority. `plonk-and-play.local` is the preferred
-LAN discovery name when mDNS is available; the assigned LAN IP remains the
-fallback and is presented as current network status.
-
-The external-network password may be accepted for provisioning and persisted
-only as required for reconnection. The ESP-IDF/Arduino Wi-Fi driver's
-flash-backed STA configuration is the sole persistent credential store; P&P
-does not maintain a duplicate SSID/password record. It must never subsequently
-be returned, displayed, logged, diagnosed, exported, or included in History or
-Results. An explicit Disconnect retains that driver configuration while
-suppressing automatic reconnection for the remainder of the boot. Explicit
-Reconnect clears suppression without calling the credential-writing path;
-explicit Reconfigure clears suppression and may replace the driver's stored
-configuration. Reboot clears suppression and permits automatic reconnection.
-Forget Network erases the driver's persisted STA configuration and P&P's configured
-state, with authoritative failure if that operation cannot be completed.
-Network diagnostics expose only sanitized AP/STA state, addresses, signal and
-failure information. Scan/retry/backoff constants remain implementation
-choices subject to bounded, non-blocking behaviour and real-S3 acceptance.
-
-### 12.1 Context-sensitive controls
-
-Race Control determines which session-operation Requests are valid in its current state. Other authoritative responsibilities validate Requests that belong to them. Presentation exposes only controls appropriate to the currently valid Requests.
-
-For example, **Pause** is relevant only once a race is running, while **Resume** is relevant only when paused.
-
-Hiding an invalid control is a usability measure, not the security/validity mechanism: Race Control must still reject session-operation Requests that are invalid for its current state.
-
-### 12.2 One Master / Race Director
-
-There is one control lease at a time. The **Master**, **Race Director** and
-controlling **SMUG** are the same authority and are different names for the
-client holding that lease. SMUG is not a second ownership system or an
-account identity.
-
-The controller-side Presentation / User Interaction responsibility owns client/session identity, which client currently holds Race Director authority, and deliberate transfer or recovery of that authority. It determines whether a particular client is permitted to submit Race Director Requests.
-
-Race Control does not need to know browser, connection or transport details. It receives authorised logical session-operation Requests and separately determines whether each Request is valid in the current race/session state and what consequence it has.
-
-Only the Master may issue Race Director Requests such as:
-
-- start;
-- pause;
-- resume;
-- end/abort;
-- configure race length/rules.
-
-Connecting another browser must never accidentally create another Race Director.
-
-Master authority belongs to a client/browser session, not to the human identity of the Race Director. When no Master binding exists, a client becomes suitable for initial Race Director assignment only by performing the deliberate bootstrap action. Opening, polling, State retrieval, connection order and Race Director Requests never make a client suitable or assign Master authority.
-
-A second control client may view the control screen but remains non-Master. It
-may deliberately choose **Take Control**. P&P owns the takeover request and
-there may be only one pending request. If the current controller is connected,
-P&P presents that controller with an authoritative request — **ALLOW** or
-**KEEP CONTROL**. ALLOW atomically transfers the single Master/Race
-Director/SMUG lease to the requester and the former controller immediately
-loses the privilege. KEEP CONTROL leaves ownership unchanged and informs the
-requester that the request was refused. A connected controller's failure to
-answer never transfers control after an arbitrary timeout.
-
-If P&P authoritatively establishes that the controlling client has genuinely
-disconnected, another client may deliberately acquire the lease without that
-client's approval. The technical disconnection test is an implementation
-matter, but it must be based on an authoritative client/session boundary, not
-an arbitrary inactivity timeout. A pending request remains P&P state: a
-controller that reloads or reconnects with the same valid client identity
-reconstructs the outstanding prompt. A controller returning after a completed
-transfer has no automatic right to regain the lease and must use Take Control
-normally. Only one pending request is accepted; concurrent requests are
-rejected as busy/already pending.
-
-This is deliberately a trust model rather than an account/security system. P&P enforces exactly one Master but does not require user accounts, passwords or PINs merely to arbitrate control around a home slot-car track.
-
-Loss, sleep or disconnection of the Race Director client does not affect Race
-Control or the running race. Transfer changes only which client may issue
-Race Director Requests; it never interrupts a session, changes timing,
-classification or results, and Race Control itself never moves into the
-browser.
-
-### 12.3 Non-Master clients
-
-Other clients may observe the same or different presentation views but cannot take authoritative race control.
-
-They may submit specifically permitted race inputs/requests. An example is a driver's **CAR OFF / re-call** button.
-
-A lane-associated client can report that its car is off the track without becoming a controller.
-
-The active Session Definition can determine what a **CAR OFF** input means. It may, for example, be disabled, notify/request action from the Race Director or automatically invoke the configured track-call behaviour.
-
-The client always reports the same semantic event — **CAR OFF** — rather than directly commanding a pause or power change. Race Control interprets the event according to the active Session Definition.
-
-### 12.4 Requests and browser synchronisation
-
-User interfaces send logical **requests**, not direct mutations of authoritative P&P variables. A request asks the appropriate authoritative responsibility to perform an action or change configuration. The request is accepted or rejected, with a reason where useful; the browser must not assume that submitting a request means the requested change occurred.
-
-Physical controls enter through the appropriate hardware/input path. Depending on the device, that path may map a simple physical detector state into a semantic race input, or an intelligent device may report an appropriate standard semantic input directly.
-
-Both physical controls and user interfaces ultimately present the appropriate P&P responsibility with defined semantic inputs or requests which are validated and interpreted according to current state and configuration. Race Director requests such as START, PAUSE and RESUME are validated against current state. Other permitted inputs, such as CAR OFF or TRACK_CALL_REQUEST, are interpreted according to the active Session Definition and current authoritative state and may result in an authoritative action.
-
-Browser-facing communication distinguishes five semantic kinds of information:
-
-- **Request** — browser to P&P: asks P&P to do something.
-- **Request Result** — P&P to the requesting browser: reports whether that request was accepted or rejected, with a reason where useful.
-- **State** — authoritative information maintained by P&P describing what is true now.
-- **NOTICEBOARD_CHANGED** — P&P to browser: a notification indicating that something material on the authoritative Noticeboard has changed.
-- **Event/Fact** — P&P to browser: notification that something has happened, useful for presentation such as animation, sound or temporary messages.
-
-P&P owns and maintains authoritative live State. Browsers decide which State they need for the view they are presenting; P&P does not need knowledge of individual browser screens or to construct a screen-specific authoritative State model for each connected browser.
-
-On initial connection or reconnection, a browser obtains authoritative State sufficient to construct the correct display from nothing. It need not replay every event that occurred before or while it was disconnected.
-
-Every material change to the authoritative Noticeboard can cause a `NOTICEBOARD_CHANGED` notification. The notification need not identify the fields that changed or contain their new values; its purpose is to tell a browser to look again at the current authoritative information it needs.
-
-On receiving such a notification, a browser refreshes the authoritative State needed by its current view. Further `NOTICEBOARD_CHANGED` notifications received while that refresh is already in progress do not require parallel refreshes. The refresh process must leave the browser with internally consistent current authoritative State, including any further changes that occurred while an earlier refresh was being initiated or completed.
-
-Rapid authoritative State changes therefore do not require a browser to observe or render every intermediate State. Superseded intermediate State may be skipped; the browser ultimately renders what is currently true. Where individual occurrences themselves matter for presentation, their Events/Facts remain distinct from current State.
-
-A browser may retain previously obtained State while it remains synchronised and no `NOTICEBOARD_CHANGED` notification has been received. If connection/synchronisation is lost, it must no longer assume that cached State is current. Recovery requires obtaining current authoritative State again.
-
-A browser may issue operational or configuration Requests only while it is synchronised with current authoritative P&P State. If synchronisation is lost, browser controls that would issue such Requests remain unavailable until full synchronisation has completed again. This client-side restriction does not replace P&P validation: P&P remains responsible for validating every Request against current authoritative State and control authority before accepting it.
-
-A missed Event/Fact must never leave a browser permanently wrong. Events/Facts are transient aids for timely presentation such as sounds, flashes, animations or temporary messages; ordinary live Events/Facts do not require guaranteed delivery, acknowledgement, queuing or replay to a browser. If information must remain valid after the moment has passed, it must be represented in authoritative State independently of any Event/Fact. Thus an Event/Fact such as LAP_COMPLETED or NEW_FASTEST_LAP may enhance immediate presentation, while the resulting lap count, last/best lap or current overall fastest lap remain authoritative State.
-
-Persistent results/history are separate from browser Event/Fact delivery. Information that P&P must retain as a lasting record is stored by P&P according to the results/history model and does not depend on any browser having received a live Event/Fact.
-
-Timing-critical physical event capture, ordering, race interpretation and authoritative State maintenance must never wait for browser reads, browser rendering, network delivery or other presentation activity. Slow or disconnected clients must not delay or compromise race timing or authoritative race processing.
-
-The implementation used to determine what must be refreshed, combine rapid changes, and transport notifications or State remains an implementation/prototyping decision. Possible mechanisms such as internal revisions, dirty flags, logical State blocks, deltas or broader snapshots are not prescribed by this architecture and do not make a Noticeboard version part of the conceptual contract.
-
-For time-critical coordinated actions, current State alone is not sufficient. Once a START Request has been accepted, P&P determines the authoritative future **GO instant** using its own high-resolution timing clock. Connected presentation/output devices are given sufficient advance information to schedule their local start-sequence presentation against that same authoritative GO instant rather than waiting for a network message sent at GO.
-
-This allows browser lights, local displays, sounds and other outputs to appear to reach GO together despite ordinary communication latency. P&P itself judges detector events, reaction timing and false starts against the same authoritative GO instant. Presentation latency must therefore not redefine when GO actually occurred.
-
-The mechanism used to relate a browser or output device's local scheduling to P&P's authoritative timing clock is an implementation/prototyping decision. The architectural requirement is common scheduling against a P&P-dictated future instant, not a particular clock-synchronisation protocol.
-
-### 12.5 Browser clock/display updates
-
-P&P remains authoritative for race timing. Timing calculations use the required high-resolution P&P timing representation independently of the coarser resolution chosen for normal display.
-
-Where a normal running clock or countdown is displayed in whole seconds, P&P sends the browser an authoritative time/state update once per displayed second while that value is changing. A meaningful state change or event between those regular ticks causes an immediate appropriate update rather than waiting for the next one-second tick.
-
-Thus display update cadence does not determine timing accuracy: a detector event may be timestamped and processed at high resolution even though the ordinary running clock changes only once per second.
-
-The browser need not run an independent authoritative race clock. This keeps multiple displays tied to P&P's authoritative timing while avoiding unnecessary continuous browser updates.
-
-Separately from race timing, P&P may maintain a low-stakes human-readable clock for browser display and connection indication. P&P does not require an RTC, Internet time or manually entered wall-clock time for racing. When a browser connects, it may supply its own approximate local time to initialise this display clock. Accuracy to real-world time is not important to race operation.
-
-Once initialised, P&P maintains this display clock and sends its current value to connected browsers once per second. This is a dedicated time/display synchronisation stream, not a Noticeboard mutation: its once-per-second updates do not generate `NOTICEBOARD_CHANGED` notifications. Browsers display the P&P-supplied value rather than independently advancing their own copy. These regular clock updates therefore also provide a simple connection/health indication without requiring a separate routine heartbeat.
-
-A single missed update need not imply failure. If updates cease beyond an implementation-defined tolerance, the browser treats itself as unsynchronised, freezes rather than locally advancing the P&P display clock, and indicates connection loss. Recovery requires a fresh full authoritative state snapshot before normal delta processing resumes.
-
-The display clock is not an authoritative source for lap times, elapsed/remaining race timing, reaction times, scheduled race actions or other competition timing. Those remain based on P&P's high-resolution monotonic/system timing. History need not retain wall-clock/date information merely because the display clock exists; retained race timing concerns durations and results.
-
-The transport, protocol and payload representation used to carry Requests, Request Results, State and Events/Facts remain implementation decisions.
-
-## 13. Memory Module
-
-The **Memory Module** owns information that P&P deliberately retains across power cycles. Its internal storage technology may be flash, SD card, files, a database or another suitable implementation; other modules do not depend on that choice.
-
-Persistent information may include installation/configuration data, remembered setup and preferences, MUG/car records where supported, race/session history, lap data, personal-best summaries and overall track-record summaries.
-
-Memory has three distinct relationships with the rest of P&P:
-
-1. **Persistent information** — Memory owns the persistent copy of installation configuration, preferences, remembered Race Setup, identities, history, records and similar information that must survive power loss.
-2. **Working information** — at startup, and when an authorised persistent change is accepted, the applicable information is made available in working RAM to the modules/responsibilities that need it. Normal operation then uses that working data locally. A sensor crossing, output action or race calculation must not require a fresh persistent-storage lookup merely to obtain configuration already loaded for operation.
-3. **Session preparation and recording** — the proposed Race Setup plus relevant working installation/capability information contribute to creation of a fixed **Session Definition in RAM** when START is accepted. The Session Definition freezes the roles of every input, output and other capability required by that session, so those meanings cannot change underneath the race. Authoritative race/session information worth retaining is written to Memory as appropriate during or after a session.
-
-The Session Definition is therefore not a gateway to Memory and is not a module. It is frozen working data that isolates an active session from later changes to persistent configuration.
-
-The P&P Message Bus is used when components communicate changes, Requests, facts or state to one another. A module reading configuration/state already present in its own working RAM is local data access, not a P&P Message Bus transaction.
-
-Memory must not become a shadow Race Engine by reconstructing competition state from every live event. The Race Engine remains authoritative for competition interpretation and live competition state; Memory retains the authoritative results/history information provided for persistence.
-
-The initial product should retain a deliberately modest useful result/history record rather than logging everything simply because storage is available.
-
-The product-level retained-history behaviour is defined in `BROWSER_FLOW_RESULTS_HISTORY_SPEC.md`; the detailed persistence schema and storage technology remain implementation decisions. Wall-clock date/time is not required for retained race history.
-
-The storage model must be extensible so that substantially richer information can be retained later without redesigning Race Control or making older records unusable.
-
-### 13.0 Physical storage resource ownership
-
-The P&P Memory/storage responsibilities may use one physical SD card for
-History/Records, active/detail persistence and observation-only Diagnostics,
-but those logical consumers do not own the physical device independently.
-Exactly one P&P physical-storage owner owns FSPI initialisation, the
-`SD.begin()`/mount lifecycle, FAT/filesystem access and physical recovery.
-
-The owner coordinates and serializes actual filesystem operations inside the
-storage boundary. Logical consumers submit bounded work through their defined
-interfaces and namespaces; this serialization must never put SD/FAT latency
-into Race Engine timing, input processing or other timing-critical authority.
-Storage failure, queueing and slow media therefore remain isolated from
-authoritative racing and HTTP operation.
-
-A successful physical mount is shared. Consumers do not create independent
-SPI objects, call `SD.begin()` or opportunistically remount. Physical-device
-health and logical consumer health are separate: History and Diagnostics may
-report independent logical outcomes, but neither may claim durable SD-backed
-operation while the shared physical device is unavailable. Diagnostics may use
-its existing bounded RAM-only/degraded mode.
-
-On reboot, or at an explicit owner-controlled recovery boundary in an eligible
-non-active lifecycle state, the owner mounts once and logical consumers
-reconstruct their own namespaces through it. History commits, active-detail
-streams, diagnostic appends, rolling and export reads use bounded arbitration
-so one consumer cannot monopolize the medium.
-
-Physical recovery is prohibited while the authoritative session lifecycle is
-`STARTING`, `RACING`, `PAUSED` or `RESTARTING`, and while completion settlement
-or finishing has not yet reached `FINISHED`. It is eligible in `READY` and in
-`FINISHED` after normal completion settlement. During a prohibited state,
-racing continues with the existing failure-isolation rules and recovery is
-deferred. Failed recovery leaves the physical and logical capabilities
-unavailable/degraded without affecting racing or HTTP; logical consumers never
-perform an independent remount.
-
-## 13.1 Information ownership and delivery
-
-P&P may distribute information widely, but it must not distribute ownership. For each authoritative fact or state there is one owner and one truth. Other components may hold views, snapshots or derived presentation data without becoming another authority.
-
-Architectural modules own the internal state required to perform their responsibility. Other modules consume defined outputs, facts, state or requests through the owning module's boundary; they do not depend on its internal workings. In particular, Race Control does not need to know the Race Engine's internal lap, position or calculation process. It consumes only defined Race Engine outputs that matter to session operation, such as competition completion. The architecture therefore does not require a universal central State module.
-
-A component publishes and receives information only through its defined boundaries. Publication means information has been made available; it does not prove every consumer received it and does not by itself imply persistence.
-
-Facts/events describe what happened. Current state describes what is true now. Persistent information describes what must remain available across the relevant lifecycle. A recovering consumer resynchronises from the authoritative current state it needs and then consumes new relevant facts/events; it does not require replay of every earlier transient event.
-
-Where another component's resulting state matters, message delivery alone is not proof that the requested action occurred. The resulting state/status must be available through that component's boundary where the function requires it.
-
-A physical output has one authoritative owner of commanded state. Other functions provide information or request action through boundaries; they do not independently drive it.
-
-A component receives only the information required for its responsibility. The existence of complete authoritative P&P state does not justify a universal mutable state object shared across unrelated components.
-
-## 13.2 Event ordering, duplication and availability
-
-Where authoritative timestamps establish order, P&P uses those timestamps rather than communication arrival order. Where timestamps genuinely do not establish an order, arrival order must not manufacture one; the relevant race/mode rules determine how simultaneous events are treated.
-
-A single source event must not affect authoritative state more than once. The mechanism is an implementation decision and should be placed at the lowest sensible boundary rather than forcing Race Engine to compensate for avoidable transport duplication.
-
-There is no universal age at which a delayed event becomes invalid. Its timestamp is preserved and the responsibility owning its meaning decides whether it remains relevant. Where capability availability changes affect event interpretation, those changes are related to P&P System Time so that an event is interpreted against the state applicable at its event time rather than merely the state when it arrived.
-
-Capability availability is authoritative at the boundary of the responsibility that owns or monitors that capability. That responsibility may use acknowledgements, heartbeat, timeout, self-test, connection state or another suitable mechanism internally. Race Control consumes the functional status needed for race decisions, not routine low-level communications or detailed diagnostics.
-
-Communication status, capability status, event publication/delivery and authoritative processing are distinct. Successful communication is not proof of downstream physical operation or successful event processing unless the relevant boundary explicitly provides that information.
-
-Loss of a capability invalidates any stale claim that its last reported physical state is still current. On recovery it establishes current state afresh and is not operationally available until required initialisation, compatibility and timing conditions are satisfied.
-
-## 13.3 Identity and low-level addressing
-
-Anything P&P needs to distinguish must have unambiguous stable identity within P&P. Human-readable names are labels, not identities.
-
-Intelligent devices use stable identity independent of transport or temporary communications addresses. Simple devices that cannot identify themselves may instead be represented by the stable System Controller capability/connection through which they are used.
-
-Low-level addresses assigned during hardware initialisation are hardware/device-adapter details and must not become P&P identity. Identical I2C sensors, for example, may receive temporary per-boot bus addresses while their stable P&P meaning remains attached to controller detector ports/capabilities.
-
-Assignments belong to configuration, not to a temporary address. A confirmed replacement intelligent device retains its own identity while configuration may transfer the previous assignment to it.
-
-P&P restores and discovers what the hardware can actually establish. It must not pretend to detect an otherwise unobservable physical swap of indistinguishable simple devices.
-
-## 13.4 System Controller and communication topology
-
-The **System Controller (SC)** is the central P&P controller platform containing the authoritative Race Control and Race Engine responsibilities. Race Control is a distinct responsibility within the SC, not another name for the SC.
-
-P&P uses the common communications bus as the normal path for inter-component communication. Mapped information and other messages are consumed by the responsibility that owns their meaning; they are not mechanically forwarded through Race Control or through the SC merely for routing.
-
-A private point-to-point inter-component path is therefore not part of the normal architecture. If implementation later demonstrates a genuine technical need for one, it is an explicit exception and must preserve the same message meaning, authority and observable system state rather than becoming a hidden alternative architecture.
-
-## 13.5 P&P communications bus
-
-P&P components communicate through a common logical message backbone: the **P&P Message Bus**. This is an architectural and programming concept, not necessarily one physical electrical bus or one transport protocol.
-
-The default architectural rule is:
-
-> **If P&P components need to communicate with one another, they do so through the P&P Message Bus.**
-
-Modules, devices and human interfaces attach to the common bus and exchange standard P&P messages without requiring direct knowledge of each other's implementation. Local software participants may attach in-process; remote participants reach the same logical bus through appropriate Transport Adapters.
-
-The bus may carry Requests, Request Results, standard Input Events, Actions, Events/Facts, `NOTICEBOARD_CHANGED` notifications and other defined P&P messages.
-
-### 13.5.1 Authority and message policing
-
-Connection to the bus grants **connectivity, not authority**. The same rule
-applies to association with the factory P&P Wi-Fi access point: reaching the
-Browser or another transport does not create or upgrade the Master,
-controlling-SMUG or Race Director lease.
-
-Each standard P&P message contract defines:
-
-- what the message means and the data it carries;
-- which participant or responsibility is permitted to publish/originate it;
-- which participant(s) or responsibilities are permitted or expected to consume it.
-
-A component must not acquire authority merely because it can technically place a message on the bus. For example, an Input Device may originate a valid detector event but cannot authoritatively declare that a lap has been completed; that interpretation belongs to the Race Engine. A browser may originate an authorised START Request but cannot publish an authoritative GO or mutate competition state.
-
-Consumers subscribe to or receive only the message types appropriate to their responsibilities. This replaces architectural policing by dedicated point-to-point pathways while preserving the same responsibility boundaries.
-
-The bus itself does not decide whether a message is true, valid or operationally permitted. Validation and consequence remain with the authoritative responsibility defined for that message.
-
-### 13.5.2 One message, one or many consumers
-
-A message may have one intended consumer or several. A START Request is handled by Race Control. A competition detector event is handled by the Race Engine. An authoritative scheduled start publication may be consumed by the Race Engine, lights, browser presentation, Taster, audio and test equipment.
-
-This allows a new consumer, such as a future scoreboard, to subscribe to existing standard P&P information without requiring Race Control or the Race Engine to be modified merely to know that the new consumer exists.
-
-Race Control and the Race Engine use this same bus for their own defined communication. They do not require a special private link.
-
-### 13.5.3 State notification and resynchronisation
-
-The P&P Message Bus does not replace authoritative P&P State.
-
-Authoritative State remains owned by the relevant P&P responsibilities. A `NOTICEBOARD_CHANGED` notification on the bus says that something material on the authoritative Noticeboard has changed. A browser or other current-state consumer then refreshes the current authoritative State it needs.
-
-Rapid successive changes may therefore collapse naturally from the consumer's point of view. A browser may receive one or more such notifications and simply refresh to what is true now rather than reconstructing every intermediate State. Events/Facts that matter individually remain separate bus messages where their individual occurrence is relevant.
-
-### 13.5.4 Transport Adapters
-
-The P&P Message Bus is a logical topology. It need not be one physical network and does not require every message to be physically broadcast to every participant.
-
-A **Transport Adapter** connects a particular communications mechanism to the logical bus while preserving standard P&P message meaning and authority. Examples may include local in-process delivery, wired remote communication, ESP-NOW and Wi-Fi/WebSocket. The exact transports and software mechanisms remain implementation decisions.
-
-A Transport Adapter may filter/deliver only messages relevant to participants reachable through it. A slow or disconnected remote participant must not block timing-critical local processing.
-
-The logical topology may therefore be pictured similarly to a shared Ethernet backbone: Input Devices, SC responsibilities, Memory, human interfaces, physical outputs, test tooling and future devices are participants attached to a common communications system. Direction and authority are properties of individual messages and responsibilities, not of the bus itself.
-
-Human-interface participants such as the Browser and Taster are two-way: they consume P&P information for presentation and may originate authorised Requests. One-way output participants such as start lights may simply consume the message types they require.
-
-## 13.6 Manual User Gateway (MUG)
-
-A **Manual User Gateway (MUG)** is a phone, tablet, computer or other browser host acting as a human-facing P&P interface. The integrated physical Taster is another P&P human-interface participant, not a second controller. When no SMUGLAND controller is connected, the Taster may control the supported standalone operations. A connected SMUGLAND controller automatically supersedes Taster control; when that connection is lost, the controller may restore control to Taster through the same control-lease boundary. Race Control remains the sole lifecycle authority.
-
-Multiple MUGs may be connected simultaneously. One MUG may hold Race Director authority while others operate as permitted driver, display or spectator clients. A MUG does not own race state and its disconnection must not stop the race.
-
-MUG is internal/technical vocabulary; customer-facing interfaces may use ordinary terms such as Race Director, driver or display.
-
-## 14. Test and diagnostics
-
-Testability is a permanent architectural responsibility.
-
-Real wired detectors, wireless devices, future devices and simulated inputs should use the same standard P&P message contracts and common communications bus. Test tooling may publish permitted synthetic/test messages and subscribe to relevant outputs at the same architectural boundaries used by real components. **The injection point depends on what is under test:** an Input Device/Input Module test stimulates the source-facing side so filtering and event production are exercised; a downstream race/session test may impersonate the Input Module and publish an authorised standard `INPUT_EVENT` onto the P&P Message Bus. The latter deliberately bypasses physical sensing because that hardware boundary is not the subject of that test; it does not create a private production path around the P&P Message Bus.
-
-Testing should support, as appropriate:
-
-- manual event generation;
-- scripted races;
-- synthetic devices/capabilities/events;
-- delayed or out-of-order communication;
-- clock drift;
-- missing/disconnected devices;
-- replacement devices;
-- unknown capabilities/events.
-
-Test paths must not create a separate version of Race Control.
-
-A key extensibility test is:
-
-> **When something new is introduced, how far does the required change propagate?**
-
-Unknown or unsupported optional capabilities should fail locally and must not prevent unaffected functions from operating.
-
-## 15. Failure and recovery
-
-Failure handling is based on the **function/capability lost**, not merely the component that failed.
-
-A fault should propagate only as far as the functions that depend upon it. Loss of an optional sector detector, display or sound capability should not unnecessarily stop unaffected racing functions. Loss of a capability essential to the active session may require the session to pause, stop or otherwise be treated as degraded.
-
-Registry reports availability; Race Control determines the consequence for the current session.
-
-When a failed component returns, technical reconnection does not imply that information missed during its absence can be reconstructed. A returning component rejoins from authoritative current P&P state rather than blindly resuming stale pre-failure state.
-
-Recovery engineering must remain proportionate to the product. P&P is not required to reconstruct a live race after every conceivable controller crash or power failure. Persistent configuration should survive and the system should restart cleanly; detailed live-race crash recovery is a later product decision and should only be implemented where its benefit justifies the complexity.
-
-## 16. Updates and compatibility
-
-The P&P Controller is the customer-facing update authority.
-
-Controller firmware should support customer-initiated OTA updating through the normal P&P interface when the customer chooses to provide Internet access. Ordinary racing must remain independent of Internet availability.
-
-The controller update mechanism must be recoverable: installing a replacement must not deliberately destroy the only known-working firmware before the new firmware has been successfully installed and validated. The exact mechanism is an implementation decision.
-
-Intelligent modules expose sufficient version and capability information for P&P to determine compatibility.
-
-The architecture permits intelligent modules to be updated through the P&P controller where appropriate, without requiring the customer to connect each module to development tools or separately configure it for Internet access. **Remote updating is optional for a module**; simple or inexpensive modules are not required to implement OTA merely to qualify as P&P-compatible.
-
-An incompatible or outdated optional component should be identified clearly without unnecessarily preventing compatible functions from operating.
-
-## 17. Detailed design status
-
-The Race Control / Race Engine responsibility question has been resolved in `RACE_CONTROL_ENGINE_DESIGN.md`: Race Control owns session operation/lifecycle, while Race Engine owns competition interpretation, state, rules and calculations. Together they preserve one authoritative P&P race/session authority without duplicate ownership.
-
-The final architecture review also confirmed that components exchange information only through their defined boundaries, authoritative facts can be consumed independently without making consumers authoritative, Presentation never owns authoritative P&P data, and current-state consumers can resynchronise from authoritative state rather than reconstructing it from missed live events.
-
-Product-level persistence/history behaviour and race-mode behaviour are now defined in the relevant product specifications. Detailed persistence schema, storage technology and implementation structures remain implementation decisions rather than architectural prerequisites.
-
-Implementation choices deliberately remain outside this document at this stage, including:
-
-- ESP32 model;
-- sensor model;
-- connectors and pinouts;
-- transport/protocol details;
-- clock-synchronisation algorithm;
-- storage technology;
-- web framework;
-- packet formats;
-- C++ classes;
-- source-tree structure;
-- detailed UI;
-- exact audio hardware.
-
----
-
-**Governing question:**  
-**Does this make the system more Plonk & Play™ for the customer, or less?**
+# Plonk & Play™ System Architecture — retired
+
+**RETIRED as a separate governing specification on 19 November 2026.** The authoritative content has moved into the single [P&P Design Specification](PP_DESIGN_SPEC.md#system-architecture--plonk--play-system-architecture). Do not edit requirements here.
+
+[Original preserved revision](https://github.com/ConnalM/Plonk-and-Play/blob/35aedb5470f9a06193aefd2073e5a911acae53da/docs/SYSTEM_ARCHITECTURE.md) (historical only).
+
+## Legacy section links
+
+<a id="1-architectural-approach"></a>
+- [1. Architectural approach](PP_DESIGN_SPEC.md#system-architecture--1-architectural-approach)
+<a id="2-high-level-responsibilities"></a>
+- [2. High-level responsibilities](PP_DESIGN_SPEC.md#system-architecture--2-high-level-responsibilities)
+<a id="3-devices-capabilities-and-physical-mounting"></a>
+- [3. Devices, capabilities and physical mounting](PP_DESIGN_SPEC.md#system-architecture--3-devices-capabilities-and-physical-mounting)
+<a id="4-input-architecture"></a>
+- [4. Input architecture](PP_DESIGN_SPEC.md#system-architecture--4-input-architecture)
+<a id="41-input-module-and-input-devices"></a>
+- [4.1 Input Module and Input Devices](PP_DESIGN_SPEC.md#system-architecture--41-input-module-and-input-devices)
+<a id="42-detector-events"></a>
+- [4.2 Detector events](PP_DESIGN_SPEC.md#system-architecture--42-detector-events)
+<a id="43-extensible-events"></a>
+- [4.3 Extensible events](PP_DESIGN_SPEC.md#system-architecture--43-extensible-events)
+<a id="44-device-roles-and-session-interpretation"></a>
+- [4.4 Device roles and session interpretation](PP_DESIGN_SPEC.md#system-architecture--44-device-roles-and-session-interpretation)
+<a id="45-transport-independence-and-transport-adapters"></a>
+- [4.5 Transport independence and Transport Adapters](PP_DESIGN_SPEC.md#system-architecture--45-transport-independence-and-transport-adapters)
+<a id="46-separation-of-knowledge"></a>
+- [4.6 Separation of knowledge](PP_DESIGN_SPEC.md#system-architecture--46-separation-of-knowledge)
+<a id="5-device-failure-and-replacement"></a>
+- [5. Device failure and replacement](PP_DESIGN_SPEC.md#system-architecture--5-device-failure-and-replacement)
+<a id="6-registry-and-discovery"></a>
+- [6. Registry and Discovery](PP_DESIGN_SPEC.md#system-architecture--6-registry-and-discovery)
+<a id="61-stable-identity"></a>
+- [6.1 Stable identity](PP_DESIGN_SPEC.md#system-architecture--61-stable-identity)
+<a id="62-replacement-devices"></a>
+- [6.2 Replacement devices](PP_DESIGN_SPEC.md#system-architecture--62-replacement-devices)
+<a id="63-simple-directly-connected-hardware"></a>
+- [6.3 Simple directly connected hardware](PP_DESIGN_SPEC.md#system-architecture--63-simple-directly-connected-hardware)
+<a id="64-capability-level-availability"></a>
+- [6.4 Capability-level availability](PP_DESIGN_SPEC.md#system-architecture--64-capability-level-availability)
+<a id="65-transport-independent-discovery"></a>
+- [6.5 Transport-independent discovery](PP_DESIGN_SPEC.md#system-architecture--65-transport-independent-discovery)
+<a id="66-power-on-reconciliation-and-readiness"></a>
+- [6.6 Power-on reconciliation and readiness](PP_DESIGN_SPEC.md#system-architecture--66-power-on-reconciliation-and-readiness)
+<a id="7-configuration-race-setup-and-working-ram"></a>
+- [7. Configuration, Race Setup and working RAM](PP_DESIGN_SPEC.md#system-architecture--7-configuration-race-setup-and-working-ram)
+<a id="71-installation-configuration"></a>
+- [7.1 Installation configuration](PP_DESIGN_SPEC.md#system-architecture--71-installation-configuration)
+<a id="72-race-setup"></a>
+- [7.2 Race Setup](PP_DESIGN_SPEC.md#system-architecture--72-race-setup)
+<a id="73-user--presentation-preferences"></a>
+- [7.3 User / presentation preferences](PP_DESIGN_SPEC.md#system-architecture--73-user--presentation-preferences)
+<a id="74-configuration-versus-live-state"></a>
+- [7.4 Configuration versus live state](PP_DESIGN_SPEC.md#system-architecture--74-configuration-versus-live-state)
+<a id="75-startup-reconciliation"></a>
+- [7.5 Startup reconciliation](PP_DESIGN_SPEC.md#system-architecture--75-startup-reconciliation)
+<a id="76-configuration-changes-during-operation"></a>
+- [7.6 Configuration changes during operation](PP_DESIGN_SPEC.md#system-architecture--76-configuration-changes-during-operation)
+<a id="77-optional-drivercar-data"></a>
+- [7.7 Optional driver/car data](PP_DESIGN_SPEC.md#system-architecture--77-optional-drivercar-data)
+<a id="77-authoritative-noticeboard"></a>
+- [7.7 Authoritative Noticeboard](PP_DESIGN_SPEC.md#system-architecture--77-authoritative-noticeboard)
+<a id="8-pp-system-time"></a>
+- [8. P&P System Time](PP_DESIGN_SPEC.md#system-architecture--8-pp-system-time)
+<a id="9-race-control"></a>
+- [9. Race Control](PP_DESIGN_SPEC.md#system-architecture--9-race-control)
+<a id="90-normal-live-communication"></a>
+- [9.0 Normal live communication](PP_DESIGN_SPEC.md#system-architecture--90-normal-live-communication)
+<a id="91-race-modes"></a>
+- [9.1 Race modes](PP_DESIGN_SPEC.md#system-architecture--91-race-modes)
+<a id="92-optional-race-features"></a>
+- [9.2 Optional race features](PP_DESIGN_SPEC.md#system-architecture--92-optional-race-features)
+<a id="93-racesession-state-and-calculations"></a>
+- [9.3 Race/session state and calculations](PP_DESIGN_SPEC.md#system-architecture--93-racesession-state-and-calculations)
+<a id="94-race-facts-versus-actions"></a>
+- [9.4 Race facts versus actions](PP_DESIGN_SPEC.md#system-architecture--94-race-facts-versus-actions)
+<a id="10-output-architecture"></a>
+- [10. Output architecture](PP_DESIGN_SPEC.md#system-architecture--10-output-architecture)
+<a id="101-time-critical-outputs"></a>
+- [10.1 Time-critical outputs](PP_DESIGN_SPEC.md#system-architecture--101-time-critical-outputs)
+<a id="102-failure-behaviour"></a>
+- [10.2 Failure behaviour](PP_DESIGN_SPEC.md#system-architecture--102-failure-behaviour)
+<a id="103-track-power"></a>
+- [10.3 Track power](PP_DESIGN_SPEC.md#system-architecture--103-track-power)
+<a id="11-sound"></a>
+- [11. Sound](PP_DESIGN_SPEC.md#system-architecture--11-sound)
+<a id="12-presentation-and-user-interaction"></a>
+- [12. Presentation and user interaction](PP_DESIGN_SPEC.md#system-architecture--12-presentation-and-user-interaction)
+<a id="120-local-browser-access"></a>
+- [12.0 Local Browser access](PP_DESIGN_SPEC.md#system-architecture--120-local-browser-access)
+<a id="121-context-sensitive-controls"></a>
+- [12.1 Context-sensitive controls](PP_DESIGN_SPEC.md#system-architecture--121-context-sensitive-controls)
+<a id="122-one-master--race-director"></a>
+- [12.2 One Master / Race Director](PP_DESIGN_SPEC.md#system-architecture--122-one-master--race-director)
+<a id="123-non-master-clients"></a>
+- [12.3 Non-Master clients](PP_DESIGN_SPEC.md#system-architecture--123-non-master-clients)
+<a id="124-requests-and-browser-synchronisation"></a>
+- [12.4 Requests and browser synchronisation](PP_DESIGN_SPEC.md#system-architecture--124-requests-and-browser-synchronisation)
+<a id="125-browser-clockdisplay-updates"></a>
+- [12.5 Browser clock/display updates](PP_DESIGN_SPEC.md#system-architecture--125-browser-clockdisplay-updates)
+<a id="13-memory-module"></a>
+- [13. Memory Module](PP_DESIGN_SPEC.md#system-architecture--13-memory-module)
+<a id="130-physical-storage-resource-ownership"></a>
+- [13.0 Physical storage resource ownership](PP_DESIGN_SPEC.md#system-architecture--130-physical-storage-resource-ownership)
+<a id="131-information-ownership-and-delivery"></a>
+- [13.1 Information ownership and delivery](PP_DESIGN_SPEC.md#system-architecture--131-information-ownership-and-delivery)
+<a id="132-event-ordering-duplication-and-availability"></a>
+- [13.2 Event ordering, duplication and availability](PP_DESIGN_SPEC.md#system-architecture--132-event-ordering-duplication-and-availability)
+<a id="133-identity-and-low-level-addressing"></a>
+- [13.3 Identity and low-level addressing](PP_DESIGN_SPEC.md#system-architecture--133-identity-and-low-level-addressing)
+<a id="134-system-controller-and-communication-topology"></a>
+- [13.4 System Controller and communication topology](PP_DESIGN_SPEC.md#system-architecture--134-system-controller-and-communication-topology)
+<a id="135-pp-communications-bus"></a>
+- [13.5 P&P communications bus](PP_DESIGN_SPEC.md#system-architecture--135-pp-communications-bus)
+<a id="1351-authority-and-message-policing"></a>
+- [13.5.1 Authority and message policing](PP_DESIGN_SPEC.md#system-architecture--1351-authority-and-message-policing)
+<a id="1352-one-message-one-or-many-consumers"></a>
+- [13.5.2 One message, one or many consumers](PP_DESIGN_SPEC.md#system-architecture--1352-one-message-one-or-many-consumers)
+<a id="1353-state-notification-and-resynchronisation"></a>
+- [13.5.3 State notification and resynchronisation](PP_DESIGN_SPEC.md#system-architecture--1353-state-notification-and-resynchronisation)
+<a id="1354-transport-adapters"></a>
+- [13.5.4 Transport Adapters](PP_DESIGN_SPEC.md#system-architecture--1354-transport-adapters)
+<a id="136-manual-user-gateway-mug"></a>
+- [13.6 Manual User Gateway (MUG)](PP_DESIGN_SPEC.md#system-architecture--136-manual-user-gateway-mug)
+<a id="14-test-and-diagnostics"></a>
+- [14. Test and diagnostics](PP_DESIGN_SPEC.md#system-architecture--14-test-and-diagnostics)
+<a id="15-failure-and-recovery"></a>
+- [15. Failure and recovery](PP_DESIGN_SPEC.md#system-architecture--15-failure-and-recovery)
+<a id="16-updates-and-compatibility"></a>
+- [16. Updates and compatibility](PP_DESIGN_SPEC.md#system-architecture--16-updates-and-compatibility)
+<a id="17-detailed-design-status"></a>
+- [17. Detailed design status](PP_DESIGN_SPEC.md#system-architecture--17-detailed-design-status)
