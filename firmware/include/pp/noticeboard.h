@@ -1,6 +1,7 @@
 #pragma once
 #include "race_control.h"
 #include "race_engine.h"
+#include "system_time.h"
 namespace pp {
 struct NoticeboardEntryState { uint32_t raceEntryId,mugId,laps,classifiedLaps,lapPenalty,position,lapsBehind;uint8_t lane;RaceEngineModule::LiveGapKind gapKind;Time gapTime,lastLapTime,bestLapTime;bool hasLap,waitingForTimingOrigin; bool completed=false,hasOvertimeOffset=false; Time finishDuration=0,overtimeOffset=0; constexpr NoticeboardEntryState(uint32_t id=0,uint32_t mug=0,uint32_t lap=0,Time time=0,bool present=false,Time best=0,bool waiting=false,uint32_t classified=0,uint32_t penalty=0,uint8_t laneValue=0,uint32_t positionValue=0,uint32_t behind=0,RaceEngineModule::LiveGapKind gap=RaceEngineModule::LiveGapKind::None,Time gapValue=0):raceEntryId(id),mugId(mug),laps(lap),classifiedLaps(classified),lapPenalty(penalty),position(positionValue),lapsBehind(behind),lane(laneValue),gapKind(gap),gapTime(gapValue),lastLapTime(time),bestLapTime(best),hasLap(present),waitingForTimingOrigin(waiting){} };
 struct NoticeboardState {
