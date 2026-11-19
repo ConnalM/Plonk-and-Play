@@ -630,8 +630,10 @@ frozen in the authoritative `SessionDefinition` at START. A standalone Taster
 race is non-official: it must not enter official History, PB or Track Records;
 a later SMUG connection cannot change that eligibility, and simulated-race
 classification remains preserved. The approved display description is one full
-RGB framebuffer plus 20-line bounce buffers. These are binding requirements;
-implementation and regression evidence remain open until separately accepted.
+RGB framebuffer plus 20-line bounce buffers. The isolated issue-review branch
+now implements the frozen field, trusted local Taster START provenance and
+Race Engine persistence gates, with focused host evidence only; physical and
+full regression acceptance remain open.
 
 WP0–WP5 accepted completion evidence remains credited. WP6 retains its parked
 signed-validation and automatic-rollback physical obligations. WP7 has bounded
@@ -644,9 +646,10 @@ Immediate technical order is:
 1. Complete WP8 software: the static Taster presentation, Browser/Taster
    coexistence, audio, Browser visual design and regression obligations.
    obligations without weakening their acceptance criteria.
-2. Review the [standalone Taster record-eligibility implementation and acceptance
-   plan](STANDALONE_TASTER_RECORD_ELIGIBILITY_PLAN.md) before authorising changes
-   to the local session flow.
+2. Complete the [standalone Taster record-eligibility acceptance
+   plan](STANDALONE_TASTER_RECORD_ELIGIBILITY_PLAN.md): review the isolated
+   implementation, then run the remaining Endurance, lease-transition,
+   physical-storage and real-detector evidence before release credit.
 3. After WP8 software completion, select and integrate real WP7 detector hardware, wiring and gantry, then prove
    two-lane product-intent detection and replacement/fault behaviour.
 4. Execute the shared-configuration/Race Engine/HTTP-socket/WP6 adapter

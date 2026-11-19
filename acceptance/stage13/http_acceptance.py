@@ -1,10 +1,15 @@
-"""Stage 12 real-HTTP acceptance against the production Browser Interface.
-Requires a freshly booted stage12demo image and uses independent cookie stores.
+"""Stage 13 real HTTP/SSE acceptance against the production Browser Interface.
+Requires a freshly booted acceptance image with independent cookie stores.
+The controlling Browser must have a real connected SSE session.
 """
 import json,sys,time
 from urllib.request import Request,build_opener,HTTPCookieProcessor,ProxyHandler
 from urllib.error import HTTPError,URLError
 from http.cookiejar import CookieJar
+from pathlib import Path
+# Reuse the production-boundary SSE client from Stage 15; no firmware bypass.
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'stage15'))
+from multiclient_http_acceptance import EventStream
 BASE=sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:9080'
 def client():
  jar=CookieJar();return build_opener(ProxyHandler({}),HTTPCookieProcessor(jar)),jar
@@ -46,7 +51,10 @@ master,master_jar=client();spectator,spectator_jar=client()
 assert call(master,'/health')[0]==200
 for o,j in ((master,master_jar),(spectator,spectator_jar)):
  status,c=call(o,'/context');assert status==200 and c['role']=='Spectator' and len(list(j))==1
+master_stream=EventStream(master,'stage13-controller').start()
+master_stream.discard_initial()
 assert call(master,'/bootstrap','POST')[1]['bootstrap'] is True
+assert call(master,'/context')[1]['ownerConnected'] is True
 assert call(master,'/context')[1]['role']=='Race Director'
 assert call(spectator,'/context')[1]['role']=='Spectator'
 assert call(spectator,'/bootstrap','POST')[0]==409
@@ -70,4 +78,19 @@ fixture(master,'reset');clean=wait_state(master,'READY')
 assert call(master,'/context')[1]['role']=='Race Director'
 assert not clean['resultSealed'] and all(e['laps']==0 for e in clean['entries'])
 assert call(master,'/fact')[1]['type']=='NONE'
-print('Stage 12 real HTTP Browser acceptance PASS')
+master_stream.close()
+end=time.time()+25  # allow the server's 10-second SSE keepalive to detect socket loss
+while time.time()<end and call(master,'/context')[1]['ownerConnected']:
+ time.sleep(.1)
+assert call(master,'/context')[1]['ownerConnected'] is False
+assert call(master,'/context')[1]['isMaster'] is True
+assert operation(master,'/request/start',4)['result']=='REJECTED'
+assert call(master,'/state')[1]['lifecycle']=='READY'
+reconnected=EventStream(master,'stage13-reconnect').start()
+reconnected.discard_initial()
+assert call(master,'/context')[1]['ownerConnected'] is True
+assert operation(master,'/request/start',5)['result']=='ACCEPTED'
+wait_state(master,'RACING')
+fixture(master,'reset');wait_state(master,'READY')
+reconnected.close()
+print('Stage 13 real HTTP/SSE Browser acceptance PASS')
