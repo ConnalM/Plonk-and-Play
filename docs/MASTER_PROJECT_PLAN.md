@@ -437,7 +437,9 @@ the Project Owner's explicit approval.
 | Physical moving cars, chequered flags, double-buffer experiments, animation polish | Deferred until core complete; WP9 scope decision |
 | Power Module electrical design and RMS Yellow/Red/resume/track-power detail | Unallocated optional scope; WP9 |
 | Attract hardware/artwork/sequence/wake-exit and local/Browser scope | Unallocated; WP9 |
-| Automatic Demo Race virtual-car timing, physical detection during Demo, detailed test controls | Unallocated; WP9, preserve non-official Demo classification |
+| Shared simulation-input foundation and automated physical acceptance | WP8-02: extend the existing arm-enabled mechanism; PC-driven test sequences, no separate Race Engine. Verify standalone and SMUG paths and exclude all simulated races from records. Build/flash require owner authority. |
+| Customer Automatic Demo Race virtual-car routine, physical detection during Demo, manual controls and demo UI | Detailed design deferred; WP9 scope decision. Reuse WP8 simulation foundation; all simulated races non-recorded. |
+| SMUG-controlled auxiliary Integrated Display | Requirements first, after automated testing of approved standalone screens; adapt to race type and lane count, then Gina design and Al implementation. Detailed behaviour and layouts not yet approved. |
 | QR connection aid | Later optional enhancement |
 | Drag dual-beam/REU design | Post-v1 |
 | Championship management including CONTINUE | Post-v1 |
