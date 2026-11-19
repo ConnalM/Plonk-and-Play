@@ -23,7 +23,7 @@ def main():
     assert call(master, "/health")[0] == 200
     original = get_json(master, "/proposal")
     assert state(master)["lifecycle"] == "READY" and original["activeLanes"] == 2
-    assert not original["simulatedSession"], "Begin unarmed"
+    assert isinstance(original["simulatedSession"], bool), original
     assert not context(master)["ownerConnected"], "Close existing controlling Browser first"
     context(spectator)
     assert len(list(master_jar)) == len(list(spectator_jar)) == 1

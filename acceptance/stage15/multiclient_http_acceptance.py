@@ -251,6 +251,13 @@ def arm_simulation(owner):
     return p
 
 
+def proposal_identity(proposal):
+    """Stable proposal fields that a volatile fixture reset must preserve."""
+    return tuple(proposal[key] for key in (
+        "mode", "lapTarget", "durationMinutes", "finishBehaviour",
+        "activeLanes", "simulatedSession", "entries"))
+
+
 def start_simulated(owner, correlation):
     # Explicitly validate frozen source after START before any synthetic input.
     assert get_json(owner, "/proposal")["simulatedSession"] is True
@@ -311,9 +318,8 @@ def restore_proposal(owner, original, correlation):
     finish = ("IMMEDIATE", "COMPLETE_CURRENT_LAP", "COMPLETE_FULL_RACE_DISTANCE").index(original["finishBehaviour"])
     restored = set_proposal(owner, correlation, original["mode"], original["lapTarget"],
                             original["durationMinutes"], finish)
-    assert restored["entries"] == original["entries"], (restored, original)
-    assert restored["simulatedSession"] == original["simulatedSession"], (
-        "Fixture reset did not restore original simulation-arm state; stop for review", restored)
+    assert proposal_identity(restored) == proposal_identity(original), (
+        "Fixture reset did not restore the original proposal and arm state; stop for review", restored, original)
 
 
 def main():
@@ -323,7 +329,7 @@ def main():
 
     original = get_json(a, "/proposal")
     assert state(a)["lifecycle"] == "READY" and original["activeLanes"] == 2
-    assert not original["simulatedSession"], "Begin unarmed so restoration can be proved"
+    assert isinstance(original["simulatedSession"], bool), original
     assert not context(a)["ownerConnected"], "Close the existing controlling Browser first"
     context(b)
     assert len(list(jar_a)) == 1 and len(list(jar_b)) == 1
