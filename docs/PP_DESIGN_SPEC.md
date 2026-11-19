@@ -1721,7 +1721,7 @@ Hardware-dependent options may remain visible but locked/greyed with a short exp
 
 Practice is a proper subset of Lap, not a race with a fake winner.
 
-Practice has no normal winner/finish condition and does not require a start sequence.
+Practice has no normal winner/finish condition. Open Practice offers two SMUG-selectable start options: **Immediate start** (default, no countdown) and **Practice start** (normal five-light starting sequence). Both remain Open Practice and neither creates a competitive result. See the [authoritative lifecycle](#stage-14b-design--mode-and-lifecycle).
 
 Practice has Open and planned Timed variants. Open Practice is the v1 mode; Timed Practice remains post-v1. See [Open Practice](#stage-14b-design--product-boundary) for the binding session/result rules.
 
@@ -2364,7 +2364,7 @@ Open Practice uses the existing Race Control, Race Engine, Session Definition, I
 
 - Browser/Taster submits an authorised request through Browser Interface.
 - Race Control owns authority and session lifecycle.
-- START creates an immutable Practice Session Definition with the configured active entries and role mappings.
+- START creates an immutable Practice Session Definition with the configured active entries, role mappings and selected Practice start option.
 - Input Module publishes ordinary clean `INPUT_EVENT`s through the Message Bus.
 - Race Engine interprets those events using the Session Definition and owns Practice timing/state.
 - Noticeboard State is authoritative for reconstruction.
@@ -2380,8 +2380,8 @@ The active lifecycle remains the existing `RACING` value with authoritative `ses
 The operational flow is:
 
 1. READY: no Practice session exists.
-2. START accepted: the Practice Session Definition is created and Practice becomes active immediately.
-3. `RACING` plus `OPEN_PRACTICE`: timing is active with no countdown, starting lights or GO requirement.
+2. START accepted: the Practice Session Definition is created. Immediate start enters `RACING` directly. Practice start uses the existing authoritative `STARTING` lifecycle and normal five-light countdown/GO, then enters `RACING`; presentation must consume the same authoritative signals as circuit racing.
+3. `RACING` plus `OPEN_PRACTICE`: normal Practice timing applies in either option. Immediate start has no GO requirement; Practice start admits timing only after GO. No separate Practice-start timing engine or competitive result is introduced.
 4. PAUSED: Practice activity is stopped and incomplete timing is discarded.
 5. RESUME accepted: Practice becomes active immediately and every lane waits for a new timing origin.
 6. END SESSION accepted: Practice ends and the system returns towards READY/Home.
@@ -2400,7 +2400,7 @@ Each active entry independently stores:
 - best completed lap;
 - session-fastest information where straightforward.
 
-At Practice start, every lane waits for a timing origin. The first eligible Start/Finish crossing for a lane establishes that lane's timing origin. Each subsequent eligible crossing completes one lap using the Relevant-Time difference and establishes the next timing origin.
+On entry to `RACING` (immediate start or authoritative GO after the optional Practice start), every lane waits for a timing origin. The first eligible Start/Finish crossing for a lane establishes that lane's timing origin. Each subsequent eligible crossing completes one lap using the Relevant-Time difference and establishes the next timing origin.
 
 Relevant Time remains authoritative over delivery or processing order. Existing Input Module debounce/re-arm and normal Message Bus delivery guarantees remain unchanged.
 
@@ -4732,7 +4732,7 @@ Settings auto-save where intention is unambiguous.
 <a id="browser-flow-results-history-spec--practice-setup-and-control"></a>
 #### Practice setup and control
 
-Practice exposes Open Practice in v1. The planned Timed Practice variant may be shown as unavailable; it must not be startable until authorised and implemented.
+Practice exposes Open Practice in v1. The planned Timed Practice variant may be shown as unavailable; it must not be startable until authorised and implemented. SMUG selects Immediate start (default) or Practice start (normal five-light sequence) in Practice Setup. The auxiliary Integrated Display uses full-screen start lights only for Practice start, otherwise goes straight to Practice information. This is an approved addition to the V18 baseline, not a separate race mode. Detailed repeat-start workflow and false-start handling in Practice remain to be agreed; existing immediate Resume and non-competitive Practice timing/record rules are unchanged.
 
 Open Practice continues until SMUG/Race Control selects **END PRACTICE** in
 the normal Browser. This presentation action invokes the authoritative
@@ -5390,7 +5390,7 @@ Initial implementation is OPEN PRACTICE. Timed Practice remains
 unavailable until P&P has the specified authoritative mechanics.
 
 Open Practice has no race distance, winner, finish policy or competitive
-position.
+position. Provide the two start options defined in [Practice setup and control](#browser-flow-results-history-spec--practice-setup-and-control).
 
 <a id="implementation-spec--numeric-controls"></a>
 #### Numeric controls
