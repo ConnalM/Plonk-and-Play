@@ -10,6 +10,31 @@ Changes to the accepted architectural boundaries should now be made deliberately
 
 This file identifies where agreed P&P decisions live so later design work does not rely on conversation memory alone.
 
+## Approved documentation structure — 19 November 2026
+
+P&P is one product. The owner has agreed one consolidated design specification
+and one consolidated project plan. The Constitution and high-level System
+Requirements govern the design; test specifications, engineering reference
+material and acceptance evidence remain separate from product design.
+
+The consolidated design will bring architecture, product behaviour, detailed
+component design and interfaces together in one document, with sections for
+system architecture, Race Control, Race Engine, Inputs, Outputs, communications
+and system time, memory/storage, Presentation (including Integrated Display,
+Browser and audio), configuration, diagnostics/recovery and physical product.
+A requirement has one authoritative home within that document. Cross-references
+are preferred to repeated rules.
+
+`MASTER_PROJECT_PLAN.md` is the single development backlog and roadmap for all
+work, including current v1 work, later v1 work and post-v1/v2 candidates.
+No competing task list or automatic promotion of post-v1 items is permitted.
+
+**Migration status:** the existing documents listed below remain governing until
+their content is reconciled, transferred and explicitly superseded. Preserve
+approved requirements, source links, implementation obligations and acceptance
+evidence; do not treat historical drafts or prototype behaviour as new approval.
+No firmware change follows from this documentation decision.
+
 ## Governing architecture
 
 - `DESIGN_CONSTITUTION.md` — governing design principles.
