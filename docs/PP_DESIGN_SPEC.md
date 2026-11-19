@@ -614,6 +614,596 @@ Where a hardware failure invalidates an individual race, that race may be restar
 
 **Engineer in proportion to the product.**
 
+> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
+
+<a id="first-implementation-behaviour--pp-first-implementation-behaviour"></a>
+### P&P First Implementation Behaviour
+
+**Status:** Draft v0.1  
+**Parent architecture:** SYSTEM_ARCHITECTURE.md v1.0
+
+<a id="first-implementation-behaviour--1-purpose"></a>
+#### 1. Purpose
+
+This document defines the customer-visible and system behaviour required for the first useful P&P implementation.
+
+It does not redefine the P&P architecture and does not prescribe software classes, protocols, packet formats, browser technology, storage mechanisms, hardware pinouts or other implementation details.
+
+The first implementation is deliberately narrow, while its behaviour must remain consistent with the general P&P architecture.
+
+Initial implementation scope:
+
+- two-lane analogue slot-car timing;
+- Start/Finish detection;
+- basic Lap Race;
+- browser-based control and display.
+
+The behaviour described here should use general P&P mechanisms rather than special-case logic that only works for this first product.
+
+**Design broadly. Implement narrowly.**
+
+<a id="first-implementation-behaviour--2-general-startup-behaviour"></a>
+#### 2. General startup behaviour
+
+P&P uses the same general startup approach regardless of the amount of equipment installed.
+
+Conceptually:
+
+```text
+POWER ON
+   ↓
+Initialise P&P
+   ↓
+Discover what is actually available
+   ↓
+Reconcile discovered equipment with remembered information
+   ↓
+Apply remembered configuration where still valid
+   ↓
+Apply defaults where appropriate
+   ↓
+Determine what configured functions are currently available
+   ↓
+Present the resulting system to the user
+```
+
+Discovery establishes what actually exists.
+
+Remembered configuration and defaults determine what P&P proposes to do with it.
+
+Discovery does not itself imply assignment or use.
+
+<a id="first-implementation-behaviour--3-first-startup-and-defaults"></a>
+#### 3. First startup and defaults
+
+On first startup there is no remembered customer configuration.
+
+P&P discovers all supported equipment that is actually available and then applies the factory/default configuration.
+
+The initial base configuration is:
+
+- two lanes;
+- Lap Race;
+- 10 laps;
+- optional race features off;
+- the recommended base physical arrangement places each lane's Start/Finish sensor before the Start/Finish line in the direction of travel.
+
+With that recommended arrangement, a car starts before its Start/Finish detector. After GO, the first Start/Finish crossing completes Lap 1, timed from GO. This is the default first-implementation behaviour; alternative physical arrangements remain supported through installation configuration and Race Setup as defined by `RACE_CONTROL_ENGINE_DESIGN.md`.
+
+Where the base product or remembered installation makes an assignment unambiguous, P&P may make it automatically. Where more than one valid assignment is possible, P&P must not guess.
+
+For example, if the base product defines two physically distinct standard timing inputs as Lane 1 and Lane 2 Start/Finish, P&P may assign those roles automatically. Discovering several otherwise identical unassigned detectors does not by itself make their roles unambiguous.
+
+Equipment not required by the default configuration remains available but unassigned.
+
+P&P must not invent purposes for equipment merely because it has discovered it.
+
+<a id="first-implementation-behaviour--4-unassigned-equipment"></a>
+#### 4. Unassigned equipment
+
+Useful discovered equipment that remains unassigned is brought to the user's attention.
+
+For example:
+
+`2 unassigned detectors found`
+
+The user may choose to configure that equipment or ignore it for now.
+
+Unassigned optional equipment does not prevent normal operation of the configured system.
+
+The objective is to make the user aware of useful additional capability without forcing unnecessary setup before racing.
+
+<a id="first-implementation-behaviour--5-remembered-configuration"></a>
+#### 5. Remembered configuration
+
+On subsequent startup, remembered configuration takes precedence over factory defaults where it remains valid.
+
+P&P discovers the equipment actually available and reconciles that reality with the remembered configuration.
+
+A missing known device or capability retains its remembered/default role proposal but is marked unavailable. The active racing role is not owned by the device or Input Module; roles actually used by a race are frozen into its Session Definition when START is accepted.
+
+P&P must not silently move another device into that role merely because it is available.
+
+<a id="first-implementation-behaviour--6-required-and-optional-capabilities"></a>
+#### 6. Required and optional capabilities
+
+Whether a capability is required is determined by the selected activity and configuration, not by the hardware itself.
+
+For example, the same compatible detector might be:
+
+- required when assigned as the only Start/Finish detector for an active lane;
+- optional when assigned as a sector detector for a Lap Race.
+
+Loss of an optional capability must not unnecessarily prevent the activity from operating.
+
+Loss of a required capability prevents the affected activity from starting or continuing where meaningful operation is no longer possible.
+
+The selected activity and its enabled features declare the capabilities upon which they depend and whether those dependencies are required or optional.
+
+These dependencies must be declarative and extensible.
+
+P&P must not depend on a fixed central firmware table that has to be modified whenever a future supported activity, feature or capability is introduced.
+
+A genuinely new activity may still require new executable race logic. Declarative configuration is not expected to create functionality which P&P does not otherwise implement.
+
+<a id="first-implementation-behaviour--7-missing-equipment-and-customer-recovery"></a>
+#### 7. Missing equipment and customer recovery
+
+When configured equipment is unavailable, P&P tells the user:
+
+- what is unavailable;
+- what effect that has on the selected activity.
+
+If only optional functionality is unavailable, the activity may still be started.
+
+If required functionality is unavailable, START is unavailable.
+
+P&P may offer:
+
+- Try Again;
+- Setup.
+
+Where another currently available capability is known to be compatible with the missing required role, P&P may additionally offer the user a simple reassignment.
+
+For example, an available sector detector might be offered as a replacement for a missing Start/Finish detector if it provides the required compatible detector capability.
+
+P&P must not perform such reassignment silently.
+
+The user confirms the change and the resulting assignment becomes configuration.
+
+This is a general compatibility/reassignment mechanism, not a collection of individually programmed fault scenarios.
+
+<a id="first-implementation-behaviour--8-pre-race-screen"></a>
+#### 8. Pre-race screen
+
+The main pre-race screen is primarily a summary of what will happen if the user presses START.
+
+It shows the effective forthcoming **Race Setup** rather than the machinery used to create it.
+
+Frequently changed race settings should be directly accessible where practical.
+
+Less frequent installation configuration, including detector assignments and discovered equipment, is available through Setup.
+
+The screen should not be cluttered with hardware details during normal operation.
+
+Hardware/configuration information becomes prominent when the user needs to know or act upon it.
+
+<a id="first-implementation-behaviour--9-start-and-readiness"></a>
+#### 9. START and readiness
+
+P&P does not require a separate prominent READY indicator.
+
+The START control itself communicates readiness.
+
+If all requirements of the selected activity/configuration are satisfied, START is available.
+
+If a required capability is unavailable, START is unavailable and P&P explains why.
+
+Missing optional equipment may be reported without preventing START.
+
+Immediately after START is requested, Race Control performs the final readiness decision using the Registry's authoritative current capability availability, so that a capability lost since the screen was displayed cannot silently invalidate the race. Presentation may display whether START appears available, but it is not the authority that permits the session to start.
+
+No unnecessary confirmation screen is required.
+
+<a id="first-implementation-behaviour--10-fixing-the-session-definition"></a>
+#### 10. Fixing the Session Definition
+
+Before START, the SMUG changes the proposed **Race Setup**. The SMUG does not edit a Session Definition.
+
+When START is accepted, P&P validates the Race Setup against the applicable working installation/capability information and creates the fixed **Session Definition in RAM** for that race. It freezes both the race choices and the session-specific roles of every input, output and other capability required for that race.
+
+Normal race operation may change race state, but ordinary configuration changes must not silently alter the active Session Definition.
+
+START begins the start procedure defined for that race.
+
+<a id="first-implementation-behaviour--11-start-procedure"></a>
+#### 11. Start procedure
+
+Race Control coordinates the configured start procedure and establishes the authoritative GO time.
+
+Outputs participating in that procedure receive the appropriate logical actions through their defined boundaries.
+
+Where independent components must perform timing-critical actions together, P&P coordinates them sufficiently accurately for their intended purpose.
+
+The mechanism used to achieve this is an implementation decision.
+
+Presentation latency must not determine official race timing.
+
+<a id="first-implementation-behaviour--12-running-race-presentation"></a>
+#### 12. Running race presentation
+
+A display receives the authoritative information necessary for its configured purpose.
+
+Race-owning components do not tailor or send information directly to individual displays.
+
+The running presentation shows information relevant to the current race and configured display purpose. Features not in use need not occupy presentation space.
+
+Whether implementation distributes all relevant authoritative information to consumers or filters it according to consumer requirements is an implementation decision and must not affect ownership or race operation.
+
+<a id="first-implementation-behaviour--13-running-race-control"></a>
+#### 13. Running race control
+
+The primary Race Director intervention during a running race is PAUSE.
+
+The operation sequence below describes authoritative Race Control semantics;
+it is not a promise that every operation is exposed as a live-screen Browser
+button. The frozen normal Browser exposes **PAUSE** only while a competitive
+race is active. After authoritative PAUSED it exposes **RESUME**, **RESTART
+RACE** and confirmed **ABANDON**. The same presentation rule applies to Lap
+Race and Endurance. Practice has its separate **PAUSE** then **RESUME** /
+**RESTART** / **END PRACTICE** presentation defined in the Browser flow
+specification.
+
+The basic control flow is:
+
+```text
+RUNNING
+   ↓
+PAUSE
+   ↓
+RESUME / RESTART RACE / END RACE
+```
+
+RESUME continues the existing race.
+
+RESTART RACE abandons the current attempt and begins the same fixed Session Definition again through its normal start procedure.
+
+END RACE abandons the current race and returns the user to the pre-race state.
+
+In the normal Browser, the paused competitive **ABANDON** control invokes this
+authoritative abandonment operation. The distinction is presentation only;
+Race Control remains the owner of lifecycle, cleanup and the no-result/no-
+History outcome.
+
+<a id="first-implementation-behaviour--131-basic-pause-behaviour"></a>
+##### 13.1 Basic PAUSE behaviour
+
+PAUSE suspends competition timing and competition progress without ending the race.
+
+The default restart method is **Honour restart**:
+
+- MUGs stop their cars as soon as reasonably possible when PAUSE/Yellow is called.
+- Cars should remain where they stopped. If a car must be handled, it should be returned as close as reasonably possible to that position.
+- P&P freezes competition timing while paused. Detector activity during the paused interval does not advance competition progress.
+- The interrupted lap is preserved. Time spent paused is excluded from that lap time.
+- RESUME uses a short restart countdown and one authoritative scheduled restart instant so all MUGs receive a predictable common restart rather than racing becoming live at the instant the RESUME Request is pressed.
+
+PAUSED is an operational State, not a claim that all pre-pause input has already been interpreted. A clean local detector event timestamped before the authoritative pause instant remains eligible even if its delivery is delayed. A restart therefore waits for a defined local input-settlement fence before it can be accepted.
+
+This is deliberately an honour-system behaviour for the base product. P&P does not claim to know a car's physical position between configured detection points.
+
+An alternative **Grid Restart** may be selected where a more controlled restart is wanted:
+
+- cars are returned to defined Start/Finish grid positions;
+- incomplete lap progress at PAUSE is discarded;
+- completed laps and other completed competition results remain;
+- the race resumes from the defined grid through the restart sequence.
+
+The exact physical grid placement relative to the Start/Finish detectors must be defined by track/setup guidance so placing cars on the grid does not create an unintended competition crossing.
+
+Future optional hardware such as an REU may provide sufficient authoritative position/progress information for a more accurate position-aware restart. The detailed REU mechanism is not defined here and must not be assumed by the base implementation.
+
+Detailed RMS Yellow/Red state transitions, track-power behaviour and other hardware-dependent pause effects remain deliberately deferred.
+
+<a id="first-implementation-behaviour--14-normal-race-completion"></a>
+#### 14. Normal race completion
+
+Normal completion is determined by the Race Engine according to the selected race rules.
+
+For a Lap Race, the initial design supports three configurable finish behaviours:
+
+1. **Immediate finish** — when the first competitor completes the configured number of laps, the race ends immediately. Other competitors' finishing positions/state are determined at that point.
+2. **Complete current lap** — when the first competitor completes the configured number of laps, each remaining active competitor continues until their next Start/Finish crossing, at which point that competitor is finished.
+3. **Complete full race distance** — every active competitor continues until they have completed the configured number of laps.
+
+More sophisticated finish behaviour may be added later without changing the general Race Control/Race Engine responsibility split.
+
+The selected finish rule becomes part of the fixed Session Definition when START is accepted.
+
+<a id="first-implementation-behaviour--15-results"></a>
+#### 15. Results
+
+When a race completes normally, P&P presents the authoritative final results appropriate to that race.
+
+The product-level results screen, retained History behaviour and post-race options are defined in `BROWSER_FLOW_RESULTS_HISTORY_SPEC.md` and the relevant display/mode specifications. Detailed storage schema and implementation remain implementation decisions.
+
+<a id="first-implementation-behaviour--16-implementation-discipline"></a>
+#### 16. Implementation discipline
+
+The first implementation must implement the behaviour defined above through the responsibilities and boundaries established by the governing P&P documents. It must not introduce first-product shortcuts that bypass or redefine those boundaries.
+
+Where this document deliberately leaves behaviour or implementation undecided, implementation must not silently turn that omission into a permanent architectural decision.
+
+<a id="first-implementation-behaviour--161-first-software-implementation-milestone"></a>
+##### 16.1 First software implementation milestone
+
+The first implementation milestone is a **software/architecture prototype**, not a declaration that the complete first saleable hardware product is finished.
+
+Wokwi may be used as the development test bench for the ESP32-side software, with simulated sensors, buttons and other suitable devices standing in for physical hardware while real browser clients exercise the P&P user/presentation boundary.
+
+Wokwi is **not part of the P&P architecture or product contract**. No architectural responsibility, interface or behaviour may depend on Wokwi-specific facilities. A simulated device must be replaceable by real hardware implementing the same P&P boundary without requiring race/session logic to be redesigned.
+
+The prototype should prove the architectural path and boundaries, including:
+
+- physical/simulated input through Input Devices and the Input Module, producing stable device/capability events without race meaning;
+- the common P&P communications bus as the normal inter-component path;
+- separate Race Control and Race Engine responsibilities;
+- authoritative timing, State and Events/Facts;
+- Requests and Request Results;
+- scheduled GO coordination;
+- browser initial synchronisation and current-State refresh;
+- multiple browser clients;
+- disconnect/reconnect and recovery to current authoritative State;
+- rapid input/state changes without browser/network activity delaying timing-critical race processing;
+- configuration and persistence behaviour required by the implemented features;
+- logical output boundaries using simulated outputs where real output hardware is not yet present.
+
+Product features should then be added through these same boundaries rather than bypassing them for convenience.
+
+<a id="first-implementation-behaviour--162-prototype-implementation-sequence"></a>
+##### 16.2 Prototype implementation sequence
+
+The prototype should be built in small proving stages so that each stage leaves a testable system and validates the next architectural boundary:
+
+1. **ESP32 skeleton** — boot, P&P System Time, Memory access, working configuration in RAM, the common P&P communications bus and module boundaries exist; no race behaviour is required. The skeleton must also provide controlled development diagnostics over the serial interface so that startup and important internal activity are observable during development. At minimum, Stage 1 must visibly report the initialisation/readiness of System Time, Memory, working configuration and the P&P Message Bus, and must exercise and report a Message Bus self-test. Diagnostic output is a development aid, not authoritative P&P State or part of the product interface, and must not create dependencies between modules or become required for correct operation.
+2. **One simulated Input Device** — prove a physical/simulated event is cleaned by its Input Device and the Input Module produces the standard physical event identifying the stable input/capability and event time, with no lane or race-role meaning attached.
+3. **P&P Message Bus delivery** — publish that physical Input Event on the common bus and prove an authorised subscriber receives it without a private point-to-point path.
+4. **Session role assignment** — create a minimal accepted Session Definition that assigns that stable input as Lane 1 Start/Finish, and prove the assignment is frozen for the session while the Input Module remains unchanged.
+5. **Race Engine** — bus-delivered physical Input Events interpreted through the Session Definition produce authoritative lap counts and lap times without requiring a browser.
+6. **Race Control** — prove READY → STARTING → scheduled GO → RACING → FINISHED, with Race Control and Race Engine communicating through the common bus and retaining their separate ownership boundaries.
+7. **Browser connection** — prove authoritative Noticeboard State, `NOTICEBOARD_CHANGED` notifications and Events/Facts can be presented without the browser owning race operation.
+8. **Browser Requests** — START is the first operational Request, including Accepted/Rejected Request Results, creation of the fixed Session Definition in RAM after acceptance and authoritative State change after acceptance.
+9. **Two lanes and rapid-event testing** — add a second simulated detector and deliberately exercise closely spaced and rapid inputs; browser/network speed must not compromise authoritative timing.
+10. **Multiple browsers and recovery** — exercise several clients, disconnection, reconnection and a new browser joining mid-race; each must obtain the current authoritative Noticeboard State it needs without affecting the race.
+
+**Stages 1–10 are the first prototype checkpoint.** At that checkpoint the communication and architectural approach must be assessed before additional product behaviour is piled on top.
+
+After that checkpoint, continue through the same established boundaries:
+
+11. **PAUSE / RESUME** — Honour restart first, then Grid Restart.
+12. **Results and persistence** — completed race, Results, History, Race Again and appropriate reboot persistence.
+13. **Outputs** — assign required output roles in the Session Definition, resolve them to stable output capabilities, and prove simulated Output Devices execute device-level actions without the Output Module acquiring lane, MUG or race-mode knowledge.
+
+Practice, Endurance, Timed Stage, Drag and other product features can then be added through the proven architecture rather than being required to prove the architecture itself.
+
+**Design broadly. Implement narrowly.**
+
+<a id="first-implementation-behaviour--17-pre-implementation-consistency-review"></a>
+#### 17. Pre-implementation consistency review
+
+Before the first implementation specification is treated as settled for coding, all governing and detailed-design documents must be cross-checked for:
+
+- contradictions;
+- stale wording;
+- duplicated decisions;
+- places where later decisions have refined earlier ones.
+
+Any conflicts must be resolved so that implementation is working from one consistent set of instructions.
+
+The startup/reconciliation ordering is governed by SYSTEM_LIFECYCLE.md: load remembered persistent state into working RAM first, then discover and reconcile actual equipment, initialise/synchronise it as required, establish current capability availability, and finally present the effective forthcoming Race Setup. PP_DESIGN_SPEC.md#first-implementation-behaviour--pp-first-implementation-behaviour defines the customer-visible behaviour produced by that lifecycle and does not introduce a competing startup sequence.
+
+> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
+
+<a id="stage-14a-design--stage-14a-design--variable-race-entry-capacity"></a>
+### Stage 14A Design — Variable Race Entry Capacity
+
+**Status: ACCEPTED / FROZEN**
+
+**Implementation status: ACCEPTED — automated, regression and real-ESP32 hardware verification passed on 2026-10-05.**
+
+Stage 14A removes the current hard-coded two-entry implementation limitation before Practice or Endurance is implemented. It generalises the existing Lap Race data model and execution paths to support a variable number of active Race Entries while preserving all accepted Stage 1–13 behaviour.
+
+Stage 14A does not implement Practice, Endurance, open-ended running, timed races, new finish rules, retirement, withdrawal, DNF, or any other new race mode.
+
+<a id="stage-14a-design--product-boundary"></a>
+#### Product boundary
+
+P&P has no arbitrary product maximum lane count. Two lanes remain the initial, default and Taster configuration. A particular firmware build may have a bounded implementation capacity because the ESP32 uses deterministic static storage, but that capacity is an implementation/resource limit and must never be presented as a product rule.
+
+The proposed implementation capacity is `PP_MAX_ENTRIES = 8`. This is an engineering default, not a claim that P&P supports only eight lanes. No Race Engine algorithm may depend on the value eight. Increasing the capacity later must require storage/configuration changes and additional validation, rather than a new competition algorithm or product redesign.
+
+The four-entry fixture described below is acceptance evidence only. It is not a product maximum.
+
+<a id="stage-14a-design--existing-behaviour-that-remains-authoritative"></a>
+#### Existing behaviour that remains authoritative
+
+The following remain unchanged:
+
+- default/Taster setup is two lanes;
+- Lap Race lifecycle, GO/start sequence, false-start policy, Pause settlement, Honour Restart and Grid Restart;
+- Relevant-Time ordering and all accepted timing boundaries;
+- Race Director and Spectator authority boundaries;
+- Race Engine ownership of competition and results;
+- Input Module role-neutral event and settlement behaviour;
+- Noticeboard as authoritative reconstruction State;
+- Results, Details, History, PB and Track Record semantics;
+- Stage 1–13 Message Bus numeric values and ownership boundaries;
+- Taster, Attract and existing Browser behaviour for the default two-entry configuration.
+
+Stage 13 deferred multi-lane expansion is the subject of this refactor. No other Stage 1–13 requirement is superseded.
+
+<a id="stage-14a-design--proposed-data-model"></a>
+#### Proposed data model
+
+<a id="stage-14a-design--proposedracesetup"></a>
+##### ProposedRaceSetup
+
+Replace the separate first and second entry fields in `ProposedRaceSetup` with an indexed collection:
+
+```cpp
+struct ProposedRaceEntry {
+    SessionInputRole startFinish;
+    uint32_t mugId;
+};
+
+struct ProposedRaceSetup {
+    ProposedRaceEntry entries[PP_MAX_ENTRIES];
+    uint8_t activeEntryCount;
+    // existing Lap Race configuration remains here
+};
+```
+
+Validation iterates over every active entry. It preserves existing validity rules for input identity, Start/Finish role, lane identity, MUG identity and Lap Race configuration. The default setup populates two entries exactly as it does today.
+
+Temporary first-entry and second-entry accessors may remain as compatibility helpers, but core code must use the indexed collection and count.
+
+<a id="stage-14a-design--sessiondefinition-and-role-mappings"></a>
+##### SessionDefinition and role mappings
+
+`SessionDefinition` stores `entryCount`, one `RaceEntryDefinition` per active entry and one role mapping per active entry. Session construction copies all configured entries and assigns stable Race Entry IDs in order. Race Again and other existing setup-copying paths copy the complete collection, not only the first two entries.
+
+`nextRaceEntryId` advances by the active entry count. Existing two-entry IDs and ordering remain unchanged.
+
+<a id="stage-14a-design--race-engine-storage-and-algorithms"></a>
+##### Race Engine storage and algorithms
+
+Race Engine entry state, penalties, pending event state and completed-result state use `PP_MAX_ENTRIES` storage and the active entry count. Every loop, lookup and completion operation is indexed by `entryCount`.
+
+The current two-entry completion masks must not remain the algorithmic basis. Completion/observation state should use indexed flags or a capacity-sized bitset whose operations are expressed as entry iteration. No algorithm may assume that eight is the number of entries.
+
+Result sealing must rank all active entries using the existing comparison rules and stable ordering. The current special case that swaps only two result entries becomes a stable multi-entry ordering operation. Existing two-entry tie and completion ordering must remain identical.
+
+The existing `laps()` and `lastLapTime()` convenience accessors may continue to summarize entry zero for compatibility. Indexed accessors are authoritative for multi-entry behaviour.
+
+Any compile-time or development detail-buffer capacity is an engineering
+resource bound only. It is not an Endurance or Lap Race sporting maximum.
+Authoritative lap totals and classification continue beyond the available
+detail buffer; incomplete detail prevents permanent History publication.
+
+<a id="stage-14a-design--noticeboard-state"></a>
+##### Noticeboard State
+
+`NoticeboardState` contains `entryCount` and one authoritative `NoticeboardEntryState` for every active entry. State construction copies all active Race Engine entries.
+
+Existing top-level first-entry summary fields may remain as compatibility aliases for Stage 1–13 clients. They must not be used as the complete multi-entry representation.
+
+<a id="stage-14a-design--completedraceresult-and-history"></a>
+##### CompletedRaceResult and History
+
+`CompletedRaceResult` contains an indexed summary entry for every active entry,
+including rank, laps-behind, completion information and best-lap information.
+Detailed lap records are retained by the active/detail storage boundary and
+are retrieved on demand for Details; they are not represented by a fixed
+product-sized array in the result summary.
+
+The new result and persistence representations must be explicitly versioned. There is no requirement to migrate current development History, PB or Track Record data: this project is pre-production and those existing development formats may be invalidated or reset when the representation changes. Future production data must have a version identity and a migration path.
+
+History reconstruction must decode the new version into the same authoritative Results and Details model without Fact replay or Browser calculation.
+
+The result payload size remains guarded by a compile-time assertion against the History storage bound. The bound must be increased or otherwise sized for `PP_MAX_ENTRIES = 8`.
+
+<a id="stage-14a-design--race-control-and-race-again"></a>
+##### Race Control and Race Again
+
+Race Control copies all entries, role mappings, MUG associations and Lap Race configuration when preparing Race Again, Restart Race and other existing setup-copying operations. No operation may silently drop entries three and above.
+
+<a id="stage-14a-design--browser-state-results-and-details"></a>
+##### Browser State, Results and Details
+
+The authoritative Browser/API representation uses a dynamic entry collection:
+
+```json
+{
+  "entryCount": 4,
+  "entries": [
+    { "raceEntryId": 1, "laps": 2 },
+    { "raceEntryId": 2, "laps": 1 },
+    { "raceEntryId": 3, "laps": 2 },
+    { "raceEntryId": 4, "laps": 0 }
+  ]
+}
+```
+
+Results and Details serialize every active entry and all immutable lap records. Browser reconstruction uses current authoritative State and persisted result data, never fixed two-entry assumptions.
+
+Stage 1–13 top-level fields and Lane 1/Lane 2 records aliases may remain for compatibility. The indexed collection is authoritative.
+
+The human-readable diagnostic Browser may continue to expose only the default two simulated detector controls. Multi-entry acceptance uses the normal API/Input Module boundary and does not require a polished multi-lane control surface.
+
+<a id="stage-14a-design--pb-and-track-records"></a>
+##### PB and Track Records
+
+PB and Track Record processing is generalized so every active Race Entry in a session is evaluated independently. This removes the current two-entry assumption from eligibility processing while preserving exactly the Stage 13 eligibility rule.
+
+`PP_MAX_ENTRIES` limits simultaneous active Race Entries in this firmware build. It does not limit the number of persistent MUG identities or PBs that the product may ultimately retain. Stage 14A does not introduce a MUG database or complete MUG/SMUG configuration system. Persistent identity storage remains an implementation boundary to be defined by that future configuration work.
+
+The records API gains an indexed view of the active entries for the current race while retaining Lane 1 and Lane 2 compatibility aliases. Multi-entry acceptance must prove PB/Track Record processing for every active entry without implying one permanent PB slot per Race Entry.
+
+The new persisted record representation is versioned. Existing development records may be cleared or reset during the format change; future production records must be migratable.
+
+<a id="stage-14a-design--input-module-and-acceptance-fixtures"></a>
+##### Input Module and acceptance fixtures
+
+The simulated detector/source arrays used by the development and acceptance boundary are generalized to the same implementation capacity. Events still enter through the normal protected Input Module FIFO and Message Bus. Fixtures must not manipulate Race Engine timing or lap state directly.
+
+The default Stage 1–13 simulator remains two-entry. A deterministic four-entry fixture supplies additional input identities and role mappings only for this refactor's acceptance evidence.
+
+<a id="stage-14a-design--capacity-and-resource-rationale"></a>
+#### Capacity and resource rationale
+
+Static bounded storage is appropriate for the ESP32 because it provides deterministic memory use, avoids race-time heap fragmentation, keeps persistence sizing explicit and supports compile-time assertions.
+
+Active detail storage grows with the factual records produced by the current
+race and reports allocation failure explicitly; it is not sized as a fixed
+sporting maximum. A completed summary remains bounded by active-entry count,
+while detailed records are encoded/retrieved through the storage boundary.
+The development codec workspace is a provisional resource bound and must be
+measured/removed as the streamed SD implementation replaces it.
+
+The exact sizes must be measured during implementation. Capacity changes later must be confined to the capacity definition, storage sizing, serializers/codecs and tests. They must not require changes to Lap Race timing, authority, settlement or ranking concepts.
+
+If a setup exceeds the compiled implementation capacity, it may be rejected as unavailable in this firmware build. That message must describe an implementation/resource limit, not a product maximum.
+
+<a id="stage-14a-design--affected-components"></a>
+#### Affected components
+
+- `firmware/include/pp/session_definition.h` — setup and Session Definition collections.
+- `firmware/include/pp/race_engine.h` — entry storage, completion state, ranking and result storage.
+- `firmware/include/pp/noticeboard.h` — variable entry State.
+- `firmware/include/pp/race_control.h` — complete setup copying and Race Entry ID allocation.
+- `firmware/include/pp/record_store.h` — variable PB storage and versioned record data.
+- `firmware/include/pp/history_store.h` — result sizing and versioned persistence codec integration.
+- `firmware/include/pp/browser_interface.h` — dynamic State, Results, Details, History and Records serialization.
+- `firmware/include/pp/core.h` — shared capacity and generalized simulated Input Module storage.
+- `firmware/src/main.cpp` — default two-entry setup remains unchanged; fixtures gain indexed setup support.
+- `firmware/tests` and `acceptance` — deterministic multi-entry fixtures and structural/evaluator checks.
+
+Relevant governing constraints are in `docs/SYSTEM_REQUIREMENTS.md`, `docs/SYSTEM_ARCHITECTURE.md`, `docs/RACE_CONTROL_ENGINE_DESIGN.md`, `docs/MESSAGE_CONTRACT.md`, `docs/PP_TASTER_SPEC.md`, `docs/COMMON_DISPLAY_SPEC.md` and the accepted Stage 1–13 documents.
+
+<a id="stage-14a-design--risks-and-compatibility"></a>
+#### Risks and compatibility
+
+- Fixed-width completion masks may overflow or silently omit entries.
+- Two-entry sorting and setup-copying special cases may be hidden in less obvious paths.
+- Existing Browser clients may expect Lane 1/Lane 2 aliases.
+- Binary result and record formats require explicit version identities for future migration.
+- Dynamic Browser responses may exceed current fixed buffers.
+- Race Entry ID allocation must remain unique across Race Again and multi-entry sessions.
+- Default Taster and two-entry behaviour must not be changed by generalized storage.
+- The full Stage 1–13 automated/regression suite must remain passing.
+
+No Practice or Endurance design is introduced by this document. Stage 14A implementation is complete; Practice and Endurance remain outside this stage.
+
 <!-- INSERT:architecture -->
 
 ## Race Control and Race Engine
@@ -1587,6 +2177,514 @@ Drag Course Length is distinct from ordinary circuit lap length: it is the physi
 
 Sportsman and Pro tree choices should remain visibly selectable; Sportsman is the understandable default.
 
+<a id="product-facilities-spec--9-demonstration-and-attract-facilities"></a>
+#### 9. Demonstration and Attract facilities
+
+P&P should provide demonstration facilities as a product capability, distinct from normal race operation. These facilities are intended for showroom/exhibition presentation, user familiarisation, development testing and fault diagnosis.
+
+The facilities are deliberately separated into **Attract Mode**, **Automatic Demo Race** and **Manual Demo/Test**.
+
+<a id="product-facilities-spec--91-attract-mode"></a>
+##### 9.1 Attract Mode
+
+Attract Mode is a presentation facility analogous to the demonstration displays used on retail hi-fi and similar equipment.
+
+It is not intended to be generally available as an ordinary race mode. A SMUG-controlled configuration option enables or disables it.
+
+When enabled, an idle P&P unit may automatically run a short repeating presentation sequence. The sequence may demonstrate the product using lightweight graphics and animation, for example:
+
+- the P&P logo/identity;
+- a simple track drawing itself;
+- small animated cars;
+- start lights;
+- lap-count and timing displays;
+- fastest-lap callouts;
+- a close finish and chequered flag;
+- results;
+- short visual demonstrations of supported race types and expansion capability.
+
+Attract Mode is presentation, not authoritative race simulation. Its race sequence may therefore be deliberately scripted and choreographed for clarity and visual interest.
+
+The display implementation should favour simple, lightweight graphical primitives, text, icons and small bitmap/sprite assets suitable for an ESP32-class controller. Presentation work must remain subordinate to authoritative race processing and must never compromise race timing or control.
+
+The exact display hardware, resolution, artwork, animation style, sequence length and wake/exit behaviour remain deferred design decisions.
+
+Attract Mode may ultimately be available on the local Taster display and/or connected Browser displays. That presentation scope is deliberately not fixed yet.
+
+<a id="product-facilities-spec--v1-attract-presentation-guidance"></a>
+###### V1 Attract presentation guidance
+
+The initial implementation should use the following approximately 35-second loop as a practical starting storyboard:
+
+- **0–3 s:** P&P / PLONK & PLAY identity;
+- **3–6 s:** a simple track draws onto the screen, followed by two lane lines and small car sprites;
+- **6–9 s:** start-light sequence followed by GO;
+- **9–18 s:** a short choreographed race with changing lap/timing information, cars changing relative position and a FASTEST LAP moment;
+- **18–22 s:** close finish, chequered flag and winner/gap presentation;
+- **22–30 s:** brief feature flashes illustrating **RACE → RALLY → DRAG** and **2 → 4 → 6 → 8 LANES**;
+- **30–35 s:** return to P&P / PLONK & PLAY identity, pause briefly, then repeat.
+
+This storyboard is **presentation guidance for V1, not a frozen behavioural contract**. Timing, transitions, wording, sprites, artwork, sound effects and individual beats may be tuned once the sequence is seen on real display hardware. Such presentation tuning does not require an architectural/product-specification change provided the purpose and boundaries of Attract Mode remain unchanged.
+
+A final P&P logo is not a dependency for V1. Until a satisfactory logo is designed, the presentation may use a clean **P&P / PLONK & PLAY** text identity.
+
+<a id="product-facilities-spec--92-automatic-demo-race"></a>
+##### 9.2 Automatic Demo Race
+
+Automatic Demo Race is different from Attract Mode: it is a genuine P&P race driven by simulated detector activity.
+
+Virtual detector events must enter at the defined sensor/input boundary so that the normal downstream product path is exercised. Race Control, Race Engine, Message Bus, Noticeboard, displays, audio and results processing should operate as they would for physical detector events.
+
+The simulator may create plausible virtual competitors with slightly varying lap times. Demonstrations may be tuned to produce interesting, reasonably close racing, but the result should be determined by the real race logic rather than by a separately scripted fake result.
+
+Automatic Demo Race may be initiated through SMUG-controlled demonstration facilities. It is not an ordinary Taster race option that a MUG can accidentally select.
+
+<a id="product-facilities-spec--93-manual-demotest"></a>
+##### 9.3 Manual Demo/Test
+
+A manual demonstration/test facility may expose virtual versions of the installed detector inputs through SMUG.
+
+For example, a two-lane Lap Race installation may provide virtual controls equivalent to:
+
+- Lane 1 Start/Finish detector;
+- Lane 2 Start/Finish detector.
+
+Additional configured detectors may be represented where appropriate.
+
+Activating a virtual detector should inject the corresponding simulated event at the same defined simulation boundary used by Automatic Demo Race, exercising the real downstream system.
+
+This provides a useful diagnostic boundary. If a virtual detector produces the expected race behaviour while the corresponding physical detector does not, investigation can concentrate on the physical sensor/input side rather than the downstream race system.
+
+<a id="product-facilities-spec--94-demo-session-integrity"></a>
+##### 9.4 Demo-session integrity
+
+Simulated race sessions must be authoritatively identifiable as **DEMO**, not merely labelled by presentation code.
+
+Demo results must not contaminate genuine sporting records, including personal bests, track records, championship results or equivalent persistent competitive data.
+
+Displays should identify simulated operation clearly enough that a demo cannot reasonably be mistaken for a live race.
+
+The Demo exclusion above is independent of the WP8 standalone-Taster policy:
+both are non-official, but a standalone Taster race is a real local race rather
+than a simulated/demo session and must remain distinguishable in the frozen
+session source.
+
+The eventual persistence design may retain demo sessions for testing or support purposes, but they must remain distinguishable from genuine results.
+
+Physical and simulated detector events must not accidentally mingle within an authoritative race. Exact behaviour when real detector activity occurs during an Automatic Demo Race remains a later design decision; possible policies include cleanly terminating the demo or ignoring physical detector activity for that demo session.
+
+<a id="product-facilities-spec--95-architectural-principle"></a>
+##### 9.5 Architectural principle
+
+Demo capability must not create a second fake Race Engine.
+
+Where the purpose is to demonstrate or test real P&P behaviour, simulation occurs at the sensor/input boundary and everything downstream remains normal product behaviour.
+
+Attract Mode is the deliberate exception because it is presentation rather than race simulation.
+
+> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
+
+<a id="stage-13-design--stage-13-design--complete-lap-race"></a>
+### Stage 13 Design — Complete Lap Race
+
+**Status: FROZEN before Stage 13 implementation**
+
+Stage 13 completes the ordinary two-lane Lap Race boundary. It adds the authoritative start-light sequence, generic false-start reporting with Lap Race consequences, destructive post-pause abandonment operations, persistent completed-race History, and persistent Lap Race PB/Track Record foundations.
+
+Existing Stage 1–12 authority, timing, Message Bus, Browser identity, settlement, integrity and result boundaries remain in force. Stage 13 introduces no supersession.
+
+<a id="stage-13-design--start-sequence"></a>
+#### Start sequence
+
+The factory/default Lap Race start is five red lights, one second between successive red-light instants, a random final delay selected once in the range 0.5–2.0 seconds after the fifth red, and Lights Out as GO. Race Control commits the complete schedule and authoritative GO instant when START is accepted. Browser, audio and physical presentation consume that schedule and never determine GO.
+
+The configured sequence supports three or five reds, Lights Out or Green GO, and Immediate, Fixed or Random final delay. Red-to-red interval is an Advanced setting. The selected random value is committed once per sequence. The implementation may use a deterministic seeded source in acceptance builds, provided product behaviour remains random within the configured range in normal operation.
+
+The sequence completes and GO occurs even if every Browser disconnects or sleeps. A qualifying crossing with Relevant Time `t < GO` is a false start; `t >= GO` is legal, including exactly GO.
+
+<a id="stage-13-design--false-starts"></a>
+#### False starts
+
+False-start detection is offered only when the accepted Session Definition contains an installed/configured capability that can authoritatively detect the relevant competitor crossing before GO. The normal base/Taster sensors-before-Start/Finish arrangement does not claim this capability.
+
+The generic event boundary identifies the affected Race Entry and authoritative Relevant Time. Input hardware and the Input Module do not apply race consequences. Lap Race applies one of:
+
+- OFF — the false-start event may be recorded diagnostically, but produces no competitor warning, penalty or change to race outcome;
+- WARNING — record and present the false start without changing required distance;
+- +1 LAP — increase that entry's required genuine race distance by one lap.
+
+Repeated +1 LAP false starts accumulate. Completed-lap counts are never falsified; a nominal ten-lap race with two penalties requires twelve genuine completed laps. GO is not aborted, rescheduled or restarted by a false start.
+
+The generic event/consequence boundary remains suitable for later Endurance, Timed Stage and Drag policies, which are outside this stage.
+
+<a id="stage-13-design--pause-abandonment-operations"></a>
+#### Pause abandonment operations
+
+Restart Race and End Race are Race Director-only operations available only after PAUSE and the existing local pre-pause settlement fence have completed. They are not direct RACING controls.
+
+Opening or cancelling a confirmation has no authoritative effect. Once confirmed and accepted:
+
+- Restart Race abandons the interrupted race, creates no completed History entry, retains/seeds the same proposed setup, returns to READY, and causes the next START to create a fresh Session Definition and fresh Race Entry IDs with competition at zero.
+- End Race abandons the interrupted race, creates no completed History entry, and returns to Home.
+
+If a delayed eligible pre-pause event completes the race before acceptance, FINISHED wins and neither operation may destroy the completed race.
+
+<a id="stage-13-design--persistent-history"></a>
+#### Persistent History
+
+Each settled completed race is stored automatically as a faithful persistent representation of the authoritative Stage 12 result. A persistent sequence identity orders records newest first and remains unique across power cycles, Race Again and rolling deletion. Civil time is optional metadata only when supplied by a trustworthy source; ordering never depends on an RTC.
+
+History contains enough immutable Session Definition, result, ranking, W/F, finish-behaviour and lap-record data to reconstruct Stage 12 Results and Details. Abandoned races are absent. A substantial implementation-selected rolling capacity may evict the oldest record. Clear History is deliberate and separate from record clearing.
+
+Persistent storage failure never changes, invalidates or recalculates authoritative timing or competition. The implementation surfaces a storage warning/fault and retains or retries recoverable pending persistence where possible.
+
+Controller restart recovers persistent History and records but does not reconstruct an interrupted active race, PAUSED State, pending restart or volatile Session Definition.
+
+<a id="stage-13-design--pbs-and-track-records"></a>
+#### PBs and Track Records
+
+The default standalone record context is record-eligible:
+
+- Track: `DEFAULT TRACK`;
+- competitors: `LANE 1` and `LANE 2`.
+
+SMUG configuration may later replace these identities without Stage 13 implementing the complete Track/MUG configuration system.
+
+A genuine valid completed timed lap may update the selected competitor PB and Track Record at lap completion, even if its containing race later ends through End Race. A lap is eligible when its own authoritative timing and validity are sound at the lap-completion boundary. A later race fault does not retrospectively invalidate an already-established eligible PB/Track Record unless that fault establishes that the lap itself was invalid. Honour-Restart timing is eligible; Grid-discarded incomplete progress and demo/acceptance simulated laps are not.
+
+PB/record clearing supports individual MUG PB, Track Record, and all records for a Track. Each requires deliberate confirmation, preserves History, and starts a new persistent record era. Old History cannot resurrect a cleared record automatically. Clearing History does not clear PBs or records.
+
+<a id="stage-13-design--boundaries-and-deferrals"></a>
+#### Boundaries and deferrals
+
+Stage 13 does not implement Practice, Endurance, Timed Stage, Drag, sectors, wireless/distributed input, Power Module behaviour, physical full RMS Yellow/Red enforcement, multi-lane expansion, car-specific records, physical-track equivalence detection, civil-time/RTC requirements, a full Track/MUG configuration system, a polished Browser redesign, Screen Designer, championship/event management, general multi-controller conflict resolution, future-mode penalty systems, active-race persistence/recovery, History browsing on the small Taster display, or automatic History rescanning after record-era clearing.
+
+The Browser remains a presentation and request boundary. Race Control remains lifecycle/operation authority; Race Engine remains competition/result authority; Input Module remains role-neutral event and settlement authority; Facts remain events rather than a History database.
+
+> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
+
+<a id="stage-14b-design--stage-14b-design--open-practice"></a>
+### Stage 14B Design — Open Practice
+
+**Status: ACCEPTED / FROZEN**
+
+**Implementation status: ACCEPTED — automated, regression and real-ESP32 Browser checkpoint passed on 2026-10-05.**
+
+Final implementation/evidence close-out: commits `c49ffbe`, `2770a04`, `870998a` and `d3e9ae6`.
+
+The human checkpoint verified real Browser selection/start, independent multi-lane timing, pause/resume, reconnect reconstruction, and non-official End Session behaviour. No Stage 14B acceptance blockers remain. Stage 14C is not included.
+
+Stage 14B is the next implementation slice after the accepted Stage 14A variable-entry refactor. It implements Open Practice only. It does not implement Timed Practice, Endurance, Timed Stage/Rally, Drag, or any other new mode.
+
+<a id="stage-14b-design--product-boundary"></a>
+#### Product boundary
+
+Open Practice is Practice, not an official race. It has no winner, ranking, finishing position, official result, PB update, Track Record update or official History entry. All Practice information is session-local and non-official.
+
+The number of simultaneous Practice cars is the number of configured active entries, subject to the existing firmware implementation capacity. Two lanes remain the default/Taster configuration. The implementation capacity is not a product maximum.
+
+Open Practice has no configured duration and no lap target. It continues until the Race Director ends the session.
+
+<a id="stage-14b-design--existing-architecture-retained"></a>
+#### Existing architecture retained
+
+Open Practice uses the existing Race Control, Race Engine, Session Definition, Input Module, Message Bus and Noticeboard boundaries:
+
+- Browser/Taster submits an authorised request through Browser Interface.
+- Race Control owns authority and session lifecycle.
+- START creates an immutable Practice Session Definition with the configured active entries and role mappings.
+- Input Module publishes ordinary clean `INPUT_EVENT`s through the Message Bus.
+- Race Engine interprets those events using the Session Definition and owns Practice timing/state.
+- Noticeboard State is authoritative for reconstruction.
+- Browser presence never affects Practice timing.
+
+No parallel Practice timing path, Browser-to-Race-Engine path or Race-Control access to Input Module private state is permitted.
+
+<a id="stage-14b-design--mode-and-lifecycle"></a>
+#### Mode and lifecycle
+
+The active lifecycle remains the existing `RACING` value with authoritative `sessionMode = OPEN_PRACTICE`. No new `PRACTISING` lifecycle value is introduced.
+
+The operational flow is:
+
+1. READY: no Practice session exists.
+2. START accepted: the Practice Session Definition is created and Practice becomes active immediately.
+3. `RACING` plus `OPEN_PRACTICE`: timing is active with no countdown, starting lights or GO requirement.
+4. PAUSED: Practice activity is stopped and incomplete timing is discarded.
+5. RESUME accepted: Practice becomes active immediately and every lane waits for a new timing origin.
+6. END SESSION accepted: Practice ends and the system returns towards READY/Home.
+
+Practice never enters normal Lap Race `FINISHED` and never publishes a normal competition-completion result.
+
+<a id="stage-14b-design--practice-timing"></a>
+#### Practice timing
+
+Each active entry independently stores:
+
+- whether it is waiting for a timing origin;
+- its timing-origin Relevant Time when established;
+- completed lap count;
+- last completed lap;
+- best completed lap;
+- session-fastest information where straightforward.
+
+At Practice start, every lane waits for a timing origin. The first eligible Start/Finish crossing for a lane establishes that lane's timing origin. Each subsequent eligible crossing completes one lap using the Relevant-Time difference and establishes the next timing origin.
+
+Relevant Time remains authoritative over delivery or processing order. Existing Input Module debounce/re-arm and normal Message Bus delivery guarantees remain unchanged.
+
+Sector timing and theoretical-best calculations/presentation are explicitly optional for this slice. Their absence must not fail acceptance. They may be added later through the existing architecture.
+
+<a id="stage-14b-design--pause-and-resume"></a>
+#### Pause and Resume
+
+Pause is deliberately simpler than Lap Race Honour/Grid Restart:
+
+- Pause stops Practice activity.
+- Completed Practice laps and statistics remain.
+- Any incomplete lap is discarded.
+- Crossings while paused do not advance Practice timing.
+- Resume is immediate.
+- After Resume, each lane waits for a new timing-origin crossing.
+- The following crossing completes the next timed lap.
+
+The existing Relevant-Time, Message Bus settlement/fence and authoritative event-boundary rules still apply underneath. Any internal boundary needed to classify events is an implementation detail and is not a new user-visible Practice concept.
+
+<a id="stage-14b-design--operations-and-authority"></a>
+#### Operations and authority
+
+The existing generic session-operation contract is used. The architecture already defines generic RESUME and session stop concepts, but the current firmware operation enum has PAUSE and `EndRace` and does not yet provide generic `Resume` or `EndSession` values. `EndRace` is not semantically suitable because it represents race abandonment/ending.
+
+The smallest compatible contract change is therefore:
+
+- append generic `Resume` and `EndSession` operation values;
+- continue using the existing `SESSION_OPERATION_REQUEST` and `SESSION_OPERATION` Message Bus types;
+- let Race Control validate and interpret those generic operations according to the active Session Definition mode.
+
+No Practice-specific operation or Message Bus type is introduced. Existing Message Bus numeric values remain unchanged; any appended values are never renumbered.
+
+Only Race Director/SMUG context may start, pause, resume or end Open Practice. Spectator and ordinary MUG/driver contexts cannot end the overall session. Forged Browser role fields cannot change this.
+
+<a id="stage-14b-design--browser-and-taster"></a>
+#### Browser and Taster
+
+Open Practice must be selectable and operable through the real Browser/product path on the ESP32. The minimum diagnostic control layer is:
+
+- an Open Practice mode selection;
+- START;
+- PAUSE;
+- RESUME;
+- END PRACTICE while Practice is authoritatively PAUSED;
+- per-lane Practice state showing lap count, last lap, best lap and session-fastest information where available.
+
+Polished UI is outside this slice.
+
+The existing Taster surface remains unchanged: it continues to provide its documented two-lane Lap Race controls. This slice does not add Practice selection to Taster.
+
+The frozen normal Browser exposes **PAUSE** while Open Practice is active. Once
+P&P reports authoritative PAUSED it exposes **RESUME**, **RESTART** and **END
+PRACTICE**. **END PRACTICE** follows the authoritative Practice completion
+path to Practice Summary; Practice does not expose competitive **ABANDON**.
+These are Browser controls, not Browser-owned lifecycle transitions.
+
+<a id="stage-14b-design--state-facts-and-presentation"></a>
+#### State, Facts and presentation
+
+Authoritative State includes session mode, lifecycle, active entry collection, per-entry lane/entry identity, completed laps, last/best Practice lap where available, pause information and existing integrity/validity fields.
+
+No winner, rank, finish time, official result or result-sealed Practice state is created. Existing common PAUSED and RESUMED Facts may be reused where their semantics remain exact. Any Practice-ended Fact is optional and must use the normal Message Bus path.
+
+An optional lightweight non-official end summary may be implemented only if it is essentially free and non-disruptive. It is not an acceptance requirement and must never become an official Results object.
+
+<a id="stage-14b-design--persistence-history-and-records"></a>
+#### Persistence, History and records
+
+Open Practice does not create a CompletedRaceResult, write official History, update PBs, update Track Records, alter record eras or introduce a persistent Practice-results schema.
+
+Existing controller-restart rules remain authoritative: an interrupted active Practice session is not reconstructed as an official result. Persistent Race Setup/configuration may continue to follow existing rules.
+
+<a id="stage-14b-design--explicit-exclusions"></a>
+#### Explicit exclusions
+
+This slice does not define or implement:
+
+- Timed Practice;
+- Endurance;
+- Timed Stage/Rally;
+- Drag;
+- winner/ranking/finish policies;
+- official PB or Track Record processing;
+- persistent Practice History;
+- sector timing or theoretical-best calculations as required features;
+- new Yellow/Red/RMS or Power Module behaviour;
+- new Taster Practice controls;
+- polished final UI.
+
+<a id="stage-14b-design--compatibility-requirement"></a>
+#### Compatibility requirement
+
+All applicable Stage 1–14A behaviour and acceptance remains unchanged. The complete Stage 1–14A regression campaign is required for Stage 14B acceptance.
+
+> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
+
+<a id="stage-14c-design--stage-14c-design--endurance"></a>
+### Stage 14C Design — Endurance
+
+**Status: ACCEPTED / FROZEN**
+
+This document defines the frozen Endurance implementation slice after accepted Stage 14B. It does not by itself authorize implementation. Stages 1–14B remain frozen and unchanged.
+
+<a id="stage-14c-design--product-boundary"></a>
+#### Product boundary
+
+Endurance is official timed competition using the existing Lap Race mechanics. A configured duration replaces the Lap Race lap target. The active competitors are the configured active Race Entries; the implementation capacity is not a product maximum.
+
+Stage 14C implements only Endurance. It does not implement Timed Practice, sectors, theoretical-best calculations, pit stops, fuel, mandatory pit rules, Stop/Go, new Yellow/Red/RMS behaviour, new Power Module behaviour, Timed Stage, Drag, unrelated Browser redesign, or active-race persistence/recovery.
+
+<a id="stage-14c-design--duration-and-setup"></a>
+#### Duration and setup
+
+- Duration is a whole number of minutes from 1 through 999. Seconds are not entered.
+- The Browser duration control supports direct typing, up/down arrows and mouse-wheel editing consistently with the existing Lap numeric control.
+- The selected duration is part of the immutable Session Definition.
+- Duration is measured in Relevant Racing Time. Time while PAUSED does not consume it.
+- The authoritative duration begins at GO.
+- The implementation may represent the expiry internally as an authoritative Relevant-Time boundary, accumulated running intervals, or an equivalent representation, provided the observable boundary rules below are preserved.
+
+<a id="stage-14c-design--architecture-and-authority"></a>
+#### Architecture and authority
+
+Endurance uses the existing Race Control, Race Engine, Session Definition, Input Module, Message Bus, Noticeboard, Browser, Results and History boundaries.
+
+- Browser and Taster submit authorised setup and operation requests.
+- Race Control validates authority, freezes the Session Definition, owns lifecycle and coordinates START, GO, PAUSE, RESUME and END RACE.
+- Input Module publishes ordinary role-neutral detector events and settlement markers.
+- Race Engine interprets detector events using the immutable Session Definition and owns lap timing, expiry, classification and results.
+- Noticeboard exposes current authoritative state for Browser reconstruction.
+- Facts remain events and are not a results database.
+
+No Browser-to-Race-Engine shortcut, parallel timing path or mode-specific Message Bus operation is introduced. Existing generic `RESUME` is reused. Endurance manual termination uses the existing `END RACE` abandonment operation; it must not use Practice `END SESSION` semantics.
+
+<a id="stage-14c-design--lifecycle"></a>
+#### Lifecycle
+
+Endurance uses the existing lifecycle values. It does not add a new lifecycle enum.
+
+1. READY: setup can select Endurance, duration and finish policy.
+2. START accepted: an immutable Endurance Session Definition is created.
+3. STARTING: the normal configured countdown/start lights run.
+4. GO: the authoritative Endurance duration clock starts.
+5. RACING: lap timing and remaining duration are active.
+6. PAUSED: the existing settlement fence applies and duration stops consuming Relevant Racing Time.
+7. RESUME: the generic operation resumes the same race with its remaining duration.
+8. FINISHED: only normal duration completion reaches official results.
+9. END RACE: manual premature termination abandons the race and creates no normal completed Endurance result.
+
+<a id="stage-14c-design--false-starts"></a>
+#### False starts
+
+The initial Endurance choices are:
+
+- OFF — a diagnostic false-start event may be recorded, but it produces no warning, penalty or outcome change.
+- WARNING — the event is recorded and presented without changing classified distance.
+- -1 LAP — the penalty is applied to the final classified lap count. The factual completed-lap count remains unchanged, the classified count is `max(0, completed laps - 1)`, and Results/History preserve enough information to show both counts and the applied penalty.
+
+The Lap Race `+1 LAP` required-distance rule is not reused for Endurance. Stop/Go is reserved for a later slice shared by Lap and Endurance.
+
+<a id="stage-14c-design--lap-timing-and-retention"></a>
+#### Lap timing and retention
+
+Entries use the existing independent Start/Finish crossing and Relevant-Time timing machinery. Crossings are ordered by Relevant Time, never by delivery order. The authoritative practical lap count and required statistics are independent of detailed lap-record retention.
+
+Endurance must not have a 16-lap product limit. The current bounded detailed-record array is an implementation constraint only. The proposed implementation retains a bounded recent/detail set sufficient for Results/Details and persistence resource limits, while maintaining authoritative lap totals, last/best/fastest values and classification independently. The chosen retention policy and measured resource cost must be documented in the implementation evidence; it must never silently change the classified lap count.
+
+<a id="stage-14c-design--expiry-and-finish-policies"></a>
+#### Expiry and finish policies
+
+Endurance has exactly two normal finish policies.
+
+<a id="stage-14c-design--stop-at-zero"></a>
+##### Stop at Zero
+
+At the authoritative expiry boundary, the race ends immediately. Only laps whose completion Relevant Time is less than or equal to expiry count. Classification is by final classified lap count; equal totals are ordered by the earlier Relevant Time of the last counted Start/Finish crossing.
+
+<a id="stage-14c-design--finish-current-lap"></a>
+##### Finish Current Lap
+
+Eligibility is determined at the expiry boundary: the entry must already have a legitimate timing origin and be on that lap before expiry. A crossing exactly at expiry may complete that already-in-progress lap, but cannot establish a new timing origin or grant another post-expiry completion.
+
+At expiry, an entry that had established a legitimate timing origin and was already on a lap may complete that lap at its first eligible post-expiry Start/Finish crossing. It cannot begin another counted lap. An entry without a legitimate pre-expiry timing origin/lap receives no post-expiry lap. Different entries may finish with different totals. Classification is by final classified lap count; equal totals are ordered by post-expiry finishing Relevant Time.
+
+The main duration display reaches and remains at `0` seconds. Finish Current
+Lap also exposes live authoritative overtime as `+0`, `+1`, `+2` and so on from
+the one shared expiry point. Each lane's first eligible final crossing freezes
+its offset to hundredths as `+mm:ss:xx`; the other lane continues to its own
+crossing and both offsets remain visible at finish.
+
+<a id="stage-14c-design--exact-relevant-time-boundaries"></a>
+#### Exact Relevant-Time boundaries
+
+- A crossing with Relevant Time before expiry is normal-time input.
+- A crossing exactly at expiry completes a normal-time lap.
+- A crossing exactly at expiry may complete the lap that was already legitimately in progress before expiry, but does not begin a new post-expiry lap or establish a new timing origin for one.
+- A crossing delivered after expiry but carrying Relevant Time less than or equal to expiry is classified by that Relevant Time.
+- A crossing with Relevant Time greater than expiry is post-expiry input.
+- Each eligible entry receives at most one post-expiry completion crossing under Finish Current Lap, and eligibility requires a legitimate timing origin/lap established before expiry.
+- PAUSE settlement and all existing event-boundary rules remain authoritative.
+- Paused time does not advance the Endurance duration or overtime clock.
+
+<a id="stage-14c-design--pause-resume-and-end-race"></a>
+#### PAUSE, RESUME and END RACE
+
+Endurance reuses the frozen LAP PAUSE settlement/fence and Relevant-Time timing semantics, including preservation of interrupted-lap timing across the normal resume path. Completed laps and valid statistics remain. The duration clock stops while PAUSED and resumes with the remaining duration after generic RESUME. Endurance does not import Open Practice's discard-partial-lap rule. An END RACE request is a manual abandonment and does not manufacture a normal result or History entry.
+
+<a id="stage-14c-design--state-browser-and-taster"></a>
+#### State, Browser and Taster
+
+Authoritative State must expose enough information to reconstruct Endurance, including session mode, duration, finish policy, remaining duration, expiry state, overtime where applicable, lifecycle, per-entry identities, laps, last/best lap, integrity and validity.
+
+The Browser provides the smallest real product path for selecting Endurance,
+editing duration, selecting the two finish policies, START, PAUSE, RESUME,
+RESTART and confirmed ABANDON, and observing remaining time, positions, laps
+and relevant lap information. The normal Browser exposes PAUSE only while an
+Endurance race is active; RESUME/RESTART/ABANDON are exposed after
+authoritative PAUSED. Confirmed ABANDON invokes the existing END RACE
+abandonment path. Presentation is derived from authoritative State and must
+not calculate results.
+
+The Taster exposes the restricted **LAPS** and **ENDURANCE** choices from
+`PP_TASTER_SPEC.md`. Its ENDURANCE choice maps to this canonical Endurance
+contract; it is not a separate TIMED race mode. The Taster preserves the
+simple interaction model and does not add unrelated controls.
+
+Expiry warnings are limited to authoritative continuously available remaining time and the authoritative zero boundary. Configurable warning schedules, audio and light warnings remain deferred.
+
+<a id="stage-14c-design--results-history-and-records"></a>
+#### Results, History and records
+
+Normally completed Endurance sessions create official Results and persistent History. The stored result must include enough versioned data to reconstruct duration, finish policy, lap totals, ranking, finish/overtime information, penalties and retained valid lap details after controller restart.
+
+Manual END RACE produces no normal completed result or History record. Interrupted active Endurance remains volatile under the accepted Stage 11–13 controller-restart rules.
+
+Valid completed Endurance laps are eligible for PB and Track Record updates, including a valid final Finish-Current-Lap lap. Partial/incomplete laps are not eligible. Existing validity and integrity rules apply. Practice remains excluded.
+
+<a id="stage-14c-design--compatibility-and-open-implementation-choices"></a>
+#### Compatibility and open implementation choices
+
+No contradiction with the frozen Stage 1–14B architecture has been found. The following are implementation choices intentionally left open by this proposal, rather than product changes:
+
+- exact internal duration/expiry representation;
+- versioned result/persistence field layout;
+- bounded detailed-lap retention strategy and measured capacity;
+- exact Browser/Taster control layout within the required operations;
+- whether an optional non-authoritative overtime summary is shown in every result view.
+
+These choices must preserve every normative behaviour in this document and be covered by acceptance evidence. They must not introduce a product maximum or an Endurance-specific timing architecture.
+
+<a id="stage-14c-design--cumulative-regression"></a>
+#### Cumulative regression
+
+Stage 14C acceptance requires the complete applicable Stage 1–14B automated, structural, shared-path, Wokwi and Browser regression campaigns, plus the deliberate evaluator-failure/recovery proof and a real ESP32 Browser/Taster human checkpoint. Stage 14C must not be marked accepted until those checks and the human checkpoint pass.
+
 <!-- INSERT:race -->
 
 ## Inputs and outputs
@@ -1729,6 +2827,19 @@ The precise failure behaviour of particular products, including track-power hard
 Track power is architecturally supported as a logical output capability.
 
 It only qualifies as a Plonk & Play™ product feature where the physical installation can itself be made genuinely simple, for example through a suitable plug-in power-control accessory rather than requiring the customer to cut and splice track wiring.
+
+<a id="product-facilities-spec--2-power-module"></a>
+#### 2. Power Module
+
+Track-power control is an optional hardware capability.
+
+Without a Power Module, P&P can still detect, report and score behaviours such as false starts and penalties, but it cannot physically cut, hold or otherwise control lane power.
+
+Where a Power Module is fitted, modes may offer appropriate power-control responses.
+
+Hardware-dependent options should normally remain visible but locked/greyed with a concise explanation such as **Power Module required**, rather than disappearing and concealing the system's expandable capability.
+
+Reduced-power Yellow operation is only a valid product option if the eventual Power Module hardware genuinely supports controlled reduced power.
 
 <!-- INSERT:io -->
 
@@ -2218,6 +3329,21 @@ Those are defined only when required by implementation, while preserving the sem
 
 Stage 12 proposes appending, without renumbering existing types: `FINISH_SETTLEMENT=18` (Race Engine requests an Input Module FIFO fence through the normal Message Bus) and `FINISH_SETTLED=19` (Input Module acknowledges delivery of locally accepted input covered by the fence). Race Engine remains the sole publisher of authoritative competition result data; no separate Browser result message is proposed. The proposed payloads carry candidate/settled Relevant Time F, finish behaviour and result identity; Race Engine remains the sole publisher of authoritative competition result data. Exact names, numeric values, payload fields, reliability and settlement ownership are constrained by the frozen Stage 12 design and acceptance plan; implementation remains unauthorised until separately approved.
 
+<a id="system-architecture--132-event-ordering-duplication-and-availability"></a>
+#### 13.2 Event ordering, duplication and availability
+
+Where authoritative timestamps establish order, P&P uses those timestamps rather than communication arrival order. Where timestamps genuinely do not establish an order, arrival order must not manufacture one; the relevant race/mode rules determine how simultaneous events are treated.
+
+A single source event must not affect authoritative state more than once. The mechanism is an implementation decision and should be placed at the lowest sensible boundary rather than forcing Race Engine to compensate for avoidable transport duplication.
+
+There is no universal age at which a delayed event becomes invalid. Its timestamp is preserved and the responsibility owning its meaning decides whether it remains relevant. Where capability availability changes affect event interpretation, those changes are related to P&P System Time so that an event is interpreted against the state applicable at its event time rather than merely the state when it arrived.
+
+Capability availability is authoritative at the boundary of the responsibility that owns or monitors that capability. That responsibility may use acknowledgements, heartbeat, timeout, self-test, connection state or another suitable mechanism internally. Race Control consumes the functional status needed for race decisions, not routine low-level communications or detailed diagnostics.
+
+Communication status, capability status, event publication/delivery and authoritative processing are distinct. Successful communication is not proof of downstream physical operation or successful event processing unless the relevant boundary explicitly provides that information.
+
+Loss of a capability invalidates any stale claim that its last reported physical state is still current. On recovery it establishes current state afresh and is not operationally available until required initialisation, compatibility and timing conditions are satisfied.
+
 <!-- INSERT:comms -->
 
 ## Memory and storage
@@ -2301,21 +3427,6 @@ Where another component's resulting state matters, message delivery alone is not
 A physical output has one authoritative owner of commanded state. Other functions provide information or request action through boundaries; they do not independently drive it.
 
 A component receives only the information required for its responsibility. The existence of complete authoritative P&P state does not justify a universal mutable state object shared across unrelated components.
-
-<a id="system-architecture--132-event-ordering-duplication-and-availability"></a>
-#### 13.2 Event ordering, duplication and availability
-
-Where authoritative timestamps establish order, P&P uses those timestamps rather than communication arrival order. Where timestamps genuinely do not establish an order, arrival order must not manufacture one; the relevant race/mode rules determine how simultaneous events are treated.
-
-A single source event must not affect authoritative state more than once. The mechanism is an implementation decision and should be placed at the lowest sensible boundary rather than forcing Race Engine to compensate for avoidable transport duplication.
-
-There is no universal age at which a delayed event becomes invalid. Its timestamp is preserved and the responsibility owning its meaning decides whether it remains relevant. Where capability availability changes affect event interpretation, those changes are related to P&P System Time so that an event is interpreted against the state applicable at its event time rather than merely the state when it arrived.
-
-Capability availability is authoritative at the boundary of the responsibility that owns or monitors that capability. That responsibility may use acknowledgements, heartbeat, timeout, self-test, connection state or another suitable mechanism internally. Race Control consumes the functional status needed for race decisions, not routine low-level communications or detailed diagnostics.
-
-Communication status, capability status, event publication/delivery and authoritative processing are distinct. Successful communication is not proof of downstream physical operation or successful event processing unless the relevant boundary explicitly provides that information.
-
-Loss of a capability invalidates any stale claim that its last reported physical state is still current. On recovery it establishes current state afresh and is not operationally available until required initialisation, compatibility and timing conditions are satisfied.
 
 <a id="persistent-storage-foundation-design--pp-persistent-storage-foundation-design"></a>
 ### P&P Persistent Storage Foundation Design
@@ -2553,6 +3664,83 @@ modes, a second persistence authority, new Practice or Endurance behaviour, or
 product maximum based on implementation capacity. The WP8 session-source
 record-policy boundary is defined by the Race Control/Session Definition
 contract above; its implementation and physical presentation remain WP8 work.
+
+<a id="system-architecture--77-authoritative-noticeboard"></a>
+#### 7.7 Authoritative Noticeboard
+
+The **Noticeboard** is P&P's authoritative current externally presentable view of itself. It contains everything relevant and current needed to understand P&P or an active session, plus any current information made available to a Browser, Taster or other presentation interface. It is information/state assembled from the responsibilities that own that truth; it is not another operational module and does not become another owner of the underlying information.
+
+During a session this includes the relevant Session Definition information as well as live session/competition state. Outside a race it can include current Race Setup, available options, capability/availability information, selectable saved identities and user-facing status/fault information where an interface needs them. The Noticeboard is not History and does not expose private hardware/implementation detail merely because it exists. A Browser/Taster obtains current externally presentable P&P information through the Noticeboard rather than directly interrogating owning modules. **The Noticeboard is read-only as an architectural view: no consumer writes through it to alter Race Control, Race Engine, configuration, Registry or any other authoritative owner.** Changes originate with the responsibility that owns the truth; the Noticeboard merely exposes the resulting current externally presentable state.
+
+A material change to the Noticeboard can cause a standard **`NOTICEBOARD_CHANGED`** notification. The notification does not carry a replacement copy of State; interested consumers look again at the current authoritative information they need.
+
+For WP8 the Noticeboard must also make the current Taster/SMUG control role,
+startup race-readiness, selected lane graphics, frozen racer identities and
+the live per-lane completion/winner information available to presentation
+clients where those values are relevant. These remain views assembled from
+their owning authorities; the Taster and Browser do not publish them back as
+state.
+
+The Noticeboard does not conceptually require a public version number. Revision counters, dirty flags or sequence numbers may be used internally if useful, but are implementation mechanisms unless a later concrete requirement says otherwise.
+
+The passage of time alone does not require repeated Noticeboard changes. For example, a display can derive a counting race clock from authoritative start/GO time, duration and P&P System Time without generating a `NOTICEBOARD_CHANGED` notification every second.
+
+Facts/Events describe things that happened. The Noticeboard describes what is true now as a result. A current fact such as the fastest lap remains represented as current State until it is superseded or ceases to be relevant.
+
+> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
+
+<a id="stage-12-design--stage-12-design--completed-results-and-post-race-flow"></a>
+### Stage 12 Design � Completed Results and Post-Race Flow
+
+**Status: FROZEN DESIGN � Stage 12 implementation not yet authorised**
+
+Stage 12 adds an authoritative in-RAM completed-race result and the minimal Results, Details, Home and Race Again flow. It does not add persistence, History, controller-restart recovery, or a production restart-from-zero operation while a race is active.
+
+<a id="stage-12-design--ownership-and-lifetime"></a>
+#### Ownership and lifetime
+
+Race Engine owns a `CompletedRaceResult` summary created only after completion settlement. It contains the immutable Session Definition reference, W/F, finish behaviour, per-entry completed progress, completion times where measured, finishing order/dead heats, Best Lap and overall Fastest Lap, detail-completeness/association status and a sealed flag. Individual lap records belong to the active/detail storage boundary and are retrieved on demand for Details; they are not a fixed product-sized array in the summary. It remains available in RAM through Results and Browser reconnect until the next accepted START, fixture reset, or controller restart. Browser and Noticeboard expose it; neither calculates authoritative results.
+
+START after Race Again creates a new Session Definition and fresh Race Entry IDs. Editing the proposed setup cannot mutate the sealed previous result.
+
+<a id="stage-12-design--w-f-and-completion-settlement"></a>
+#### W, F and completion settlement
+
+Immediate Finish has W=F at the first target-distance crossing. Complete Current Lap and Complete Full Race Distance retain required post-W crossings; F is the Relevant Time of the last required crossing. A candidate F starts an explicit Message Bus settlement: `FINISH_SETTLEMENT(F)` reaches the local Input Module, which settles all locally accepted eligible input through F; `FINISH_SETTLED(F)` returns through the normal bus. Race Engine then orders and interprets the settled inventory, seals the result, and reports completion to Race Control. Input with Relevant Time after F cannot mutate the sealed result.
+
+The exact finish-rule algorithms and settlement-pending rejection reason are frozen by the acceptance plan. No generalized distributed watermark or persistence protocol is introduced.
+
+<a id="stage-12-design--browser-flow"></a>
+#### Browser flow
+
+FINISHED State offers Results and read-only Details. Details shows genuine retained lap records only. BACK returns to Results. Spectators may view both. Race Director authority is required for Race Again and any Home operation that changes authoritative session flow. Race Again restores the completed setup as proposed without starting. HOME returns to normal mode selection and does not factory-reset remembered setup.
+
+<a id="stage-12-design--explicit-deferrals"></a>
+#### Explicit deferrals
+
+Persistent Results/History, rolling history, PBs, track records, persistence schema, controller-restart result recovery, PAUSE-to-Restart-Race, PAUSE-to-End-Race, other modes, championship management and polished UI remain deferred.
+
+
+<a id="stage-12-design--decisions-1421-incorporated"></a>
+#### Decisions 14�21 incorporated
+
+**W/F:** Immediate Finish uses W=F. Complete Current Lap sets W at the winner crossing and requires exactly one valid post-W crossing from every other active competitor; F is the last such crossing. Complete Full Race Distance keeps required competitors active to target distance; F is the last target crossing.
+
+Complete Current Lap ranking is completed progress first, then finishing Relevant Time, with equality only when both are equal. Immediate Finish non-winners use completed progress only; no physical position or finish time is inferred. Results use explicit normal competition ranks (`1, =2, =2, 4`) and joint first where applicable.
+
+**HOME and Race Again:** HOME is Browser-local navigation and never changes FINISHED or requires Race Director authority. Race Again is Race Director-only and seeds a new editable Proposed Race Setup from the completed Session Definition, then validates current capabilities when START creates a fresh Session Definition and fresh entry IDs.
+
+**CompletedRaceResult:** Race Engine owns one sealed in-RAM summary. Results is served from the summary; Details retrieves the linked detail records through the active/detail storage boundary or committed History representation. Facts remain events and are never used as a history database. The summary ends at the next accepted START, full fixture reset or controller restart.
+
+**Settlement:** Proposed appended types are `FINISH_SETTLEMENT=18` and `FINISH_SETTLED=19`. Race Engine owns candidate F and finish-rule interpretation; Input Module only fences its locally accepted FIFO. Race Engine seals only after FINISH_SETTLED, and later Relevant Time values cannot mutate the result. Settlement flags reset for every new race.
+
+
+<a id="stage-12-design--decision-22--active-competitor-at-w"></a>
+#### Decision 22 � active competitor at W
+
+An active competitor at W is a race entry in the current Session Definition which has not ceased participation under an existing authoritative race rule before W. Stage 12 introduces no retirement, withdrawal, DNF, disqualification, pit/inactive state or Browser-dependent participation. In this implementation every valid entry remains active except an entry already finished as part of the winning group. Browser presence never affects activity. Complete Current Lap therefore requires exactly one further valid crossing from every other active entry; Complete Full Race Distance continues every other active entry to target distance. If all active entries satisfy the winning condition at the same Relevant Time they may be joint winners and no artificial crossing is added.
+
+Completed-result Noticeboard and Browser field names/serialization are implementation details, constrained by the semantic requirements and existing boundaries. They are not remaining product-design decisions and must not turn State into persistent History.
 
 <!-- INSERT:storage -->
 
@@ -4025,6 +5213,553 @@ Multiple MUGs may be connected simultaneously. One MUG may hold Race Director au
 
 MUG is internal/technical vocabulary; customer-facing interfaces may use ordinary terms such as Race Director, driver or display.
 
+<a id="product-facilities-spec--3-audio-and-removable-storage"></a>
+#### 3. Audio and removable storage
+
+<a id="product-facilities-spec--31-base-requirement"></a>
+##### 3.1 Base requirement
+
+Every normal P&P System Controller should include:
+
+- persistent microSD/removable storage capability;
+- onboard audio capability;
+- a small internal speaker sufficient for clear race-control tones and speech.
+
+This is a standard base capability, not an upgrade.
+
+The exact hardware implementation is not yet fixed.
+
+<a id="product-facilities-spec--32-storage-uses"></a>
+##### 3.2 Storage uses
+
+Persistent removable storage may retain:
+
+- race/session results;
+- lap-by-lap data;
+- Timed Stage results;
+- personal bests and records;
+- track records;
+- MUG profiles;
+- event history;
+- CSV exports/backups;
+- configuration backup;
+- audio/voice files.
+
+The detailed record schema remains implementation design.
+
+<a id="product-facilities-spec--33-audio-implementation"></a>
+##### 3.3 Audio implementation
+
+Essential tones reside in firmware. Prerecorded speech and effects are stored on SD.
+P&P supplies the audio packs. Customer-installed packs are outside the product scope.
+Launch packs provide British male and female voices. The audio pack design must
+support future languages.
+
+The implementation should favour a small, reliable, low-BOM solution with sane file/folder handling.
+
+Options to compare before hardware freeze include:
+
+1. off-the-shelf audio + SD module;
+2. separate microSD plus audio module/amplifier;
+3. audio/SD circuitry integrated into P&P's own PCB.
+
+Previous awkward module folder/naming conventions must not dictate the new architecture.
+
+High audio power is not a goal in itself. Clear internal race-control sound matters more than 5 W versus 10 W; a few watts may be sufficient.
+
+<a id="product-facilities-spec--34-audio-destinations"></a>
+##### 3.4 Audio destinations
+
+Audio event/type and audio destination are separate choices.
+
+Selectable destinations:
+
+- P&P unit;
+- Browser;
+- Both;
+- Mute.
+
+In standalone operation, Browser-only falls back to P&P's internal speaker.
+Mute is always respected, including during destination fallback. Browser audio
+can deliver individual MUG alerts. Personalised spoken announcements using
+MUG names are deferred until after v1.
+
+<a id="product-facilities-spec--35-preferences-defaults-and-testing"></a>
+##### 3.5 Preferences, defaults and testing
+
+P&P uses one shared set of sound preferences, including standalone operation. The controlling Browser's System sound settings allow individual event configuration, including countdown beeps or spoken countdown, race announcements and spoken lap times. Preferences survive restart; system factory reset restores the defaults, but restoring the Integrated Display defaults does not reset sound.
+
+| Factory setting | Default |
+|---|---|
+| Enabled events | Welcome sound, countdown beeps, lap-completion sound, final-lap announcement, time warnings, pause/resume, winner announcement, victory fanfare |
+| Disabled events | Race setup announcement, spoken lap times, fastest-lap announcement, halfway announcement |
+| Destination and volume | P&P internal speaker, 60% |
+
+Endurance warnings are individually configurable.
+
+| Endurance event | Factory default |
+|---|---|
+| Five minutes remaining | Off |
+| One minute remaining | On |
+| Thirty seconds remaining | Off |
+| Ten seconds remaining | On |
+| Time expired | On |
+| Finish current lap | On |
+
+Provide audio preview and independent tests for the P&P speaker and Browser
+audio. Disable previews and both tests during active races.
+
+<a id="product-facilities-spec--36-playback-priority-and-reliability"></a>
+##### 3.6 Playback priority and reliability
+
+Playback priority, highest first:
+
+1. Countdown and GO.
+2. Race interruption and completion.
+3. Winner announcement.
+4. Final lap and time remaining.
+5. Fastest lap.
+6. Ordinary lap sounds and spoken lap times.
+
+Higher priorities may interrupt lower priorities. Discard obsolete
+announcements, including stale cues on PAUSE and race restart. Play the pause
+announcement once per pause. Alternating yellow warning lights remain silent.
+
+Audio must never delay racing and must work without an internet dependency.
+If a file is missing or corrupt, use an appropriate basic tone. Report audio
+failures through diagnostics.
+
+<a id="product-facilities-spec--4-browser-and-system-controller-responsibilities"></a>
+#### 4. Browser and System Controller responsibilities
+
+The System Controller owns:
+
+- authoritative timing;
+- race/session logic;
+- authoritative state;
+- small race facts/events and state updates.
+
+Browsers own:
+
+- graphics;
+- animation;
+- formatting;
+- browser audio;
+- presentation appropriate to their role.
+
+Official timing must never depend on browser latency.
+
+The architecture should support several simultaneous browser clients. A representative four-MUG setup may involve six browsers:
+
+- one main scoreboard;
+- four personal MUG displays;
+- one Race Director display.
+
+This scale should be prototype-tested under realistic worst-case conditions before hardware is frozen.
+
+<a id="product-facilities-spec--41-local-taster-and-smug-control-hierarchy"></a>
+##### 4.1 Local Taster and SMUG control hierarchy
+
+See [Integrated Display control hierarchy and records](#pp-taster-spec--control-hierarchy-and-records) and [factory car graphics](#pp-taster-spec--factory-car-graphics). The Integrated Display is not an independent racing product.
+
+<a id="product-facilities-spec--6-start-presentation-and-audio"></a>
+#### 6. Start presentation and audio
+
+Start behaviour is a race-mode concern, but presentation facilities should support parameterised sequences rather than hard-coded animations.
+
+For normal Lap racing this includes three- or five-light sequences, configurable red-light interval and configurable final delay.
+
+The same authoritative GO time must govern race timing, display and any scheduled physical/audio outputs. Presentation may be theatrical; timing remains boring and reliable.
+
+<a id="product-facilities-spec--7-solo-and-multi-user-product-behaviour"></a>
+#### 7. Solo and multi-user product behaviour
+
+P&P must remain usable without a dedicated Race Director.
+
+Supported operating patterns include:
+
+- dedicated Race Director;
+- Race Director who is also racing;
+- solo MUG.
+
+Every normal race/session must be runnable by one MUG.
+
+At the other end, P&P may scale to a main display, several personal MUG displays and a separate Race Director display without changing the fundamental race engine.
+
+> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
+
+<a id="implementation-spec--pp-normal-browser-----implementation-handover"></a>
+### P&P Normal Browser --- Implementation Handover
+
+<a id="implementation-spec--status-and-priority"></a>
+#### Status and priority
+
+This package contains the current approved visual references and agreed
+normal-Browser UX.
+
+If anything conflicts, use this priority:
+
+1.  P&P authority/product specification
+2.  This implementation handover
+3.  Approved visual HTML references
+4.  Mock-up behaviour/scripts
+
+The HTML files are visual references, not production code to paste
+blindly. Existing authoritative P&P behaviour and API boundaries must be
+retained. Do not resurrect older/intermediate mock-ups.
+
+<a id="implementation-spec--authority-rule"></a>
+#### Authority rule
+
+P&P is authoritative. The Browser is presentation and control.
+
+The Browser may present authoritative state, submit requests,
+temporarily display a locally requested setup value while it settles,
+and add presentation-only effects.
+
+The Browser must not determine laps, timing, position, gaps, winner,
+finishing state, classification, readiness or acceptance of
+configuration. Reload/reconnect reconstructs the correct presentation
+from P&P.
+
+<a id="implementation-spec--visual-language"></a>
+#### Visual language
+
+Use dark navy/charcoal, restrained P&P yellow, white/off-white primary
+information and lane colours for lane identity. Keep the
+race-equipment/instrument appearance rather than game styling. Retain
+the P&P logo, pictorial top navigation, yellow selected-nav treatment,
+common Race Control Pod and fixed lane-row language. Racer and Car
+remain separate identities.
+
+Normal navigation: Race \| Results \| Track Setup \| Racers \| Settings.
+
+<a id="implementation-spec--race--ready"></a>
+#### Race / READY
+
+The page answers: "What is P&P ready to do if I press START?"
+
+Show Race Entries, racer/car/lane assignments, Race Setup, authoritative
+mode/configuration, Track Status, START and Latest Result.
+
+Mode selector: LAP RACE \| PRACTICE \| ENDURANCE \| TIMED STAGE \| DRAG
+
+Unavailable modes are shown unavailable only when P&P reports that
+state.
+
+There is no Save/Apply. Setup controls request changes. START starts
+P&P's currently authoritative proposal; it never submits Browser-local
+pending values.
+
+<a id="implementation-spec--lap-race-setup"></a>
+#### Lap Race setup
+
+Target laps 1--999, Race Entries, Rotate Lanes, Reverse direction and
+Automatically rotate after each race.
+
+Exactly three finish behaviours:
+
+1.  All stop when winner finishes.
+2.  Winner finishes --- all others finish current lap.
+3.  Winner finishes --- all others complete total race distance.
+
+Do not show an empty Advanced/More Race Options panel. Add it only when
+P&P has genuine authoritative secondary options.
+
+<a id="implementation-spec--endurance-setup"></a>
+#### Endurance setup
+
+Duration 1--999 whole minutes, default 10 minutes, Race Entries and
+applicable lane controls.
+
+Exactly two finish behaviours: STOP AT ZERO or FINISH CURRENT LAP.
+
+<a id="implementation-spec--practice-setup"></a>
+#### Practice setup
+
+Initial implementation is OPEN PRACTICE. Timed Practice remains
+unavailable until P&P has the specified authoritative mechanics.
+
+Open Practice has no race distance, winner, finish policy or competitive
+position.
+
+<a id="implementation-spec--numeric-controls"></a>
+#### Numeric controls
+
+Support direct typing, decrement/increment and desktop hover + mouse
+wheel.
+
+Wheel over the numeric field changes by ±1 within bounds and consumes
+the wheel event so the page does not also scroll. Moving the pointer
+away restores normal page scrolling.
+
+Wheel/hover is a convenience only. Touch must have equivalent usable +/-
+and direct-entry operation.
+
+Typing uses an edit buffer. Typing 120 must not generate intentions 1,
+12 and 120. Commit on Enter, blur or a short settle interval.
+
+<a id="implementation-spec--pending-setup"></a>
+#### Pending setup
+
+The Browser may immediately show the latest desired value, but that is
+not authoritative.
+
+While unresolved, retain the latest desired value, do not let older P&P
+readback bounce it backwards, use only subtle pending indication if
+delay is perceptible, and make START unavailable.
+
+On acceptance reconcile normally. On rejection restore authoritative
+value and explain briefly.
+
+Rapid changes such as 10→4→2→1 must leave 1 displayed while machinery
+catches up.
+
+Reload/reconnect discards local pending state and reconstructs from P&P.
+
+<a id="implementation-spec--starting"></a>
+#### STARTING
+
+STARTING uses the stable race screen.
+
+There are five physical lamp positions. P&P supplies authoritative start
+presentation, including configured 3-red or 5-red sequence, LIGHTS OUT
+and GO.
+
+At GO all five positions are green for one second, then extinguish.
+Green is not left on throughout RACING.
+
+The Browser must not recreate the start state machine from its own
+elapsed time.
+
+Endurance must show the configured authoritative duration before GO.
+
+<a id="implementation-spec--lap-race-live-screen"></a>
+#### Lap Race live screen
+
+Rows remain in physical lane order throughout the race.
+
+Columns: POSITION \| LANE/RACER \| PROGRESS \| LAST \| BEST \| GAP
+
+Progress example: 6 / 10.
+
+Show mode/race distance, Fastest Lap, Track Record, Race Control Pod,
+elapsed RACE TIME and PAUSE.
+
+RACE TIME counts upward from authoritative race timing in whole seconds,
+continuing past `3599` without resetting or changing units. Pause freezes it;
+Resume continues it.
+
+<a id="implementation-spec--endurance-live-screen"></a>
+#### Endurance live screen
+
+Same visual family as Lap Race.
+
+Columns: POSITION \| LANE/RACER \| LAPS \| LAST \| BEST \| GAP
+
+Show prominent TIME REMAINING counting down from authoritative timing.
+
+Clearly show ENDURANCE · STOP AT ZERO or ENDURANCE · FINISH CURRENT LAP.
+
+For FINISH CURRENT LAP after expiry, TIME REMAINING remains `0` seconds and
+OVERTIME appears where applicable, counting upward from the same authoritative
+expiry point as `+0`, `+1`, `+2` and so on. Each lane freezes its first
+eligible final-crossing offset as `+mm:ss:xx` to hundredths; both offsets stay
+visible when the race finishes. These values follow the common contract in
+`RACE_MODES_PRODUCT_SPEC.md` §4.6.
+
+P&P determines whether overtime applies and supplies authoritative
+timing. Browser does not infer expiry/overtime.
+
+<a id="implementation-spec--lane-density"></a>
+#### Lane density
+
+The same scoreboard works from 1--8 lanes: 1--2 generous, 3--4 medium,
+5--6 compact, 7--8 dense.
+
+Do not make one lane absurdly tall. Preserve column geometry. Optional
+car imagery scales with row density and remains secondary.
+
+Eight lanes should be visible without vertical scrolling at the intended
+primary desktop/tablet Race Control viewport.
+
+<a id="implementation-spec--lap-and-finish-animation"></a>
+#### Lap and finish animation
+
+Normal lap: car accelerates left→right and exits.
+
+Finishing lap: the same-size car accelerates left→right, pulls an
+expanding chequered band, exits, and the band briefly ripples/settles
+then clears.
+
+The car does not grow during the animation.
+
+If one racer has finished while others continue, show a small chequered
+flag in that lane's fixed reserved flag slot. Do not alter row geometry
+and do not add redundant FIN text.
+
+P&P supplies the authoritative lap/finish event. Animation never gates
+or determines sporting state.
+
+<a id="implementation-spec--pause-first-session-management"></a>
+#### PAUSE-first session management
+
+While actively running, the only deliberate session-management action is
+PAUSE.
+
+Competitive Lap Race / Endurance after authoritative PAUSED: RACE PAUSED
+--- RESUME \| RESTART \| ABANDON
+
+ABANDON is destructive and requires confirmation. Confirmed abandonment
+returns to READY with no Result, History entry or Finish Display.
+
+Practice after authoritative PAUSED: PRACTICE PAUSED --- RESUME \|
+RESTART \| END PRACTICE
+
+Practice does not use ABANDON.
+
+<a id="implementation-spec--resume"></a>
+#### Resume
+
+Lap Race / Endurance: RESUME → authoritative STARTING → start
+presentation → GO → RACING.
+
+Endurance timing remains frozen until authoritative GO.
+
+Open Practice Resume returns directly to active Practice with no fake
+STARTING/countdown/GO. Completed laps remain; partial-lap handling
+follows authoritative P&P Practice semantics.
+
+<a id="implementation-spec--competitive-finish-display"></a>
+#### Competitive Finish Display
+
+P&P owns whether Finish Display is active, its timing and when it ends.
+Browser owns appearance.
+
+Default presentation duration is 5 seconds where configured, including
+zero where supported.
+
+Final live scoreboard freezes. Browser must not independently start its
+own five-second timer.
+
+Reload during Finish Display reconstructs the current authoritative
+point; it does not restart the delay.
+
+RESULTS › may request skipping the remaining Finish Display where P&P
+permits it.
+
+<a id="implementation-spec--results"></a>
+#### Results
+
+Results deliberately resemble the live race display.
+
+Live race rows = physical lane order. Results rows = authoritative
+classification/finishing order.
+
+Lane number/colour remains attached to racer.
+
+Retain familiar scoreboard geometry, Fastest Lap and Track Record. Use
+restrained first-place emphasis; no separate giant winner card.
+
+Bottom actions: HISTORY \| DETAILS \| RACE AGAIN
+
+RACE AGAIN requests the next proposal and returns to READY; it never
+immediately starts a race.
+
+<a id="implementation-spec--practice-completion--summary"></a>
+#### Practice completion / summary
+
+Flow: Active Practice → PAUSE → END PRACTICE → Practice Summary.
+
+No competitive Finish Display or winner theatre.
+
+Practice Summary uses the same visual family but is non-competitive.
+Show relevant authoritative information such as LANE \| RACER/CAR \|
+LAPS \| BEST LAP, plus Fastest Lap / Track Record where P&P supplies
+them.
+
+Do not show position, gap, winner, finishing order, leader highlighting
+or competitive chequered treatment.
+
+The lifecycle decision is explicit: an ended Practice cannot be resumed.
+Practice Summary presents PRACTICE AGAIN (primary) and HOME (secondary).
+PRACTICE AGAIN is an authoritative request to prepare a new Open Practice with
+the retained relevant setup; START remains a separate action.
+
+<a id="implementation-spec--individual-racer-finish"></a>
+#### Individual racer finish
+
+If one racer finishes while others continue, the live race remains, the
+racer stays in the physical lane row, finished state is clear, the small
+chequered flag appears in the reserved slot and authoritative
+progress/classification is shown.
+
+Browser never infers finished state from lap counts.
+
+<a id="implementation-spec--devices"></a>
+#### Devices
+
+PC/laptop: full SMUG/Race Control experience.
+
+Tablet: full SMUG/Race Control experience. Landscape is
+preferred/optimised, not mandatory.
+
+Phone: Personal MUG is the default intended experience rather than a
+miniature SMUG. Do not create an artificial architectural prohibition
+against Race Control on a phone unless separately decided.
+
+All devices remain clients of the same authoritative P&P state.
+
+<a id="implementation-spec--browser-compatibility"></a>
+#### Browser compatibility
+
+Target current mainstream Chrome, Edge, Firefox and Safari.
+
+Core operation must not depend on Windows, Chrome-specific behaviour,
+hover, mouse wheel or right-click.
+
+Mouse, keyboard and touch may provide different conveniences, but
+equivalent core functionality must remain available.
+
+No browser version numbers are frozen.
+
+<a id="implementation-spec--multiple-browsers"></a>
+#### Multiple Browsers
+
+Several Browsers may connect simultaneously, including full Race Control
+and Personal MUG presentations. Different presentation/device layouts
+must never create different race truth.
+
+<a id="implementation-spec--deliberately-outside-this-handover"></a>
+#### Deliberately outside this handover
+
+Do not invent detailed Personal MUG visual design, TV/projector
+presentation, dedicated Race Control display, Screen Designer,
+Developer/Diagnostics, full History visual design, full Details visual
+design, unsupported Advanced Race Options, Timed Practice, Timed Stage,
+Drag, pits/fuel, championship/competition features, Power Module
+behaviour or future advanced start/false-start configuration.
+
+<a id="implementation-spec--approved-visual-references"></a>
+#### Approved visual references
+
+-   01_RACE_READY.html --- approved Race/READY visual baseline.
+-   02_LAP_RACE.html --- Lap Race live baseline with elapsed Race Time.
+-   03_ENDURANCE.html --- Endurance live baseline with Time Remaining
+    and conditional Overtime example. Bottom test buttons are not
+    production UI.
+-   04_RESULTS.html --- Results baseline: live-race family,
+    authoritative result order.
+-   05_PRACTICE_SUMMARY.html --- current Practice Summary baseline; note
+    the RESUME authority check above.
+-   06_EIGHT_LANE_DENSITY.html --- approved density/layout reference;
+    placeholder car graphics are not approved assets.
+-   07_LAP_FINISH_ANIMATION.html --- lap/finish animation and fixed
+    finished-lane flag-slot reference.
+
+Only these files are included deliberately. Older intermediate/broken
+mock-ups are not part of the handover.
+
 <!-- INSERT:presentation -->
 
 ## Configuration
@@ -4653,31 +6388,51 @@ Race Control and the Race Engine operate from that fixed Session Definition rath
 
 A small persistent list of drivers and/or cars is a possible product feature, particularly for more competitors than available lanes. It is not currently considered a fundamental architectural issue and is not committed as a feature.
 
+<a id="product-facilities-spec--5-track-setup"></a>
+#### 5. Track Setup
+
+Track Setup may optionally store information that normally changes rarely:
+
+<a id="product-facilities-spec--51-track-length"></a>
+##### 5.1 Track length
+
+- metres or feet;
+- Unknown / Not entered allowed.
+
+<a id="product-facilities-spec--52-track-scale"></a>
+##### 5.2 Track scale
+
+Preset examples include:
+
+- 1:32;
+- 1:24;
+- 1:43;
+- 1:64;
+- Custom;
+- Unknown / Not entered.
+
+From track length and timing P&P can calculate actual model average speed.
+
+Where scale is known it can also calculate scale-equivalent speed.
+
+Speed may be calculated per lap, for fastest lap, stage or whole race where meaningful.
+
+Speed does not need to occupy the default live scoreboard. It may appear in results, analysis or event callouts.
+
+<a id="product-facilities-spec--8-product-option-philosophy"></a>
+#### 8. Product-option philosophy
+
+P&P should be **simple by default, sophisticated when wanted**.
+
+Software capability should not be artificially withheld merely to manufacture product tiers when exposing it costs essentially nothing.
+
+Advanced or uncommon choices may be placed under **Advanced** so the ordinary MUG is not confronted with unnecessary complexity.
+
+Hardware-dependent premium/expansion capabilities can remain visible but locked with a clear requirement explanation.
+
 <!-- INSERT:configuration -->
 
 ## Diagnostics and recovery
-
-<a id="system-architecture--77-authoritative-noticeboard"></a>
-#### 7.7 Authoritative Noticeboard
-
-The **Noticeboard** is P&P's authoritative current externally presentable view of itself. It contains everything relevant and current needed to understand P&P or an active session, plus any current information made available to a Browser, Taster or other presentation interface. It is information/state assembled from the responsibilities that own that truth; it is not another operational module and does not become another owner of the underlying information.
-
-During a session this includes the relevant Session Definition information as well as live session/competition state. Outside a race it can include current Race Setup, available options, capability/availability information, selectable saved identities and user-facing status/fault information where an interface needs them. The Noticeboard is not History and does not expose private hardware/implementation detail merely because it exists. A Browser/Taster obtains current externally presentable P&P information through the Noticeboard rather than directly interrogating owning modules. **The Noticeboard is read-only as an architectural view: no consumer writes through it to alter Race Control, Race Engine, configuration, Registry or any other authoritative owner.** Changes originate with the responsibility that owns the truth; the Noticeboard merely exposes the resulting current externally presentable state.
-
-A material change to the Noticeboard can cause a standard **`NOTICEBOARD_CHANGED`** notification. The notification does not carry a replacement copy of State; interested consumers look again at the current authoritative information they need.
-
-For WP8 the Noticeboard must also make the current Taster/SMUG control role,
-startup race-readiness, selected lane graphics, frozen racer identities and
-the live per-lane completion/winner information available to presentation
-clients where those values are relevant. These remain views assembled from
-their owning authorities; the Taster and Browser do not publish them back as
-state.
-
-The Noticeboard does not conceptually require a public version number. Revision counters, dirty flags or sequence numbers may be used internally if useful, but are implementation mechanisms unless a later concrete requirement says otherwise.
-
-The passage of time alone does not require repeated Noticeboard changes. For example, a display can derive a counting race clock from authoritative start/GO time, duration and P&P System Time without generating a `NOTICEBOARD_CHANGED` notification every second.
-
-Facts/Events describe things that happened. The Noticeboard describes what is true now as a result. A current fact such as the fastest lap remains represented as current State until it is superseded or ceases to be relevant.
 
 <a id="system-architecture--14-test-and-diagnostics"></a>
 #### 14. Test and diagnostics
@@ -4895,6 +6650,412 @@ still define measurable image-authentication, compatibility and post-boot
 health checks within these boundaries and submit those details for technical
 review; they are not permission to change the product decisions above.
 
+> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
+
+<a id="stage-15-logging-diagnostics-foundation-design--stage-15-logging-and-diagnostics-foundation-design"></a>
+### Stage 15 Logging and Diagnostics Foundation Design
+
+**Status:** Foundation Design ACCEPTED/FROZEN for implementation. Final Stage 15 acceptance/freeze is not granted.
+
+<a id="stage-15-logging-diagnostics-foundation-design--1-scope"></a>
+#### 1. Scope
+
+This foundation records observations about Browser actions, P&P requests and decisions, authoritative state changes, notifications, rendering, storage, and system health. It does not become product state, race authority, timing authority, classification authority, Browser configuration authority, or product persistence.
+
+The implementation must preserve all Stage 1–14C semantics and the preserved Stage 14C candidate.
+
+<a id="stage-15-logging-diagnostics-foundation-design--1a-diagnostic-privacy-and-access-contract"></a>
+#### 1A. Diagnostic privacy and access contract
+
+Diagnostic recording is for technical and product diagnosis only. P&P may
+record structured technical information needed to diagnose behaviour,
+including controller/build identity, lifecycle and race state, race
+configuration, lane information, timings, requests/results, correlation and
+trace identities, detector/input events, persistence/storage events,
+resource/health information, Browser/Taster observations, errors, drops and
+diagnostic health.
+
+Racer/MUG names or identifiers may appear when they are genuinely part of the
+product state being diagnosed. They must not be duplicated merely for
+logging. Diagnostics must never deliberately record Wi-Fi passwords,
+passwords, secrets, authentication tokens, private/signing keys,
+cookies/session credentials, complete HTTP headers for convenience, arbitrary
+Browser form contents, or unrelated user data. Free-form or unknown external
+data is not copied automatically; records use defined structured fields.
+
+Normal diagnostics may run automatically during ordinary P&P operation.
+Development diagnostics are an explicit troubleshooting facility under the
+advanced diagnostic facilities and require the same P&P
+Master/Race-Director/controlling-SMUG control lease used by other advanced
+controls. Starting and stopping Development diagnostic sessions require that
+same lease. Downloading a diagnostic artifact is an observation-only action
+available to any connected Browser with normal P&P access; it does not grant
+control and must not offer TAKE CONTROL merely to download. Status and
+diagnostic viewing are likewise observation-only unless a narrower rule is
+explicitly required by the product UI. No separate SMUG capability, account,
+password, PIN or authentication system is introduced. Diagnostic access never
+grants Race Control or Race Engine authority, and diagnostic, access or export
+failure must not alter product/race operation.
+
+No elaborate account/login system is introduced solely for Stage 15. The
+existing/frozen P&P configuration and access model must enforce the
+Development boundary at the request boundary. The production implementation contains the controlling-lease check for Development start/stop, and status/retrieval/download remain observation-only. These checks are request-boundary rules, not permissions inferred from Browser presentation.
+
+<a id="stage-15-logging-diagnostics-foundation-design--1b-wp3a-product-support-contract"></a>
+#### 1B. WP3A product support contract
+
+WP3A freezes the customer-facing diagnostic contract and design direction. It
+does not claim that the production recorder, export route or final Browser UI
+is implemented. WP3B is the subsequent implementation package.
+
+<a id="stage-15-logging-diagnostics-foundation-design--customer-workflow"></a>
+##### Customer workflow
+
+The supported workflow is:
+
+`Settings → Advanced → Diagnostics → DOWNLOAD DIAGNOSTICS → send one item to support`.
+
+The customer receives one P&P-generated artifact. They do not select raw logs,
+sessions, cursors, sinks, files or endpoints. A download may be requested while
+recording is active. P&P owns the snapshot boundary and recording continues
+after the snapshot. The Browser displays the authoritative export capability
+and result; it does not implement a snapshot or recovery state machine.
+
+<a id="stage-15-logging-diagnostics-foundation-design--artifact-representation-and-contents"></a>
+##### Artifact representation and contents
+
+The WP3A support artifact is a versioned UTF-8 newline-delimited JSON file
+(`.ndjson`), with one self-identifying header record, structured diagnostic
+records in deterministic sequence order, and a summary/footer record. The
+header identifies the product, firmware/build, controller epoch, export
+schema, snapshot boundary, storage-health and capability state. Records retain
+the structured envelope, timestamps, client/session identity where applicable,
+correlations, event kind and allow-listed payload. The summary reports record
+count, drops and whether evidence is incomplete, volatile or degraded.
+
+The artifact must contain enough retained Normal material and Development
+material up to the snapshot to reconstruct chronology, reboot/session
+boundaries, health/storage faults, controller/network context, race/session
+state, requests/results and input context. It must remain inspectable and
+deterministic for tests. The current `/diag/records` hexadecimal response is a
+development inspection view, not this support artifact. Compression, byte
+limits and final SD placement remain implementation/physical-validation
+details and are not frozen here.
+
+<a id="stage-15-logging-diagnostics-foundation-design--recording-scope"></a>
+##### Recording scope
+
+Normal diagnostics are always-on, quiet, bounded and rolling. They capture the
+allow-listed Stage 15 taxonomy needed to explain ordinary customer faults:
+boot/controller/build identity, session/reconstruction boundaries, material
+request acceptance/rejection, authoritative lifecycle/state changes,
+persistence and storage-health transitions, resource-health faults/recovery,
+and relevant notification/transport-health transitions. They do not record
+unchanged loops, raw traffic or arbitrary form data. Detailed detector/input,
+Browser request/result, notification, collection and render observations are
+Development-level evidence, with Normal retaining only material fault or
+transition observations needed for support.
+
+Development diagnostics include Normal scope plus the deeper structured
+request, input/detector, Message Bus/Race decision, Browser notification,
+authoritative collection, render, persistence, resource, fault, drop and
+reconstruction observations already defined by the Stage 15 taxonomy. Both
+scopes use an allow-list; neither copies raw headers, secrets, cookies,
+arbitrary form contents or unrelated personal data.
+
+<a id="stage-15-logging-diagnostics-foundation-design--retention-storage-health-and-failure"></a>
+##### Retention, storage health and failure
+
+Normal retention is a bounded rolling window; the oldest diagnostic evidence
+is discarded when its bound is reached, without outranking authoritative
+History/Results data. Development retention is bounded and reports explicit
+drops/loss. Temporary export material is bounded, reclaimable and leaves no
+uncontrolled debris. Writes must not occur per loop or retry unchanged status
+indefinitely; exact capacities, write timing, SD throughput and wear tuning
+remain provisional until WP4 hardware evidence.
+
+Export capability is P&P-owned and reports one of `AVAILABLE`, `LIMITED` or
+`UNAVAILABLE`. `LIMITED` means a useful artifact can be produced from retained
+RAM/current status/build/health despite degraded or missing durable storage;
+`UNAVAILABLE` means no useful artifact can be produced. SD unavailability does
+not disable diagnostics or racing, and diagnostic failures never alter product
+authority. Existing storage-health state is observed; no second diagnostic
+recovery state machine is introduced.
+
+<a id="stage-15-logging-diagnostics-foundation-design--browser-hierarchy"></a>
+##### Browser hierarchy
+
+The final Browser hierarchy is Settings → Advanced → Diagnostics. Availability
+and DOWNLOAD DIAGNOSTICS are primary. Firmware/build, System Health,
+Diagnostic Storage and Normal Diagnostics state are secondary. TECHNICAL
+DETAILS and DEVELOPMENT DIAGNOSTICS are tertiary. Raw logs, files, cursors,
+JSON, API endpoints, addresses, Message Bus/SD paths, raw HTTP, live console
+and CLEAR DIAGNOSTICS are not customer controls. Normal diagnostics has no
+customer Start/Stop. Development START/STOP is offered to the controlling
+SMUG. Any connected Browser may request the observation-only download.
+
+The same Advanced/Diagnostics area contains a **Network** section. Any
+connected Browser may view sanitized AP/STA status and request a Wi-Fi scan.
+Selecting an SSID is local presentation state. For a remembered but
+disconnected network, **RECONNECT** is an authoritative controlling-SMUG
+operation that uses the driver's existing configuration without accepting an
+SSID/password payload. **RECONFIGURE** is the separate credential-writing
+operation. Reconnect, Disconnect, Reconfigure and Forget Network require the
+controlling SMUG/Race Director lease; no separate diagnostic or network
+authority exists. Network credentials are never returned, displayed after
+submission, logged, diagnosed, exported, or placed in History/Results.
+
+<a id="stage-15-logging-diagnostics-foundation-design--wp3a-status-boundary"></a>
+##### WP3A status boundary
+
+This section records the **WP3A Foundation/Product Design Freeze**. WP3B–WP3E
+software implementation is complete for review, including the production
+recorder integration, Browser workflow, export route/encoding and support
+artifact. This does not grant final Stage 15 acceptance. Final acceptance also
+requires the resource, policy, real ESP32-S3/SD, recovery, housekeeping and
+render-evidence gates in Section 7.
+
+<a id="stage-15-logging-diagnostics-foundation-design--development-duration-and-reboot-volatility"></a>
+##### Development duration and reboot volatility
+
+Development records already retained or durably written are not deleted merely
+because the mode expires and remain available under the normal bounded
+retention policy.
+
+The enabled/active Development-logging mode is volatile and is not persisted.
+A reboot, reset or power loss ends Development logging. P&P always starts or
+restarts in Normal diagnostics only. There is no automatic resume and no
+resume prompt. Previously recorded diagnostic material remains available
+subject to bounded retention. If further Development detail is required, the
+controlling SMUG deliberately starts a new Development session. This
+volatility applies to the mode/enabled state, not to already-recorded evidence.
+
+<a id="stage-15-logging-diagnostics-foundation-design--2-session-and-storage-health-state"></a>
+#### 2. Session and storage-health state
+
+The diagnostic session lifecycle is exactly:
+
+`DISABLED`, `STARTING`, `ACTIVE`, `STOPPING`, `COMPLETED`, `INTERRUPTED`.
+
+Storage health is a separate dimension. The foundation contract uses:
+
+`DURABLE_SD`, `RAM_ONLY`, `DEGRADED`, `FAULT`.
+
+`DEGRADED_RAM_ONLY` is not a lifecycle state. An `ACTIVE` session may be `RAM_ONLY` or `DEGRADED`.
+
+Starting without durable storage is permitted. The session starts in clearly identified RAM-only/degraded operation with an explicit warning that evidence is volatile, may be incomplete, and is lost on controller restart unless committed elsewhere.
+
+<a id="stage-15-logging-diagnostics-foundation-design--3-ownership"></a>
+#### 3. Ownership
+
+There is one active Development diagnostic session per P&P controller. A request to start another session returns `ALREADY_ACTIVE` together with the existing session status and identity. It never creates, replaces, merges, or silently joins a session. Access to these session controls is checked against the authoritative single Master/Race Director/controlling-SMUG lease; Browser presentation flags are not an authorization source.
+
+Other Browser clients may observe or contribute to the existing session. Each client has an independent client identity recorded in its diagnostic events.
+
+<a id="stage-15-logging-diagnostics-foundation-design--4-structured-records"></a>
+#### 4. Structured records
+
+Every record has a versioned envelope containing controller epoch, session identity, client identity where applicable, sequence, diagnostic timestamp, event kind, severity, correlation fields, payload type, and structured payload. For durable diagnostic storage, sequence is monotonically increasing and unique within the retained durable diagnostic stream/storage generation, including across controller restarts; `controllerEpoch` remains separate provenance identifying the boot that produced a record. A volatile RAM-only stream may begin a new sequence after reboot because its prior stream no longer exists. A failed or ambiguous append consumes its reserved sequence; a resulting gap is reported as incomplete evidence rather than reusing the candidate.
+
+The correlation chain is:
+
+`USER ACTION → Browser request → interface request → Message Bus → P&P decision → authoritative change → notification → Browser collection → render observation`.
+
+Message Bus facts and Noticeboard/SSE notifications remain separate from diagnostic records. Missed diagnostic events must not affect product behavior.
+
+<a id="stage-15-logging-diagnostics-foundation-design--5-recorder-and-backend-boundary"></a>
+#### 5. Recorder and backend boundary
+
+The `DiagnosticRecorder` owns session lifecycle, record sequencing, attribution, status, and fault reporting. The `DiagnosticStorage` boundary abstracts RAM, host/file-backed development storage, Wokwi-compatible development storage, failure-injection storage, and the future ESP32-S3 SD/FATFS backend.
+
+The Phase 1 interfaces do not freeze capacities, queue sizes, file sizes, export encoding, SD layout, or performance thresholds.
+
+Recorder operations must be bounded and non-blocking from timing-critical product code. A diagnostic failure may drop or mark evidence, but must not block or alter racing, timing, classification, persistence authority, or Browser authority.
+
+<a id="stage-15-logging-diagnostics-foundation-design--6-restart-and-recovery"></a>
+#### 6. Restart and recovery
+
+Each controller boot creates a new controller epoch. Durable diagnostic evidence follows the selected backend recovery rules. A RAM-only active session cannot be reconstructed after restart and is reported as interrupted/lost rather than completed.
+
+Browser reload/reconnect reconstructs diagnostic status from P&P authority. No active-race recovery is introduced.
+
+<a id="stage-15-logging-diagnostics-foundation-design--7-final-acceptance-boundary"></a>
+#### 7. Final acceptance boundary
+
+Foundation Design Freeze and the WP3A product design freeze permit
+implementation. Final Stage 15 acceptance/freeze additionally requires
+resource measurement, production ESP32-S3 plus SD/FATFS evidence,
+permission/security, privacy/redaction, final Browser UX, export encoding, SD
+housekeeping/wear policy, exact render-evidence rules, and
+implementation-informed storage-health recovery details. WP3A itself is not
+complete merely because this design is frozen.
+
+<a id="stage-15-logging-diagnostics-foundation-design--8-phase-2-development-implementation"></a>
+#### 8. Phase 2 development implementation
+
+Phase 2 provides an in-memory recorder and backend solely to exercise the contract. It uses an explicitly named provisional test bound and retains records in insertion order. When the bound is reached, new records are dropped, loss is counted, and storage health becomes `DEGRADED`; records are not silently overwritten. Backend failures are latched as `FAULT`, subsequent submissions do not retry the failed backend operation, and the diagnostic session remains separate from product authority.
+
+The Phase 2 bound is a test/development implementation detail. It is not a product retention capacity, SD capacity, or final performance threshold.
+
+<a id="stage-15-logging-diagnostics-foundation-design--9-phase-3-development-storage"></a>
+#### 9. Phase 3 development storage
+
+Phase 3 adds a host/file-backed development backend and a deterministic failure-injection wrapper. The file representation is explicitly development/test-only, versioned, checksummed, session-scoped, and capable of recognizing finalized, unfinalized, corrupt, and unsupported-version data. It is not the production SD layout or final export encoding.
+
+The in-memory backend remains the firmware-compatible development backend for Wokwi tests. No Wokwi firmware access to host files is required, and no separate Wokwi storage architecture is introduced in Phase 3.
+
+<a id="stage-15-logging-diagnostics-foundation-design--10-phase-4-controller-side-operation-trace"></a>
+#### 10. Phase 4 controller-side operation trace
+
+Phase 4 adds one observation-only controller trace spine for an existing named
+operation, initially `START`. The development/demo controller observes the
+existing `StartRequest`, `RequestResult`, authoritative state transition, and
+generic `NoticeboardChanged` messages through a separate Diagnostics bus
+observer. It records the operation name, existing request correlation, event
+ordering, and the observed authoritative lifecycle snapshot in the existing
+bounded in-memory recorder.
+
+There is no new product request path and no new product message contract. The
+current `RequestResult` is the available Race Control decision/result boundary;
+there is no separate downstream decision message to correlate. A generic
+`NoticeboardChanged` has no request correlation, so the trace associates it with
+the pending accepted START observation only and records that limitation rather
+than changing the frozen Noticeboard contract.
+
+Accepted and rejected START requests are both observable. A rejected request
+must not produce a diagnostic state-transition record. Recorder/backend failure
+may lose or mark diagnostic evidence but cannot affect request acceptance,
+authoritative state, timing, or Noticeboard publication. Phase 4 does not add
+Browser click/render tracing, detector/lap tracing, persistence tracing, SD,
+SSE transport tracing, or final diagnostic UX.
+
+<a id="stage-15-logging-diagnostics-foundation-design--11-phase-5-browserhttp-request-trace"></a>
+#### 11. Phase 5 Browser/HTTP request trace
+
+Phase 5 extends the observation spine to the Browser request boundary for the
+development/diagnostic Browser path. A Browser action observation and the
+corresponding HTTP/interface receipt carry the server-attributed Browser
+client identity, the Browser-visible product correlation, and a separate
+diagnostic trace identity. The existing internal P&P correlation remains
+unchanged and is recorded separately, so diagnostic metadata cannot become a
+permission, sporting, timing, configuration, or result authority.
+
+The trace distinguishes an observed Browser action from a request received at
+the HTTP boundary and from the existing Message Bus request/result records.
+An action record without a request record means that the request was not
+observed at the controller boundary; a request without a later bus/result
+record remains an explicit transport/interface gap. Malformed or absent
+optional diagnostic metadata is ignored by product request parsing and never
+changes request acceptance.
+
+The Browser-side observation is fire-and-forget and is never a prerequisite
+for dispatching the real product request. It does not retry, suppress, or
+duplicate a product request. Multiple Browser clients contribute to the one
+active diagnostic session using their server-attributed client identities.
+The bounded recorder may drop diagnostic records or latch a fault without
+changing product operation behaviour.
+
+Phase 5 does not define final Browser diagnostic UX, security/permission or
+privacy policy, export encoding, storage capacities, SD layout, SSE/state
+tracing, or render-evidence semantics.
+
+<a id="stage-15-logging-diagnostics-foundation-design--12-phase-6-authoritative-state-to-browser-render-trace"></a>
+#### 12. Phase 6 authoritative state to Browser render trace
+
+Phase 6 observes the existing presentation path only:
+
+`authoritative P&P change → NoticeboardChanged → existing notification → Browser receipt → authoritative /state collection → state application → render evidence`.
+
+The generic NoticeboardChanged contract remains unchanged and carries no new
+product correlation. Diagnostic records may associate a notification with a
+trace only where the existing metadata makes that association legitimate; a
+generic notification without proven causation is recorded as such. Browser
+notification receipt is attributed to the server-assigned Browser client and
+preserves any available diagnostic trace, visible correlation, revision and
+event identifiers separately.
+
+State-fetch start/receipt, state application and render evidence are separate
+observation records. They carry compact lifecycle/session information and the
+existing P&P revision/epoch identifiers where available; they do not duplicate
+full State or invent a Browser-owned revision. Render evidence is a narrow
+observation of the existing DOM/presentation update, not a screenshot system,
+renderer duplicate or authority source. Diagnostic submission is fire-and-
+forget and must never be required for notification handling, state collection,
+state application or rendering.
+
+Initial connection, reload, reconnect and controller-epoch reconstruction are
+marked as reconstruction observations. They do not manufacture a START trace.
+Multiple Browser clients remain independently attributable while observing the
+same authoritative state. The trace must make it possible to distinguish a
+missing notification, incomplete state acquisition, state received but not
+applied, applied but not rendered, and the complete chain. Phase 6 does not
+add diagnostic state delivery, SSE/polling, a Browser product state machine,
+general screen instrumentation, detector/lap tracing or persistence tracing.
+
+<a id="stage-15-logging-diagnostics-foundation-design--13-phase-7-resource-retrieval-and-robustness-foundation"></a>
+#### 13. Phase 7 resource, retrieval and robustness foundation
+
+Phase 7 measures the bounded development implementations and exposes the
+existing diagnostic session through observation-only status and cursor-based
+retrieval. `GET /diag/status` reports session identity/lifecycle, storage
+health/backend/failure, retained record and payload-byte occupancy, dropped
+counts, and volatility or incompleteness. `GET /diag/records?cursor=N` returns one current record at a
+time with its envelope provenance and a provisional hexadecimal payload view.
+This transport representation is development inspection only; it does not
+freeze the final export encoding, permission model, privacy policy, SD layout,
+or product retention capacity. It is not the WP3A support artifact; the
+customer download path uses the versioned NDJSON contract in Section 1B.
+
+Retrieval is a bounded moving view. Each request reads the current retained
+count at its cursor; records appended after a read are visible from a later
+cursor, and reads do not clear or mutate evidence. End-of-view, read failure,
+and incomplete evidence are explicit in the response. The implementation uses
+bounded per-request buffers and no new diagnostic task, queue, or SD I/O path.
+Status/retrieval failures remain observation-only and cannot affect product
+authority or timing.
+
+Phase 7's host/file and in-memory limits remain provisional development/test
+values. The resource campaign records measured sizes, latency and loss
+behavior for later capacity and performance decisions. Production ESP32-S3 SD
+storage and final recovery/housekeeping remain outside this phase.
+
+<a id="stage-15-logging-diagnostics-foundation-design--14-phase-7-measured-baseline"></a>
+#### 14. Phase 7 measured baseline
+
+The focused host campaign measured an 80-byte `RecordEnvelope` and a 120-byte
+`RetrievalChunk`. The exercised in-memory test bound retained eight records and
+reported two explicit drops after exhaustion; the development file bound is 64
+records with a 4096-byte payload limit. Each `/diag/records` request uses a
+4096-byte payload buffer and a 10240-byte provisional JSON inspection buffer.
+
+The standard instrumented ESP32 builds used `PP_MAX_ENTRIES=8`. The demo image
+used 101304 bytes static RAM and 937385 bytes application flash; the acceptance
+image used 98808 bytes static RAM and 991885 bytes application flash. These are
+baseline measurements, not acceptance thresholds. Sustained Wokwi load, live
+heap/stack pressure and SD latency remain environment or real-hardware campaign
+items and do not become claims from this host test.
+
+<a id="stage-15-logging-diagnostics-foundation-design--15-phase-8-hardware-baseline"></a>
+#### 15. Phase 8 hardware baseline
+
+The Phase 8 real-hardware checkpoint targets the established ESP32-8048S070
+7-inch 800x480 ESP32-S3 display board. The board record identifies 16 MB flash,
+on-board PSRAM, and an on-board microSD socket. The checkpoint uses the
+repository's `esp32-8048s070` PlatformIO board definition, derived from the
+previously used `esp32-s3-devkitc-1` target and corrected for the N16R8
+16 MB/PSRAM hardware. It does not claim that display peripherals are part of
+the diagnostic firmware.
+
+The board microSD is exercised in SPI mode with the verified signal mapping:
+CS GPIO10, MOSI GPIO11, SCK GPIO12, and MISO GPIO13. No card-detect,
+write-protect, display, touch, or other electrical details are assumed. Runtime
+firmware must report the detected card, filesystem and capacity rather than
+assuming them.
+
+This is a Phase 8 hardware-test definition only. It does not freeze the
+production diagnostic directory layout, export encoding, capacity, wear policy,
+or final SD integration architecture.
+
 <!-- INSERT:recovery -->
 
 ## Physical product
@@ -4913,339 +7074,6 @@ The base product has two standard optical timing sensors.
 The same sensors are repurposed according to mode rather than being permanently tied to one race form.
 
 The System Controller is authoritative for timing, race logic and state. Browser clients are presentation/control clients and must not become timing authorities.
-
-<a id="product-facilities-spec--2-power-module"></a>
-#### 2. Power Module
-
-Track-power control is an optional hardware capability.
-
-Without a Power Module, P&P can still detect, report and score behaviours such as false starts and penalties, but it cannot physically cut, hold or otherwise control lane power.
-
-Where a Power Module is fitted, modes may offer appropriate power-control responses.
-
-Hardware-dependent options should normally remain visible but locked/greyed with a concise explanation such as **Power Module required**, rather than disappearing and concealing the system's expandable capability.
-
-Reduced-power Yellow operation is only a valid product option if the eventual Power Module hardware genuinely supports controlled reduced power.
-
-<a id="product-facilities-spec--3-audio-and-removable-storage"></a>
-#### 3. Audio and removable storage
-
-<a id="product-facilities-spec--31-base-requirement"></a>
-##### 3.1 Base requirement
-
-Every normal P&P System Controller should include:
-
-- persistent microSD/removable storage capability;
-- onboard audio capability;
-- a small internal speaker sufficient for clear race-control tones and speech.
-
-This is a standard base capability, not an upgrade.
-
-The exact hardware implementation is not yet fixed.
-
-<a id="product-facilities-spec--32-storage-uses"></a>
-##### 3.2 Storage uses
-
-Persistent removable storage may retain:
-
-- race/session results;
-- lap-by-lap data;
-- Timed Stage results;
-- personal bests and records;
-- track records;
-- MUG profiles;
-- event history;
-- CSV exports/backups;
-- configuration backup;
-- audio/voice files.
-
-The detailed record schema remains implementation design.
-
-<a id="product-facilities-spec--33-audio-implementation"></a>
-##### 3.3 Audio implementation
-
-Essential tones reside in firmware. Prerecorded speech and effects are stored on SD.
-P&P supplies the audio packs. Customer-installed packs are outside the product scope.
-Launch packs provide British male and female voices. The audio pack design must
-support future languages.
-
-The implementation should favour a small, reliable, low-BOM solution with sane file/folder handling.
-
-Options to compare before hardware freeze include:
-
-1. off-the-shelf audio + SD module;
-2. separate microSD plus audio module/amplifier;
-3. audio/SD circuitry integrated into P&P's own PCB.
-
-Previous awkward module folder/naming conventions must not dictate the new architecture.
-
-High audio power is not a goal in itself. Clear internal race-control sound matters more than 5 W versus 10 W; a few watts may be sufficient.
-
-<a id="product-facilities-spec--34-audio-destinations"></a>
-##### 3.4 Audio destinations
-
-Audio event/type and audio destination are separate choices.
-
-Selectable destinations:
-
-- P&P unit;
-- Browser;
-- Both;
-- Mute.
-
-In standalone operation, Browser-only falls back to P&P's internal speaker.
-Mute is always respected, including during destination fallback. Browser audio
-can deliver individual MUG alerts. Personalised spoken announcements using
-MUG names are deferred until after v1.
-
-<a id="product-facilities-spec--35-preferences-defaults-and-testing"></a>
-##### 3.5 Preferences, defaults and testing
-
-P&P uses one shared set of sound preferences, including standalone operation. The controlling Browser's System sound settings allow individual event configuration, including countdown beeps or spoken countdown, race announcements and spoken lap times. Preferences survive restart; system factory reset restores the defaults, but restoring the Integrated Display defaults does not reset sound.
-
-| Factory setting | Default |
-|---|---|
-| Enabled events | Welcome sound, countdown beeps, lap-completion sound, final-lap announcement, time warnings, pause/resume, winner announcement, victory fanfare |
-| Disabled events | Race setup announcement, spoken lap times, fastest-lap announcement, halfway announcement |
-| Destination and volume | P&P internal speaker, 60% |
-
-Endurance warnings are individually configurable.
-
-| Endurance event | Factory default |
-|---|---|
-| Five minutes remaining | Off |
-| One minute remaining | On |
-| Thirty seconds remaining | Off |
-| Ten seconds remaining | On |
-| Time expired | On |
-| Finish current lap | On |
-
-Provide audio preview and independent tests for the P&P speaker and Browser
-audio. Disable previews and both tests during active races.
-
-<a id="product-facilities-spec--36-playback-priority-and-reliability"></a>
-##### 3.6 Playback priority and reliability
-
-Playback priority, highest first:
-
-1. Countdown and GO.
-2. Race interruption and completion.
-3. Winner announcement.
-4. Final lap and time remaining.
-5. Fastest lap.
-6. Ordinary lap sounds and spoken lap times.
-
-Higher priorities may interrupt lower priorities. Discard obsolete
-announcements, including stale cues on PAUSE and race restart. Play the pause
-announcement once per pause. Alternating yellow warning lights remain silent.
-
-Audio must never delay racing and must work without an internet dependency.
-If a file is missing or corrupt, use an appropriate basic tone. Report audio
-failures through diagnostics.
-
-<a id="product-facilities-spec--4-browser-and-system-controller-responsibilities"></a>
-#### 4. Browser and System Controller responsibilities
-
-The System Controller owns:
-
-- authoritative timing;
-- race/session logic;
-- authoritative state;
-- small race facts/events and state updates.
-
-Browsers own:
-
-- graphics;
-- animation;
-- formatting;
-- browser audio;
-- presentation appropriate to their role.
-
-Official timing must never depend on browser latency.
-
-The architecture should support several simultaneous browser clients. A representative four-MUG setup may involve six browsers:
-
-- one main scoreboard;
-- four personal MUG displays;
-- one Race Director display.
-
-This scale should be prototype-tested under realistic worst-case conditions before hardware is frozen.
-
-<a id="product-facilities-spec--41-local-taster-and-smug-control-hierarchy"></a>
-##### 4.1 Local Taster and SMUG control hierarchy
-
-See [Integrated Display control hierarchy and records](#pp-taster-spec--control-hierarchy-and-records) and [factory car graphics](#pp-taster-spec--factory-car-graphics). The Integrated Display is not an independent racing product.
-
-<a id="product-facilities-spec--5-track-setup"></a>
-#### 5. Track Setup
-
-Track Setup may optionally store information that normally changes rarely:
-
-<a id="product-facilities-spec--51-track-length"></a>
-##### 5.1 Track length
-
-- metres or feet;
-- Unknown / Not entered allowed.
-
-<a id="product-facilities-spec--52-track-scale"></a>
-##### 5.2 Track scale
-
-Preset examples include:
-
-- 1:32;
-- 1:24;
-- 1:43;
-- 1:64;
-- Custom;
-- Unknown / Not entered.
-
-From track length and timing P&P can calculate actual model average speed.
-
-Where scale is known it can also calculate scale-equivalent speed.
-
-Speed may be calculated per lap, for fastest lap, stage or whole race where meaningful.
-
-Speed does not need to occupy the default live scoreboard. It may appear in results, analysis or event callouts.
-
-<a id="product-facilities-spec--6-start-presentation-and-audio"></a>
-#### 6. Start presentation and audio
-
-Start behaviour is a race-mode concern, but presentation facilities should support parameterised sequences rather than hard-coded animations.
-
-For normal Lap racing this includes three- or five-light sequences, configurable red-light interval and configurable final delay.
-
-The same authoritative GO time must govern race timing, display and any scheduled physical/audio outputs. Presentation may be theatrical; timing remains boring and reliable.
-
-<a id="product-facilities-spec--7-solo-and-multi-user-product-behaviour"></a>
-#### 7. Solo and multi-user product behaviour
-
-P&P must remain usable without a dedicated Race Director.
-
-Supported operating patterns include:
-
-- dedicated Race Director;
-- Race Director who is also racing;
-- solo MUG.
-
-Every normal race/session must be runnable by one MUG.
-
-At the other end, P&P may scale to a main display, several personal MUG displays and a separate Race Director display without changing the fundamental race engine.
-
-<a id="product-facilities-spec--8-product-option-philosophy"></a>
-#### 8. Product-option philosophy
-
-P&P should be **simple by default, sophisticated when wanted**.
-
-Software capability should not be artificially withheld merely to manufacture product tiers when exposing it costs essentially nothing.
-
-Advanced or uncommon choices may be placed under **Advanced** so the ordinary MUG is not confronted with unnecessary complexity.
-
-Hardware-dependent premium/expansion capabilities can remain visible but locked with a clear requirement explanation.
-
-<a id="product-facilities-spec--9-demonstration-and-attract-facilities"></a>
-#### 9. Demonstration and Attract facilities
-
-P&P should provide demonstration facilities as a product capability, distinct from normal race operation. These facilities are intended for showroom/exhibition presentation, user familiarisation, development testing and fault diagnosis.
-
-The facilities are deliberately separated into **Attract Mode**, **Automatic Demo Race** and **Manual Demo/Test**.
-
-<a id="product-facilities-spec--91-attract-mode"></a>
-##### 9.1 Attract Mode
-
-Attract Mode is a presentation facility analogous to the demonstration displays used on retail hi-fi and similar equipment.
-
-It is not intended to be generally available as an ordinary race mode. A SMUG-controlled configuration option enables or disables it.
-
-When enabled, an idle P&P unit may automatically run a short repeating presentation sequence. The sequence may demonstrate the product using lightweight graphics and animation, for example:
-
-- the P&P logo/identity;
-- a simple track drawing itself;
-- small animated cars;
-- start lights;
-- lap-count and timing displays;
-- fastest-lap callouts;
-- a close finish and chequered flag;
-- results;
-- short visual demonstrations of supported race types and expansion capability.
-
-Attract Mode is presentation, not authoritative race simulation. Its race sequence may therefore be deliberately scripted and choreographed for clarity and visual interest.
-
-The display implementation should favour simple, lightweight graphical primitives, text, icons and small bitmap/sprite assets suitable for an ESP32-class controller. Presentation work must remain subordinate to authoritative race processing and must never compromise race timing or control.
-
-The exact display hardware, resolution, artwork, animation style, sequence length and wake/exit behaviour remain deferred design decisions.
-
-Attract Mode may ultimately be available on the local Taster display and/or connected Browser displays. That presentation scope is deliberately not fixed yet.
-
-<a id="product-facilities-spec--v1-attract-presentation-guidance"></a>
-###### V1 Attract presentation guidance
-
-The initial implementation should use the following approximately 35-second loop as a practical starting storyboard:
-
-- **0–3 s:** P&P / PLONK & PLAY identity;
-- **3–6 s:** a simple track draws onto the screen, followed by two lane lines and small car sprites;
-- **6–9 s:** start-light sequence followed by GO;
-- **9–18 s:** a short choreographed race with changing lap/timing information, cars changing relative position and a FASTEST LAP moment;
-- **18–22 s:** close finish, chequered flag and winner/gap presentation;
-- **22–30 s:** brief feature flashes illustrating **RACE → RALLY → DRAG** and **2 → 4 → 6 → 8 LANES**;
-- **30–35 s:** return to P&P / PLONK & PLAY identity, pause briefly, then repeat.
-
-This storyboard is **presentation guidance for V1, not a frozen behavioural contract**. Timing, transitions, wording, sprites, artwork, sound effects and individual beats may be tuned once the sequence is seen on real display hardware. Such presentation tuning does not require an architectural/product-specification change provided the purpose and boundaries of Attract Mode remain unchanged.
-
-A final P&P logo is not a dependency for V1. Until a satisfactory logo is designed, the presentation may use a clean **P&P / PLONK & PLAY** text identity.
-
-<a id="product-facilities-spec--92-automatic-demo-race"></a>
-##### 9.2 Automatic Demo Race
-
-Automatic Demo Race is different from Attract Mode: it is a genuine P&P race driven by simulated detector activity.
-
-Virtual detector events must enter at the defined sensor/input boundary so that the normal downstream product path is exercised. Race Control, Race Engine, Message Bus, Noticeboard, displays, audio and results processing should operate as they would for physical detector events.
-
-The simulator may create plausible virtual competitors with slightly varying lap times. Demonstrations may be tuned to produce interesting, reasonably close racing, but the result should be determined by the real race logic rather than by a separately scripted fake result.
-
-Automatic Demo Race may be initiated through SMUG-controlled demonstration facilities. It is not an ordinary Taster race option that a MUG can accidentally select.
-
-<a id="product-facilities-spec--93-manual-demotest"></a>
-##### 9.3 Manual Demo/Test
-
-A manual demonstration/test facility may expose virtual versions of the installed detector inputs through SMUG.
-
-For example, a two-lane Lap Race installation may provide virtual controls equivalent to:
-
-- Lane 1 Start/Finish detector;
-- Lane 2 Start/Finish detector.
-
-Additional configured detectors may be represented where appropriate.
-
-Activating a virtual detector should inject the corresponding simulated event at the same defined simulation boundary used by Automatic Demo Race, exercising the real downstream system.
-
-This provides a useful diagnostic boundary. If a virtual detector produces the expected race behaviour while the corresponding physical detector does not, investigation can concentrate on the physical sensor/input side rather than the downstream race system.
-
-<a id="product-facilities-spec--94-demo-session-integrity"></a>
-##### 9.4 Demo-session integrity
-
-Simulated race sessions must be authoritatively identifiable as **DEMO**, not merely labelled by presentation code.
-
-Demo results must not contaminate genuine sporting records, including personal bests, track records, championship results or equivalent persistent competitive data.
-
-Displays should identify simulated operation clearly enough that a demo cannot reasonably be mistaken for a live race.
-
-The Demo exclusion above is independent of the WP8 standalone-Taster policy:
-both are non-official, but a standalone Taster race is a real local race rather
-than a simulated/demo session and must remain distinguishable in the frozen
-session source.
-
-The eventual persistence design may retain demo sessions for testing or support purposes, but they must remain distinguishable from genuine results.
-
-Physical and simulated detector events must not accidentally mingle within an authoritative race. Exact behaviour when real detector activity occurs during an Automatic Demo Race remains a later design decision; possible policies include cleanly terminating the demo or ignoring physical detector activity for that demo session.
-
-<a id="product-facilities-spec--95-architectural-principle"></a>
-##### 9.5 Architectural principle
-
-Demo capability must not create a second fake Race Engine.
-
-Where the purpose is to demonstrate or test real P&P behaviour, simulation occurs at the sensor/input boundary and everything downstream remains normal product behaviour.
-
-Attract Mode is the deliberate exception because it is presentation rather than race simulation.
 
 <a id="product-facilities-spec--10-deferred-decisions"></a>
 #### 10. Deferred decisions
