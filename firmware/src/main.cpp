@@ -428,12 +428,13 @@ bool browserFixturePass(uint8_t lane){
     diagnostics.log("[INPUT] fixture_pass lane=%u disposition=REJECTED reason=NO_ACTIVE_RACING_SESSION",unsigned(lane));
     return false;
   }
-  #if defined(PP_SIMULATED_RACING_TEST)
+  // A fixture crossing is never allowed to contribute to an ordinary race.
+  // The frozen session boundary is the invariant, independent of which
+  // acceptance build made the test hook available.
   if(!raceControl.simulatedSessionActive()){
     diagnostics.log("[INPUT] fixture_pass lane=%u disposition=REJECTED reason=SIMULATED_SESSION_REQUIRED",unsigned(lane));
     return false;
   }
-  #endif
   const auto mode=raceControl.mode();
   if(mode!=pp::SessionMode::LapRace&&mode!=pp::SessionMode::OpenPractice&&mode!=pp::SessionMode::Endurance){
     diagnostics.log("[INPUT] fixture_pass lane=%u disposition=REJECTED reason=UNSUPPORTED_SESSION_MODE",unsigned(lane));
@@ -450,6 +451,39 @@ bool browserFixtureArm(){
   diagnostics.log("[INPUT] fixture_arm disposition=%s",accepted?"ACCEPTED":"REJECTED");
   return accepted;
 }
+void browserFixtureReset();
+#if defined(PP_WP7_ACCEPTANCE_SIMULATION) && defined(PP_WP7_PHYSICAL_RACING_TEST)
+uint32_t fixtureTasterCorrelation=0xF1000000U;
+bool browserFixtureTasterAction(pp::BrowserInterface::FixtureTasterAction action){
+  // Keep PC-driven physical acceptance on the real local-control ingress.  The
+  // Browser is only the transport to this opt-in fixture; it never becomes the
+  // controller and Race Control therefore freezes standalone eligibility.
+  if(browser.hasController())return false;
+  switch(action){
+    case pp::BrowserInterface::FixtureTasterAction::Arm:
+      return browserFixtureArm();
+    case pp::BrowserInterface::FixtureTasterAction::Start:
+      return wp7PhysicalUi.submitStart(++fixtureTasterCorrelation);
+    case pp::BrowserInterface::FixtureTasterAction::Pause:
+      return wp7PhysicalUi.submitOperation(++fixtureTasterCorrelation,pp::SessionOperation::Pause,false);
+    case pp::BrowserInterface::FixtureTasterAction::Resume:
+      return wp7PhysicalUi.submitOperation(++fixtureTasterCorrelation,pp::SessionOperation::Resume,false);
+    case pp::BrowserInterface::FixtureTasterAction::PassageLane1:
+      return browserFixturePass(1);
+    case pp::BrowserInterface::FixtureTasterAction::PassageLane2:
+      return browserFixturePass(2);
+    case pp::BrowserInterface::FixtureTasterAction::Reset:
+      browserFixtureReset();
+      return true;
+  }
+  return false;
+}
+bool browserFixtureTasterSetup(const pp::BrowserInterface::FixtureTasterSetup& setup){
+  if(browser.hasController())return false;
+  return wp7PhysicalUi.submitSetup(++fixtureTasterCorrelation,setup.mode,setup.lapTarget,
+                                   setup.durationMinutes,setup.finish,raceControl.proposalRevision());
+}
+#endif
 void browserFixtureReset(){ activeSession.clearForFixture(); raceControl.resetRaceForFixture(); raceControl.setProposedRaceSetup(proposedRaceSetup); refreshRequiredDetectorReadiness(); raceEngine.resetForFixture(); browser.clearRaceForFixture(); diagnostics.log("[DEV] TEST RESET READY (Race Director retained)"); }
 #endif
 // The build environment is diagnostic identity only. It never supplies product
@@ -993,7 +1027,13 @@ void setup(){
 #endif
 #if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
 #if defined(PP_SIMULATED_RACING_TEST)
-  browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset,browserFixtureArm);
+  browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset,browserFixtureArm,
+#if defined(PP_WP7_ACCEPTANCE_SIMULATION) && defined(PP_WP7_PHYSICAL_RACING_TEST)
+                              browserFixtureTasterAction,browserFixtureTasterSetup
+#else
+                              nullptr,nullptr
+#endif
+  );
 #else
   browser.setFixtureCallbacks(browserFixturePass,browserFixtureReset);
 #endif

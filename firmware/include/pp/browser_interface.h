@@ -52,6 +52,16 @@ private:
 };
 class BrowserInterface : public StartAuthority {
 public:
+  // This is an acceptance-only bridge, not a Browser control role.  It asks
+  // the physical Taster adapter to publish its normal local request so Race
+  // Control still decides standalone authority and frozen record policy.
+  enum class FixtureTasterAction : uint8_t { Arm, Start, Pause, Resume, PassageLane1, PassageLane2, Reset };
+  struct FixtureTasterSetup {
+    SessionMode mode = SessionMode::None;
+    uint32_t lapTarget = 0;
+    uint16_t durationMinutes = 0;
+    LapFinishBehaviour finish = LapFinishBehaviour::Immediate;
+  };
   struct ResultView {
     bool ready = false;
     RequestResult result = RequestResult::Rejected;
@@ -276,7 +286,9 @@ public:
     return true;
   }
   void clearRaceForFixture(){for(auto& p:pending_)p.ready=false;for(auto& r:results_)r.ready=false;hasFact_=false;lastFact_={};noticeRevision_=0;factRevision_=0;scheduledGo_=0;}
-  void setFixtureCallbacks(bool (*pass)(uint8_t), void (*reset)(), bool (*arm)()=nullptr){fixturePass_=pass;fixtureReset_=reset;fixtureArm_=arm;}
+  void setFixtureCallbacks(bool (*pass)(uint8_t), void (*reset)(), bool (*arm)()=nullptr,
+                           bool (*taster)(FixtureTasterAction)=nullptr,
+                           bool (*tasterSetup)(const FixtureTasterSetup&)=nullptr){fixturePass_=pass;fixtureReset_=reset;fixtureArm_=arm;fixtureTaster_=taster;fixtureTasterSetup_=tasterSetup;}
   bool submitOperation(uint32_t visibleCorrelation, SessionOperation operation, ClientContext context, uint64_t owner, bool confirmed=false, uint64_t traceId=0) {
     if (!visibleCorrelation) return false;
     Message request{}; request.type=Type::SessionOperationRequest; request.correlation=nextInternalCorrelation(); request.operation=operation; request.clientContext=context;request.controlOwner=owner;request.probe=confirmed?1:0;
@@ -756,6 +768,8 @@ private:
   bool (*fixturePass_)(uint8_t) = nullptr;
   void (*fixtureReset_)() = nullptr;
   bool (*fixtureArm_)() = nullptr;
+  bool (*fixtureTaster_)(FixtureTasterAction) = nullptr;
+  bool (*fixtureTasterSetup_)(const FixtureTasterSetup&) = nullptr;
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   struct LapDisplayPending {
     bool active = false;
@@ -2234,8 +2248,30 @@ private:
   static esp_err_t clearAllRecordsRoute(httpd_req_t* r){return openConfirmationRoute(r,SessionOperation::ClearAllRecords);}
   static esp_err_t clearAllRecordsConfirmRoute(httpd_req_t* r){return confirmOperationRoute(r,SessionOperation::ClearAllRecords);}
   static esp_err_t fixtureRoute(httpd_req_t* request){
-#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
-    char body[64]{}; int n=httpd_req_recv(request,body,sizeof(body)-1); if(n<=0){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"fixture action required");return ESP_FAIL;} body[n]=0;
+#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE) || defined(PP_WP7_ACCEPTANCE_SIMULATION)
+    char body[512]{}; int n=httpd_req_recv(request,body,sizeof(body)-1); if(n<=0){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"fixture action required");return ESP_FAIL;} body[n]=0;
+#if defined(PP_WP7_ACCEPTANCE_SIMULATION)
+    // These four actions intentionally require *no* connected Race Director:
+    // the script is only a physical-input stand-in and the callback publishes
+    // through the Taster endpoint.  A connected Browser continues to suppress
+    // local controls exactly as it does for a real touch.
+    const FixtureTasterAction tasterActions[] = {FixtureTasterAction::Arm,FixtureTasterAction::Start,FixtureTasterAction::Pause,FixtureTasterAction::Resume,FixtureTasterAction::PassageLane1,FixtureTasterAction::PassageLane2,FixtureTasterAction::Reset};
+    const char* tasterNames[] = {"taster-arm","taster-start","taster-pause","taster-resume","taster-lane1","taster-lane2","taster-reset"};
+    for(uint8_t i=0;i<7;++i)if(strstr(body,tasterNames[i])){
+      if(instance()->hasController()||!instance()->fixtureTaster_||!instance()->fixtureTaster_(tasterActions[i])){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"standalone Taster fixture action unavailable");return ESP_FAIL;}
+      httpd_resp_set_type(request,"application/json"); return httpd_resp_sendstr(request,"{\"accepted\":true,\"role\":\"standalone-taster\"}");
+    }
+    if(strstr(body,"taster-setup")){
+      const char* mode=strstr(body,"\"mode\"");const char* laps=strstr(body,"\"lapTarget\"");const char* duration=strstr(body,"\"durationMinutes\"");const char* finish=strstr(body,"\"finishPolicy\"");
+      if(instance()->hasController()||!instance()->fixtureTasterSetup_||!mode||!laps||!duration||!finish){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"complete standalone Taster setup unavailable");return ESP_FAIL;}
+      FixtureTasterSetup setup{}; setup.mode=strstr(mode,"LAP_RACE")?SessionMode::LapRace:(strstr(mode,"ENDURANCE")?SessionMode::Endurance:(strstr(mode,"OPEN_PRACTICE")?SessionMode::OpenPractice:SessionMode::None));
+      const char* colon=strchr(laps,':'); if(!colon){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid standalone Taster setup");return ESP_FAIL;} setup.lapTarget=uint32_t(strtoul(colon+1,nullptr,10));
+      colon=strchr(duration,':'); if(!colon){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid standalone Taster setup");return ESP_FAIL;} setup.durationMinutes=uint16_t(strtoul(colon+1,nullptr,10));
+      colon=strchr(finish,':'); if(!colon){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid standalone Taster setup");return ESP_FAIL;} const uint8_t finishValue=uint8_t(strtoul(colon+1,nullptr,10)); if(finishValue>2||setup.mode==SessionMode::None){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid standalone Taster setup");return ESP_FAIL;} setup.finish=static_cast<LapFinishBehaviour>(finishValue);
+      if(!instance()->fixtureTasterSetup_(setup)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"standalone Taster setup rejected");return ESP_FAIL;}
+      httpd_resp_set_type(request,"application/json"); return httpd_resp_sendstr(request,"{\"accepted\":true,\"role\":\"standalone-taster\"}");
+    }
+#endif
     if(instance()->context(client(request))!=ClientContext::RaceDirectorSmug){httpd_resp_send_err(request,HTTPD_403_FORBIDDEN,"Race Director required");return ESP_FAIL;}
     if(strstr(body,"arm")&&instance()->fixtureArm_){if(!instance()->fixtureArm_()){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"A READY session is required before enabling simulated racing.");return ESP_FAIL;}}
     else if(strstr(body,"lane1")&&instance()->fixturePass_){if(!instance()->fixturePass_(1)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"An armed simulated racing session is required before triggering a simulated car.");return ESP_FAIL;}}

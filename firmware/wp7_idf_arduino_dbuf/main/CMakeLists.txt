@@ -100,6 +100,15 @@ else()
   target_compile_definitions(${COMPONENT_LIB} PRIVATE PP_WP7_IDF_DOUBLE_BUFFER=1)
 endif()
 
+# This is an explicit, non-production physical-acceptance image.  It exposes
+# the existing simulated detector fixture to authorised PC scripts only; the
+# normal XIP build and all customer images remain unarmed and unchanged.
+if("$ENV{PP_WP7_ACCEPTANCE_SIMULATION}" STREQUAL "1")
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    PP_WP7_ACCEPTANCE_SIMULATION=1
+    PP_SIMULATED_RACING_TEST=1)
+endif()
+
 target_compile_options(${COMPONENT_LIB} PRIVATE
   -Wall
   -Wextra

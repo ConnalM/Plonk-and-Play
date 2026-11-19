@@ -32,6 +32,12 @@ Use fresh host tests with real Race Control/Engine flow and instrumented History
 
 At the separately authorised physical checkpoint, record the application hash and seed official History, PB and Track Records on representative storage. Run a standalone race, connect SMUG before finish, then verify the three official views and storage snapshots through Browser reconnect and power-cycle. Repeat a newly started official SMUG race as a positive control and retain the existing simulated-race check. Record the test IDs, pre/post values, session IDs, frozen classification, visible live results and serial or request evidence. Credit physical results separately from host assertions and preserve Stage 14C and Stage 15 Phase 8B acceptance requirements. Real detector acceptance remains a WP7 hardware obligation.
 
+The opt-in shared-simulation acceptance image and its external standalone
+Taster journey are specified in [WP8 Shared Simulation and Physical-Taster
+Acceptance](WP8_ACCEPTANCE_SIMULATION.md). It is a PC-driven physical-input
+substitute only: simulated sessions stay excluded from all official storage,
+and visual Taster confirmation remains a physical acceptance observation.
+
 ## Initial implementation evidence — 18 November 2026
 
 The issue-review implementation freezes `officialRecordEligible` in the immutable
