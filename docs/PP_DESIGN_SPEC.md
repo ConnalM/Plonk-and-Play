@@ -1,6 +1,6 @@
 # Plonk & Play™ — consolidated design specification
 
-**Status:** Owner-approved single design structure; migration in progress (19 November 2026). The [Design Constitution](DESIGN_CONSTITUTION.md) and [System Requirements](SYSTEM_REQUIREMENTS.md) govern this specification. [Master Project Plan](MASTER_PROJECT_PLAN.md) is the sole delivery/backlog authority, including v1 deferrals and post-v1 candidates. Acceptance tests and dated evidence remain separate. No new design decisions or promotion of post-v1 functionality arise from the consolidation.
+**Status:** Consolidated design baseline for review (19 November 2026). All 22 identified governing design files transferred; targeted duplication removed. Residual semantic and phase-conflict review remains open under DOC-01 in the Master Project Plan. The [Design Constitution](DESIGN_CONSTITUTION.md) and [System Requirements](SYSTEM_REQUIREMENTS.md) govern this specification. [Master Project Plan](MASTER_PROJECT_PLAN.md) is the sole delivery/backlog authority, including v1 deferrals and post-v1 candidates. Acceptance tests and dated evidence remain separate. No new design decisions or promotion of post-v1 functionality arise from the consolidation.
 
 **Terminology:** Integrated Display (formerly Taster), Racer (formerly MUG), Race Control / controlling Browser (formerly SMUG/SMUGLAND) are the provisional customer-facing names. Existing canonical firmware identifiers and historic labels remain unchanged.
 
@@ -19,6 +19,16 @@
 ## Authority and reconciliation rules
 
 The design describes **one product**, with shared authority and client-specific restricted views. Current owner-approved decisions take precedence over earlier drafts, historic implementation scope statements or prototype evidence. Each migrated heading retains a stable legacy anchor and original source can be recovered from Git history. Completed work and deferred scope are governed by the master plan, not old phase wording. An unresolved conflict must be recorded there and resolved explicitly, never by silently selecting convenient text. Timing and competition rules belong to Race Control/Engine; local controls and visual presentation belong to Presentation; shared audio is a system facility under Presentation; configuration owns remembered setup and physical installation defaults. The scope of old implementation slices is not a present-day product limit.
+
+### Reconciled authority and precedence
+
+- The [session-source/record policy](#race-control-engine-design--41-session-source-and-record-policy) governs all races: the 18 November approval supersedes older unqualified statements that Lap Race or Endurance results are always official. Source and eligibility freeze at accepted START, not at connection or finish.
+- [Integrated Display READY](#pp-taster-spec--ready) owns the local adjustment limit; it never limits the shared positive 32-bit Browser/stored target.
+- [Integrated Display factory settings](#pp-taster-spec--factory-taster) and [restoration](#pp-taster-spec--smug-configurable-taster) own the 10-lap LAPS and five-minute Endurance defaults and the protection of physical track, racer assignments and sound.
+- [Shared sound](#product-facilities-spec--35-preferences-defaults-and-testing) governs both Browser and standalone; no second preference store.
+- [Accepted physical display constraints](#physical-integrated-display-constraints) supersede earlier moving-animation implementation proposals. V16 Browser remains a review candidate.
+- The [Master Project Plan](MASTER_PROJECT_PLAN.md) alone determines current, later-v1 and post-v1 work. No earlier stage exclusion/deferral automatically creates an open task or overrides later owner-approved scope.
+
 
 ## System architecture
 
@@ -1204,7 +1214,6 @@ Relevant governing constraints are in `docs/SYSTEM_REQUIREMENTS.md`, `docs/SYSTE
 
 No Practice or Endurance design is introduced by this document. Stage 14A implementation is complete; Practice and Endurance remain outside this stage.
 
-<!-- INSERT:architecture -->
 
 ## Race Control and Race Engine
 
@@ -1439,6 +1448,8 @@ The Race Engine uses that frozen policy at its existing persistence gates:
 
 Control handover during an active session cannot change this policy or
 retroactively publish a previously non-official result.
+
+Trusted START ingress and controlling lease must be decided coherently from committed authority at acceptance, never from a client presentation label. Publish changed authority only after successful persistence. A new START after RACE AGAIN/RESTART RACE makes a fresh source decision; resume and in-session restart preserve the active definition. Configuration provenance is not session authority. Exclusion includes official History/sequence, PB/Track Record, official details, HistoryStored and any false pending/fault caused solely by deliberate non-official exclusion. Retain bounded live result/detail presentation and do not promote it on Browser reconstruction. See [acceptance requirements](STANDALONE_TASTER_RECORD_ELIGIBILITY_PLAN.md).
 
 <a id="race-control-engine-design--5-time-and-event-ordering"></a>
 #### 5. Time and event ordering
@@ -2685,7 +2696,6 @@ These choices must preserve every normative behaviour in this document and be co
 
 Stage 14C acceptance requires the complete applicable Stage 1–14B automated, structural, shared-path, Wokwi and Browser regression campaigns, plus the deliberate evaluator-failure/recovery proof and a real ESP32 Browser/Taster human checkpoint. Stage 14C must not be marked accepted until those checks and the human checkpoint pass.
 
-<!-- INSERT:race -->
 
 ## Inputs and outputs
 
@@ -2841,7 +2851,6 @@ Hardware-dependent options should normally remain visible but locked/greyed with
 
 Reduced-power Yellow operation is only a valid product option if the eventual Power Module hardware genuinely supports controlled reduced power.
 
-<!-- INSERT:io -->
 
 ## Communications and system time
 
@@ -3344,7 +3353,6 @@ Communication status, capability status, event publication/delivery and authorit
 
 Loss of a capability invalidates any stale claim that its last reported physical state is still current. On recovery it establishes current state afresh and is not operationally available until required initialisation, compatibility and timing conditions are satisfied.
 
-<!-- INSERT:comms -->
 
 ## Memory and storage
 
@@ -3742,7 +3750,6 @@ An active competitor at W is a race entry in the current Session Definition whic
 
 Completed-result Noticeboard and Browser field names/serialization are implementation details, constrained by the semantic requirements and existing boundaries. They are not remaining product-design decisions and must not turn State into persistent History.
 
-<!-- INSERT:storage -->
 
 ## Presentation
 
@@ -5760,7 +5767,16 @@ behaviour or future advanced start/false-start configuration.
 Only these files are included deliberately. Older intermediate/broken
 mock-ups are not part of the handover.
 
-<!-- INSERT:presentation -->
+<a id="physical-integrated-display-constraints"></a>
+### Physical Integrated Display constraints
+
+Preserve the accepted 800 × 480 RGB ESP32-S3 single-framebuffer/20-line bounce-buffer design (one framebuffer in PSRAM, 64,000 bytes total internal DMA SRAM), 12 MHz pixel clock, Octal PSRAM 80 MHz XIP, VSYNC restart and RGB-driver-only -Os workaround. Pin mapping: DE 41, VSYNC 40, HSYNC 39, PCLK 42; R={14,21,47,48,45}, G={9,46,3,8,16,1}, B={15,7,6,5,4}; backlight GPIO2. Operational commands remain in [XIP build reference](WP7_XIP_APPLICATION_BUILD_REFERENCE.md).
+
+The accepted static header uses the 145 × 55 logo, five centred 60 × 60 start lamps/static bezel, one-second green GO, amber RELEASE feedback after 700 ms hold and alternating yellow/OFF warning lamps every 500 ms while PAUSED. Active heading left aligned, lane counters blank before GO, stable MM:SS timer cells. Preserve the 450 ms lane-only brightness pulse (perimeter fallback), static winner wreath and original per-lane artwork. Use small dirty regions; preserve genuine full-frame fallback with logged reason, not unnecessary redraws on setup acknowledgement. Normal NVS persistence and touch/timing responsiveness must remain intact.
+
+Moving cars, animated chequered flags and production double-buffer experiments are deferred. When explicitly resumed, restore only the affected lane background, arm from authoritative events, prove one lane before both and do not confuse isolated double-buffer diagnostic success with integrated proof. The detailed original [physical checkpoint, artifact hashes, failure history, source references and staged experiment](<https://github.com/ConnalM/Plonk-and-Play/blob/13662fbc5e42fbc83204b7662643a2c43fe8fefb/docs/MASTER_PROJECT_PLAN.md#superseded-animation-handover--static-taster-presentation>) is preserved as historical evidence.
+
+
 
 ## Configuration
 
@@ -6430,7 +6446,6 @@ Advanced or uncommon choices may be placed under **Advanced** so the ordinary MU
 
 Hardware-dependent premium/expansion capabilities can remain visible but locked with a clear requirement explanation.
 
-<!-- INSERT:configuration -->
 
 ## Diagnostics and recovery
 
@@ -7056,7 +7071,6 @@ This is a Phase 8 hardware-test definition only. It does not freeze the
 production diagnostic directory layout, export encoding, capacity, wear policy,
 or final SD integration architecture.
 
-<!-- INSERT:recovery -->
 
 ## Physical product
 
@@ -7078,23 +7092,7 @@ The System Controller is authoritative for timing, race logic and state. Browser
 <a id="product-facilities-spec--10-deferred-decisions"></a>
 #### 10. Deferred decisions
 
-The following remain deliberately open:
-
-- exact ESP32/System Controller hardware;
-- exact audio/SD implementation;
-- exact speaker/amplifier power;
-- exact Power Module electrical design;
-- exact dual-beam Drag hardware;
-- detailed RMS state machine;
-- detailed visual styling and animations;
-- detailed persistence schema;
-- exact Attract Mode display hardware, graphics, sequence and wake/exit behaviour;
-- whether Attract Mode presentation is local-display only or also available on Browser displays;
-- exact Automatic Demo Race virtual-car model and timing variation;
-- exact behaviour when physical detector activity occurs during an Automatic Demo Race;
-- detailed SMUG controls for demonstration/test facilities.
-
-These are not forgotten requirements; they are deferred implementation/product decisions.
+All outstanding facility design decisions and optional scope are tracked in the [Master Project Plan](MASTER_PROJECT_PLAN.md). No speculative feature is promoted to v1 by migration.
 
 <a id="system-architecture--3-devices-capabilities-and-physical-mounting"></a>
 #### 3. Devices, capabilities and physical mounting
@@ -7121,4 +7119,3 @@ However, physical grouping and location are useful to the person configuring the
 
 Race logic must not depend on that physical description.
 
-<!-- INSERT:physical -->
