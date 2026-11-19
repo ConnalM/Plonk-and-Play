@@ -5,6 +5,7 @@
 #include "pp/race_control.h"
 #include "pp/race_engine.h"
 #include "pp/control_lease.h"
+#include "pp/noticeboard.h"
 #include <cassert>
 #include <cstdio>
 #include <vector>
@@ -356,6 +357,65 @@ void abandonedStandalone() {
   assert(!f.engine.completedResult().sealed&&!f.engine.persistencePending());
   f.check(false);
 }
+void physicalNoticeboardTiming() {
+  {
+    Fixture f;
+    Noticeboard n(f.control,f.engine,f.active);
+    assert(n.currentAt(f.now).raceElapsed==0);
+    f.start(false); const auto go=f.control.scheduledGo();
+    assert(n.currentAt(go-1).raceElapsed==0);
+    f.go();
+    f.lap(1,go+1'000'000); f.lap(2,go+1'100'000);
+    f.lap(1,go+2'000'000);
+    auto s=n.currentAt(go+2'000'000);
+    assert(s.raceElapsed==2'000'000 && s.entries[0].completed &&
+           s.entries[0].finishDuration==2'000'000 && !s.entries[1].completed);
+    settlePause(f,go+2'200'000);
+    assert(n.currentAt(go+9'000'000).raceElapsed==2'200'000);
+    auto id=f.queueOperation(f.tasterEp,SessionOperation::Resume);
+    f.pump(go+10'000'000); assert(f.response(id).requestResult==RequestResult::Accepted);
+    const auto resume=f.control.scheduledGo();
+    s=n.currentAt(resume-1);
+    assert(s.raceElapsed==2'200'000 && s.entries[0].finishDuration==2'000'000);
+    f.go();
+    f.lap(2,resume+1'000'000);
+    f.settle();
+    s=n.currentAt(resume+20'000'000);
+    assert(s.raceElapsed==3'200'000 && s.entries[0].finishDuration==2'000'000 &&
+           s.entries[1].completed && s.entries[1].finishDuration==3'200'000);
+    id=f.queueOperation(f.tasterEp,SessionOperation::RaceAgain);
+    f.pump(f.now+1); assert(f.response(id).requestResult==RequestResult::Accepted);
+    s=n.currentAt(f.now);
+    assert(s.raceElapsed==0 && s.entryCount==0);
+  }
+  {
+    Fixture f(SessionMode::Endurance,LapFinishBehaviour::CompleteCurrentLap);
+    Noticeboard n(f.control,f.engine,f.active);
+    f.start(false); const auto go=f.go();
+    f.lap(1,go+1'000'000); f.lap(2,go+1'100'000);
+    settlePause(f,go+2'000'000);
+    const auto id=f.queueOperation(f.tasterEp,SessionOperation::Resume);
+    f.pump(go+5'000'000); assert(f.response(id).requestResult==RequestResult::Accepted);
+    const auto resume=f.control.scheduledGo();
+    assert(n.currentAt(resume-1).raceElapsed==2'000'000);
+    f.go();
+    const auto expiry=f.control.durationExpiryAt();
+    f.pump(expiry);
+    f.lap(1,expiry); // exact shared expiry, valid zero offset
+    auto s=n.currentAt(expiry+500'000);
+    assert(s.entries[0].completed && s.entries[0].hasOvertimeOffset &&
+           s.entries[0].overtimeOffset==0 && s.entries[0].finishDuration==60'000'000 &&
+           !s.entries[1].completed);
+    f.lap(2,expiry+1'000'000);
+    f.settle();
+    s=n.currentAt(expiry+20'000'000);
+    assert(s.raceElapsed==61'000'000 && s.entries[0].hasOvertimeOffset &&
+           s.entries[0].overtimeOffset==0 && s.entries[1].hasOvertimeOffset &&
+           s.entries[1].overtimeOffset==1'000'000 &&
+           s.entries[1].finishDuration==61'000'000);
+  }
+  std::puts("PHYSICAL_NOTICEBOARD_TIMING_PASS");
+}
 void longStandalone() {
   constexpr uint32_t target=3500;
   Fixture f(SessionMode::LapRace,LapFinishBehaviour::CompleteFullRaceDistance,target);
@@ -382,6 +442,7 @@ int main() {
   subordinatePauseMustNotExecute();
   resumeAndFreshStart();
   abandonedStandalone();
+  physicalNoticeboardTiming();
   longStandalone();
   std::puts("ARCHIE_RECORD_MATRIX_PASS");
 }
