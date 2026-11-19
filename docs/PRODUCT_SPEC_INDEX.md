@@ -26,6 +26,6 @@
 
 ## Migration and retirement
 
-22 prior independent design files retired as governing specifications; each contains links to the corresponding section and exact original Git revision. The standalone eligibility plan is now an acceptance reference only. Dated reviews/investigations are evidence rather than competing task lists. Structural transfer is complete. The follow-up reconciliation removes obsolete Stage limits and resolves known contradictions in record policy, defaults, rotation and mode scope; remaining cross-document reference/evidence checks and integration are DOC-01. No firmware or release-scope change is implied.
+22 prior independent design files retired as governing specifications; each contains links to the corresponding section and exact original Git revision. The standalone eligibility plan is now an acceptance reference only. Dated reviews/investigations are evidence rather than competing task lists. Structural transfer is complete. The follow-up reconciliation removes obsolete Stage limits and resolves known contradictions in record policy, defaults, rotation and mode scope; retirement destinations and main-document relative links verified. Integration with ongoing PR #3 and residual semantic review are DOC-01. No firmware or release-scope change is implied.
 
 **Working rule:** amend the relevant section of the single design for product decisions, and the master plan for outstanding work. No new parallel governing specification or to-do list. GitHub is the durable source of truth.

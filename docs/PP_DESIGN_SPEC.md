@@ -1,6 +1,6 @@
 # Plonk & Play™ — consolidated design specification
 
-**Status:** Consolidated design baseline for review (19 November 2026). All 22 identified governing design files transferred; targeted duplication removed. Known high-impact contradictions reconciled; remaining final cross-document review and integration are tracked under DOC-01 in the Master Project Plan. The [Design Constitution](DESIGN_CONSTITUTION.md) and [System Requirements](SYSTEM_REQUIREMENTS.md) govern this specification. [Master Project Plan](MASTER_PROJECT_PLAN.md) is the sole delivery/backlog authority, including v1 deferrals and post-v1 candidates. Acceptance tests and dated evidence remain separate. No new design decisions or promotion of post-v1 functionality arise from the consolidation.
+**Status:** Consolidated design baseline for review (19 November 2026). All 22 identified governing design files transferred; targeted duplication removed. Known high-impact contradictions reconciled; all retirement destinations and internal navigation checked. Integration with the active firmware review and any residual semantic review are tracked under DOC-01 in the Master Project Plan. The [Design Constitution](DESIGN_CONSTITUTION.md) and [System Requirements](SYSTEM_REQUIREMENTS.md) govern this specification. [Master Project Plan](MASTER_PROJECT_PLAN.md) is the sole delivery/backlog authority, including v1 deferrals and post-v1 candidates. Acceptance tests and dated evidence remain separate. No new design decisions or promotion of post-v1 functionality arise from the consolidation.
 
 **Terminology:** Integrated Display (formerly Taster), Racer (formerly MUG), Race Control / controlling Browser (formerly SMUG/SMUGLAND) are the provisional customer-facing names. Existing canonical firmware identifiers and historic labels remain unchanged.
 
@@ -15,6 +15,23 @@
 7. [Configuration](#configuration)
 8. [Diagnostics and recovery](#diagnostics-and-recovery)
 9. [Physical product](#physical-product)
+
+### Common design topics
+
+| Subject | Governing location |
+|---|---|
+| Startup, power loss and device replacement | [System lifecycle](#system-lifecycle--pp-system-lifecycle-and-persistence) |
+| Session definition, control and official records | [Race Control and Engine](#race-control-engine-design--race-control-and-race-engine-detailed-design) · [Source / record policy](#race-control-engine-design--41-session-source-and-record-policy) |
+| Race rules | [Lap Race](#race-modes-product-spec--2-lap-race) · [Practice](#race-modes-product-spec--3-practice) · [Endurance](#race-modes-product-spec--4-endurance) |
+| Future mode designs | [Timed Stage](#race-modes-product-spec--5-timed-stage) · [Drag](#race-modes-product-spec--6-drag) (release scope in the plan) |
+| Detectors and controlled outputs | [Inputs](#system-architecture--4-input-architecture) · [Outputs](#system-architecture--10-output-architecture) |
+| System clock and Message Bus | [System Time](#system-architecture--8-pp-system-time) · [Message Contract](#message-contract--pp-message-contract) |
+| Persistence, details and SD ownership | [Persistent storage](#persistent-storage-foundation-design--pp-persistent-storage-foundation-design) |
+| Browser screen appearance and flow | [Visual references](#implementation-spec--approved-visual-references) · [Browser flow and History](#browser-flow-results-history-spec--browser-flow-results-and-history) |
+| Local display and controls | [Integrated Display](#pp-taster-spec--pp-taster-specification) · [Physical display constraints](#physical-integrated-display-constraints) |
+| Sound | [Shared audio](#product-facilities-spec--3-audio-and-removable-storage) |
+| Track, Racer, Car and lane setup | [Configuration and identity](#configuration-and-identity-spec--plonk--play--configuration-and-identity-specification) · [Lane assignment and rotation](#race-setup-lane-assignment-spec--race-setup--lane-assignment-and-rotation-behaviour) |
+| Maintenance and diagnostics | [Recovery / reset / update](#wp6-recovery-reset-update-contract--wp6-recovery-reset-and-customer-firmware-update-contract) · [Diagnostics](#stage-15-logging-diagnostics-foundation-design--stage-15-logging-and-diagnostics-foundation-design) |
 
 ## Authority and reconciliation rules
 

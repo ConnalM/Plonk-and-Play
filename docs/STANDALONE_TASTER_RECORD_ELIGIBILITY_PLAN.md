@@ -17,3 +17,19 @@ Use fresh host tests with real Race Control/Engine flow and instrumented History
 | Storage and detail bounds | Standalone racing works without official storage. No false pending or storage fault solely from skipping records. Long runs respect the bounded detail contract. Official persistence and fault handling retain their existing behaviour. |
 
 At the separately authorised physical checkpoint, record the application hash and seed official History, PB and Track Records on representative storage. Run a standalone race, connect SMUG before finish, then verify the three official views and storage snapshots through Browser reconnect and power-cycle. Repeat a newly started official SMUG race as a positive control and retain the existing simulated-race check. Record the test IDs, pre/post values, session IDs, frozen classification, visible live results and serial or request evidence. Credit physical results separately from host assertions and preserve Stage 14C and Stage 15 Phase 8B acceptance requirements. Real detector acceptance remains a WP7 hardware obligation.
+
+## Implemented source boundary and evidence (references only)
+
+The isolated PR #3 source at `9f78657` registers a dedicated physical Integrated
+Display ingress as `StandaloneTaster`; Browser START retains its controller
+lease check. The immutable Session Definition freezes official eligibility and
+Race Engine excludes non-official History, PB/Track and official detail
+writes. This is consistent with the design section referenced above.
+
+The [18 November initial host evidence](https://github.com/ConnalM/Plonk-and-Play/blob/9f78657830cabbd8ac17108cb738e79c2b8330f6/docs/STANDALONE_TASTER_RECORD_ELIGIBILITY_PLAN.md#initial-implementation-evidence--18-november-2026)
+and the later [19 November build/regression evidence](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7012016540)
+are preserved. The exact physical
+[candidate and recovery checkpoint](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7012216516)
+remain separately identified. The Master Project Plan owns acceptance status
+and outstanding work; neither synthetic detector inputs nor a successful
+build prove physical detector/official persistence or Browser acceptance.
