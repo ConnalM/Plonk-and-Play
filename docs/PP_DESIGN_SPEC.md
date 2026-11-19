@@ -4408,6 +4408,20 @@ P&P is genuinely capable of racing for the selected installation. Optional
 services, including Browser connectivity and official record storage, must not
 block a standalone Taster race when the required race capabilities are healthy.
 
+#### SMUG-controlled auxiliary Integrated Display — approved requirements to date
+
+When SMUG controls the installation, the same physical Integrated Display operates as an auxiliary race-information and signal display, not as a second Race Director. This presentation adapts to the selected race type and configured active lane count. The standalone Taster remains unchanged.
+
+- READY: show the selected race type, target laps or duration where applicable, and participating racers. No local race controls.
+- STARTING: give the authoritative starting lights the whole screen for Lap Race, Endurance and optional Practice start. Immediate Open Practice has no countdown.
+- GO: render the authoritative GO indication, respecting the configured Lights Out/Green style and existing one-second green duration.
+- RACING: show race information only; do not reserve permanent screen space for inactive lights.
+- PAUSED: freeze race information with flashing yellow lights overlaid where applicable.
+- RESUMING: overlay the authoritative restart lights where applicable; ordinary immediate Practice Resume remains unchanged.
+- FINISHED: show final race information. Open Practice instead follows its normal session-summary lifecycle.
+
+Drag and other specialist starting sequences are outside the present design assignment. Detailed race information, exact layouts, idle/summary transitions and any auxiliary-display configuration remain to be agreed before implementation. Gina's design must accommodate the supported race modes and lane counts (2/4/6/8 review layouts), without inventing race authority or additional racing functionality.
+
 <a id="pp-taster-spec--factory-taster"></a>
 #### Factory Taster
 
