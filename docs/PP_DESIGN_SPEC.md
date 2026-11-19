@@ -1,6 +1,6 @@
 # Plonk & Play™ — consolidated design specification
 
-**Status:** Consolidated design baseline for review (19 November 2026). All 22 identified governing design files transferred; targeted duplication removed. Residual semantic and phase-conflict review remains open under DOC-01 in the Master Project Plan. The [Design Constitution](DESIGN_CONSTITUTION.md) and [System Requirements](SYSTEM_REQUIREMENTS.md) govern this specification. [Master Project Plan](MASTER_PROJECT_PLAN.md) is the sole delivery/backlog authority, including v1 deferrals and post-v1 candidates. Acceptance tests and dated evidence remain separate. No new design decisions or promotion of post-v1 functionality arise from the consolidation.
+**Status:** Consolidated design baseline for review (19 November 2026). All 22 identified governing design files transferred; targeted duplication removed. Known high-impact contradictions reconciled; remaining final cross-document review and integration are tracked under DOC-01 in the Master Project Plan. The [Design Constitution](DESIGN_CONSTITUTION.md) and [System Requirements](SYSTEM_REQUIREMENTS.md) govern this specification. [Master Project Plan](MASTER_PROJECT_PLAN.md) is the sole delivery/backlog authority, including v1 deferrals and post-v1 candidates. Acceptance tests and dated evidence remain separate. No new design decisions or promotion of post-v1 functionality arise from the consolidation.
 
 **Terminology:** Integrated Display (formerly Taster), Racer (formerly MUG), Race Control / controlling Browser (formerly SMUG/SMUGLAND) are the provisional customer-facing names. Existing canonical firmware identifiers and historic labels remain unchanged.
 
@@ -35,8 +35,7 @@ The design describes **one product**, with shared authority and client-specific 
 <a id="system-architecture--plonk--play-system-architecture"></a>
 ### Plonk & Play™ System Architecture
 
-**Status:** Version 1.0  
-**Purpose:** Record the architecture agreed so far. This document defines responsibilities and boundaries, not software classes, files, processors, protocols or detailed product implementation.
+**Contract:** System architecture defines responsibilities and boundaries. Detailed software, hardware and customer behaviour belongs in the appropriate sections below.
 
 This document is subordinate to the Design Constitution and System Requirements.
 
@@ -280,7 +279,7 @@ Overall startup principle:
 <a id="system-architecture--17-detailed-design-status"></a>
 #### 17. Detailed design status
 
-The Race Control / Race Engine responsibility question has been resolved in `PP_DESIGN_SPEC.md#race-control-engine-design--race-control-and-race-engine-detailed-design`: Race Control owns session operation/lifecycle, while Race Engine owns competition interpretation, state, rules and calculations. Together they preserve one authoritative P&P race/session authority without duplicate ownership.
+The Race Control / Race Engine responsibility question has been resolved in [Race Control and Engine](#race-control-engine-design--race-control-and-race-engine-detailed-design): Race Control owns session operation/lifecycle, while Race Engine owns competition interpretation, state, rules and calculations. Together they preserve one authoritative P&P race/session authority without duplicate ownership.
 
 The final architecture review also confirmed that components exchange information only through their defined boundaries, authoritative facts can be consumed independently without making consumers authoritative, Presentation never owns authoritative P&P data, and current-state consumers can resynchronise from authoritative state rather than reconstructing it from missed live events.
 
@@ -307,10 +306,9 @@ Implementation choices deliberately remain outside this document at this stage, 
 **Does this make the system more Plonk & Play™ for the customer, or less?**
 
 <a id="system-lifecycle--pp-system-lifecycle-and-persistence"></a>
-### P&P System Lifecycle and Persistence
+### System lifecycle and persistence
 
-**Status:** Draft v0.1  
-**Parent architecture:** PP_DESIGN_SPEC.md#system-architecture--plonk--play-system-architecture v1.0
+**Contract:** Governing design within [system architecture](#system-architecture).
 
 <a id="system-lifecycle--1-purpose"></a>
 #### 1. Purpose
@@ -526,7 +524,7 @@ A controller crash or uncontrolled power loss may therefore lose the active indi
 
 When an individual race finishes, the race/result data selected for History is written to persistent storage.
 
-The product-level retained-History behaviour is defined in `PP_DESIGN_SPEC.md#browser-flow-results-history-spec--browser-flow-results-and-history`. The detailed persistence schema, factory capacity selected from realistic storage testing and storage format remain implementation decisions.
+History behaviour and formats follow [Results and History](#browser-flow-results-history-spec--results--history) and [persistent storage](#persistent-storage-foundation-design--pp-persistent-storage-foundation-design). Qualification of capacity and compatibility remains in the Master Project Plan.
 
 <a id="system-lifecycle--12-multi-race-competition-progress"></a>
 #### 12. Multi-race competition progress
@@ -624,13 +622,10 @@ Where a hardware failure invalidates an individual race, that race may be restar
 
 **Engineer in proportion to the product.**
 
-> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
-
 <a id="first-implementation-behaviour--pp-first-implementation-behaviour"></a>
-### P&P First Implementation Behaviour
+### Foundational customer-visible operation
 
-**Status:** Draft v0.1  
-**Parent architecture:** SYSTEM_ARCHITECTURE.md v1.0
+**Contract:** Foundational customer-visible startup and behaviour. The original prototype was a proving milestone, not the final v1 scope.
 
 <a id="first-implementation-behaviour--1-purpose"></a>
 #### 1. Purpose
@@ -698,7 +693,7 @@ The initial base configuration is:
 - optional race features off;
 - the recommended base physical arrangement places each lane's Start/Finish sensor before the Start/Finish line in the direction of travel.
 
-With that recommended arrangement, a car starts before its Start/Finish detector. After GO, the first Start/Finish crossing completes Lap 1, timed from GO. This is the default first-implementation behaviour; alternative physical arrangements remain supported through installation configuration and Race Setup as defined by `RACE_CONTROL_ENGINE_DESIGN.md`.
+With that recommended arrangement, a car starts before its Start/Finish detector. After GO, the first Start/Finish crossing completes Lap 1, timed from GO. This is the default first-implementation behaviour; alternative physical arrangements remain supported through installation configuration and Race Setup as defined by [Race Control and Engine](#race-control-engine-design--race-control-and-race-engine-detailed-design).
 
 Where the base product or remembered installation makes an assignment unambiguous, P&P may make it automatically. Where more than one valid assignment is possible, P&P must not guess.
 
@@ -935,7 +930,7 @@ The selected finish rule becomes part of the fixed Session Definition when START
 
 When a race completes normally, P&P presents the authoritative final results appropriate to that race.
 
-The product-level results screen, retained History behaviour and post-race options are defined in `BROWSER_FLOW_RESULTS_HISTORY_SPEC.md` and the relevant display/mode specifications. Detailed storage schema and implementation remain implementation decisions.
+See [Results and History](#browser-flow-results-history-spec--results--history), [mode behaviour](#race-modes-product-spec--plonk--play--race-modes-product-specification) and [persistent storage design](#persistent-storage-foundation-design--pp-persistent-storage-foundation-design).
 
 <a id="first-implementation-behaviour--16-implementation-discipline"></a>
 #### 16. Implementation discipline
@@ -973,49 +968,15 @@ Product features should then be added through these same boundaries rather than 
 <a id="first-implementation-behaviour--162-prototype-implementation-sequence"></a>
 ##### 16.2 Prototype implementation sequence
 
-The prototype should be built in small proving stages so that each stage leaves a testable system and validates the next architectural boundary:
-
-1. **ESP32 skeleton** — boot, P&P System Time, Memory access, working configuration in RAM, the common P&P communications bus and module boundaries exist; no race behaviour is required. The skeleton must also provide controlled development diagnostics over the serial interface so that startup and important internal activity are observable during development. At minimum, Stage 1 must visibly report the initialisation/readiness of System Time, Memory, working configuration and the P&P Message Bus, and must exercise and report a Message Bus self-test. Diagnostic output is a development aid, not authoritative P&P State or part of the product interface, and must not create dependencies between modules or become required for correct operation.
-2. **One simulated Input Device** — prove a physical/simulated event is cleaned by its Input Device and the Input Module produces the standard physical event identifying the stable input/capability and event time, with no lane or race-role meaning attached.
-3. **P&P Message Bus delivery** — publish that physical Input Event on the common bus and prove an authorised subscriber receives it without a private point-to-point path.
-4. **Session role assignment** — create a minimal accepted Session Definition that assigns that stable input as Lane 1 Start/Finish, and prove the assignment is frozen for the session while the Input Module remains unchanged.
-5. **Race Engine** — bus-delivered physical Input Events interpreted through the Session Definition produce authoritative lap counts and lap times without requiring a browser.
-6. **Race Control** — prove READY → STARTING → scheduled GO → RACING → FINISHED, with Race Control and Race Engine communicating through the common bus and retaining their separate ownership boundaries.
-7. **Browser connection** — prove authoritative Noticeboard State, `NOTICEBOARD_CHANGED` notifications and Events/Facts can be presented without the browser owning race operation.
-8. **Browser Requests** — START is the first operational Request, including Accepted/Rejected Request Results, creation of the fixed Session Definition in RAM after acceptance and authoritative State change after acceptance.
-9. **Two lanes and rapid-event testing** — add a second simulated detector and deliberately exercise closely spaced and rapid inputs; browser/network speed must not compromise authoritative timing.
-10. **Multiple browsers and recovery** — exercise several clients, disconnection, reconnection and a new browser joining mid-race; each must obtain the current authoritative Noticeboard State it needs without affecting the race.
-
-**Stages 1–10 are the first prototype checkpoint.** At that checkpoint the communication and architectural approach must be assessed before additional product behaviour is piled on top.
-
-After that checkpoint, continue through the same established boundaries:
-
-11. **PAUSE / RESUME** — Honour restart first, then Grid Restart.
-12. **Results and persistence** — completed race, Results, History, Race Again and appropriate reboot persistence.
-13. **Outputs** — assign required output roles in the Session Definition, resolve them to stable output capabilities, and prove simulated Output Devices execute device-level actions without the Output Module acquiring lane, MUG or race-mode knowledge.
-
-Practice, Endurance, Timed Stage, Drag and other product features can then be added through the proven architecture rather than being required to prove the architecture itself.
-
-**Design broadly. Implement narrowly.**
+The original staged prototype execution sequence is historical, not an alternative roadmap. [Original sequence and checkpoints](https://github.com/ConnalM/Plonk-and-Play/blob/6d25c9924a4da090a316aaaf70fe1a1f6d5c1a58/docs/PP_DESIGN_SPEC.md#first-implementation-behaviour--162-prototype-implementation-sequence) remain evidence. Design requirements: use the same role-neutral input, Message Bus, authority, timing, output and current-state boundaries, with controlled diagnostics, rapid-input testing and independent Browser reconstruction. Follow the [Master Project Plan](MASTER_PROJECT_PLAN.md) for current delivery order.
 
 <a id="first-implementation-behaviour--17-pre-implementation-consistency-review"></a>
 #### 17. Pre-implementation consistency review
 
-Before the first implementation specification is treated as settled for coding, all governing and detailed-design documents must be cross-checked for:
-
-- contradictions;
-- stale wording;
-- duplicated decisions;
-- places where later decisions have refined earlier ones.
-
-Any conflicts must be resolved so that implementation is working from one consistent set of instructions.
-
-The startup/reconciliation ordering is governed by SYSTEM_LIFECYCLE.md: load remembered persistent state into working RAM first, then discover and reconcile actual equipment, initialise/synchronise it as required, establish current capability availability, and finally present the effective forthcoming Race Setup. PP_DESIGN_SPEC.md#first-implementation-behaviour--pp-first-implementation-behaviour defines the customer-visible behaviour produced by that lifecycle and does not introduce a competing startup sequence.
-
-> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
+The consolidated design must remain consistent across sections, conform to the Constitution/Requirements and use one authoritative definition per requirement. Startup/reconciliation order is governed by [system lifecycle](#system-lifecycle--pp-system-lifecycle-and-persistence); customer-visible behaviour above does not introduce a competing startup sequence. Review and delivery status are managed in the Master Project Plan.
 
 <a id="stage-14a-design--stage-14a-design--variable-race-entry-capacity"></a>
-### Stage 14A Design — Variable Race Entry Capacity
+### Variable Race Entry capacity
 
 **Status: ACCEPTED / FROZEN**
 
@@ -1196,7 +1157,7 @@ If a setup exceeds the compiled implementation capacity, it may be rejected as u
 - `firmware/src/main.cpp` — default two-entry setup remains unchanged; fixtures gain indexed setup support.
 - `firmware/tests` and `acceptance` — deterministic multi-entry fixtures and structural/evaluator checks.
 
-Relevant governing constraints are in `docs/SYSTEM_REQUIREMENTS.md`, `docs/SYSTEM_ARCHITECTURE.md`, `docs/RACE_CONTROL_ENGINE_DESIGN.md`, `docs/MESSAGE_CONTRACT.md`, `docs/PP_TASTER_SPEC.md`, `docs/COMMON_DISPLAY_SPEC.md` and the accepted Stage 1–13 documents.
+Relevant governing constraints are in `docs/SYSTEM_REQUIREMENTS.md`, [System architecture](#system-architecture--plonk--play-system-architecture), [Race Control and Engine](#race-control-engine-design--race-control-and-race-engine-detailed-design), [Message Contract](#message-contract--pp-message-contract), [Integrated Display](#pp-taster-spec--pp-taster-specification), [Shared display](#common-display-spec--plonk--play--common-display-specification) and the accepted Stage 1–13 documents.
 
 <a id="stage-14a-design--risks-and-compatibility"></a>
 #### Risks and compatibility
@@ -1218,7 +1179,7 @@ The variable-entry contract applies across supported modes including Open Practi
 <a id="system-architecture--9-race-control"></a>
 #### 9. Race Control
 
-Race Control and the Race Engine together form the **single authoritative race/session authority**, with non-overlapping ownership defined in `PP_DESIGN_SPEC.md#race-control-engine-design--race-control-and-race-engine-detailed-design`.
+Race Control and the Race Engine together form the **single authoritative race/session authority**, with non-overlapping ownership defined in [Race Control and Engine](#race-control-engine-design--race-control-and-race-engine-detailed-design).
 
 <a id="system-architecture--90-normal-live-communication"></a>
 ##### 9.0 Normal live communication
@@ -1313,8 +1274,7 @@ Separately, Race Control can request **logical actions**, such as scheduled star
 <a id="race-control-engine-design--race-control-and-race-engine-detailed-design"></a>
 ### Race Control and Race Engine Detailed Design
 
-**Status:** Draft v0.1  
-**Parent architecture:** PP_DESIGN_SPEC.md#system-architecture--plonk--play-system-architecture v1.0
+**Contract:** Governing design within [system architecture](#system-architecture).
 
 <a id="race-control-engine-design--1-purpose"></a>
 #### 1. Purpose
@@ -1622,7 +1582,7 @@ The separation exists to provide clear ownership, replaceability, testability an
 ---
 
 <a id="race-modes-product-spec--plonk--play--race-modes-product-specification"></a>
-### Plonk & Play™ — Race Modes Product Specification
+### Race modes and rules
 
 **Status:** Committed product-design specification  
 **Scope:** Agreed behaviour for Lap, Practice, Endurance, Timed Stage and Drag.  
@@ -2286,10 +2246,8 @@ Where the purpose is to demonstrate or test real P&P behaviour, simulation occur
 
 Attract Mode is the deliberate exception because it is presentation rather than race simulation.
 
-> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
-
 <a id="stage-13-design--stage-13-design--complete-lap-race"></a>
-### Stage 13 Design — Complete Lap Race
+### Lap Race detailed contract
 
 **Contract:** Lap Race start, false-start, abandonment and record semantics; implementation status is in the Master Project Plan.
 
@@ -2359,7 +2317,7 @@ PB/record clearing supports individual MUG PB, Track Record, and all records for
 The original Stage 13 scope is historical, not a product limit. Current scope and outstanding work are in the [Master Project Plan](MASTER_PROJECT_PLAN.md). Race Control owns lifecycle; Race Engine competition and results; Input Module role-neutral events/settlement. Browser requests and presents; Facts do not become a History database.
 
 <a id="stage-14b-design--stage-14b-design--open-practice"></a>
-### Stage 14B Design — Open Practice
+### Open Practice detailed contract
 
 **Status: ACCEPTED / FROZEN**
 
@@ -2501,10 +2459,8 @@ Open Practice has no winner/rank/competitive finish, official History/records or
 
 All applicable Stage 1–14A behaviour and acceptance remains unchanged. The complete Stage 1–14A regression campaign is required for Stage 14B acceptance.
 
-> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
-
 <a id="stage-14c-design--stage-14c-design--endurance"></a>
-### Stage 14C Design — Endurance
+### Endurance detailed contract
 
 **Status: ACCEPTED / FROZEN**
 
@@ -2629,7 +2585,7 @@ abandonment path. Presentation is derived from authoritative State and must
 not calculate results.
 
 The Taster exposes the restricted **LAPS** and **ENDURANCE** choices from
-`PP_TASTER_SPEC.md`. Its ENDURANCE choice maps to this canonical Endurance
+[Integrated Display](#pp-taster-spec--pp-taster-specification). Its ENDURANCE choice maps to this canonical Endurance
 contract; it is not a separate TIMED race mode. The Taster preserves the
 simple interaction model and does not add unrelated controls.
 
@@ -2930,8 +2886,7 @@ Human-interface participants such as the Browser and Taster are two-way: they co
 <a id="message-contract--pp-message-contract"></a>
 ### P&P Message Contract
 
-**Status:** Draft v0.2  
-**Purpose:** Record the generic communication rules and the first concrete Message Types agreed for the common **P&P Message Bus**. This document defines message semantics and authority, not packet encoding, C++ structures or transport protocols.
+**Contract:** Generic communication rules and agreed Message Types for the common **P&P Message Bus**. This document defines message semantics and authority, not packet encoding, C++ structures or transport protocols.
 
 This document is subordinate to the Design Constitution, System Requirements and System Architecture.
 
@@ -3343,7 +3298,7 @@ Memory must not become a shadow Race Engine by reconstructing competition state 
 
 The initial product should retain a deliberately modest useful result/history record rather than logging everything simply because storage is available.
 
-The product-level retained-history behaviour is defined in `PP_DESIGN_SPEC.md#browser-flow-results-history-spec--browser-flow-results-and-history`; the detailed persistence schema and storage technology remain implementation decisions. Wall-clock date/time is not required for retained race history.
+History follows [the storage contract](#persistent-storage-foundation-design--pp-persistent-storage-foundation-design) and [Browser History](#browser-flow-results-history-spec--results--history). Wall-clock date/time is not required for retained race history.
 
 The storage model must be extensible so that substantially richer information can be retained later without redesigning Race Control or making older records unusable.
 
@@ -3403,7 +3358,7 @@ A physical output has one authoritative owner of commanded state. Other function
 A component receives only the information required for its responsibility. The existence of complete authoritative P&P state does not justify a universal mutable state object shared across unrelated components.
 
 <a id="persistent-storage-foundation-design--pp-persistent-storage-foundation-design"></a>
-### P&P Persistent Storage Foundation Design
+### Persistent storage design
 
 **Status: ACCEPTED / FROZEN**
 
@@ -3654,10 +3609,8 @@ The passage of time alone does not require repeated Noticeboard changes. For exa
 
 Facts/Events describe things that happened. The Noticeboard describes what is true now as a result. A current fact such as the fastest lap remains represented as current State until it is superseded or ceases to be relevant.
 
-> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
-
 <a id="stage-12-design--stage-12-design--completed-results-and-post-race-flow"></a>
-### Stage 12 Design � Completed Results and Post-Race Flow
+### Completed Results and post-race flow
 
 **Contract:** Completed-result design (original Stage 12); current delivery and acceptance status are in the Master Project Plan.
 
@@ -3712,7 +3665,7 @@ Completed-result Noticeboard and Browser field names/serialization are implement
 ## Presentation
 
 <a id="common-display-spec--plonk--play--common-display-specification"></a>
-### Plonk & Play™ — Common Display Specification
+### Shared display behaviour
 
 **Status:** Committed product-design specification  
 **Applies to:** Lap, Endurance and Timed Stage on the Browser and integrated
@@ -3751,7 +3704,7 @@ Endurance expiry, finish classification, finish time or overtime. Paused time
 and an approved restart countdown do not add racing time.
 
 Mode-specific finish policy and the shared timing/format definitions are
-defined only in `PP_DESIGN_SPEC.md#race-modes-product-spec--plonk--play--race-modes-product-specification` §2, §4 and §4.6. The display
+defined only in [Race modes](#race-modes-product-spec--plonk--play--race-modes-product-specification) §2, §4 and §4.6. The display
 consumes those values; it does not restate or reinterpret the policies.
 
 Presentation updates are event/state driven. A client may advance or render a
@@ -3816,7 +3769,7 @@ Race progress for a 25-lap race might display `17 / 25`.
 
 A thin graphical progress indicator may also show race completion visually. This should be prototyped rather than considered mandatory at this stage.
 
-Endurance and Timed Stage use the same visual architecture with mode-appropriate information. Mode-specific field meaning and finish semantics are defined in `PP_DESIGN_SPEC.md#race-modes-product-spec--plonk--play--race-modes-product-specification`; this specification governs their shared visual meaning and geometry.
+Endurance and Timed Stage use the same visual architecture with mode-appropriate information. Mode-specific field meaning and finish semantics are defined in [Race modes](#race-modes-product-spec--plonk--play--race-modes-product-specification); this specification governs their shared visual meaning and geometry.
 
 <a id="common-display-spec--5-temporary-row-states"></a>
 #### 5. Temporary Row States
@@ -4042,7 +3995,7 @@ If a control requires a paragraph before a MUG can choose it, reconsider the con
 ---
 
 <a id="presentation-design-spec--plonk--play--presentation-design-specification"></a>
-### Plonk & Play™ — Presentation Design Specification
+### Presentation and visual language
 
 **Status:** Accepted visual-direction specification  
 **Applies to:** Browser presentation and integrated P&P display  
@@ -4191,7 +4144,7 @@ Large saturated lane-colour backgrounds should be avoided where they reduce read
 <a id="presentation-design-spec--63-status-colours"></a>
 ##### 6.3 Status colours
 
-Status colour must have consistent meaning across screens. Yellow/Red race-control presentation remains governed by `PP_DESIGN_SPEC.md#common-display-spec--plonk--play--common-display-specification`.
+Status colour must have consistent meaning across screens. Yellow/Red race-control presentation remains governed by [Shared display](#common-display-spec--plonk--play--common-display-specification).
 
 Colour must not be the only means of communicating a critical state; text, iconography or light state should also make the meaning clear.
 
@@ -4213,7 +4166,7 @@ Typography should distinguish clearly between:
 
 Changing race numbers must use tabular/fixed-width numeral behaviour where appropriate.
 
-Existing rule from `PP_DESIGN_SPEC.md#common-display-spec--plonk--play--common-display-specification` remains mandatory:
+Existing rule from [Shared display](#common-display-spec--plonk--play--common-display-specification) remains mandatory:
 
 > **No UI jitter caused by changing race data.**
 
@@ -4269,7 +4222,7 @@ The Personal MUG display is a glanceable racing instrument, not a miniature copy
 
 Position and race progress dominate.
 
-Last Lap, Best Lap and Gap remain secondary. Personal alerts may temporarily dominate as already specified in `PP_DESIGN_SPEC.md#common-display-spec--plonk--play--common-display-specification`.
+Last Lap, Best Lap and Gap remain secondary. Personal alerts may temporarily dominate as already specified in [Shared display](#common-display-spec--plonk--play--common-display-specification).
 
 A phone held or positioned several feet away should remain useful without requiring the MUG to read small labels while driving.
 
@@ -4310,7 +4263,7 @@ Configuration uses the same P&P visual language but may be denser than racing sc
 
 Configuration should favour conventional, understandable controls over decorative novelty.
 
-Advanced settings must not visually overwhelm normal setup. Contextual help and numeric controls follow the rules in `PP_DESIGN_SPEC.md#common-display-spec--plonk--play--common-display-specification`.
+Advanced settings must not visually overwhelm normal setup. Contextual help and numeric controls follow the rules in [Shared display](#common-display-spec--plonk--play--common-display-specification).
 
 The fact that a configuration page can fit more information on a laptop does not justify displaying every available option simultaneously.
 
@@ -4400,7 +4353,7 @@ Equally, do not allow temporary development UI to become the product appearance 
 ---
 
 <a id="pp-taster-spec--pp-taster-specification"></a>
-### P&P Taster Specification
+### Integrated Display (Taster)
 
 <a id="pp-taster-spec--purpose"></a>
 #### Purpose
@@ -4423,8 +4376,8 @@ the touchscreen.
 The Taster is a controller-local presentation and control client over the
 normal P&P authority. It does not create a second Race Control, Race Engine,
 timing, results or persistence authority. The canonical race behaviour is
-defined in `PP_DESIGN_SPEC.md#race-modes-product-spec--plonk--play--race-modes-product-specification` and the shared presentation rules are
-defined in `PP_DESIGN_SPEC.md#common-display-spec--plonk--play--common-display-specification` and `PP_DESIGN_SPEC.md#presentation-design-spec--plonk--play--presentation-design-specification`; this
+defined in [Race modes](#race-modes-product-spec--plonk--play--race-modes-product-specification) and the shared presentation rules are
+defined in [Shared display](#common-display-spec--plonk--play--common-display-specification) and [Presentation design](#presentation-design-spec--plonk--play--presentation-design-specification); this
 document defines only the Taster's restricted scope, controls and layout.
 
 Where this document is silent, those canonical contracts apply. A different
@@ -4522,7 +4475,7 @@ Once the pause is authoritative, the Taster offers only:
 - **ABANDON RACE** — requires explicit confirmation, then returns to READY and
   creates no completed result.
 
-The shared pause/restart timing rule in `PP_DESIGN_SPEC.md#race-modes-product-spec--plonk--play--race-modes-product-specification` applies:
+The shared pause/restart timing rule in [Race modes](#race-modes-product-spec--plonk--play--race-modes-product-specification) applies:
 paused time and an authoritative restart countdown do not add racing time.
 RESUME continues from the shared P&P timing boundary. The Taster may advance
 or render pause/countdown values from authoritative P&P timing, but it does not
@@ -4591,18 +4544,18 @@ authority.
 On the winning/final lap, the appropriate lane may use a chequered-flag/finish treatment rather than the ordinary lap animation.
 
 For Taster LAPS races, the canonical `CompleteFullRaceDistance` contract in
-`PP_DESIGN_SPEC.md#race-modes-product-spec--plonk--play--race-modes-product-specification` applies: either lane may be first to the selected
+[Race modes](#race-modes-product-spec--plonk--play--race-modes-product-specification) applies: either lane may be first to the selected
 distance, each lane's final time freezes at its own eligible crossing, and the
 shared race completes only when the required entries have finished. Taster
 exposes no alternative finish-policy setting.
 
 For Taster ENDURANCE races, the canonical `FinishCurrentLap` contract in
-`PP_DESIGN_SPEC.md#race-modes-product-spec--plonk--play--race-modes-product-specification` applies: the next eligible crossing after the one
+[Race modes](#race-modes-product-spec--plonk--play--race-modes-product-specification) applies: the next eligible crossing after the one
 shared expiry point contributes to each lane's result, with any finishing
 offset/overtime derived from that same authority.
 
 Timing fields and number formats are shared with the Browser exactly as
-defined in `PP_DESIGN_SPEC.md#race-modes-product-spec--plonk--play--race-modes-product-specification` §4.6. Live elapsed/remaining race
+defined in [Race modes](#race-modes-product-spec--plonk--play--race-modes-product-specification) §4.6. Live elapsed/remaining race
 timers use whole seconds beyond 3599 without changing units; completed
 race/finish durations use unbounded-minute `mm:ss:xx` with hundredths; live
 Endurance overtime uses `+0`, `+1`, `+2` and so on; and each lane's frozen
@@ -4932,7 +4885,7 @@ The authoritative race responsibility may publish a fact such as `FASTEST_LAP`; 
 
 Sound may also be requested as a scheduled logical action where timing matters, such as start-sequence beeps. Such actions use P&P System Time in the same way as other time-critical outputs rather than depending on message-arrival time.
 
-The likely product direction includes pre-recorded audio files on removable storage and sufficiently capable audio hardware for decent trackside sound. Exact hardware and audio format are not yet fixed.
+The agreed audio facilities use firmware tones and P&P-provided removable-storage speech/effects, as specified in [shared audio](#product-facilities-spec--3-audio-and-removable-storage). Exact hardware/format choices must satisfy that contract.
 
 Sound hardware and persistent storage may eventually share physical storage if suitable hardware permits it, but the architecture must not depend on that physical arrangement.
 
@@ -5327,10 +5280,8 @@ Every normal race/session must be runnable by one MUG.
 
 At the other end, P&P may scale to a main display, several personal MUG displays and a separate Race Director display without changing the fundamental race engine.
 
-> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
-
 <a id="implementation-spec--pp-normal-browser-----implementation-handover"></a>
-### P&P Normal Browser --- Implementation Handover
+### Browser design and implementation contract
 
 <a id="implementation-spec--status-and-priority"></a>
 #### Status and priority
@@ -5505,7 +5456,7 @@ OVERTIME appears where applicable, counting upward from the same authoritative
 expiry point as `+0`, `+1`, `+2` and so on. Each lane freezes its first
 eligible final-crossing offset as `+mm:ss:xx` to hundredths; both offsets stay
 visible when the race finishes. These values follow the common contract in
-`RACE_MODES_PRODUCT_SPEC.md` §4.6.
+[Race modes](#race-modes-product-spec--plonk--play--race-modes-product-specification) §4.6.
 
 P&P determines whether overtime applies and supplies authoritative
 timing. Browser does not infer expiry/overtime.
@@ -5670,12 +5621,7 @@ must never create different race truth.
 <a id="implementation-spec--deliberately-outside-this-handover"></a>
 #### Deliberately outside this handover
 
-Do not invent detailed Personal MUG visual design, TV/projector
-presentation, dedicated Race Control display, Screen Designer,
-Developer/Diagnostics, full History visual design, full Details visual
-design, unsupported Advanced Race Options, Timed Practice, Timed Stage,
-Drag, pits/fuel, championship/competition features, Power Module
-behaviour or future advanced start/false-start configuration.
+The Master Project Plan determines current v1 scope, including History/Details, diagnostics and advanced settings. Do not infer future-mode requirements from mockups or resurrect old handover exclusions that conflict with the approved v1 boundary.
 
 <a id="implementation-spec--approved-visual-references"></a>
 #### Approved visual references
@@ -5694,8 +5640,7 @@ behaviour or future advanced start/false-start configuration.
 -   07_LAP_FINISH_ANIMATION.html --- lap/finish animation and fixed
     finished-lane flag-slot reference.
 
-Only these files are included deliberately. Older intermediate/broken
-mock-ups are not part of the handover.
+These files preserve original visual references. The later consolidated [V18 Browser design](https://github.com/ConnalM/Plonk-and-Play/blob/ec46ff5b8df07d1477fa40543423509c778a22d1/design/smugland/PP_Browser_v18_navigation.html) is the current **owner approval candidate**, not yet approved/frozen. V17/V18 source review confirms the corrected lane model, complete-entry rotation, finish-display handoff, four preset layouts and retained factory restoration. Only agreed governing semantics may be implemented. Representative and future-mode fixtures must not become race logic or scope commitments. The Master Project Plan records the approval/production acceptance gate.
 
 <a id="physical-integrated-display-constraints"></a>
 ### Physical Integrated Display constraints
@@ -5711,7 +5656,7 @@ Moving cars, animated chequered flags and production double-buffer experiments a
 ## Configuration
 
 <a id="configuration-and-identity-spec--plonk--play--configuration-and-identity-specification"></a>
-### Plonk & Play™ — Configuration and Identity Specification
+### Configuration, Racer and Car identity
 
 **Status:** Committed product-design specification  
 **Scope:** Basic v1 MUG, car and lane configuration.  
@@ -5832,26 +5777,12 @@ P&P automatically remembers the most recently used straightforward race setup, i
 
 Returning to the same mode should therefore normally present the previous useful setup, allowing regular users to reach START with minimal interaction.
 
-A separate Save Setup / Load Setup system is not required for v1.
-
-Named presets may be added later if real use demonstrates a need.
+A separate Save Setup / Load Setup system is not required for v1; named presets are a later candidate in the Master Project Plan.
 
 <a id="configuration-and-identity-spec--10-future-compatibility-without-v1-scope-creep"></a>
 #### 10. Future compatibility without v1 scope creep
 
-The first implementation provides only the configuration and identity features needed for straightforward racing.
-
-Its data model and interfaces must not unnecessarily prevent later support for:
-
-- richer MUG profiles;
-- richer car profiles;
-- long-term MUG/car statistics;
-- multi-race competitions;
-- automatic lane rotation;
-- heats/rounds;
-- other event structures.
-
-These are **not v1 requirements** merely because the data model leaves room for them.
+V1 provides straightforward Racer/Car identity and pending setup, including the agreed [automatic lane rotation](#race-setup-lane-assignment-spec--6-automatic-rotation). The data model must permit richer Racer/Car profiles and statistics, multi-race competitions, heats/rounds and other event structures without pre-implementing them. Their release disposition is the Master Project Plan.
 
 The design must not assume that:
 
@@ -6275,7 +6206,7 @@ Preferences such as display choices, units, sounds and similar user choices are 
 
 Configuration describes **how P&P should behave**.
 
-Live race/session state describes **what is happening or has happened as a result**, with ownership divided between Race Control session state and Race Engine competition state as defined in `PP_DESIGN_SPEC.md#race-control-engine-design--race-control-and-race-engine-detailed-design`.
+Live race/session state describes **what is happening or has happened as a result**, with ownership divided between Race Control session state and Race Engine competition state as defined in [Race Control and Engine](#race-control-engine-design--race-control-and-race-engine-detailed-design).
 
 For example, current lap, current fuel level, race running/paused state and current position are not Configuration.
 
@@ -6442,7 +6373,7 @@ software health action, or an ordinary hardware reset/reboot boundary. Restart:
 - treats any incomplete transaction as uncommitted debris, never as official
   History.
 
-These rules follow `PP_DESIGN_SPEC.md#system-lifecycle--pp-system-lifecycle-and-persistence` and the accepted Persistent Storage
+These rules follow [System lifecycle](#system-lifecycle--pp-system-lifecycle-and-persistence) and the accepted Persistent Storage
 Foundation design.
 
 <a id="wp6-recovery-reset-update-contract--reset-settings"></a>
@@ -6571,17 +6502,15 @@ to normal readiness. Reset settings uses the same first-boot/default-settings
 path while retaining customer records. Erase everything enters the existing
 factory-default commissioning path after the confirmed wipe. An interrupted
 individual race is not resumed automatically; an unfinished competition may be
-offered for continuation under `PP_DESIGN_SPEC.md#system-lifecycle--pp-system-lifecycle-and-persistence`.
+offered for continuation under [System lifecycle](#system-lifecycle--pp-system-lifecycle-and-persistence).
 
 No product owner decisions remain open in this contract. Implementation must
 still define measurable image-authentication, compatibility and post-boot
 health checks within these boundaries and submit those details for technical
 review; they are not permission to change the product decisions above.
 
-> **Consolidation note:** This retained implementation contract preserves the design and historical acceptance boundaries of its original phase. Old implementation-slice limits and status statements do not override subsequent owner approvals or the current Master Project Plan. Review remaining contradictions before final design freeze.
-
 <a id="stage-15-logging-diagnostics-foundation-design--stage-15-logging-and-diagnostics-foundation-design"></a>
-### Stage 15 Logging and Diagnostics Foundation Design
+### Logging and diagnostics design
 
 **Status:** Foundation Design ACCEPTED/FROZEN for implementation. Final Stage 15 acceptance/freeze is not granted.
 
@@ -6950,18 +6879,7 @@ storage and final recovery/housekeeping remain outside this phase.
 <a id="stage-15-logging-diagnostics-foundation-design--14-phase-7-measured-baseline"></a>
 #### 14. Phase 7 measured baseline
 
-The focused host campaign measured an 80-byte `RecordEnvelope` and a 120-byte
-`RetrievalChunk`. The exercised in-memory test bound retained eight records and
-reported two explicit drops after exhaustion; the development file bound is 64
-records with a 4096-byte payload limit. Each `/diag/records` request uses a
-4096-byte payload buffer and a 10240-byte provisional JSON inspection buffer.
-
-The standard instrumented ESP32 builds used `PP_MAX_ENTRIES=8`. The demo image
-used 101304 bytes static RAM and 937385 bytes application flash; the acceptance
-image used 98808 bytes static RAM and 991885 bytes application flash. These are
-baseline measurements, not acceptance thresholds. Sustained Wokwi load, live
-heap/stack pressure and SD latency remain environment or real-hardware campaign
-items and do not become claims from this host test.
+[Historic Phase 7 measurements](https://github.com/ConnalM/Plonk-and-Play/blob/6d25c9924a4da090a316aaaf70fe1a1f6d5c1a58/docs/PP_DESIGN_SPEC.md#stage-15-logging-diagnostics-foundation-design--14-phase-7-measured-baseline) preserve envelope/chunk sizes, bounded development payloads and ESP32 demo/acceptance resource figures. They are not production capacities or acceptance thresholds. Current resource limits and qualification are tracked in the Master Project Plan and acceptance evidence.
 
 <a id="stage-15-logging-diagnostics-foundation-design--15-phase-8-hardware-baseline"></a>
 #### 15. Phase 8 hardware baseline
@@ -6988,7 +6906,7 @@ or final SD integration architecture.
 ## Physical product
 
 <a id="product-facilities-spec--plonk--play--product-facilities-specification"></a>
-### Plonk & Play™ — Product Facilities Specification
+### Base product hardware and facilities
 
 **Status:** Committed product-design specification  
 **Scope:** Cross-mode facilities and product decisions agreed during Lap Counter product design.

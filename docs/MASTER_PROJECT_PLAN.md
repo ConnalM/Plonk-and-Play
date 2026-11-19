@@ -51,6 +51,7 @@ P&P v1 includes:
 - 1–8 lane software/product architecture, initially provable with two physical lanes;
 - Normal Browser, one Race Director/controller lease and spectator Browsers;
 - local 7-inch display/Taster operation;
+- complete Race Entry reassignment and manual/automatic lane rotation, including optional Car identity;
 - real optical lap detection and Track Setup;
 - Results, Finish Display, History/Details, PB, Track Record and Record Era where applicable;
 - SD persistence, transactional behaviour and recovery;
@@ -59,7 +60,7 @@ P&P v1 includes:
 - diagnostics, support download, health/status/version;
 - restart/reset/factory recovery and customer firmware update;
 - WP8 race audio with an internal speaker, firmware tones and P&P-supplied SD
-  speech and effects, as specified under WP8 below;
+  speech and effects, as specified in the [shared audio design](PP_DESIGN_SPEC.md#product-facilities-spec--3-audio-and-removable-storage);
 - production PSU, connectors/cabling, enclosure, instructions, production test and support process.
 
 Product promise:
@@ -366,13 +367,13 @@ Complete instructions, first-start/access experience, firmware/release process, 
 
 | ID / WP | Task / owner | Status and next evidence |
 |---|---|---|
-| WP8-01 / WP8 | Physical UI/Noticeboard mismatch and isolated XIP build — Archie/Al | PASSED source correction, focused timing regression and candidate build at `9f78657`; exact tree matches Archie's prepared correction. Reported image validation passed; SHA-256 `4A01F0EBE45569719E3282BC63292FACA76C453894E0E7405635F659D5A38812`, image size 0x23fa00, 64% app partition free. XIP/80 MHz Octal PSRAM/single framebuffer/animations disabled confirmed. [Evidence](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7012016540). Preserve candidate and recovery copy; physical acceptance remains WP8/Gate C. |
-| WP8-02 / WP8+WP3 | Record eligibility and Browser authority — Archie/Al | Reported host record/lease matrices, concurrent authority/Stage15 lease, 3500-lap detail tests PASS. Real HTTP/SSE acquisition, transfer, reconnect and cross-task timing/lifetime validation OPEN; Stage13/15 Python harnesses syntax-only. Credit reported Practice summary, active-detail recovery, shared SD recovery PASS. Credit the additional physical Noticeboard timing matrix (normal and Stage13 variants), presentation, dirty-region and Taster-surface checks. Actual controller evidence still required. No merge/flash. [PR #3 details](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7007520404). |
+| WP8-01 / WP8 | Physical UI/Noticeboard mismatch and isolated XIP build — Archie/Al | PASSED source correction, focused timing regression and candidate build at `9f78657`; exact tree matches Archie's prepared correction. Reported image validation passed; SHA-256 `4A01F0EBE45569719E3282BC63292FACA76C453894E0E7405635F659D5A38812`, image size 0x23fa00, 64% app partition free. XIP/80 MHz Octal PSRAM/single framebuffer/animations disabled confirmed. [Evidence](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7012016540). Candidate and accepted recovery image preserved separately and rehashed; [local artifact and proposed checkpoint](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7012216516). Cloud copy unverified; physical acceptance remains WP8/Gate C. |
+| WP8-02 / WP8+WP3 | Record eligibility and Browser authority — Archie/Al | Reported host record/lease matrices, concurrent authority/Stage15 lease, 3500-lap detail tests PASS. Real HTTP/SSE acquisition, transfer, reconnect and cross-task timing/lifetime validation OPEN; Stage13/15 Python harnesses syntax-only. Credit reported Practice summary, active-detail recovery, shared SD recovery PASS. Credit the additional physical Noticeboard timing matrix (normal and Stage13 variants), presentation, dirty-region and Taster-surface checks. Actual controller evidence still required. Archie to reconcile outdated Stage13/15 acceptance harness preconditions (deprecated target3 fixture, explicit simulation arm, retained controller lease and SSE disconnect window) without erasing records or relaxing official-record policy. [Preflight](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7012839077). No merge/flash. [PR #3 details](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7007520404). |
 | WP8-03 / WP8 | Display setup and shared audio — Archie/Al | OPEN: implement and accept shared remembered settings/restoration and sound. |
 | WP8-04 / WP8 | Browser design — Gina/Archie/owner | V18 recommended for owner design approval; production implementation and acceptance OPEN. |
 | WP8-05 / WP1+WP8 | Shared configuration/Race Engine — Archie/Al | Legacy 1200-lap and >999 local adjustment host evidence passes. Physical NVS and coexistence remain open. Fix/regress lapTarget + penalties overflow; UINT32_MAX is currently storage/Browser boundary evidence only, not safe Race Engine target. |
 | WP8-06 / WP3+WP6 | HTTP socket and WP6 regressions — Al | Prior source/config and WP6 adapter host tests pass; live saturation/reconnect/coexistence and physical signed update/rollback remain open. |
-| DOC-01 / Support | Documentation — Archie | 22 design documents structurally transferred and retired. Targeted overlaps resolved; residual wording, phase-conflict and backlog/link review remain open. Documentation-only branch. |
+| DOC-01 / Support | Documentation — Archie | 22 design documents retired; 48 initial consistency corrections plus follow-up removal of obsolete phase planning/status, direct cross-references and deferred scope reconciliation. Internal anchors validated. Remaining final cross-document evidence/reference audit and integration of PR #4 (separate from firmware) open. |
 
 Evidence: [PR #3](https://github.com/ConnalM/Plonk-and-Play/pull/3), [issue #2](https://github.com/ConnalM/Plonk-and-Play/issues/2), [18 November checkpoint](ARCHIE_CHECKPOINT_REVIEW_2026-11-18.md) and [compliance reconciliation](ARCHIE_COMPLIANCE_RECONCILIATION_2026-11-18.md). Do not rerun credited tests without relevant change; no flash without separately authorised candidate.
 
@@ -421,6 +422,8 @@ the Project Owner's explicit approval.
 | Championships/events | Post-v1 |
 | Rex/REU-dependent facilities | Post-v1 |
 | Personalised spoken announcements using racer names | Post-v1 |
+| Named Race Setup presets / Save Setup and Load Setup | Post-v1 candidate if real use warrants it |
+| Richer Racer/Car profiles, long-term statistics and car-specific records | Post-v1 candidates; stable identities retained in v1 |
 | Other later expansion | Post-v1 unless explicitly promoted |
 
 ### 7.1 Previously deferred/unallocated design decisions
