@@ -12,19 +12,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage15"))
 from multiclient_http_acceptance import (
-    EventStream, acquire_owner, call, client, context,
+    EventStream, acquire_owner, call, client, context, fixture,
     get_json, operation, passage, proposal_identity, record_snapshot,
     require_authorised_target, restore_proposal, wait_state, wait_until,
 )
 
 FINISHES = ("IMMEDIATE", "COMPLETE_CURRENT_LAP", "COMPLETE_FULL_RACE_DISTANCE")
-
-
-def fixture(opener, action, **fields):
-    status, value = call(opener, "/fixture", "POST", {"action": action, **fields})
-    assert status == 200 and value and value.get("accepted") is True, (action, status, value)
-    return value
-
 
 def no_smug_controller(opener):
     value = context(opener)

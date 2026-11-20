@@ -484,7 +484,17 @@ bool browserFixtureTasterSetup(const pp::BrowserInterface::FixtureTasterSetup& s
                                    setup.durationMinutes,setup.finish,raceControl.proposalRevision());
 }
 #endif
-void browserFixtureReset(){ activeSession.clearForFixture(); raceControl.resetRaceForFixture(); raceControl.setProposedRaceSetup(proposedRaceSetup); refreshRequiredDetectorReadiness(); raceEngine.resetForFixture(); browser.clearRaceForFixture(); diagnostics.log("[DEV] TEST RESET READY (Race Director retained)"); }
+void browserFixtureReset(){
+  // This executes only from BrowserInterface::processFixtureCommands() on the
+  // product main loop. Clear both asserted inputs and their scheduled release
+  // before restoring READY, so an old HTTP fixture command cannot bleed into a
+  // subsequent session.
+  input.setSimulatedSource(false);input.setSimulatedSourceB(false);
+  simulatedARelease=0;simulatedBRelease=0;
+  activeSession.clearForFixture();raceControl.resetRaceForFixture();raceControl.setProposedRaceSetup(proposedRaceSetup);
+  refreshRequiredDetectorReadiness();raceEngine.resetForFixture();browser.clearRaceForFixture();
+  diagnostics.log("[DEV] TEST RESET READY (Race Director retained)");
+}
 #endif
 // The build environment is diagnostic identity only. It never supplies product
 // State or changes P&P behaviour.
@@ -1106,6 +1116,11 @@ void loop(){
   const pp::Time loopStarted=systemTime();
 #endif
   memoryModule.tick();
+#if defined(PP_WP7_ACCEPTANCE_SIMULATION)
+  // Serialise all acceptance-fixture mutation with the authoritative loop.
+  // HTTPD only queues immutable requests and later reads their outcomes.
+  browser.processFixtureCommands();
+#endif
 #if defined(PP_PHASE8B_P1_TEST) || defined(PP_WP7_PHYSICAL_RACING_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   const pp::Time fixtureNow=systemTime();
   if(simulatedARelease&&fixtureNow>=simulatedARelease){input.setSimulatedSource(false);simulatedARelease=0;}

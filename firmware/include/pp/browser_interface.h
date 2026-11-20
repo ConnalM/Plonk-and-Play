@@ -17,6 +17,7 @@
 #include "external_wifi.h"
 #include "firmware_update.h"
 #include "mug_catalog.h"
+#include "fixture_command_queue.h"
 #if defined(PP_PHASE8B_REAL_SD)
 #include "physical_sd_owner.h"
 #endif
@@ -229,6 +230,31 @@ public:
         }
       }
     }
+  }
+  // Called only by the Arduino main loop. HTTP handlers may enqueue fixture
+  // work, but must never invoke a fixture callback directly.
+  void processFixtureCommands() {
+    if (fixtureCompletionPending_) {
+      if (!fixtureQueue_.tryComplete(fixtureCompletionRequest_, fixtureCompletionResult_)) return;
+      fixtureCompletionPending_ = false;
+      if (fixtureCancelPending_) {
+        if (!fixtureQueue_.tryCancelPending()) return;
+        fixtureCancelPending_ = false;
+      }
+    }
+    if (fixtureCancelPending_) {
+      if (!fixtureQueue_.tryCancelPending()) return;
+      fixtureCancelPending_ = false;
+    }
+    FixtureWork work{};
+    const auto taken = fixtureQueue_.tryTake(millis(), work);
+    if (taken != FixtureQueue::Take::Ready) return;
+    const FixtureQueueResult result = executeFixtureCommand(work.payload);
+    fixtureCompletionRequest_ = work.requestId;
+    fixtureCompletionResult_ = result;
+    fixtureCompletionPending_ = true;
+    if (work.payload.action == FixtureAction::Reset && result == FixtureQueueResult::Accepted)
+      fixtureCancelPending_ = true;
   }
   // The public overload is retained for non-Browser test fixtures. HTTP calls
   // always include their server-resolved owner token below.
@@ -765,11 +791,78 @@ private:
   size_t nextPending_ = 0;
   int serverStartError_ = 0;
   DestructiveConfirmation confirmation_{};
+  enum class FixtureOrigin : uint8_t { Controller, StandaloneTaster };
+  enum class FixtureAction : uint8_t { Arm, PassageLane1, PassageLane2, Reset, TasterStart, TasterPause, TasterResume, TasterSetup };
+  struct FixturePayload {
+    FixtureOrigin origin = FixtureOrigin::Controller;
+    FixtureAction action = FixtureAction::Arm;
+    uint64_t owner = 0;
+    FixtureTasterSetup setup{};
+  };
+  using FixtureQueue = FixtureCommandQueue<FixturePayload>;
+  using FixtureWork = typename FixtureQueue::Work;
+  FixtureQueue fixtureQueue_{};
+  bool fixtureCompletionPending_ = false;
+  uint32_t fixtureCompletionRequest_ = 0;
+  FixtureQueueResult fixtureCompletionResult_ = FixtureQueueResult::Rejected;
+  bool fixtureCancelPending_ = false;
   bool (*fixturePass_)(uint8_t) = nullptr;
   void (*fixtureReset_)() = nullptr;
   bool (*fixtureArm_)() = nullptr;
   bool (*fixtureTaster_)(FixtureTasterAction) = nullptr;
   bool (*fixtureTasterSetup_)(const FixtureTasterSetup&) = nullptr;
+  bool fixtureControllerStillAuthorised(uint64_t token) const {
+    const auto authority = publishedAuthority_.read();
+    const uint64_t fingerprinted = fingerprint(token);
+    return token && fingerprinted == authority.owner &&
+           authority.connectedOwner == authority.owner;
+  }
+  FixtureQueueResult executeFixtureCommand(const FixturePayload& command) {
+    // Recheck on the main loop against the committed authority. A command
+    // admitted just before a disconnect, handover, or controller arrival is
+    // rejected rather than executing under stale HTTPD state.
+    if (command.origin == FixtureOrigin::Controller) {
+      if (!fixtureControllerStillAuthorised(command.owner)) return FixtureQueueResult::Rejected;
+    } else if (hasController()) {
+      return FixtureQueueResult::Rejected;
+    }
+    bool accepted = false;
+    switch (command.action) {
+      case FixtureAction::Arm:
+        accepted = command.origin == FixtureOrigin::StandaloneTaster ?
+            fixtureTaster_ && fixtureTaster_(FixtureTasterAction::Arm) : fixtureArm_ && fixtureArm_();
+        break;
+      case FixtureAction::PassageLane1:
+        accepted = command.origin == FixtureOrigin::StandaloneTaster ?
+            fixtureTaster_ && fixtureTaster_(FixtureTasterAction::PassageLane1) : fixturePass_ && fixturePass_(1);
+        break;
+      case FixtureAction::PassageLane2:
+        accepted = command.origin == FixtureOrigin::StandaloneTaster ?
+            fixtureTaster_ && fixtureTaster_(FixtureTasterAction::PassageLane2) : fixturePass_ && fixturePass_(2);
+        break;
+      case FixtureAction::Reset:
+        if (command.origin == FixtureOrigin::StandaloneTaster) accepted = fixtureTaster_ && fixtureTaster_(FixtureTasterAction::Reset);
+        else if (fixtureReset_) { fixtureReset_(); accepted = true; }
+        break;
+      case FixtureAction::TasterStart:
+        accepted = fixtureTaster_ && fixtureTaster_(FixtureTasterAction::Start);
+        break;
+      case FixtureAction::TasterPause:
+        accepted = fixtureTaster_ && fixtureTaster_(FixtureTasterAction::Pause);
+        break;
+      case FixtureAction::TasterResume:
+        accepted = fixtureTaster_ && fixtureTaster_(FixtureTasterAction::Resume);
+        break;
+      case FixtureAction::TasterSetup:
+        accepted = fixtureTasterSetup_ && fixtureTasterSetup_(command.setup);
+        break;
+    }
+    return accepted ? FixtureQueueResult::Accepted : FixtureQueueResult::Rejected;
+  }
+  FixtureQueue::Submission enqueueFixture(const FixturePayload& payload) {
+    return fixtureQueue_.submit(payload, millis(), 1000);
+  }
+  FixtureQueueResult fixtureResult(uint32_t requestId) const { return fixtureQueue_.result(requestId); }
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   struct LapDisplayPending {
     bool active = false;
@@ -2247,19 +2340,60 @@ private:
   static esp_err_t clearTrackRecordConfirmRoute(httpd_req_t* r){return confirmOperationRoute(r,SessionOperation::ClearTrackRecord);}
   static esp_err_t clearAllRecordsRoute(httpd_req_t* r){return openConfirmationRoute(r,SessionOperation::ClearAllRecords);}
   static esp_err_t clearAllRecordsConfirmRoute(httpd_req_t* r){return confirmOperationRoute(r,SessionOperation::ClearAllRecords);}
+  static const char* fixtureResultName(FixtureQueueResult result) {
+    switch (result) {
+      case FixtureQueueResult::Queued: return "QUEUED";
+      case FixtureQueueResult::Accepted: return "ACCEPTED";
+      case FixtureQueueResult::Rejected: return "REJECTED";
+      case FixtureQueueResult::Expired: return "EXPIRED";
+      case FixtureQueueResult::Cancelled: return "CANCELLED";
+      case FixtureQueueResult::Busy: return "BUSY";
+      case FixtureQueueResult::Full: return "FULL";
+      default: return "UNKNOWN";
+    }
+  }
+  static esp_err_t queueFixtureResponse(httpd_req_t* request, const FixturePayload& payload, const char* role) {
+    const auto submission = instance()->enqueueFixture(payload);
+    if (submission.result == FixtureQueueResult::Busy) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      return httpd_resp_sendstr(request, "fixture queue busy");
+    }
+    if (submission.result == FixtureQueueResult::Full) {
+      httpd_resp_set_status(request, "429 Too Many Requests");
+      return httpd_resp_sendstr(request, "fixture queue full");
+    }
+    if (submission.result != FixtureQueueResult::Queued) {
+      httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "fixture queue unavailable");
+      return ESP_FAIL;
+    }
+    char response[112]{};
+    snprintf(response, sizeof(response), "{\"requestId\":%lu,\"state\":\"QUEUED\",\"role\":\"%s\"}",
+             static_cast<unsigned long>(submission.requestId), role);
+    httpd_resp_set_status(request, "202 Accepted");
+    httpd_resp_set_type(request, "application/json");
+    return httpd_resp_sendstr(request, response);
+  }
   static esp_err_t fixtureRoute(httpd_req_t* request){
 #if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE) || defined(PP_WP7_ACCEPTANCE_SIMULATION)
     char body[512]{}; int n=httpd_req_recv(request,body,sizeof(body)-1); if(n<=0){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"fixture action required");return ESP_FAIL;} body[n]=0;
 #if defined(PP_WP7_ACCEPTANCE_SIMULATION)
-    // These four actions intentionally require *no* connected Race Director:
-    // the script is only a physical-input stand-in and the callback publishes
-    // through the Taster endpoint.  A connected Browser continues to suppress
-    // local controls exactly as it does for a real touch.
+    // These actions intentionally require no connected Race Director. The
+    // queue repeats that authority check on the main loop before execution.
     const FixtureTasterAction tasterActions[] = {FixtureTasterAction::Arm,FixtureTasterAction::Start,FixtureTasterAction::Pause,FixtureTasterAction::Resume,FixtureTasterAction::PassageLane1,FixtureTasterAction::PassageLane2,FixtureTasterAction::Reset};
     const char* tasterNames[] = {"taster-arm","taster-start","taster-pause","taster-resume","taster-lane1","taster-lane2","taster-reset"};
     for(uint8_t i=0;i<7;++i)if(strstr(body,tasterNames[i])){
-      if(instance()->hasController()||!instance()->fixtureTaster_||!instance()->fixtureTaster_(tasterActions[i])){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"standalone Taster fixture action unavailable");return ESP_FAIL;}
-      httpd_resp_set_type(request,"application/json"); return httpd_resp_sendstr(request,"{\"accepted\":true,\"role\":\"standalone-taster\"}");
+      if(instance()->hasController()||!instance()->fixtureTaster_){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"standalone Taster fixture action unavailable");return ESP_FAIL;}
+      FixturePayload payload{}; payload.origin=FixtureOrigin::StandaloneTaster;
+      switch(tasterActions[i]){
+        case FixtureTasterAction::Arm: payload.action=FixtureAction::Arm; break;
+        case FixtureTasterAction::Start: payload.action=FixtureAction::TasterStart; break;
+        case FixtureTasterAction::Pause: payload.action=FixtureAction::TasterPause; break;
+        case FixtureTasterAction::Resume: payload.action=FixtureAction::TasterResume; break;
+        case FixtureTasterAction::PassageLane1: payload.action=FixtureAction::PassageLane1; break;
+        case FixtureTasterAction::PassageLane2: payload.action=FixtureAction::PassageLane2; break;
+        case FixtureTasterAction::Reset: payload.action=FixtureAction::Reset; break;
+      }
+      return queueFixtureResponse(request,payload,"standalone-taster");
     }
     if(strstr(body,"taster-setup")){
       const char* mode=strstr(body,"\"mode\"");const char* laps=strstr(body,"\"lapTarget\"");const char* duration=strstr(body,"\"durationMinutes\"");const char* finish=strstr(body,"\"finishPolicy\"");
@@ -2268,21 +2402,38 @@ private:
       const char* colon=strchr(laps,':'); if(!colon){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid standalone Taster setup");return ESP_FAIL;} setup.lapTarget=uint32_t(strtoul(colon+1,nullptr,10));
       colon=strchr(duration,':'); if(!colon){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid standalone Taster setup");return ESP_FAIL;} setup.durationMinutes=uint16_t(strtoul(colon+1,nullptr,10));
       colon=strchr(finish,':'); if(!colon){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid standalone Taster setup");return ESP_FAIL;} const uint8_t finishValue=uint8_t(strtoul(colon+1,nullptr,10)); if(finishValue>2||setup.mode==SessionMode::None){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid standalone Taster setup");return ESP_FAIL;} setup.finish=static_cast<LapFinishBehaviour>(finishValue);
-      if(!instance()->fixtureTasterSetup_(setup)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"standalone Taster setup rejected");return ESP_FAIL;}
-      httpd_resp_set_type(request,"application/json"); return httpd_resp_sendstr(request,"{\"accepted\":true,\"role\":\"standalone-taster\"}");
+      FixturePayload payload{};payload.origin=FixtureOrigin::StandaloneTaster;payload.action=FixtureAction::TasterSetup;payload.setup=setup;
+      return queueFixtureResponse(request,payload,"standalone-taster");
     }
 #endif
-    if(instance()->context(client(request))!=ClientContext::RaceDirectorSmug){httpd_resp_send_err(request,HTTPD_403_FORBIDDEN,"Race Director required");return ESP_FAIL;}
-    if(strstr(body,"arm")&&instance()->fixtureArm_){if(!instance()->fixtureArm_()){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"A READY session is required before enabling simulated racing.");return ESP_FAIL;}}
-    else if(strstr(body,"lane1")&&instance()->fixturePass_){if(!instance()->fixturePass_(1)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"An armed simulated racing session is required before triggering a simulated car.");return ESP_FAIL;}}
-    else if(strstr(body,"lane2")&&instance()->fixturePass_){if(!instance()->fixturePass_(2)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"An active session is required before triggering a simulated car.");return ESP_FAIL;}}
-    else if(strstr(body,"reset")&&instance()->fixtureReset_) instance()->fixtureReset_();
+    const uint64_t owner=client(request);
+    if(instance()->context(owner)!=ClientContext::RaceDirectorSmug){httpd_resp_send_err(request,HTTPD_403_FORBIDDEN,"Race Director required");return ESP_FAIL;}
+    FixturePayload payload{};payload.origin=FixtureOrigin::Controller;payload.owner=owner;
+    if(strstr(body,"arm")&&instance()->fixtureArm_)payload.action=FixtureAction::Arm;
+    else if(strstr(body,"lane1")&&instance()->fixturePass_)payload.action=FixtureAction::PassageLane1;
+    else if(strstr(body,"lane2")&&instance()->fixturePass_)payload.action=FixtureAction::PassageLane2;
+    else if(strstr(body,"reset")&&instance()->fixtureReset_)payload.action=FixtureAction::Reset;
     else if(strstr(body,"target3")){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"session proposal must be changed through /request/setup");return ESP_FAIL;}
     else {httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"unknown fixture action");return ESP_FAIL;}
-    httpd_resp_set_type(request,"application/json"); return httpd_resp_sendstr(request,"{\"accepted\":true}");
+    return queueFixtureResponse(request,payload,"race-director");
 #else
     httpd_resp_send_err(request,HTTPD_404_NOT_FOUND,"fixture unavailable"); return ESP_FAIL;
 #endif
+  }
+  static esp_err_t fixtureResultRoute(httpd_req_t* request) {
+    char query[64]{}, rawRequestId[16]{};
+    if (httpd_req_get_url_query_str(request, query, sizeof(query)) != ESP_OK ||
+        httpd_query_key_value(query, "requestId", rawRequestId, sizeof(rawRequestId)) != ESP_OK) {
+      httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "requestId required"); return ESP_FAIL;
+    }
+    char* end=nullptr; const unsigned long raw=strtoul(rawRequestId,&end,10);
+    if (!end || *end || raw==0 || raw>UINT32_MAX) {httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid requestId");return ESP_FAIL;}
+    const FixtureQueueResult result=instance()->fixtureResult(uint32_t(raw));
+    if(result==FixtureQueueResult::Unknown){httpd_resp_send_err(request,HTTPD_404_NOT_FOUND,"fixture request unavailable");return ESP_FAIL;}
+    if(result==FixtureQueueResult::Busy){httpd_resp_set_status(request,"503 Service Unavailable");return httpd_resp_sendstr(request,"fixture queue busy");}
+    char response[96]{};
+    snprintf(response,sizeof(response),"{\"requestId\":%lu,\"state\":\"%s\",\"complete\":%s,\"accepted\":%s}",raw,fixtureResultName(result),result==FixtureQueueResult::Queued?"false":"true",result==FixtureQueueResult::Accepted?"true":"false");
+    httpd_resp_set_type(request,"application/json");return httpd_resp_sendstr(request,response);
   }
   static esp_err_t resultRoute(httpd_req_t* request) {
     const uint64_t owner = client(request);
@@ -3254,6 +3405,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/request/reset-settings", HTTP_POST, resetSettingsRoute, nullptr},
       {"/request/erase-everything", HTTP_POST, eraseEverythingRoute, nullptr},
       {"/fixture", HTTP_POST, fixtureRoute, nullptr},
+      {"/fixture-result", HTTP_GET, fixtureResultRoute, nullptr},
       {"/request-result", HTTP_GET, resultRoute, nullptr},
     };
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();

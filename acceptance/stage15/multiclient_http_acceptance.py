@@ -92,6 +92,32 @@ def operation(opener, path, correlation, timeout=5, **fields):
     raise AssertionError(f"request result timeout for {path}")
 
 
+def fixture(opener, action, timeout=5, **fields):
+    """Queue an acceptance fixture command and wait for main-loop execution.
+
+    HTTPD acknowledgement means only that the immutable command was admitted.
+    The correlated result distinguishes the later main-loop execution outcome.
+    """
+    status, value = call(opener, "/fixture", "POST", {"action": action, **fields})
+    assert status == 202 and value and value.get("state") == "QUEUED", (action, status, value)
+    request_id = value.get("requestId")
+    assert isinstance(request_id, int) and request_id > 0, value
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        status, outcome = call(opener, f"/fixture-result?requestId={request_id}")
+        if status == 503:
+            time.sleep(0.05)
+            continue
+        assert status == 200 and outcome, (action, status, outcome)
+        if not outcome.get("complete"):
+            assert outcome.get("state") == "QUEUED", outcome
+            time.sleep(0.05)
+            continue
+        assert outcome.get("accepted") is True, (action, outcome)
+        return outcome
+    raise AssertionError(f"fixture command timeout for {action}")
+
+
 class EventStream:
     """Small reader for one real persistent /events response."""
 
@@ -183,13 +209,6 @@ class EventStream:
                 pass
         self.thread.join(timeout=5)
         assert self.closed.is_set(), f"{self.name} SSE reader did not stop"
-
-
-def fixture(opener, action):
-    status, value = call(opener, "/fixture", "POST", {"action": action})
-    assert status == 200, (action, status, value)
-    return value
-
 
 def assert_roles(owner, spectator):
     owner_context = context(owner)
