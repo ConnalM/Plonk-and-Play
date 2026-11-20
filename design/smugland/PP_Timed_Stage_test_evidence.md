@@ -57,3 +57,38 @@ Python requires Playwright with Chromium available (or set CHROMIUM_PATH to a sy
 - No V21 modifications, Drag work, Al work, firmware, flash or merge.
 
 **Submit as a tested design review candidate, not final design acceptance or production readiness.**
+
+
+## Final correction round — 20 November 2026
+
+Owner-approved sporting decisions: [issue #2](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7046590097). Prior review: [Archie's corrections](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7046418072).
+
+Final candidate commits:
+
+- [HTML c26ff55](https://github.com/ConnalM/Plonk-and-Play/blob/c26ff55dc6d21cd1317d92ca239c3db063b85f07/design/smugland/PP_Timed_Stage_review.html), exact Git blob 4820e7c028d80b44360263515f917a9754f7e879.
+- [Manual d3f46e8](https://github.com/ConnalM/Plonk-and-Play/blob/d3f46e8a56e134e11388e6127d957283259167af/design/smugland/PP_Timed_Stage_manual.md).
+- [Source suite a4f2b66](https://github.com/ConnalM/Plonk-and-Play/blob/a4f2b66d96ac3917726ebd327c71b0dc5dfeef48/design/smugland/PP_Timed_Stage_regression.cjs).
+- [Chromium suite d76fe2b](https://github.com/ConnalM/Plonk-and-Play/blob/d76fe2b77613797cf99eb132d6bdbb5577cb8b77/design/smugland/PP_Timed_Stage_browser_regression.py).
+
+| Executed against exact final HTML | Passed | Failed |
+|---|---:|---:|
+| Source regression (expanded) | 46 | 0 |
+| Chromium desktop/tablet/mobile | 69 | 0 |
+| Chromium auxiliary states | 12 | 0 |
+| Targeted real-DOM Chromium checks | 19 | 0 |
+| Total | 146 | 0 |
+
+The exact revised HTML was reconstructed locally from the previously verified blob and a delta; Git blob hash matched the fetched final revision before Chromium execution. The browser checks ran as three local scripts; the committed combined Python suite contains equivalent checks and strengthened phase assertions but has not itself been executed as a single file. The earlier 120 result applies to the earlier candidate; the 146 count above supersedes it and includes repeated viewport assertions.
+
+### Approved decisions and correction coverage
+
+1. MUG order overrides attempt ordering; selection disabled under MUG order, restored under Stage order. Queue ordering verified.
+2. Best Run fastest valid adjusted time; all DNF uses configured rule, no slowest comparator uses separately configured fixed DNF time. Representative labelled supplied example, not a scoring engine.
+3. Competition rank 1,1,3, leader gap and provisional unequal-stage-count caution shown in supplied examples. No production classification calculations.
+4. False start warning/penalty requires Director confirms position and restarts countdown; timer zero, penalties accumulate per crossing, DNF immediate. Tested double penalty and stale finish rejection.
+5. Further retries discretionary, fallback DNF rule selected in setup, only final accepted slot counts; repeated retries and decline path verified through accepted slot record.
+6. Acceptance identity protected by loadedSlot/cursor match; repeated acceptance at boundary rejected until NEXT STAGE. Verified by injecting actual DOM action buttons, including forbidden valid-run retry.
+7. Asserted actual auxiliary heading Stage classification at boundary and Event results at end; READY resumes on NEXT STAGE. 
+8. Frozen V21 embedded auxiliary source inspected: SVG border 5px solid #303439, radius 9px, background #091521. Matched these properties in separate Timed Stage bezel, verified computed CSS in Chromium at 800x480. This is source-style fidelity, not a pixel-identical image comparison or physical device acceptance.
+
+All sporting decisions are now documented; earlier open discussion in this evidence is historical. The remaining limitations are design-only supplied timing/classification, representative rather than exhaustive validation, and no firmware, storage, hardware, or production scoring. Submit for **final design approval**; V21 frozen, Drag and Al untouched.
