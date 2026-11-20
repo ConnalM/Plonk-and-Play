@@ -557,8 +557,11 @@ harness.  The build scaffold is `firmware/wp7_idf_arduino_dbuf` using the
 ESP-IDF 5.5.5/Arduino-as-component external route, `sdkconfig.xip`, and
 environment switch `PP_WP7_IDF_SINGLE_FB_XIP=1`; compile commands must show
 `PP_WP7_SINGLE_FB_RECOVERY=1`, Octal PSRAM, XIP and the RGB-only `-Os` option.
-Always run `git diff --check`, `esptool image_info` (checksum and validation
-hash), and record the final SHA-256 before any physical flash.
+Always run `git diff --check`, `python acceptance/wp8_http_socket_limit_test.py`,
+`esptool image_info` (checksum and validation hash), and record the final
+SHA-256 before any physical flash. The socket-limit regression is mandatory:
+the XIP LWIP socket limit must accommodate the Browser HTTPD request after
+HTTPD's internal socket reservation.
 
 The [physical Taster XIP build reference](WP7_XIP_APPLICATION_BUILD_REFERENCE.md)
 contains the full commands and validation procedure.

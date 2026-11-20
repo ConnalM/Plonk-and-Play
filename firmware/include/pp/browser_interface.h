@@ -3413,9 +3413,11 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     config.stack_size = 8192;
     config.recv_wait_timeout = 5;
     config.send_wait_timeout = 5;
-    // ESP32 Arduino's configured LWIP limit permits at most 13 sockets.
-    // LRU eviction keeps sleeping presentation clients from exhausting them.
-    config.max_open_sockets = 13;
+    // The XIP configuration permits seven client sockets after HTTPD reserves
+    // three of its ten LWIP sockets internally: four SSE presentation clients
+    // plus three concurrent ordinary Browser requests. LRU eviction keeps
+    // sleeping presentation clients from exhausting this bounded capacity.
+    config.max_open_sockets = 7;
     config.lru_purge_enable = true;
     config.max_uri_handlers = static_cast<uint16_t>(sizeof(routes) / sizeof(routes[0]));
     const esp_err_t started = httpd_start(&server_, &config);
