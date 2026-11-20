@@ -1870,7 +1870,7 @@ For a normal loop/circuit Timed Stage stage:
 
 Reaction time is not included in the stage time.
 
-Crossing the sensor before GO is a false start. Owner decision (20 November 2026): Warning Only is the factory default; optional configurable time penalty or invalid run (classified DNF). Display raw run time and penalty separately.
+Crossing the sensor before GO is a false start. Owner decision (20 November 2026): Warning Only is the factory default; optional configurable time penalty or invalid run (classified DNF). Display raw run time and penalty separately. Owner decision (20 November 2026, final sporting review): warning-only and time-penalty false starts require the Race Director to confirm correct car position and restart the countdown; the official stage clock remains zero throughout. Apply the configured time penalty for each premature crossing (cumulative). DNF sanction ends the attempt immediately.
 
 A stage may be one or multiple laps: 1, 2, 3 or Custom.
 
@@ -1893,6 +1893,8 @@ Scoring choices include:
 - Best run counts.
 
 Owner decision (20 November 2026): within the stage, default multiple-attempt ordering is all racers complete attempt 1 before attempt 2, and so on. Advanced may allow a racer to complete all their attempts before the next racer. This is distinct from the event-level Stage order/MUG order choice.
+
+Owner decision (20 November 2026, final sporting review): Best Run takes the fastest valid adjusted time if at least one attempt succeeds; unsuccessful attempts do not disadvantage a racer with a valid run. If every attempt is DNF, apply the configured DNF scoring rule. Where slowest completed time plus penalty has no completed comparator, use a predetermined fixed DNF fallback time, configured in setup.
 
 A Drop Worst option is not required unless a real product need emerges.
 
@@ -1921,7 +1923,7 @@ DNF scoring is configurable and may include:
 
 A DNF does not automatically prevent the MUG from taking part in later stages.
 
-Owner decision (20 November 2026): a retry replaces an unsuccessful attempt at the Race Director's discretion; the discarded attempt does not count twice. A completed valid run cannot be retried merely to improve the result.
+Owner decision (20 November 2026): a retry replaces an unsuccessful attempt at the Race Director's discretion; the discarded attempt does not count twice. A completed valid run cannot be retried merely to improve the result. Owner decision (20 November 2026, final sporting review): further retries are discretionary; if declined or no further retry is authorised following another failure, the final accepted attempt remains DNF. Selecting retry policy requires selecting a fallback DNF scoring rule at setup. Only the final accepted attempt occupies the scoring slot.
 
 <a id="race-modes-product-spec--55-event-organisation"></a>
 ##### 5.5 Event organisation
@@ -1940,7 +1942,7 @@ P&P maintains the cumulative classification.
 Supported running orders:
 
 - **Stage order** — all MUGs complete Stage 1, then Stage 2 etc. This is the normal/default organisation.
-- **MUG order** — MUG 1 completes all stages, then MUG 2 etc. This is an Advanced option useful where the physical track remains unchanged.
+- **MUG order** — MUG 1 completes all stages, then MUG 2 etc. This is an Advanced option useful where the physical track remains unchanged. Owner decision (20 November 2026, final sporting review): MUG order takes precedence over attempt order; disable/grey the attempt-order setting and complete all attempts at each stage for the current MUG before advancing to their next stage.
 
 <a id="race-modes-product-spec--56-timed-stage-results"></a>
 ##### 5.6 Timed Stage results
@@ -1953,7 +1955,7 @@ After each stage P&P can show the stage winner/fastest and updated overall class
 
 Lap splits remain expandable rather than cluttering the main table. Owner decision (20 November 2026): each completed split is held prominently on the live timing display for three seconds by default, configurable under Advanced; underlying timing continues, the split remains in its table, and the final result takes priority.
 
-Final classification is by lowest cumulative adjusted time.
+Final classification is by lowest cumulative adjusted time. Owner decision (20 November 2026, final sporting review): identical adjusted times share competition rank (e.g. 1, 1, 3), without artificial tie-breakers; Gap is measured against the classification leader. Interim standings are marked PROVISIONAL until all racers complete the relevant stages; do not directly rank racers with different numbers of completed stages.
 
 Secondary statistics may include fastest stage, stage wins, best lap/split, penalties, DNFs and retries.
 
