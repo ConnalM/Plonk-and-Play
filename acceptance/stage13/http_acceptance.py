@@ -8,6 +8,8 @@ volatile race. No positive official-persistence or real-detector claim.
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage15"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from physical_acceptance_baseline import require_immutable_baseline
 from multiclient_http_acceptance import (
     EventStream, acquire_owner, arm_simulation, call, client, context, fixture,
     get_json, operation, passage, record_snapshot, require_authorised_target,
@@ -21,7 +23,7 @@ def main():
     master, master_jar = client()
     spectator, spectator_jar = client()
     assert call(master, "/health")[0] == 200
-    original = get_json(master, "/proposal")
+    original = require_immutable_baseline(get_json(master, "/proposal"))
     assert state(master)["lifecycle"] == "READY" and original["activeLanes"] == 2
     assert isinstance(original["simulatedSession"], bool), original
     assert not context(master)["ownerConnected"], "Close existing controlling Browser first"

@@ -15,6 +15,7 @@ official record writes. Test setup and ownership may be changed.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import queue
 import socket
 import sys
@@ -24,6 +25,9 @@ from http.cookiejar import CookieJar
 from urllib.error import HTTPError, URLError
 from urllib.request import (Request, HTTPCookieProcessor, ProxyHandler,
                             build_opener)
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from physical_acceptance_baseline import require_immutable_baseline
 
 
 BASE = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else ""
@@ -346,7 +350,7 @@ def main():
     a, jar_a = client()
     b, jar_b = client()
 
-    original = get_json(a, "/proposal")
+    original = require_immutable_baseline(get_json(a, "/proposal"))
     assert state(a)["lifecycle"] == "READY" and original["activeLanes"] == 2
     assert isinstance(original["simulatedSession"], bool), original
     assert not context(a)["ownerConnected"], "Close the existing controlling Browser first"

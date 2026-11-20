@@ -11,6 +11,8 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage15"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from physical_acceptance_baseline import require_immutable_baseline
 from multiclient_http_acceptance import (
     EventStream, acquire_owner, call, client, context, fixture,
     get_json, operation, passage, proposal_identity, record_snapshot,
@@ -152,7 +154,7 @@ def main():
     require_authorised_target()
     browser, _ = client()
     assert call(browser, "/health")[0] == 200
-    original = get_json(browser, "/proposal")
+    original = require_immutable_baseline(get_json(browser, "/proposal"))
     assert get_json(browser, "/state")["lifecycle"] == "READY"
     assert original["simulatedSession"] is True, (
         "This physical acceptance image must be recognisably pre-armed; do not use a normal customer image.", original)
