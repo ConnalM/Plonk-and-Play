@@ -33,14 +33,16 @@ api.click('next');api.change('falsePolicy','dnf');api.setSnapshot('false');check
 api.click('next');check('DNF does not stop sequence',()=>api.state().cursor===3&&api.state().active);
 for(let i=0;i<3;i++){api.setSnapshot('finish');api.click('next');}
 check('stage boundary reached after six accepted slots',()=>api.state().cursor===6&&api.state().route==='stage');
+check('auxiliary stage classification represented',()=>api.aux().includes('Position')&&api.aux().includes('Gap'));
 api.click('nextStage');check('NEXT STAGE loads second stage',()=>api.state().stageIndex===1&&api.state().snapshot==='ready');
 check('point to point suppresses lap splits',()=>api.splits(api.fixtures.finish).includes('no lap splits'));
 api.change('role','mug');api.click('countdown');check('MUG cannot start stage',()=>api.state().snapshot==='ready');api.change('role','director');
 check('auxiliary no race action buttons',()=>!api.aux().includes('data-action'));
 check('classification fixture disclosed',()=>api.classification(false).includes('not calculated from setup'));check('matrix expandable splits',()=>api.matrix().includes('<details'));
-check('auxiliary stage classification represented',()=>api.aux().includes('Position')&&api.aux().includes('Gap'));
+check('auxiliary returns to live timing after NEXT STAGE',()=>!api.aux().includes('<th>Position</th>')&&api.aux().includes('READY'));
 check('active race accessible after navigating to setup',()=>{api.change('route','setup');return api.setup().includes('RESUME')||api.setup().includes('RETURN TO RUN');});
-api.change('route','run');api.setSnapshot('finish');api.click('next');api.setSnapshot('finish');api.click('next');api.setSnapshot('finish');api.click('next');check('all slots accepted and event inactive',()=>api.state().completed.length===9&&!api.state().active);
+api.click('returnRun');check('return action restores active run',()=>api.state().route==='run');api.change('route','run');api.setSnapshot('finish');api.click('next');api.setSnapshot('finish');api.click('next');api.setSnapshot('finish');api.click('next');check('all slots accepted and event inactive',()=>api.state().completed.length===9&&!api.state().active);
+check('auxiliary final event classification represented',()=>api.aux().includes('Event results')&&api.aux().includes('Gap'));
 return rows;
 }
 
