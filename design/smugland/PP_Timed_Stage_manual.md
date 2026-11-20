@@ -2,7 +2,7 @@
 
 **Status:** Post-V1 proposed feature; not released or hardware-accepted. Prepared for issue #2 review, 20 November 2026. This chapter describes the agreed intended user experience, not a claim that the current P&P firmware supports it.
 
-Design references: [governing specification, Race Modes §5](https://github.com/ConnalM/Plonk-and-Play/blob/archie/wp8-approved-display-defaults/docs/PP_DESIGN_SPEC.md#race-modes-product-spec--5-timed-stage), [owner-approved screen decisions](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7043883926), [sporting rules](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7044111322), [HTML review](https://github.com/ConnalM/Plonk-and-Play/blob/ec0078a9aa259430eddbc30a1dbeeebed6ac0ce3/design/smugland/PP_Timed_Stage_review.html). V21 remains the frozen common Browser and auxiliary display reference.
+Design references: [governing specification, Race Modes §5](https://github.com/ConnalM/Plonk-and-Play/blob/archie/wp8-approved-display-defaults/docs/PP_DESIGN_SPEC.md#race-modes-product-spec--5-timed-stage), [owner-approved screen decisions](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7043883926), [sporting rules](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7044111322), [HTML review](https://github.com/ConnalM/Plonk-and-Play/blob/c26ff55dc6d21cd1317d92ca239c3db063b85f07/design/smugland/PP_Timed_Stage_review.html). V21 remains the frozen common Browser and auxiliary display reference.
 
 ## 1. What is Timed Stage?
 
@@ -40,11 +40,11 @@ The diagrams illustrate the intended car position and roles. On a loop, place th
 
 The normal event organisation is **Stage order**: all MUGs complete a stage before moving to the next. Alternatively, choose MUG order to allow one MUG to complete all stages before the next MUG.
 
-The normal attempt order within a stage is **all racers attempt 1, then all racers attempt 2, and so on**. Alternatively, each racer completes their attempts before the next racer. Event organisation and attempt ordering are distinct settings; see the review questions below for their interaction.
+The normal attempt order within a stage is **all racers attempt 1, then all racers attempt 2, and so on**. Alternatively, each racer completes their attempts before the next racer. Event organisation and attempt ordering are distinct settings. MUG order takes precedence: each MUG completes all attempts of each stage before proceeding to the next stage. The attempt-order selector is disabled while MUG order is selected.
 
-For an unsuccessful run (DNF), choose the agreed scoring treatment: fixed DNF time, slowest completed time plus a configurable penalty, exclusion from overall classification, or retry at the Race Director's discretion. Set the applicable time or penalty.
+For an unsuccessful run (DNF), choose the agreed scoring treatment: fixed DNF time, slowest completed time plus a configurable penalty, exclusion from overall classification, or retry at the Race Director's discretion. Set the applicable time or penalty, including a predetermined fixed DNF time. If slowest completed time plus penalty is selected but nobody has completed the relevant stage, the fixed DNF time is used instead. If Retry is selected, a fallback scoring rule must also be configured (fixed time, slowest completed plus penalty or exclusion). For Best Run, take the fastest valid adjusted time and disregard unsuccessful attempts if any valid result exists. If every attempt is unsuccessful, apply the configured DNF rule.
 
-False-start policy defaults to **Warning only**. Alternatively configure a time penalty or classify the invalid attempt as DNF. A false start means crossing the starting sensor before GO, not simply moving the car.
+False-start policy defaults to **Warning only**. Alternatively configure a time penalty or classify the invalid attempt as DNF. A false start means crossing the starting sensor before GO, not simply moving the car. With warning or time penalty, the timer remains zero; reposition the car and have the Race Director confirm its position and restart the countdown. Every premature crossing under the penalty policy adds its configured penalty. With DNF policy, the attempt terminates immediately.
 
 Split hold defaults to **three seconds**. The live timing display briefly shows the completed split at full precision, then returns to live time. Timing continues throughout. The finish display takes precedence over any outstanding split hold.
 
@@ -71,15 +71,15 @@ The split table keeps the completed split times after the prominent display retu
 
 After a run the Race Director reviews the supplied raw stage time, penalties and adjusted time. Reaction time is excluded from the official stage time. Penalties are shown separately rather than silently added to the raw time.
 
-If the attempt was unsuccessful, the Race Director may authorise a retry. A retry replaces that unsuccessful attempt in the same scheduled slot. It is not an additional scoring opportunity. A valid completed attempt cannot be retried simply to improve the time.
+If the attempt was unsuccessful, the Race Director may authorise a retry. A retry replaces that unsuccessful attempt in the same scheduled slot. It is not an additional scoring opportunity. A valid completed attempt cannot be retried simply to improve the time. Further retries following failures are discretionary. If a retry is declined, or the replacement fails and no further retry is authorised, accept DNF using the configured scoring rule or retry fallback. Only the final accepted slot counts.
 
 A DNF does not prevent the MUG competing on later stages. Accept the run and proceed according to the event's running order. The prototype uses example snapshots for this sequence; actual timing, sanctions and classification are the controller's authoritative facts.
 
 ## 6. Stage and event results
 
-The main classification shows Position, MUG, Stage time, Penalty, Timed Stage total and Gap. The stage results identify the fastest classified stage result and show the updated cumulative standings where available.
+The main classification shows Position, MUG, Stage time, Penalty, Timed Stage total and Gap to leader. Equal adjusted times share competition rank (for example 1, 1, 3), with zero gap between the tied leaders. Interim standings are provisional until every relevant stage has been completed by all applicable MUGs; do not directly rank MUGs with different completed stage counts. The stage results identify the fastest classified stage result and show the updated cumulative standings where available.
 
-After a stage, use NEXT STAGE to proceed through the configured event. At the end use EVENT RESULTS. For a single-stage event the final classification is the stage classification. A missing or unavailable fact is displayed as a dash rather than as zero or an inferred gap.
+After a stage, use NEXT STAGE to proceed through the configured event. At the end use EVENT RESULTS. For a single-stage event the final classification is the stage classification. A missing or unavailable fact is displayed as a dash rather than as zero or an inferred gap. Accepted runs cannot be accepted a second time; use NEXT STAGE to load the next scheduled stage.
 
 Select Details to view the stage-by-stage matrix. Expand the relevant run to inspect individual lap splits. The detailed breakdown keeps stage results, penalties and cumulative totals distinguishable. Actual official record visibility follows the governing P&P session-source and storage rules; the review demonstration writes no records and has no Save Results operation.
 
@@ -87,20 +87,14 @@ Select Details to view the stage-by-stage matrix. Expand the relevant run to ins
 
 The 800 × 480 display follows the controller-authoritative phase, showing the stage, MUG, attempt and dominant timing or start indication. READY and GO show zero elapsed time; a live run shows elapsed time; a completed split or final result uses precise time. The display distinguishes false start and DNF from a valid finish. On a loop it shows lap progress where supplied; on point-to-point it shows the relevant sensor direction.
 
-The auxiliary preview is read-only in this review candidate. It does not run a second clock engine or accept race authority. Browser navigation does not change the controller's run state.
+At a stage boundary the auxiliary display presents the stage classification; after the last accepted slot it presents event results. The next stage returns it to timing. The auxiliary preview is read-only in this review candidate. It does not run a second clock engine or accept race authority. Browser navigation does not change the controller's run state.
 
 ## 8. Illustrative example
 
 Three MUGs enter a two-stage event. Forest Loop has three laps and two attempts per MUG, scored by best run. Hill Road has one A → B attempt per MUG. With default ordering, all three complete Forest Loop attempt 1, then all three complete its attempt 2. The event moves on to Hill Road and finally shows the cumulative classification.
 
-If a racer fails Forest Loop attempt 2 and the Race Director authorises a retry, the replacement occupies attempt 2; later stage eligibility remains unchanged. If a time penalty of five seconds is applied to an otherwise valid raw run of 01:12.34, the adjusted result is 01:17.34.
+If a racer fails Forest Loop attempt 2 and the Race Director authorises a retry, the replacement occupies attempt 2; later stage eligibility remains unchanged. If two time penalties of five seconds each are applied to an otherwise valid raw run of 01:12.34, the adjusted result is 01:22.34. With Best Run, a DNF and two valid adjusted times of 01:12.34 and 01:17.34 yield 01:12.34. If every attempt is DNF and the slowest-completed rule has no comparator, use the configured fixed DNF time.
 
-## 9. Review boundaries and open questions (editorial appendix; not final user-manual text)
+## 9. Review boundary (editorial appendix)
 
-- Confirm how the two ordering options interact when MUG order and round-based attempts are both selected: a racer completing every stage necessarily prevents event-wide attempt rounds. The prototype currently gives MUG order precedence; this is not an additional approved sporting rule.
-- Confirm Best Run treatment when one attempt is DNF, when every attempt is DNF, and when slowest-completed-plus-penalty has no completed comparator.
-- Confirm tie ranking and cumulative gap semantics, and whether interim classification in MUG order is explicitly provisional.
-- Confirm treatment of further early sensor crossings and restart/re-arm sequences after a warning or penalty.
-- Confirm the scoring treatment when a DNF retry is declined or fails again under the retry policy.
-- The HTML is a visual review fixture, not a timing or scoring engine. It contains fixed sample split and classification data, illustrative sensor mapping, simulated signals, and a UI-only split hold. Custom setups do not produce authoritative custom results. The preview currently does not demonstrate every agreed auxiliary results state; exact approved bezel fidelity and responsive rendering still need visual validation. The manual records intended behaviour, not evidence that these paths already pass.
-- No production changes, firmware, V1 scope expansion, Drag or hardware acceptance. Browser regression evidence is a separate deliverable.
+All five outstanding sporting decisions have been approved; see [Archie's owner approval](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7046590097) and [updated governing specification](https://github.com/ConnalM/Plonk-and-Play/blob/8602280663bb820cb1f2473f7f22d5ca7696b932/docs/PP_DESIGN_SPEC.md). This remains a post-V1 design chapter, not a released feature. The HTML uses supplied example snapshots rather than a production timing or scoring engine; arbitrary setups do not generate authoritative classification. No firmware, storage, physical hardware acceptance, V21 change or Drag work is included.
