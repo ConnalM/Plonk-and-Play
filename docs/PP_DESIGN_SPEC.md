@@ -1004,7 +1004,7 @@ The variable-entry contract generalises the previously fixed two-entry data mode
 <a id="stage-14a-design--product-boundary"></a>
 #### Product boundary
 
-P&P has no arbitrary product maximum lane count. Two lanes remain the initial, default and Taster configuration. A particular firmware build may have a bounded implementation capacity because the ESP32 uses deterministic static storage, but that capacity is an implementation/resource limit and must never be presented as a product rule.
+P&P has no arbitrary product maximum lane count. Two lanes remain the initial/default physical and standalone Taster configuration; see [auxiliary display](#pp-taster-spec--auxiliary-display) for the conditional 1–8 lane presentation target. A particular firmware build may have a bounded implementation capacity because the ESP32 uses deterministic static storage, but that capacity is an implementation/resource limit and must never be presented as a product rule.
 
 The proposed implementation capacity is `PP_MAX_ENTRIES = 8`. This is an engineering default, not a claim that P&P supports only eight lanes. No Race Engine algorithm may depend on the value eight. Increasing the capacity later must require storage/configuration changes and additional validation, rather than a new competition algorithm or product redesign.
 
@@ -2207,7 +2207,7 @@ The initial implementation should use the following approximately 35-second loop
 - **22–30 s:** brief feature flashes illustrating **RACE → RALLY → DRAG** and **2 → 4 → 6 → 8 LANES**;
 - **30–35 s:** return to P&P / PLONK & PLAY identity, pause briefly, then repeat.
 
-This storyboard is **presentation guidance for V1, not a frozen behavioural contract**. Timing, transitions, wording, sprites, artwork, sound effects and individual beats may be tuned once the sequence is seen on real display hardware. Such presentation tuning does not require an architectural/product-specification change provided the purpose and boundaries of Attract Mode remain unchanged.
+This storyboard is **deferred presentation guidance, not a V1 commitment or frozen behavioural contract**. Automated showcase of screens/product capabilities is a post-v1 candidate. Timing, transitions, wording, sprites, artwork, sound effects and individual beats may be tuned once the sequence is seen on real display hardware. Such presentation tuning does not require an architectural/product-specification change provided the purpose and boundaries of Attract Mode remain unchanged.
 
 A final P&P logo is not a dependency for V1. Until a satisfactory logo is designed, the presentation may use a clean **P&P / PLONK & PLAY** text identity.
 
@@ -2263,7 +2263,7 @@ Demo capability must not create a second fake Race Engine.
 
 Where the purpose is to demonstrate or test real P&P behaviour, simulation occurs at the sensor/input boundary and everything downstream remains normal product behaviour.
 
-Attract Mode is the deliberate exception because it is presentation rather than race simulation.
+Attract Mode is the deliberate exception because it is presentation rather than race simulation. External acceptance commands cross the same input and normal Taster/SMUG request boundaries as the live system. A transport task must not directly mutate main-loop-owned race, detector or UI state; hand off bounded copied commands to the owning execution context, revalidate authority/current lifecycle/frozen simulation at execution, and acknowledge correlated outcomes without late or duplicate execution after cancellation. Test-only ingress must not be enabled in customer firmware. A fixture's success is not physical detector proof or official record eligibility proof.
 
 <a id="stage-13-design--stage-13-design--complete-lap-race"></a>
 ### Lap Race detailed contract
@@ -2353,7 +2353,7 @@ Stage 14B is the next implementation slice after the accepted Stage 14A variable
 
 Open Practice is Practice, not an official race. It has no winner, ranking, finishing position, official result, PB update, Track Record update or official History entry. All Practice information is session-local and non-official.
 
-The number of simultaneous Practice cars is the number of configured active entries, subject to the existing firmware implementation capacity. Two lanes remain the default/Taster configuration. The implementation capacity is not a product maximum.
+The number of simultaneous Practice cars is the number of configured active entries, subject to the existing firmware implementation capacity. Two lanes remain the default physical/standalone Taster configuration. The implementation capacity is not a product maximum.
 
 Open Practice has no configured duration and no lap target. It continues until the Race Director ends the session.
 
@@ -2444,7 +2444,7 @@ Open Practice must be selectable and operable through the real Browser/product p
 
 Polished UI is outside this slice.
 
-The Integrated Display exposes no Practice controls; its restricted modes are governed by [standalone controls](#pp-taster-spec--standalone-controls).
+The standalone Integrated Display exposes no Practice controls; the auxiliary display presents SMUG-controlled Practice; its restricted modes are governed by [standalone controls](#pp-taster-spec--standalone-controls).
 
 The frozen normal Browser exposes **PAUSE** while Open Practice is active. Once
 P&P reports authoritative PAUSED it exposes **RESUME**, **RESTART** and **END
@@ -3709,7 +3709,7 @@ The race display remains fundamentally one screen with changing states rather th
 
 `READY → STARTING → RACING → FINISHING → FINISHED / RESULTS`
 
-The start sequence does not replace the scoreboard with a separate start screen.
+The Browser start sequence does not replace the scoreboard with a separate start screen. The SMUG-controlled auxiliary Integrated Display instead uses the [full-screen start/event override contract](#pp-taster-spec--auxiliary-display).
 
 <a id="common-display-spec--21-shared-client-authority-and-timing"></a>
 ##### 2.1 Shared client authority and timing
@@ -3835,7 +3835,7 @@ It need not clutter the default live scoreboard. It can instead appear in result
 <a id="common-display-spec--7-finish-behaviour-and-transition-to-results"></a>
 #### 7. Finish Behaviour and Transition to Results
 
-See [Competitive Finish Display](#implementation-spec--competitive-finish-display) for Browser-only timed Finish Display, default five seconds (zero supported), authorised skip and reconstruction. The Integrated Display keeps its fixed finished-state behaviour until RACE AGAIN. Winner/chequered treatment is presentation, not a new timing authority.
+See [Competitive Finish Display](#implementation-spec--competitive-finish-display) for Browser-only timed Finish Display, default five seconds (zero supported), authorised skip and reconstruction. The standalone Integrated Display keeps its fixed finished-state behaviour until RACE AGAIN. Auxiliary result paging and retention follow the [auxiliary display contract](#pp-taster-spec--auxiliary-display). Winner/chequered treatment is presentation, not a new timing authority.
 
 <a id="common-display-spec--8-results-screen"></a>
 #### 8. Results Screen
@@ -3929,7 +3929,7 @@ Core rule:
 <a id="common-display-spec--12-multiple-simultaneous-displays"></a>
 #### 12. Multiple Simultaneous Displays
 
-Displays are clients, not timing authorities.
+Displays are clients, not timing authorities. Multiple physical auxiliary P&P units, their independent display configurations and inter-unit communications remain post-v1; this does not restrict the existing Browser/spectator architecture.
 
 A four-MUG event could therefore have:
 
@@ -4408,19 +4408,48 @@ P&P is genuinely capable of racing for the selected installation. Optional
 services, including Browser connectivity and official record storage, must not
 block a standalone Taster race when the required race capabilities are healthy.
 
-#### SMUG-controlled auxiliary Integrated Display — approved requirements to date
+<a id="pp-taster-spec--auxiliary-display"></a>
+#### SMUG-controlled auxiliary Integrated Display
 
-When SMUG controls the installation, the same physical Integrated Display operates as an auxiliary race-information and signal display, not as a second Race Director. This presentation adapts to the selected race type and configured active lane count. The standalone Taster remains unchanged.
+**Scope:** Owner-approved V1 requirements; detailed interaction/layout prototype and implementation acceptance remain open. See [issue #2](https://github.com/ConnalM/Plonk-and-Play/issues/2). There are three Taster environments:
 
-- READY: show the selected race type, target laps or duration where applicable, and participating racers. No local race controls.
-- STARTING: give the authoritative starting lights the whole screen for Lap Race, Endurance and optional Practice start. Immediate Open Practice has no countdown.
-- GO: render the authoritative GO indication, respecting the configured Lights Out/Green style and existing one-second green duration.
-- RACING: show race information only; do not reserve permanent screen space for inactive lights. For Lap Race, the agreed layout keeps racers in fixed physical lane order, updating their race positions within the lane panels. Show the gap to the car ahead where space permits.
-- PAUSED: freeze race information with flashing yellow lights overlaid where applicable.
-- RESUMING: overlay the authoritative restart lights where applicable; ordinary immediate Practice Resume remains unchanged.
-- FINISHED: show final race information. Open Practice instead follows its normal session-summary lifecycle.
+- MINIMUG standalone: existing fixed two-lane LAPS/ENDURANCE experience and limited standalone settings remain unchanged.
+- Auxiliary Taster: the same single physical 7-inch 800 × 480 display, subordinate to the connected SMUG, configurable through SMUGLAND. It is a race-information/signal client, not another Race Director.
+- Showcase demonstration of screens and product capabilities: deferred post-v1; distinct from simulated races.
 
-Drag and other specialist starting sequences are outside the present design assignment. Detailed race information, exact layouts, idle/summary transitions and any auxiliary-display configuration remain to be agreed before implementation. Gina's design must accommodate the supported race modes and lane counts (2/4/6/8 review layouts), without inventing race authority or additional racing functionality.
+Normal physical races, manual simulations, automated test races and future Automatic Demo races use exactly the same auxiliary layout, authoritative State/Facts, timing and event handling. The frozen simulation indication and [record exclusion](#product-facilities-spec--94-demo-session-integrity) remain authoritative; there is no separate demonstration scoreboard. Only normal physical-detector races that satisfy the official-source policy may generate official records.
+
+##### Adaptive information and cycling
+
+The user selects information fields, not a rigid layout. Candidate fields include race clock, lane numbers, racer names, lap counts, positions, last/best lap and gap to the car ahead where space permits, plus applicable mode-specific information. Presets select useful fields and remain editable. The layout adapts font sizes, column widths and row heights to the selected fields and the actual lane count; a clock-only display uses nearly all the available area. Live lane panels retain fixed physical lane order, with position changing within each panel. Do not invent or infer race values unavailable from the governing race mode.
+
+Design for 1–8 active lanes inclusive, including odd counts, using the race configuration rather than a second lane-count setting. This is a design target, not a hardware certification: the current XIP physical test build sets PP_MAX_ENTRIES=2 and Track Configuration accepts two physical lanes; the general software architecture defaults to eight. Al must confirm expansion capacity, physical input/configuration implications and rendering cost before implementation acceptance. See [Variable Race Entry capacity](#stage-14a-design--product-boundary).
+
+Fixed display is the default. Optional cycling permits a sequence of information sets, each with selected fields, maximum lanes visible at once and dwell duration. Paginate physically ordered lanes where required; indicate current page or lane range unobtrusively. A clock-only page does not require lane pagination. Exact editing and page-transition details remain for Gina's design review.
+
+##### Authoritative event overrides
+
+- READY: show selected information from the proposed Race Setup (race type, target/duration and participating racers as applicable); no local controls.
+- STARTING: full-screen authoritative start lights for Lap Race, Endurance and optional Practice start. Immediate Open Practice has no countdown.
+- GO: respect configured Lights Out/Green style and one-second green duration; do not extend or establish GO locally.
+- RACING: configured adaptive information layout or cycling, without permanently reserving dormant light space.
+- PAUSED: freeze race information with a clear PAUSED overlay and applicable flashing yellow signal. Ordinary cycling cannot obscure this state.
+- RESUMING: authoritative restart lights over race information where applicable. Immediate Open Practice Resume remains unchanged.
+- FINISHED: stop ordinary information-set cycling. Show authoritative final results and prominently identify the winner where one exists. If result pages are required, cycle them with the winner visible on every page. Retain final results until SMUG prepares the next race. Practice follows its non-competitive session summary and has no winner.
+
+Preserve the distinct Drag Christmas Tree and Timed Stage requirements in future-compatible design previews; neither race mode enters V1 by virtue of the auxiliary display design. Optional Practice start is governed by [Practice Setup](#browser-flow-results-history-spec--practice-setup-and-control).
+
+##### Named auxiliary display configurations
+
+V1 supports multiple named configurations: select, Save, Save As, Rename, Delete and Restore Display Defaults. Saved configurations and last active selection survive power cycles; a built-in factory configuration works without an SD card. SD is the proposed storage location subject to Al's confirmation of the existing storage, recovery and atomic-write architecture. Do not create a parallel authority for track, racer or race setup.
+
+Display configuration can be previewed and applied during a race without interrupting timing, control or results. Restoring auxiliary display defaults affects only auxiliary display settings, not the standalone Taster setup, physical track, racer assignments, shared audio or other system settings. The exact save/apply, restore, deletion and missing-storage UX remains for review.
+
+Optional saved-configuration associations with race types may activate a configuration when SMUG selects the race type. Manual selection is the default; no race type must be configured individually. Selection/association precedence and persistence failure handling are implementation-design details to settle.
+
+SMUGLAND uses its established V18 design language, with a proportionally accurate live preview, straightforward normal controls and progressive disclosure for advanced cycling and configuration management. Owner has approved the integrated editor arrangement and configuration manager direction; V19 is not yet submitted or accepted. Gina owns the design prototype and review. Al must confirm bounded font measurement/scaling, memory/redraw/touch load on the accepted physical display, storage/fallback and non-disruptive application before implementation.
+
+Multiple auxiliary physical displays, communications between P&P units, independent per-unit settings and automated showcase are deferred post-v1; do not introduce those dependencies into the single-display V1.
 
 <a id="pp-taster-spec--factory-taster"></a>
 #### Factory Taster
@@ -5673,14 +5702,14 @@ The Master Project Plan determines current v1 scope, including History/Details, 
 -   07_LAP_FINISH_ANIMATION.html --- lap/finish animation and fixed
     finished-lane flag-slot reference.
 
-These files preserve original visual references. The later consolidated [V18 Browser design](https://github.com/ConnalM/Plonk-and-Play/blob/ec46ff5b8df07d1477fa40543423509c778a22d1/design/smugland/PP_Browser_v18_navigation.html) is the **owner-approved design baseline** (19 November 2026), subject to testing. Gina's current design assignment is complete. Changes revealed by actual testing may refine the design through normal scope control; this is not production acceptance. V17/V18 source review confirms the corrected lane model, complete-entry rotation, finish-display handoff, four preset layouts and retained factory restoration. Only agreed governing semantics may be implemented. Representative and future-mode fixtures must not become race logic or scope commitments. The Master Project Plan records the approval/production acceptance gate.
+These files preserve original visual references. The later consolidated [V18 Browser design](https://github.com/ConnalM/Plonk-and-Play/blob/ec46ff5b8df07d1477fa40543423509c778a22d1/design/smugland/PP_Browser_v18_navigation.html) is the **owner-approved design baseline** (19 November 2026), subject to testing. Gina's V18 Browser design assignment is complete; the separate [auxiliary display assignment](#pp-taster-spec--auxiliary-display) is in design review. Changes revealed by actual testing may refine the design through normal scope control; this is not production acceptance. V17/V18 source review confirms the corrected lane model, complete-entry rotation, finish-display handoff, four preset layouts and retained factory restoration. Only agreed governing semantics may be implemented. Representative and future-mode fixtures must not become race logic or scope commitments. The Master Project Plan records the approval/production acceptance gate.
 
 <a id="physical-integrated-display-constraints"></a>
 ### Physical Integrated Display constraints
 
 Preserve the accepted 800 × 480 RGB ESP32-S3 single-framebuffer/20-line bounce-buffer design (one framebuffer in PSRAM, 64,000 bytes total internal DMA SRAM), 12 MHz pixel clock, Octal PSRAM 80 MHz XIP, VSYNC restart and RGB-driver-only -Os workaround. Pin mapping: DE 41, VSYNC 40, HSYNC 39, PCLK 42; R={14,21,47,48,45}, G={9,46,3,8,16,1}, B={15,7,6,5,4}; backlight GPIO2. Operational commands remain in [XIP build reference](WP7_XIP_APPLICATION_BUILD_REFERENCE.md).
 
-The accepted static header uses the 145 × 55 logo, five centred 60 × 60 start lamps/static bezel, one-second green GO, amber RELEASE feedback after 700 ms hold and alternating yellow/OFF warning lamps every 500 ms while PAUSED. Active heading left aligned, lane counters blank before GO, stable MM:SS timer cells. Preserve the 450 ms lane-only brightness pulse (perimeter fallback), static winner wreath and original per-lane artwork. Use small dirty regions; preserve genuine full-frame fallback with logged reason, not unnecessary redraws on setup acknowledgement. Normal NVS persistence and touch/timing responsiveness must remain intact.
+The accepted standalone static header uses the 145 × 55 logo, five centred 60 × 60 start lamps/static bezel, one-second green GO, amber RELEASE feedback after 700 ms hold and alternating yellow/OFF warning lamps every 500 ms while PAUSED. Active heading left aligned, lane counters blank before GO, stable MM:SS timer cells. Preserve the 450 ms lane-only brightness pulse (perimeter fallback), static winner wreath and original per-lane artwork. Use small dirty regions; preserve genuine full-frame fallback with logged reason, not unnecessary redraws on setup acknowledgement. Normal NVS persistence and touch/timing responsiveness must remain intact.
 
 Moving cars, animated chequered flags and production double-buffer experiments are deferred. When explicitly resumed, restore only the affected lane background, arm from authoritative events, prove one lane before both and do not confuse isolated double-buffer diagnostic success with integrated proof. The detailed original [physical checkpoint, artifact hashes, failure history, source references and staged experiment](<https://github.com/ConnalM/Plonk-and-Play/blob/13662fbc5e42fbc83204b7662643a2c43fe8fefb/docs/MASTER_PROJECT_PLAN.md#superseded-animation-handover--static-taster-presentation>) is preserved as historical evidence.
 
@@ -5879,7 +5908,7 @@ For Lap Race this may include:
 
 It also provides unobtrusive access to **More Race Options** and **Setup**.
 
-See [Integrated Display configuration and restoration](#pp-taster-spec--smug-configurable-taster) for the local setup, factory values and reset boundaries.
+See [Integrated Display configuration and restoration](#pp-taster-spec--smug-configurable-taster) for standalone setup, factory values and reset boundaries, and [auxiliary display configurations](#pp-taster-spec--auxiliary-display) for separate named auxiliary layouts and their reset boundary.
 
 The shared configuration accepts positive 32-bit lap targets. Loading a
 historical configuration preserves its stored lap target and unrelated

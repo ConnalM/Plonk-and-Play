@@ -1,6 +1,6 @@
 # P&P Consolidated Completion Plan
 
-**Status:** Authoritative project-control plan — reconciled checkpoint 19 November 2026
+**Status:** Authoritative project-control plan — reconciled checkpoint 20 November 2026
 **Purpose:** One roadmap and backlog for P&P: current v1 work, later v1 work and post-v1/v2 candidates. Current release delivery remains the priority.
 
 This file supersedes the old Stage plan, the earlier WP0–WP12 execution plan and ad-hoc gap lists **as project roadmaps**. Their requirements are now governed by the [single P&P Design Specification](PP_DESIGN_SPEC.md); earlier revisions and dated evidence remain historical references. Nothing already proved is to be rerun merely because this plan is newer.
@@ -50,7 +50,7 @@ P&P v1 includes:
 - Endurance: Stop at Zero and Finish Current Lap;
 - 1–8 lane software/product architecture, initially provable with two physical lanes;
 - Normal Browser, one Race Director/controller lease and spectator Browsers;
-- local 7-inch display/Taster operation;
+- local 7-inch standalone Taster operation and one configurable SMUG-controlled auxiliary display, including named configurations, adaptive layouts and optional cycling;
 - complete Race Entry reassignment and manual/automatic lane rotation, including optional Car identity;
 - real optical lap detection and Track Setup;
 - Results, Finish Display, History/Details, PB, Track Record and Record Era where applicable;
@@ -372,6 +372,7 @@ Complete instructions, first-start/access experience, firmware/release process, 
 | WP8-03 / WP8 | Display setup and shared audio — Archie/Al | OPEN: implement and accept shared remembered settings/restoration and sound. |
 | WP8-04 / WP8 | Browser design / implementation — Gina (design complete), Archie/Al | V18 owner-approved subject to testing; production implementation and acceptance OPEN. Correct issues identified by testing through review; no new scope. |
 | WP8-07 / WP1+WP8 | Optional Practice start — Archie/Gina/Al | Owner approved 19 November 2026: SMUG selects Immediate start (default) or five-light Practice start within Open Practice; shared countdown, normal Practice timing and no competitive records. Include in auxiliary display design and Browser setup update; firmware implementation and acceptance after current automated simulation checkpoint. Agree false-start and repeat-start details before implementation. Existing approved standalone display/racing checkpoint unaffected. |
+| WP8-08 / WP8 | Auxiliary Integrated Display — Gina (design), Archie (architecture/review), Al (implementation/acceptance later) | V1 owner-approved requirements: [governing design](PP_DESIGN_SPEC.md#pp-taster-spec--auxiliary-display). Integrated editor/manager direction approved; [Gina's local V19 progress](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7037034305) not yet a formal submission. Design 1–8 lanes inclusive conditional on physical/firmware capability; current XIP build and Track Configuration are two-lane. Technical confirmation needed for adaptive sizing/render performance, SD persistence/recovery, factory fallback, apply-in-race isolation and real lane capacity. Design in parallel; implementation after present WP8-02 checkpoint and review; preserve standalone/V18 baseline. Verify all supported modes, event overrides, pagination/winner retention, power-cycle/defaults, absent SD, and live application without race interruption. No customer Demo/showcase or new race modes implied. |
 | WP8-05 / WP1+WP8 | Shared configuration/Race Engine — Archie/Al | Legacy 1200-lap and >999 local adjustment host evidence passes. Physical NVS and coexistence remain open. Fix/regress lapTarget + penalties overflow; UINT32_MAX is currently storage/Browser boundary evidence only, not safe Race Engine target. |
 | WP8-06 / WP3+WP6 | HTTP socket and WP6 regressions — Al | Prior source/config and WP6 adapter host tests pass; live saturation/reconnect/coexistence and physical signed update/rollback remain open. |
 | DOC-01 / Support | Documentation — Archie | 22 design documents retired; 48 initial consistency corrections plus follow-up removal of obsolete phase planning/status, direct cross-references and deferred scope reconciliation. Internal anchors validated. Verified 454 unique legacy anchors, all 453 retirement destination links and main-document relative links, retained the overlapping PR #3 acceptance matrix unchanged and preserved its additional evidence. PR #4 is documentation-only; integration awaits coordinated resolution of the two overlapping files (this plan and the standalone eligibility acceptance reference) when PR #3 is ready. Do not alter the tested firmware branch. Further semantic review is incremental; no blanket claim that every old paragraph is reconciled. |
@@ -419,7 +420,9 @@ the Project Owner's explicit approval.
 | Stage/Rally/Hill Climb | Post-v1 |
 | Drag | Post-v1 |
 | Wireless detectors | Post-v1 |
-| Screen Designer | Post-v1 |
+| Screen Designer | Post-v1 (distinct from the V1 auxiliary field-selection editor) |
+| Multiple physical auxiliary displays, inter-P&P communications and independent per-unit configurations | Post-v1; single auxiliary Integrated Display only in V1 |
+| Automated showcase of screens and product capabilities | Post-v1; distinct from ordinary simulated race presentation |
 | Championships/events | Post-v1 |
 | Rex/REU-dependent facilities | Post-v1 |
 | Personalised spoken announcements using racer names | Post-v1 |
@@ -437,10 +440,9 @@ the Project Owner's explicit approval.
 | Visual tokens, fonts, responsive design | WP8-04 for v1 |
 | Physical moving cars, chequered flags, double-buffer experiments, animation polish | Deferred until core complete; WP9 scope decision |
 | Power Module electrical design and RMS Yellow/Red/resume/track-power detail | Unallocated optional scope; WP9 |
-| Attract hardware/artwork/sequence/wake-exit and local/Browser scope | Unallocated; WP9 |
+| Attract hardware/artwork/sequence/wake-exit and local/Browser scope | Optional WP9 decision; automated showcase is deferred post-v1 as above |
 | Shared simulation-input foundation and automated physical acceptance | WP8-02: extend the existing arm-enabled mechanism; PC-driven test sequences, no separate Race Engine. Verify standalone and SMUG paths and exclude all simulated races from records. Build/flash require owner authority. |
 | Customer Automatic Demo Race virtual-car routine, physical detection during Demo, manual controls and demo UI | Detailed design deferred; WP9 scope decision. Reuse WP8 simulation foundation; all simulated races non-recorded. |
-| SMUG-controlled auxiliary Integrated Display | Develop requirements and Gina design in parallel with Al's simulation/standalone acceptance. Adapt to race type and lane count; optional five-light Practice start (WP8-07). Detailed layouts not yet approved. |
 | QR connection aid | Later optional enhancement |
 | Drag dual-beam/REU design | Post-v1 |
 | Championship management including CONTINUE | Post-v1 |
