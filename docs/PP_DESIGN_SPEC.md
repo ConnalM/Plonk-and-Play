@@ -1855,6 +1855,8 @@ lane offsets so changing values never move or truncate adjacent fields.
 <a id="race-modes-product-spec--5-timed-stage"></a>
 #### 5. Timed Stage
 
+Owner-approved and frozen design baseline (20 November 2026): [consolidated HTML](https://github.com/ConnalM/Plonk-and-Play/blob/c26ff55dc6d21cd1317d92ca239c3db063b85f07/design/smugland/PP_Timed_Stage_review.html), [manual chapter](https://github.com/ConnalM/Plonk-and-Play/blob/d3f46e8a56e134e11388e6127d957283259167af/design/smugland/PP_Timed_Stage_manual.md), [test evidence](https://github.com/ConnalM/Plonk-and-Play/blob/8368c32bb1c62cbe4bd7f95f2af62a129b1c2cac/design/smugland/PP_Timed_Stage_test_evidence.md), [Archie review](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7047081156) and [owner approval](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7047117044). 146 representative assertions reported passed; source reviewed, tests not independently rerun. Prototype contains supplied illustrative timing/classification, not production scoring. Post-V1 only, subject to implementation, storage and physical acceptance. No further design changes without approved defect/change; V21 unaffected.
+
 <a id="race-modes-product-spec--51-normal-loop-stage"></a>
 ##### 5.1 Normal loop stage
 
