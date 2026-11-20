@@ -1870,7 +1870,7 @@ For a normal loop/circuit Timed Stage stage:
 
 Reaction time is not included in the stage time.
 
-Crossing the sensor before GO is a false start.
+Crossing the sensor before GO is a false start. Owner decision (20 November 2026): Warning Only is the factory default; optional configurable time penalty or invalid run (classified DNF). Display raw run time and penalty separately.
 
 A stage may be one or multiple laps: 1, 2, 3 or Custom.
 
@@ -1891,6 +1891,8 @@ Scoring choices include:
 
 - All runs count;
 - Best run counts.
+
+Owner decision (20 November 2026): within the stage, default multiple-attempt ordering is all racers complete attempt 1 before attempt 2, and so on. Advanced may allow a racer to complete all their attempts before the next racer. This is distinct from the event-level Stage order/MUG order choice.
 
 A Drop Worst option is not required unless a real product need emerges.
 
@@ -1918,6 +1920,8 @@ DNF scoring is configurable and may include:
 - retry stage.
 
 A DNF does not automatically prevent the MUG from taking part in later stages.
+
+Owner decision (20 November 2026): a retry replaces an unsuccessful attempt at the Race Director's discretion; the discarded attempt does not count twice. A completed valid run cannot be retried merely to improve the result.
 
 <a id="race-modes-product-spec--55-event-organisation"></a>
 ##### 5.5 Event organisation
@@ -1947,7 +1951,7 @@ The main live/default result information is:
 
 After each stage P&P can show the stage winner/fastest and updated overall classification.
 
-Lap splits remain expandable rather than cluttering the main table.
+Lap splits remain expandable rather than cluttering the main table. Owner decision (20 November 2026): each completed split is held prominently on the live timing display for three seconds by default, configurable under Advanced; underlying timing continues, the split remains in its table, and the final result takes priority.
 
 Final classification is by lowest cumulative adjusted time.
 
