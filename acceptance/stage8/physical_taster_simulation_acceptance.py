@@ -130,6 +130,8 @@ def standalone_handover_witness(opener, original, records):
     assert current["lifecycle"] == "RACING" and current["simulatedSession"] is True and current["historySequence"] == 0, current
     # Local action is subordinate; the controller uses the normal request path
     # and cannot promote this frozen simulated session.
+    # This is admission rejection: a connected SMUG suppresses the local
+    # Taster fixture before it can enter the main-loop command queue.
     assert call(opener, "/fixture", "POST", {"action": "taster-pause"})[0] == 400
     assert operation(opener, "/request/pause", 8101)["result"] == "ACCEPTED"
     wait_state(opener, "PAUSED", timeout=8)

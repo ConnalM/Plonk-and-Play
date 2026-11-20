@@ -92,11 +92,12 @@ def operation(opener, path, correlation, timeout=5, **fields):
     raise AssertionError(f"request result timeout for {path}")
 
 
-def fixture(opener, action, timeout=5, **fields):
+def fixture(opener, action, timeout=5, accepted=True, **fields):
     """Queue an acceptance fixture command and wait for main-loop execution.
 
     HTTPD acknowledgement means only that the immutable command was admitted.
-    The correlated result distinguishes the later main-loop execution outcome.
+    The correlated result distinguishes the later main-loop execution outcome;
+    callers may explicitly expect an execution-time rejection after admission.
     """
     status, value = call(opener, "/fixture", "POST", {"action": action, **fields})
     assert status == 202 and value and value.get("state") == "QUEUED", (action, status, value)
@@ -113,7 +114,7 @@ def fixture(opener, action, timeout=5, **fields):
             assert outcome.get("state") == "QUEUED", outcome
             time.sleep(0.05)
             continue
-        assert outcome.get("accepted") is True, (action, outcome)
+        assert outcome.get("accepted") is accepted, (action, outcome)
         return outcome
     raise AssertionError(f"fixture command timeout for {action}")
 
@@ -263,8 +264,7 @@ def set_proposal(owner, correlation, mode, target, duration, finish):
 
 def arm_simulation(owner):
     assert state(owner)["lifecycle"] == "READY", "Only arm a READY acceptance controller"
-    status, value = call(owner, "/fixture", "POST", {"action": "arm"})
-    assert status == 200, ("Simulation-arm callback required. DO NOT inject fixture passages on an unarmed image.", status, value)
+    fixture(owner, "arm")
     p = get_json(owner, "/proposal")
     assert p["simulatedSession"] is True and p["startable"] is True, p
     return p

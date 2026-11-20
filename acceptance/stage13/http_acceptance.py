@@ -51,7 +51,10 @@ def main():
     assert results["sealed"] and len(results["entries"]) == 2
     assert details["sealed"] and any(e["records"] for e in details["entries"])
     assert get_json(spectator, "/results") == results and get_json(spectator, "/details") == details
-    assert call(master, "/fixture", "POST", {"action": "lane1"})[0] == 400
+    # The main loop rejects the passage after queue admission because the
+    # completed session is no longer an active simulated race.
+    rejected = fixture(master, "lane1", accepted=False)
+    assert rejected["state"] == "REJECTED", rejected
     assert get_json(master, "/results") == results
     assert record_snapshot(master) == records
     assert operation(spectator, "/request/race-again", 22)["result"] == "REJECTED"
