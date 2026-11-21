@@ -23,7 +23,7 @@
 | Startup, power loss and device replacement | [System lifecycle](#system-lifecycle--pp-system-lifecycle-and-persistence) |
 | Session definition, control and official records | [Race Control and Engine](#race-control-engine-design--race-control-and-race-engine-detailed-design) · [Source / record policy](#race-control-engine-design--41-session-source-and-record-policy) |
 | Race rules | [Lap Race](#race-modes-product-spec--2-lap-race) · [Practice](#race-modes-product-spec--3-practice) · [Endurance](#race-modes-product-spec--4-endurance) |
-| Future mode designs | [Timed Stage](#race-modes-product-spec--5-timed-stage) · [Drag](#race-modes-product-spec--6-drag) (release scope in the plan) |
+| V1 owner-promoted race modes | [Timed Stage](#race-modes-product-spec--5-timed-stage) · [Drag](#race-modes-product-spec--6-drag) (required release scope and delivery gates in the Master Project Plan) |
 | Detectors and controlled outputs | [Inputs](#system-architecture--4-input-architecture) · [Outputs](#system-architecture--10-output-architecture) |
 | System clock and Message Bus | [System Time](#system-architecture--8-pp-system-time) · [Message Contract](#message-contract--pp-message-contract) |
 | Persistence, details and SD ownership | [Persistent storage](#persistent-storage-foundation-design--pp-persistent-storage-foundation-design) |
@@ -1855,7 +1855,9 @@ lane offsets so changing values never move or truncate adjacent fields.
 <a id="race-modes-product-spec--5-timed-stage"></a>
 #### 5. Timed Stage
 
-Owner-approved and frozen design baseline (20 November 2026): [consolidated HTML](https://github.com/ConnalM/Plonk-and-Play/blob/c26ff55dc6d21cd1317d92ca239c3db063b85f07/design/smugland/PP_Timed_Stage_review.html), [manual chapter](https://github.com/ConnalM/Plonk-and-Play/blob/d3f46e8a56e134e11388e6127d957283259167af/design/smugland/PP_Timed_Stage_manual.md), [test evidence](https://github.com/ConnalM/Plonk-and-Play/blob/8368c32bb1c62cbe4bd7f95f2af62a129b1c2cac/design/smugland/PP_Timed_Stage_test_evidence.md), [Archie review](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7047081156) and [owner approval](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7047117044). 146 representative assertions reported passed; source reviewed, tests not independently rerun. Prototype contains supplied illustrative timing/classification, not production scoring. Post-V1 only, subject to implementation, storage and physical acceptance. No further design changes without approved defect/change; V21 unaffected.
+**Release scope changed by owner, 21 November 2026:** Timed Stage (Rally/Hill Climb/Sprint) is REQUIRED for V1, not post-V1. This changes delivery priority, not the frozen design behaviour. Product implementation, real timing/classification and physical acceptance remain outstanding; see [sole Master Project Plan](MASTER_PROJECT_PLAN.md). No fixed launch date has been set.
+
+Owner-approved and frozen design baseline (20 November 2026): [consolidated HTML](https://github.com/ConnalM/Plonk-and-Play/blob/c26ff55dc6d21cd1317d92ca239c3db063b85f07/design/smugland/PP_Timed_Stage_review.html), [manual chapter](https://github.com/ConnalM/Plonk-and-Play/blob/d3f46e8a56e134e11388e6127d957283259167af/design/smugland/PP_Timed_Stage_manual.md), [test evidence](https://github.com/ConnalM/Plonk-and-Play/blob/8368c32bb1c62cbe4bd7f95f2af62a129b1c2cac/design/smugland/PP_Timed_Stage_test_evidence.md), [Archie review](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7047081156) and [owner approval](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7047117044). 146 representative assertions reported passed; source reviewed, tests not independently rerun. Prototype contains supplied illustrative timing/classification, not production scoring. Now required V1 following owner scope decision 21 November 2026; subject to implementation, storage and physical acceptance. No further design changes without approved defect/change; V21 unaffected.
 
 <a id="race-modes-product-spec--51-normal-loop-stage"></a>
 ##### 5.1 Normal loop stage
@@ -1967,6 +1969,8 @@ After a stage the primary action is **NEXT STAGE**; at the end it becomes **EVEN
 
 <a id="race-modes-product-spec--6-drag"></a>
 #### 6. Drag
+
+**Release scope changed by owner, 21 November 2026:** basic single-lane two-sensor Drag is REQUIRED for V1, not post-V1. Gina's detailed design is being consolidated/tested; final design review and production implementation/physical acceptance remain open. Dual-beam competitive and REU-dependent Drag facilities (including specialist trap-speed hardware) remain deferred. See [sole Master Project Plan](MASTER_PROJECT_PLAN.md). No fixed launch date has been set.
 
 <a id="race-modes-product-spec--61-base-hardware-use"></a>
 ##### 6.1 Base hardware use
