@@ -338,7 +338,7 @@ This is a **scope gate**, not an invitation to add features. Connal and Archie d
 
 Default answer is **none**. Anything not explicitly promoted remains post-v1.
 
-**GATE D — FEATURE FREEZE:** final v1 feature list frozen. No Rex/REU, Drag, Rally or other attractive rabbit hole may enter v1 without an explicit scope/cost/schedule decision by Connal.
+**GATE D — FEATURE FREEZE:** final v1 feature list is controlled by explicit owner decisions. **Owner scope exception, 21 November 2026:** basic Timed Stage (Rally/Hill Climb/Sprint) and single-lane two-sensor Drag are REQUIRED V1 modes. Owner accepts additional implementation/testing effort and has no fixed launch date; quality and completion, not an artificial deadline, control release. This is an explicit exception to the former Drag/Rally deferral, not permission to add Rex/REU, dual-beam competitive Drag or other optional features. All other promotions still require owner approval and documented scope/dependency review.
 
 ---
 
@@ -379,6 +379,17 @@ Complete instructions, first-start/access experience, firmware/release process, 
 
 Evidence: [PR #3](https://github.com/ConnalM/Plonk-and-Play/pull/3), [issue #2](https://github.com/ConnalM/Plonk-and-Play/issues/2), [18 November checkpoint](ARCHIE_CHECKPOINT_REVIEW_2026-11-18.md) and [compliance reconciliation](ARCHIE_COMPLIANCE_RECONCILIATION_2026-11-18.md). Do not rerun credited tests without relevant change; no flash without separately authorised candidate.
 
+### 5.1a Owner-promoted V1 race modes — 21 November 2026
+
+**Scope decision:** Timed Stage (Rally/Hill Climb/Sprint) and base single-lane two-sensor Drag are **required for V1**, not post-V1. Owner has no fixed go-live date and accepts the additional implementation, integration and qualification work. Neither design-only sign-off nor simulated prototype tests count as firmware/product acceptance. Do not interrupt WP8-02 physical verification or the approved V21 Browser implementation sequence; Al should assess dependencies and effort before scheduling the new mode implementation. New release gate: both modes must pass complete race-engine, sensor, controller, Browser, auxiliary-display, records/persistence, negative/lifecycle and physical acceptance alongside existing V1 modes.
+
+| V1 requirement / responsible work | Approved baseline and outstanding delivery |
+|---|---|
+| V1-TIMED-STAGE / Race Engine + WP8 Browser/auxiliary — Al implementation, Archie review | **Required V1, design frozen.** [Final HTML](https://github.com/ConnalM/Plonk-and-Play/blob/c26ff55dc6d21cd1317d92ca239c3db063b85f07/design/smugland/PP_Timed_Stage_review.html), [manual](https://github.com/ConnalM/Plonk-and-Play/blob/d3f46e8a56e134e11388e6127d957283259167af/design/smugland/PP_Timed_Stage_manual.md), [evidence](https://github.com/ConnalM/Plonk-and-Play/blob/8368c32bb1c62cbe4bd7f95f2af62a129b1c2cac/design/smugland/PP_Timed_Stage_test_evidence.md), 146/146 reported prototype assertions, [owner design freeze](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7047117044). Implement authoritative timing, configured attempts and penalties, stage/event classification, DNF/retry/tie rules, sensor mapping, lifecycle and actual results/record policy. Full host/Browser/physical tests OPEN. |
+| V1-DRAG / Race Engine + WP8 Browser/auxiliary — Gina design completion, Al implementation, Archie review | **Required V1, design review not yet complete.** Existing consolidated/refined [Drag prototype](https://github.com/ConnalM/Plonk-and-Play/blob/7a67d135a09952bcc993a34364aa8c7d2232697d/design/smugland/PP_Drag_review.html); manual, source/Chromium regression and final design approval pending. Base two-sensor **single-lane** staging, rollback, Sportsman/Pro tree, reaction/ET, red-light, results, optional average speed, RACE AGAIN/NEW SETUP and auxiliary. Implement/test actual state machine, start/finish timing, record policy and physical acceptance. Dual-beam/REU competitive Drag and trap-speed hardware remain post-V1. |
+
+**Planning gate:** assess implementation effort, shared engine/sensor interfaces, race results schema, track configuration and UI/auxiliary integration after current WP8-02 checkpoint; sequence small verified increments rather than expanding the active acceptance candidate. [Owner promotion on issue #2](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7061304177).
+
 ### 5.2 Later v1 tasks — deferred by dependency, not abandoned
 
 | WP | Outstanding work |
@@ -386,7 +397,7 @@ Evidence: [PR #3](https://github.com/ConnalM/Plonk-and-Play/pull/3), [issue #2](
 | WP7 | Integrate real optical detectors, wiring, gantry, Track Setup, replacement/fault handling, two-lane product-intent detection and expansion architecture. |
 | WP6 | Physical signed firmware validation/automatic rollback. |
 | WP8 / Gate C | Concentrated Browser/Integrated Display coexistence, Stage14C and Stage15 Phase8B, official-record isolation/reconnect/power-cycle, NVS, physical storage, audio and local operation. |
-| WP9 | Owner scope gate; optional features excluded unless explicitly promoted. |
+| WP9 | Owner scope gate; Timed Stage and base single-lane Drag explicitly promoted to mandatory V1 on 21 November 2026; other options excluded unless separately approved. |
 | WP10 | Long-run qualification/abuse, network/SD/power/resource and diagnostic rollover follow-up, detector faults, independent review. |
 | WP11 | Production PSU, electronics, cables, connectors, enclosure, gantry and reproducible tests. |
 | WP12 | Instructions, novice-user trial, production/release/support process. |
@@ -417,8 +428,6 @@ the Project Owner's explicit approval.
 | Personal MUG displays | Post-v1 |
 | Dedicated TV/projector display | Post-v1 |
 | Timed Practice | Post-v1 |
-| Stage/Rally/Hill Climb (Timed Stage) | Post-v1; DESIGN COMPLETE, owner-approved/frozen 20 November 2026. [HTML c26ff55](https://github.com/ConnalM/Plonk-and-Play/blob/c26ff55dc6d21cd1317d92ca239c3db063b85f07/design/smugland/PP_Timed_Stage_review.html), [manual d3f46e8](https://github.com/ConnalM/Plonk-and-Play/blob/d3f46e8a56e134e11388e6127d957283259167af/design/smugland/PP_Timed_Stage_manual.md), [evidence 8368c32](https://github.com/ConnalM/Plonk-and-Play/blob/8368c32bb1c62cbe4bd7f95f2af62a129b1c2cac/design/smugland/PP_Timed_Stage_test_evidence.md), [Archie final review](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7047081156), [owner freeze](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7047117044). All nine sporting decisions in governing spec; prior review corrections complete; 146/146 representative assertions reported passed (not independently rerun). Fixed illustrative timing/classification, not production engine. Actual implementation, storage, real controller timing/authority, physical readability and acceptance deferred post-v1. No further design iteration without authorised change/defect. |
-| Drag | Post-v1; Gina design/consolidation, Archie review. Existing detailed screens complete per owner confirmation, source approval not independently verified at checkpoint; locate existing references. [Consolidation authorised 20 November 2026](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7047117044) following Timed Stage freeze. Separate HTML/manual/representative regression evidence and formal review outstanding. Base single-lane two-sensor only, dual-beam/REU separate deferred candidate. V21 and Timed Stage frozen; no firmware/V1 expansion. |
 | Wireless detectors | Post-v1 |
 | Screen Designer | Post-v1 (distinct from the V1 auxiliary field-selection editor) |
 | Multiple physical auxiliary displays, inter-P&P communications and independent per-unit configurations | Post-v1; single auxiliary Integrated Display only in V1 |
