@@ -200,6 +200,14 @@ Resume preserves the current race. Restart prepares a new session with the retai
 
 If a Browser closes or loses its connection, P&P itself continues to control race timing and state. Reconnect to see the current authoritative state. Avoid repeatedly pressing buttons if the connection is interrupted.
 
+### 6.5 Timed Stage (Rally / Hill Climb / Sprint) — V1 release chapter pending
+
+Timed Stage is a required V1 racing mode. Its approved design supports ordered stages/attempts, split timing where configured, false-start rules, Director-controlled retry/DNF and stage/event classifications. **Editorial checkpoint:** verify all operation against the implemented firmware and the approved [Timed Stage design/manual](https://github.com/ConnalM/Plonk-and-Play/blob/d3f46e8a56e134e11388e6127d957283259167af/design/smugland/PP_Timed_Stage_manual.md) before writing customer button-by-button instructions. Do not present illustrative prototype timing as official results.
+
+### 6.6 Drag — V1 release chapter pending
+
+Basic V1 Drag uses a single lane with two sensors, one for Start and one for Finish; the approved design includes staging, the Christmas Tree, reaction and elapsed time, false starts and results. **Editorial checkpoint:** insert exact customer instructions only once Gina's consolidated Drag design passes final review and real firmware/sensors have passed physical tests. Dual-beam and REU-dependent specialist functions are not part of basic V1.
+
 ## 7. Results, History and records
 
 ### 7.1 Reading a result
@@ -309,14 +317,6 @@ Use the normal System instructions when P&P is idle. Restart, reset and erase ar
 Only the controlling Browser can carry out the permitted sensitive operations, subject to confirmations and the settled non-racing state. If recovery mode appears, follow the supplied support instructions rather than repeatedly resetting the unit.
 
 [Final support contact, update procedure, data backup/export availability, exact storage handling and power specifications require confirmation.]
-
-### 6.4 Timed Stage (Rally / Hill Climb / Sprint) — V1 release chapter pending
-
-Timed Stage is a required V1 racing mode. Its approved design supports ordered stages/attempts, split timing where configured, false-start rules, Director-controlled retry/DNF and stage/event classifications. **Editorial checkpoint:** verify all operation against the implemented firmware and the approved [Timed Stage design/manual](https://github.com/ConnalM/Plonk-and-Play/blob/d3f46e8a56e134e11388e6127d957283259167af/design/smugland/PP_Timed_Stage_manual.md) before writing customer button-by-button instructions. Do not present illustrative prototype timing as official results.
-
-### 6.5 Drag — V1 release chapter pending
-
-Basic V1 Drag uses a single lane with two sensors, one for Start and one for Finish; the approved design includes staging, the Christmas Tree, reaction and elapsed time, false starts and results. **Editorial checkpoint:** insert exact customer instructions only once Gina's consolidated Drag design passes final review and real firmware/sensors have passed physical tests. Dual-beam and REU-dependent specialist functions are not part of basic V1.
 
 ## 11. Going further
 
