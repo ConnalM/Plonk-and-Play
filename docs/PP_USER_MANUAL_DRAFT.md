@@ -142,7 +142,7 @@ P&P's own local network remains independent of the external connection. You can 
 
 ### 5.3 Finding your way around
 
-The main interface offers race-mode choices, Race Again, Results & History and Setup. Pick Lap Race, Practice or Endurance for ordinary V1 racing. Other modes shown as unavailable require later releases. A disabled control may indicate that you are observing, the race is in progress or the required equipment is not available.
+The main interface offers race-mode choices, Race Again, Results & History and Setup. V1 includes Lap Race, Open Practice, Endurance, Timed Stage (Rally/Hill Climb/Sprint) and basic single-lane Drag. Availability on a particular unit depends on implementing the release firmware and configuring the required sensor arrangement; a greyed-out control does not prove a promised V1 mode is cancelled. A disabled control may indicate that you are observing, the race is in progress or the required equipment is not available.
 
 Choose one of the supplied race-screen layouts — Classic, Pit Wall, Grandstand and Timing Tower — to suit your viewing preferences. Changing the presentation does not change race timing or results. Layouts adapt to phone, tablet and larger displays.
 
@@ -310,11 +310,19 @@ Only the controlling Browser can carry out the permitted sensitive operations, s
 
 [Final support contact, update procedure, data backup/export availability, exact storage handling and power specifications require confirmation.]
 
+### 6.4 Timed Stage (Rally / Hill Climb / Sprint) — V1 release chapter pending
+
+Timed Stage is a required V1 racing mode. Its approved design supports ordered stages/attempts, split timing where configured, false-start rules, Director-controlled retry/DNF and stage/event classifications. **Editorial checkpoint:** verify all operation against the implemented firmware and the approved [Timed Stage design/manual](https://github.com/ConnalM/Plonk-and-Play/blob/d3f46e8a56e134e11388e6127d957283259167af/design/smugland/PP_Timed_Stage_manual.md) before writing customer button-by-button instructions. Do not present illustrative prototype timing as official results.
+
+### 6.5 Drag — V1 release chapter pending
+
+Basic V1 Drag uses a single lane with two sensors, one for Start and one for Finish; the approved design includes staging, the Christmas Tree, reaction and elapsed time, false starts and results. **Editorial checkpoint:** insert exact customer instructions only once Gina's consolidated Drag design passes final review and real firmware/sensors have passed physical tests. Dual-beam and REU-dependent specialist functions are not part of basic V1.
+
 ## 11. Going further
 
-V1 is designed around ordinary Lap Race, Open Practice and Endurance racing. P&P is designed to accommodate additional equipment and modes in later releases, subject to compatibility and release availability.
+**V1 includes five mode families:** Lap Race, Open Practice, Endurance, Timed Stage (rally/hill climb/sprint timing), and basic single-lane two-sensor Drag. The current engineering firmware does not yet implement all these functions: the release manual must be validated against the integrated product before distribution.
 
-Timed Stage (rally, hill climb and sprint timing), Drag, Timed Practice, expanded lane capacity and additional hardware-dependent functions are not launch promises. A displayed but unavailable capability does not mean the product is malfunctioning. REU options and later releases will have separate instructions once released.
+Timed Practice, specialist dual-beam or REU-dependent Drag functions, and additional hardware-dependent features remain future candidates. A displayed but unavailable capability may reflect unavailable equipment or an engineering build; it does not alter the agreed V1 release requirements. Later releases will have separate instructions when available.
 
 ## 12. Glossary
 
@@ -344,5 +352,5 @@ Draft source: [PP Design Specification](PP_DESIGN_SPEC.md), [Master Project Plan
 - Networking: verify shipped AP name/address, actual connection instructions on Taster, direct AP and external Wi-Fi, multiple clients, loss/reconnect and control acquisition. Do not print development IP addresses or passwords.
 - Persistence/recovery: confirm history capacity if advertised, SD requirements, safe insertion/removal, storage warnings, update/rollback, backup/export and support instructions. Do not promise features not yet accepted.
 - Terminology and packaging: provisional customer-facing names used in this draft; confirm branding, support/contact, accessibility and product/legal safety copy. No dimensions or electrical specifications invented.
-- Scope: remove any unaccepted feature from the release edition or label accurately; do not release Rally/Drag/Timed Practice instructions in V1. Gina's later designs are not implementation authorisation.
+- Scope: Timed Stage and basic single-lane Drag were expressly promoted to required V1 on 21 November 2026. Incorporate verified instructions for both in the final release manual after implementation, including sensor position, start/finish rules, classifications, false starts and results; until then refer to their approved design/manual drafts without claiming physical implementation. Timed Practice, dual-beam/REU enhancements and unrelated optional modes remain deferred. Gina's design approval is not implementation acceptance.
 - Acceptance: WP8-02 physical testing, WP8-03/04/07/08 implementation and relevant WP6/storage/hardware acceptance remain gates. Cross-check against final release plan. Perform an unfamiliar-user walkthrough of the MUGGLE Guide with actual packaged hardware.
