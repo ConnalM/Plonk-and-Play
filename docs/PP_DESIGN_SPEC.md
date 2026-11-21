@@ -4449,7 +4449,7 @@ Fixed display is the default. Optional cycling permits a sequence of information
 - RESUMING: authoritative restart lights over race information where applicable. Immediate Open Practice Resume remains unchanged.
 - FINISHED: stop ordinary information-set cycling. Show authoritative final results and prominently identify the winner where one exists. If result pages are required, cycle them with the winner visible on every page. Retain final results until SMUG prepares the next race. Practice follows its non-competitive session summary and has no winner.
 
-Preserve the distinct Drag Christmas Tree and Timed Stage requirements in future-compatible design previews; neither race mode enters V1 by virtue of the auxiliary display design. Optional Practice start is governed by [Practice Setup](#browser-flow-results-history-spec--practice-setup-and-control).
+Timed Stage and basic two-sensor Drag are required V1 modes by express owner decision of 21 November 2026. Preserve distinct Timed Stage timing/splits and Drag Christmas Tree/staging requirements in Browser and auxiliary implementation, with real authoritative race facts; HTML previews alone do not establish production or physical acceptance. Optional Practice start is governed by [Practice Setup](#browser-flow-results-history-spec--practice-setup-and-control).
 
 ##### Named auxiliary display configurations
 
