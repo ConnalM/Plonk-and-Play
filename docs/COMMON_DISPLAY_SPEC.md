@@ -1,318 +1,44 @@
-# Plonk & Play™ — Common Display Specification
-
-**Status:** Committed product-design specification  
-**Applies to:** Lap, Endurance and Timed Stage on the Browser and integrated
-P&P displays.
-**Exception:** Drag uses its own display design. The integrated Taster is a
-restricted client of this same display/race authority; it may omit modes and
-controls, but it does not define separate racing or timing behaviour.
-
-## 1. Design principle
-
-P&P should scale from a solo MUG using one browser to a full competition using a main display, individual MUG screens and a separate Race Director screen.
-
-The simple/default experience must remain non-threatening. Advanced functionality may be available without cluttering normal operation.
-
-## 2. Full Browser Race Display
-
-The main display is intended for a monitor, TV, projector, tablet or full-screen browser.
-
-The race display remains fundamentally one screen with changing states rather than changing pages during a race:
-
-`READY → STARTING → RACING → FINISHING → FINISHED / RESULTS`
-
-The start sequence does not replace the scoreboard with a separate start screen.
-
-### 2.1 Shared client authority and timing
-
-The Browser and Taster are presentation/control clients of the same Race
-Control, Race Engine and P&P System Time authority. The Taster is not a second
-racing product or a second timing authority. Its local choices are labelled
-**LAPS** and **ENDURANCE** and map to the canonical Lap Race and Endurance
-semantics in `RACE_MODES_PRODUCT_SPEC.md`; it does not create a local TIMED
-mode or reinterpret a Browser mode.
-
-Both clients consume the same authoritative state and presentation
-events/facts. Neither client invents the GO instant, elapsed/remaining clock,
-Endurance expiry, finish classification, finish time or overtime. Paused time
-and an approved restart countdown do not add racing time.
-
-Mode-specific finish policy and the shared timing/format definitions are
-defined only in `RACE_MODES_PRODUCT_SPEC.md` §2, §4 and §4.6. The display
-consumes those values; it does not restate or reinterpret the policies.
-
-Presentation updates are event/state driven. A client may advance or render a
-displayed clock from authoritative P&P timing and may animate a genuine active
-event, but a redraw timer or local calculation must not establish race timing
-authority or rebuild unrelated layout regions. Numeric fields and lane rows
-retain stable fixed regions while values change.
-
-## 3. Race Control Pod
-
-A permanent segmented area sits across the top of the full display, envisaged as a shallow/squashed half-hexagonal pod.
-
-It contains five light positions, which remain visible but greyed when inactive.
-
-During a start these become the race start lights. The system can use either three or five according to the selected start configuration.
-
-The pod has five physical light positions; there is no separate sixth green lamp. The authoritative countdown uses either three or five red lights according to the configured start. The authoritative GO style is either **Lights Out** or **Green**, as selected in the Session Definition. With Lights Out, the configured red lights extinguish at GO and all five physical positions are grey/off and dormant during ordinary racing. With Green, all five physical positions turn green simultaneously at authoritative GO for exactly one second, then all five become grey/off and dormant during ordinary racing. A configured three-light start changes only the number of red countdown positions; Green still illuminates all five physical positions. Browser and physical presentation consume this authoritative state and do not create a sixth lamp or independently establish GO authority; they may render the authoritative countdown and GO state.
-
-During normal racing the lights are dormant but can be repurposed for race-control signals:
-
-- **Flashing Yellow lights** — Track Call / Yellow active.
-- **Flashing Red lights** — Race stopped / Red active.
-
-The surrounding pod area is an independent display channel. For example, if a MUG requests a Yellow rather than calling one directly, the surround can pulse yellow while the five lights remain in their normal state.
-
-Similarly, a false start can illuminate the surround without interfering with a start-light sequence already in progress.
-
-Start/race-control lighting always takes priority over ordinary informational messages.
-
-The pod may also display temporary messages such as:
-
-- `FASTEST LAP`
-- `FINAL LAP`
-- `PENALTY`
-- `FINISHED`
-
-Exact visual treatments remain for UI prototyping.
-
-## 4. Main Scoreboard
-
-The main body consists of one row for each active lane/MUG.
-
-Live race rows remain in fixed lane order:
-
-- Lane 1
-- Lane 2
-- Lane 3
-- Lane 4
-- and so on if expansion hardware supports additional lanes.
-
-Rows do not move when race positions change. Instead, the MUG's current `P1`, `P2`, etc. changes prominently within the permanent lane row.
-
-This lets a MUG glance repeatedly at the same physical part of the display.
-
-A typical Lap row contains:
-
-**Position | Lane/MUG | Race Progress | Last Lap | Best Lap | Gap**
-
-Race progress for a 25-lap race might display `17 / 25`.
-
-A thin graphical progress indicator may also show race completion visually. This should be prototyped rather than considered mandatory at this stage.
-
-Endurance and Timed Stage use the same visual architecture with mode-appropriate information. Mode-specific field meaning and finish semantics are defined in `RACE_MODES_PRODUCT_SPEC.md`; this specification governs their shared visual meaning and geometry.
-
-## 5. Temporary Row States
-
-The geometry of a lane row remains stable, but information can temporarily change emphasis.
-
-Examples include:
-
-- **Position change** — new position briefly emphasised.
-- **Fastest lap** — relevant timing briefly highlighted.
-- **Penalty** — warning treatment followed by a persistent penalty indicator where appropriate.
-- **Final lap** — progress area receives a distinctive treatment.
-- **Finished** — row changes into its finished state.
-
-A finished MUG remains in its original lane row while other MUGs continue racing.
-
-Example:
-
-`LANE 2 | CONNAL | FINISHED | P1 | 25/25 | 03:42:18 | BEST 8.19`
-
-This is necessary because some Lap finish rules allow other MUGs to continue after the winner has finished.
-
-## 6. Track Length, Scale and Speed
-
-Track Setup can optionally store:
-
-- **Track length** — metric or imperial.
-- **Track scale** — common preset scales plus Custom.
-
-These settings are optional and stored with the track rather than entered for every race.
-
-Where available, P&P can calculate:
-
-- actual model average speed;
-- scale-equivalent average speed.
-
-Speed can be calculated for individual laps, stages and complete races where meaningful.
-
-It need not clutter the default live scoreboard. It can instead appear in results, detailed timing and selected temporary announcements such as:
-
-`FASTEST LAP — 8.19 — 137 SCALE MPH`
-
-## 7. Finish Behaviour and Transition to Results
-
-When the race has fully finished, the live display enters a short Finish Display.
-
-Default duration: **5 seconds**, configurable including zero.
-
-The Finish Display can provide suitable theatre — winner, finishing position, chequered treatment, winning time/laps etc.
-
-A Race Director button press during this period skips the remaining delay and proceeds immediately to Results.
-
-## 8. Results Screen
-
-Unlike the live scoreboard, Results are displayed in finishing order, not lane order.
-
-The default Results screen should answer **who won and what happened?** immediately rather than overwhelming the MUG.
-
-Typical information:
-
-**Position | Lane/MUG | Progress | Time | Best Lap | Gap**
-
-For Lap Race Results, progress and finishing information are separate fields.
-Progress shows authoritative classified race distance against the configured
-target where applicable. Time shows an entry's authoritative race-relative elapsed duration at its
-permitted final crossing, or at its last completed lap when it was stopped
-before a final crossing. An entry with no completed lap shows an em dash. Gap shows only information
-supplied by P&P, such as authoritative laps behind. The Browser does not
-replace one field with another or calculate classification, finish times or
-time gaps.
-
-Secondary information can include fastest lap, penalties and speed information where track data is available.
-
-A valid finished Results screen presents the status context `RESULTS`, even though the finished session is not startable. This is presentation context and does not change authoritative startability. After **RACE AGAIN** returns P&P to READY, normal READY/startability presentation resumes.
-
-A **Details / Analysis** view provides individual lap times, sectors, speeds, penalties and other recorded timing data.
-
-Graphs may eventually live here but are not part of the default Results display.
-
-## 9. Post-Race Navigation
-
-The primary action is contextual:
-
-- **RACE AGAIN** — standalone race; same setup again.
-- **CONTINUE** — competition/event; advance to next scheduled race/heat/round.
-- **NEXT STAGE** — Timed Stage multi-stage event.
-- **EVENT RESULTS** — event has reached its conclusion.
-
-Secondary actions such as **NEW RACE** and **HOME** are available where appropriate.
-
-## 10. Personal MUG Display
-
-Any connected browser can be assigned to a particular lane.
-
-The browser should remember an assignment such as **I'M LANE 3** rather than requiring selection before every race. During organised competition, P&P may assign the lane automatically.
-
-The personal screen prioritises information that can be read at a glance while driving.
-
-**Position** and **race progress** dominate.
-
-Secondary information includes:
-
-**Last Lap | Best Lap | Gap**
-
-It also carries a reduced version of the same Race Control Pod so the MUG sees the same start, Yellow and Red signals as the main display.
-
-Personal alerts can temporarily dominate the screen:
-
-- `FASTEST LAP`
-- `FINAL LAP`
-- `PENALTY +1 LAP`
-- `YELLOW REQUESTED`
-- `FINISHED — P2`
-
-Browser audio can likewise provide MUG-specific alerts. Personalised spoken
-announcements using MUG names are deferred until after v1.
-
-## 11. Race Director and Solo Operation
-
-P&P does not assume a dedicated Race Director.
-
-It must support:
-
-1. Dedicated Race Director.
-2. Race Director who is also a racing MUG.
-3. Solo MUG.
-
-A dedicated RD can use a separate phone/tablet/PC with denser timing information and race-control functions.
-
-The main full-screen display can also expose controls where appropriate, although **Display Only** should be the normal TV/projector presentation.
-
-For a solo MUG or racing RD, pre-race controls such as **START** can appear prominently and then disappear once the race begins. Normal race operation should then be automatic.
-
-Core rule:
-
-> **Every normal race/session must be capable of being run by one MUG without requiring a separate Race Director.**
-
-## 12. Multiple Simultaneous Displays
-
-Displays are clients, not timing authorities.
-
-A four-MUG event could therefore have:
-
-- 1 × Main Scoreboard
-- 4 × Personal MUG displays
-- 1 × Race Director display
-
-or any smaller combination.
-
-The System Controller remains responsible for timing, race logic and authoritative race state. Browser and Taster perform their own rendering, animations and audio as presentation responses; neither becomes a timing authority.
-
-The [Product Facilities audio specification](PRODUCT_FACILITIES_SPEC.md#3-audio-and-removable-storage)
-governs destination fallback, priorities and playback reliability. Audio
-must never delay racing. Alternating yellow PAUSED lights are silent.
-
-Loss of a browser connection must never affect race timing or race state.
-
-## 13. Yellow and Red — Display Principles
-
-Detailed RMS logic is deliberately deferred until software design.
-
-The principles already agreed are:
-
-Yellow / Track Call is a session option with three settings:
-
-- **Off** — Yellow / Track Call is disabled for that session.
-- **Request** — a MUG may request Yellow; the race continues while the requesting MUG and RD are notified and the RD accepts or dismisses the request.
-- **Direct** — a permitted MUG Yellow input immediately calls Yellow / Track Call.
-
-**Yellow Off does not disable the Race Director's basic PAUSE control.** PAUSE remains a core race-control intervention independently of whether the session uses a Yellow / Track Call procedure.
-
-In Request mode, the Race Control Pod surround can pulse yellow while the five lights remain in their normal state.
-
-**Yellow active:** five lights flash yellow. This represents the normal temporary track-call/interruption state and normally leads to **RESUME**.
-
-**Red active:** five lights flash red. This represents a more serious Race Stopped state.
-
-From Red, the Race Director may ultimately:
-
-- **RESUME RACE** — preserve existing progress and continue.
-- **RESTART RACE** — discard progress and begin the race again from zero, with confirmation.
-- **ABANDON RACE** — terminate the race.
-
-The precise timing/power behaviour and every possible transition are RMS implementation details to be specified later rather than allowed to derail the display design now.
-
----
-
-**Product principle:** Easy to start. Deeply configurable when you want it.
-
-
-## Browser UI rules
-
-### Numeric stability
-Numeric fields and live numeric display regions must have fixed dimensions appropriate to their expected values. Changing digits must not resize controls or move adjacent UI.
-
-Use tabular numerals where appropriate for clocks, lap times, gaps, counters and similar changing race data.
-
-General rule:
-
-> **No UI jitter caused by changing race data.**
-
-### Numeric adjustment
-Where a numeric value is commonly adjusted, use decrement / editable value / increment controls. Direct editing must remain available so large changes do not require repeated button presses.
-
-### Contextual help
-Use a consistent information control for terminology or consequences that may not be obvious.
-
-- Desktop: hover may reveal the help.
-- Touch: tap reveals the same help.
-- Keep help concise, normally one or two sentences.
-- Do not add help icons to self-evident controls merely for consistency.
-
-Typical candidates include Drag Course Length, Timed Stage, Loop, Point-to-Point, finish behaviour, scale speed and false-start behaviour.
-
-If a control requires a paragraph before a MUG can choose it, reconsider the control design rather than relying on a tooltip.
+# Plonk & Play™ — Common Display Specification — retired
+
+**RETIRED as a separate governing specification on 19 November 2026.** The authoritative content has moved into the single [P&P Design Specification](PP_DESIGN_SPEC.md#common-display-spec--plonk--play--common-display-specification). Do not edit requirements here.
+
+[Original preserved revision](https://github.com/ConnalM/Plonk-and-Play/blob/c6b8bbafb7eff9c209d8481263685b61a1af5a6e/docs/COMMON_DISPLAY_SPEC.md) (historical only).
+
+## Legacy section links
+
+<a id="1-design-principle"></a>
+- [1. Design principle](PP_DESIGN_SPEC.md#common-display-spec--1-design-principle)
+<a id="2-full-browser-race-display"></a>
+- [2. Full Browser Race Display](PP_DESIGN_SPEC.md#common-display-spec--2-full-browser-race-display)
+<a id="21-shared-client-authority-and-timing"></a>
+- [2.1 Shared client authority and timing](PP_DESIGN_SPEC.md#common-display-spec--21-shared-client-authority-and-timing)
+<a id="3-race-control-pod"></a>
+- [3. Race Control Pod](PP_DESIGN_SPEC.md#common-display-spec--3-race-control-pod)
+<a id="4-main-scoreboard"></a>
+- [4. Main Scoreboard](PP_DESIGN_SPEC.md#common-display-spec--4-main-scoreboard)
+<a id="5-temporary-row-states"></a>
+- [5. Temporary Row States](PP_DESIGN_SPEC.md#common-display-spec--5-temporary-row-states)
+<a id="6-track-length-scale-and-speed"></a>
+- [6. Track Length, Scale and Speed](PP_DESIGN_SPEC.md#common-display-spec--6-track-length-scale-and-speed)
+<a id="7-finish-behaviour-and-transition-to-results"></a>
+- [7. Finish Behaviour and Transition to Results](PP_DESIGN_SPEC.md#common-display-spec--7-finish-behaviour-and-transition-to-results)
+<a id="8-results-screen"></a>
+- [8. Results Screen](PP_DESIGN_SPEC.md#common-display-spec--8-results-screen)
+<a id="9-post-race-navigation"></a>
+- [9. Post-Race Navigation](PP_DESIGN_SPEC.md#common-display-spec--9-post-race-navigation)
+<a id="10-personal-mug-display"></a>
+- [10. Personal MUG Display](PP_DESIGN_SPEC.md#common-display-spec--10-personal-mug-display)
+<a id="11-race-director-and-solo-operation"></a>
+- [11. Race Director and Solo Operation](PP_DESIGN_SPEC.md#common-display-spec--11-race-director-and-solo-operation)
+<a id="12-multiple-simultaneous-displays"></a>
+- [12. Multiple Simultaneous Displays](PP_DESIGN_SPEC.md#common-display-spec--12-multiple-simultaneous-displays)
+<a id="13-yellow-and-red--display-principles"></a>
+- [13. Yellow and Red — Display Principles](PP_DESIGN_SPEC.md#common-display-spec--13-yellow-and-red--display-principles)
+<a id="browser-ui-rules"></a>
+- [Browser UI rules](PP_DESIGN_SPEC.md#common-display-spec--browser-ui-rules)
+<a id="numeric-stability"></a>
+- [Numeric stability](PP_DESIGN_SPEC.md#common-display-spec--numeric-stability)
+<a id="numeric-adjustment"></a>
+- [Numeric adjustment](PP_DESIGN_SPEC.md#common-display-spec--numeric-adjustment)
+<a id="contextual-help"></a>
+- [Contextual help](PP_DESIGN_SPEC.md#common-display-spec--contextual-help)
