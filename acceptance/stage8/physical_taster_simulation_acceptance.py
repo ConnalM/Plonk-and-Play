@@ -16,7 +16,8 @@ from physical_acceptance_baseline import require_immutable_baseline
 from multiclient_http_acceptance import (
     EventStream, acquire_owner, call, client, context, fixture,
     get_json, operation, passage, proposal_identity, record_snapshot,
-    require_authorised_target, restore_proposal, wait_state, wait_until,
+    require_authorised_target, restore_proposal, wait_for_generated_lap_interval,
+    wait_state, wait_until,
 )
 
 FINISHES = ("IMMEDIATE", "COMPLETE_CURRENT_LAP", "COMPLETE_FULL_RACE_DISTANCE")
@@ -53,6 +54,7 @@ def taster_pass(opener, lane, dwell=0.35):
     no_smug_controller(opener)
     before = get_json(opener, "/state")
     entry = next(e for e in before["entries"] if e["lane"] == lane)
+    wait_for_generated_lap_interval()
     fixture(opener, f"taster-lane{lane}")
     observed = wait_until(lambda: get_json(opener, "/state"),
                           lambda state: any(e["raceEntryId"] == entry["raceEntryId"] and

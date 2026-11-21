@@ -32,6 +32,10 @@ from physical_acceptance_baseline import require_immutable_baseline
 
 BASE = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else ""
 
+# A physical-looking acceptance lap must never be injected at 0.00 seconds.
+# The margin absorbs scheduling/polling jitter while retaining a concise run.
+MIN_GENERATED_LAP_SECONDS = 1.05
+
 
 def require_authorised_target():
     if len(sys.argv) != 3 or sys.argv[2] != "--acceptance" or not BASE.startswith("http://"):
@@ -299,11 +303,17 @@ def record_snapshot(owner):
     return history, tuple(r[key] for key in ("era", "lane1Pb", "lane2Pb", "trackRecord"))
 
 
+def wait_for_generated_lap_interval():
+    """Keep every injected crossing at least one displayed second from GO/lap."""
+    time.sleep(MIN_GENERATED_LAP_SECONDS)
+
+
 def passage(owner, lane):
     before = state(owner)
     assert before["lifecycle"] == "RACING" and before["simulatedSession"] is True, before
     revision_before = get_json(owner, "/noticeboard")["revision"]
     entry = next(e for e in before["entries"] if e["lane"] == lane)
+    wait_for_generated_lap_interval()
     fixture(owner, f"lane{lane}")
     after = wait_until(lambda: state(owner), lambda v: any(
         e["raceEntryId"] == entry["raceEntryId"] and e["laps"] == entry["laps"] + 1
