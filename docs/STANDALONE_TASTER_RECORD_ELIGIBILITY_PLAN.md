@@ -1,6 +1,6 @@
 # Standalone Taster record eligibility
 
-**Status: ACCEPTANCE REFERENCE ONLY.** Separate implementation plan retired; execution tasks belong to WP8-02 and the physical gate in [Master Project Plan](MASTER_PROJECT_PLAN.md). Binding behaviour resides in [Design Specification](PP_DESIGN_SPEC.md#race-control-engine-design--41-session-source-and-record-policy). The [original sequence](https://github.com/ConnalM/Plonk-and-Play/blob/13662fbc5e42fbc83204b7662643a2c43fe8fefb/docs/STANDALONE_TASTER_RECORD_ELIGIBILITY_PLAN.md#implementation-sequence) is preserved historically. Test obligations below are unchanged; consolidation grants no acceptance.
+**Status: ACCEPTANCE REFERENCE ONLY.** Separate implementation plan retired; accepted WP8-02 evidence and the remaining physical gates are recorded in the [Master Project Plan](MASTER_PROJECT_PLAN.md). Binding behaviour resides in [Design Specification](PP_DESIGN_SPEC.md#race-control-engine-design--41-session-source-and-record-policy). The [original sequence](https://github.com/ConnalM/Plonk-and-Play/blob/13662fbc5e42fbc83204b7662643a2c43fe8fefb/docs/STANDALONE_TASTER_RECORD_ELIGIBILITY_PLAN.md#implementation-sequence) is preserved historically. Test obligations below are unchanged; consolidation grants no acceptance beyond the separately recorded WP8-02 closure.
 
 ## Acceptance evidence
 
@@ -34,6 +34,35 @@ remain separately identified. The Master Project Plan owns acceptance status
 and outstanding work; neither synthetic detector inputs nor a successful
 build prove physical detector/official persistence or Browser acceptance.
 
-## Latest physical acceptance evidence — 21 November 2026
+## Accepted WP8-02 physical evidence — 21 November 2026
 
-The current acceptance-only firmware image `F6A415CF20AE943095491D8AD7DDCB460E228B05CD74B52505C1744F35C1040A` was application-only flashed and verified. [Al's physical report](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7052587568) credits Stage 13 PASS and Stage 8 automated assertions PASS, with preserved official History, PBs and Track Record. Stage 15 earlier passed on a separate verified candidate. The proposed `ENDURANCE / 943` entry was later explained by the owner's manual +/- button testing (not evidence of firmware corruption). The previous per-stage harness had mutable-baseline vulnerability; an [immutable baseline harness and runner](https://github.com/ConnalM/Plonk-and-Play/commit/9e7d708e66dd3c341139059eec79c21b8120283f) have passed source review. Owner reports observing no obvious screen glitches but was not advised of the exact states to witness. The owner authorised one final physical verification [on PR #3](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7053060759), but independent review of its final execution logs, per-state visual evidence and full WP8-02 acceptance remains OPEN at this documentation checkpoint. Source/host, real device and human visual evidence must remain distinct; no firmware merge or product acceptance inferred.
+**WP8-02 is CLOSED / PASS.** The accepted application-only image is
+`F6A415CF20AE943095491D8AD7DDCB460E228B05CD74B52505C1744F35C1040A`.
+Stage 15 passed Browser controller/spectator authority, reconnect and official
+record isolation. Stage 13 passed Results lifecycle, Browser/SSE handling and
+RACE AGAIN cleanup. Stage 8 passed automated Lap/Endurance, pause/resume,
+finish-policy and Browser-handover assertions. The independent guided Stage 8
+Taster screen observation also passed, with no observed display glitches.
+
+The immutable full-suite evidence is retained at
+`acceptance/evidence/wp8-02-final-20261120-232321/`; the guided Stage 8
+evidence is retained at
+`acceptance/evidence/wp8-02-guided-stage8-20261121-170852/`. Both record
+proposal-baseline restoration. The owner confirmed the `ENDURANCE / 943`
+proposal was created during manual +/- testing, not by configuration
+corruption.
+
+Original settings and official records were preserved. The temporary SD failure
+was a physically absent card; powered-off reinsertion restored access without
+data repair or writes. Final read-only checks retained 12 readable History
+entries and two explicitly flagged pre-existing unreadable entries, Lane PBs
+and Track Record. The source-reviewed `8669011d` change only paces generated
+external-test crossings by at least 1.05 seconds; it does not alter production
+firmware, rejected input behaviour or the accepted physical image.
+
+This bounded closure proves the stated automated acceptance scenarios and
+observed Taster presentation. It does **not** complete the separately open
+real-detector, physical standalone-record positive/negative, power-cycle,
+general production-storage, Stage 14C/15 production or broader release gates.
+Source/host, real-device and human visual evidence remain distinct; no
+firmware merge or product-release acceptance is implied.
