@@ -1,46 +1,20 @@
-# Stage 12 Design � Completed Results and Post-Race Flow
+# Stage 12 Design � Completed Results and Post-Race Flow — retired
 
-**Status: FROZEN DESIGN � Stage 12 implementation not yet authorised**
+**RETIRED as a separate design document on 19 November 2026.** The design contract is preserved in the single [P&P Design Specification](PP_DESIGN_SPEC.md#stage-12-design--stage-12-design--completed-results-and-post-race-flow). Historical phase limits, completion status and evidence references are not new product requirements. Use [Master Project Plan](MASTER_PROJECT_PLAN.md) for outstanding work and acceptance status.
 
-Stage 12 adds an authoritative in-RAM completed-race result and the minimal Results, Details, Home and Race Again flow. It does not add persistence, History, controller-restart recovery, or a production restart-from-zero operation while a race is active.
+[Original preserved revision](https://github.com/ConnalM/Plonk-and-Play/blob/3432dd0160ae613703cd7b266972df46eaa1402d/docs/STAGE_12_DESIGN.md) (historical only).
 
-## Ownership and lifetime
+## Legacy section links
 
-Race Engine owns a `CompletedRaceResult` summary created only after completion settlement. It contains the immutable Session Definition reference, W/F, finish behaviour, per-entry completed progress, completion times where measured, finishing order/dead heats, Best Lap and overall Fastest Lap, detail-completeness/association status and a sealed flag. Individual lap records belong to the active/detail storage boundary and are retrieved on demand for Details; they are not a fixed product-sized array in the summary. It remains available in RAM through Results and Browser reconnect until the next accepted START, fixture reset, or controller restart. Browser and Noticeboard expose it; neither calculates authoritative results.
-
-START after Race Again creates a new Session Definition and fresh Race Entry IDs. Editing the proposed setup cannot mutate the sealed previous result.
-
-## W, F and completion settlement
-
-Immediate Finish has W=F at the first target-distance crossing. Complete Current Lap and Complete Full Race Distance retain required post-W crossings; F is the Relevant Time of the last required crossing. A candidate F starts an explicit Message Bus settlement: `FINISH_SETTLEMENT(F)` reaches the local Input Module, which settles all locally accepted eligible input through F; `FINISH_SETTLED(F)` returns through the normal bus. Race Engine then orders and interprets the settled inventory, seals the result, and reports completion to Race Control. Input with Relevant Time after F cannot mutate the sealed result.
-
-The exact finish-rule algorithms and settlement-pending rejection reason are frozen by the acceptance plan. No generalized distributed watermark or persistence protocol is introduced.
-
-## Browser flow
-
-FINISHED State offers Results and read-only Details. Details shows genuine retained lap records only. BACK returns to Results. Spectators may view both. Race Director authority is required for Race Again and any Home operation that changes authoritative session flow. Race Again restores the completed setup as proposed without starting. HOME returns to normal mode selection and does not factory-reset remembered setup.
-
-## Explicit deferrals
-
-Persistent Results/History, rolling history, PBs, track records, persistence schema, controller-restart result recovery, PAUSE-to-Restart-Race, PAUSE-to-End-Race, other modes, championship management and polished UI remain deferred.
-
-
-## Decisions 14�21 incorporated
-
-**W/F:** Immediate Finish uses W=F. Complete Current Lap sets W at the winner crossing and requires exactly one valid post-W crossing from every other active competitor; F is the last such crossing. Complete Full Race Distance keeps required competitors active to target distance; F is the last target crossing.
-
-Complete Current Lap ranking is completed progress first, then finishing Relevant Time, with equality only when both are equal. Immediate Finish non-winners use completed progress only; no physical position or finish time is inferred. Results use explicit normal competition ranks (`1, =2, =2, 4`) and joint first where applicable.
-
-**HOME and Race Again:** HOME is Browser-local navigation and never changes FINISHED or requires Race Director authority. Race Again is Race Director-only and seeds a new editable Proposed Race Setup from the completed Session Definition, then validates current capabilities when START creates a fresh Session Definition and fresh entry IDs.
-
-**CompletedRaceResult:** Race Engine owns one sealed in-RAM summary. Results is served from the summary; Details retrieves the linked detail records through the active/detail storage boundary or committed History representation. Facts remain events and are never used as a history database. The summary ends at the next accepted START, full fixture reset or controller restart.
-
-**Settlement:** Proposed appended types are `FINISH_SETTLEMENT=18` and `FINISH_SETTLED=19`. Race Engine owns candidate F and finish-rule interpretation; Input Module only fences its locally accepted FIFO. Race Engine seals only after FINISH_SETTLED, and later Relevant Time values cannot mutate the result. Settlement flags reset for every new race.
-
-
-## Decision 22 � active competitor at W
-
-An active competitor at W is a race entry in the current Session Definition which has not ceased participation under an existing authoritative race rule before W. Stage 12 introduces no retirement, withdrawal, DNF, disqualification, pit/inactive state or Browser-dependent participation. In this implementation every valid entry remains active except an entry already finished as part of the winning group. Browser presence never affects activity. Complete Current Lap therefore requires exactly one further valid crossing from every other active entry; Complete Full Race Distance continues every other active entry to target distance. If all active entries satisfy the winning condition at the same Relevant Time they may be joint winners and no artificial crossing is added.
-
-Completed-result Noticeboard and Browser field names/serialization are implementation details, constrained by the semantic requirements and existing boundaries. They are not remaining product-design decisions and must not turn State into persistent History.
-
+<a id="ownership-and-lifetime"></a>
+- [Ownership and lifetime](PP_DESIGN_SPEC.md#stage-12-design--ownership-and-lifetime)
+<a id="w-f-and-completion-settlement"></a>
+- [W, F and completion settlement](PP_DESIGN_SPEC.md#stage-12-design--w-f-and-completion-settlement)
+<a id="browser-flow"></a>
+- [Browser flow](PP_DESIGN_SPEC.md#stage-12-design--browser-flow)
+<a id="explicit-deferrals"></a>
+- [Explicit deferrals](PP_DESIGN_SPEC.md#stage-12-design--explicit-deferrals)
+<a id="decisions-1421-incorporated"></a>
+- [Decisions 14�21 incorporated](PP_DESIGN_SPEC.md#stage-12-design--decisions-1421-incorporated)
+<a id="decision-22--active-competitor-at-w"></a>
+- [Decision 22 � active competitor at W](PP_DESIGN_SPEC.md#stage-12-design--decision-22--active-competitor-at-w)

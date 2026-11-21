@@ -1,9 +1,9 @@
 # P&P Consolidated Completion Plan
 
-**Status:** Authoritative project-control plan — corrected 4 November 2026
-**Purpose:** One route from the present engineering system to a releasable P&P v1.
+**Status:** Authoritative project-control plan — documentation and V1 scope reconciled 21 November 2026
+**Purpose:** One roadmap and backlog for P&P: current v1 work, later v1 work and post-v1/v2 candidates. Current release delivery remains the priority.
 
-This file supersedes the old Stage plan, the earlier WP0–WP12 execution plan and ad-hoc gap lists **as project roadmaps**. Those documents remain authoritative specifications and evidence where applicable. Nothing already proved is to be rerun merely because this plan is newer.
+This file supersedes the old Stage plan, the earlier WP0–WP12 execution plan and ad-hoc gap lists **as project roadmaps**. Their requirements are now governed by the [single P&P Design Specification](PP_DESIGN_SPEC.md); earlier revisions and dated evidence remain historical references. Nothing already proved is to be rerun merely because this plan is newer.
 
 The detailed reconciliation that feeds this plan is `docs/P_AND_P_COMPLETION_RECONCILIATION_2026-10-23.md`.
 
@@ -17,7 +17,7 @@ Every known requirement or unresolved obligation must have exactly one dispositi
 - **DEFERRED POST-v1** — deliberately outside v1;
 - **SUPERSEDED** — historical path/wording no longer applicable.
 
-No separate Stage/WP/gap list may become a competing execution plan.
+No separate Stage/WP/gap list may become a competing execution plan. The owner-approved documentation structure (19 November 2026) requires all outstanding work, including later-v1 obligations and v2 candidates, to have a single home in this plan. Record release disposition, WP/dependency, priority, owner and status for each item as applicable; reference the governing design and acceptance criteria rather than restating them. The deferred post-v1 register below is not a commitment to ship any particular v2 feature.
 
 ### Development rhythm
 
@@ -50,7 +50,8 @@ P&P v1 includes:
 - Endurance: Stop at Zero and Finish Current Lap;
 - 1–8 lane software/product architecture, initially provable with two physical lanes;
 - Normal Browser, one Race Director/controller lease and spectator Browsers;
-- local 7-inch display/Taster operation;
+- local 7-inch standalone Taster operation and one configurable SMUG-controlled auxiliary display, including named configurations, adaptive layouts and optional cycling;
+- complete Race Entry reassignment and manual/automatic lane rotation, including optional Car identity;
 - real optical lap detection and Track Setup;
 - Results, Finish Display, History/Details, PB, Track Record and Record Era where applicable;
 - SD persistence, transactional behaviour and recovery;
@@ -59,14 +60,14 @@ P&P v1 includes:
 - diagnostics, support download, health/status/version;
 - restart/reset/factory recovery and customer firmware update;
 - WP8 race audio with an internal speaker, firmware tones and P&P-supplied SD
-  speech and effects, as specified under WP8 below;
+  speech and effects, as specified in the [shared audio design](PP_DESIGN_SPEC.md#product-facilities-spec--3-audio-and-removable-storage);
 - production PSU, connectors/cabling, enclosure, instructions, production test and support process.
 
 Product promise:
 
 > Take P&P out of the box, connect the sensors, switch it on and race — without a PC, router, account or technical setup.
 
-Deferred post-v1: Personal MUG, dedicated TV/projector display, Timed Practice, Stage/Rally/Hill Climb, Drag, wireless detectors, Screen Designer, championships/events, Rex/REU-dependent facilities and other later expansion unless explicitly promoted by Connal through scope control.
+Post-v1 candidates are recorded in the single backlog under §7; none enter v1 unless explicitly promoted by the Project Owner through scope control.
 
 ## 4. Work packages and closure gates
 
@@ -303,27 +304,9 @@ remains OPEN.
 
 Complete local 7-inch presentation, Taster/local controls, start lights, pause/resume/recovery/AP information, authoritative audio, volume/mute and coexistence with Browser authority.
 
-#### Approved audio scope (18 November 2026)
+#### Outstanding display and audio implementation
 
-[Product Facilities §3](PRODUCT_FACILITIES_SPEC.md#3-audio-and-removable-storage)
-defines the approved v1 audio behaviour, factory settings, Endurance warnings,
-priority order and failure handling. The standard internal speaker starts at
-60% volume. Essential tones reside in firmware, and P&P-supplied SD packs carry
-speech and effects. Launch voices are British male and female, with provision
-for future languages. Customer-installed packs are outside scope.
-
-SMUG configures events individually, and the Taster retains preferences in
-standalone operation. Destinations are P&P, Browser, Both or Mute. Browser-only
-falls back to P&P when standalone, and Mute always applies. Audio preview and
-independent speaker/Browser tests are disabled during active races.
-
-WP8 audio implementation and acceptance remain open pending the compliance
-review. Acceptance must cover the factory defaults, selected Endurance cues,
-priority and stale-queue handling, silent PAUSED lights, restart/reset
-persistence, offline tone fallback and diagnostics. Racing must remain
-responsive with audio enabled and when media fails.
-
-**Deferred post-v1:** personalised spoken announcements using MUG names.
+Implement and accept the [Integrated Display configuration/restoration](PP_DESIGN_SPEC.md#pp-taster-spec--smug-configurable-taster) and [shared audio contract](PP_DESIGN_SPEC.md#product-facilities-spec--3-audio-and-removable-storage). Acceptance includes factory settings, independent warning cues, priority/stale-queue handling, silent PAUSED lamps, restart/reset retention, offline fallback, diagnostics and responsive racing under media failure. Personalised spoken names remain in §7.
 
 WP8 is an entry dependency for the deferred physical Taster obligations recorded
 under WP5: once the physical display/Taster candidate exists, the mandatory
@@ -331,261 +314,17 @@ Stage 14C Browser/Taster checkpoint and Stage 15 Phase 8B Browser/Taster
 coexistence acceptance must be executed without changing or weakening those
 acceptance criteria.
 
-#### SMUGLAND Browser visual design and acceptance
+#### Browser visual design and acceptance
 
-**Status: OPEN. Owner: Gina (visual design).** Establish the approved
-SMUGLAND Browser visual language, screen designs and asset set, then implement
-and accept the Browser presentation separately from its existing functional
-contracts. Acceptance must cover the approved desktop and supported mobile
-layouts, race setup clarity, authority/state presentation, accessibility and
-the Browser/Taster coexistence journey. This workstream does not weaken the
-existing Browser functional, authority or socket-limit regression obligations.
+**DESIGN APPROVED SUBJECT TO TESTING — 19 November 2026.** Gina's design handover and Archie source review are complete. [V18 approved design baseline](https://github.com/ConnalM/Plonk-and-Play/blob/ec46ff5b8df07d1477fa40543423509c778a22d1/design/smugland/PP_Browser_v18_navigation.html); [Archie review](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7012907261). All three V16 corrections present in V17; V18 script exactly matches V17 with cosmetic navigation icons. Gina reports 42 focused V17 assertions and V18 responsive checks passing, not independently rerun by Archie. Representative fixtures only; production implementation, authority/timing/persistence and acceptance remain open. No new design expansion; implementation and testing may identify defects or necessary refinements for review.
 
-#### Superseded animation handover — static Taster presentation
+#### Physical display milestone and deferrals
 
-This records the superseded animation restart plan. The physical Taster remains
-on its stable single-framebuffer static presentation; moving cars and animated
-chequered flags remain deferred. Static READY/RACING/PAUSED/FINISHED
-presentation, the 450 ms lane brightness pulse (with perimeter-highlight
-fallback), and the static winner wreath are not evidence that moving animation
-is solved.
+Accepted static header/control milestone (18 November), not WP8 closure. Preserved application SHA-256 `3649CEE0EE12EF4630EFD5A0825B57EB37B7C3603543E7A9093AA540691D1A08`; recovery copy `C:\Users\conna\Documents\P&P Backups\2026-11-18-WP8-centred-lamps\plonk-and-play-3649CEE0.bin`. [Design constraints](PP_DESIGN_SPEC.md#physical-integrated-display-constraints); [complete earlier evidence, artifact hashes, investigation, source locations and animation procedure](https://github.com/ConnalM/Plonk-and-Play/blob/13662fbc5e42fbc83204b7662643a2c43fe8fefb/docs/MASTER_PROJECT_PLAN.md#superseded-animation-handover--static-taster-presentation). No physical animation, audio, coexistence or real detector acceptance inferred.
 
-**Authoritative design and source.**  Animation is a presentation response to
-authoritative lane events; it must never create timing, GO, pause, expiry,
-finish or overtime authority.  The common rules are recorded in
-`docs/IMPLEMENTATION_SPEC.md` (Lap and finish animation),
-`docs/COMMON_DISPLAY_SPEC.md` and `docs/PRESENTATION_DESIGN_SPEC.md`.
-`docs/PP_TASTER_SPEC.md` defines the two fixed lane rows, lane-local animation,
-and the finishing flag treatment.  The original Wokwi implementation is
-`firmware/taster_wokwi/pp-taster-display.chip.c`: `draw_flag_fabric()` (the
-continuous waving checker fabric), `draw_lane_car()` (the original artwork,
-streaks, 500-pixel journey and quadratic position formula),
-`update_lane_animation()` (one lane arms only when its authoritative lap or
-finish state changes) and `animation_tick()` (the frame timer).  The physical
-port is retained in `firmware/include/pp/wp7_physical_racing_ui.h`:
-`drawFlagFabric()`, `drawAnimatedCar()`, `observeAnimationEvents()`,
-`drawLaneStatic()` and `drawCurrent()`.  The physical port keeps the original
-MGB/E-Type assets and lane independence; `PP_WP7_DISABLE_ANIMATIONS` currently
-sets `kAnimationsEnabled=false`, so those paths are compiled for future use but
-not used by the accepted physical target.
+Moving cars/flags, physical double buffering and animation polish are deferred until core completion; WP9 decides scope. No new animation experiment now.
 
-The physical RGB565/RLE artwork is preserved in
-`firmware/include/pp/wp7_ready_artwork.h` (`kWp7Mgb`, `kWp7Etype` and the P&P
-logo).  It is the artwork source to reuse; do not regenerate substitute car
-sprites while restarting the animation work.
-
-The current physical constants are `kCarStartX=52`,
-`kCarTravelPixels=500`, `kAnimationFrameMs=50`,
-`kLapAnimationFrames=14` (about 700 ms) and
-`kFinishAnimationFrames=18` (about 900 ms).  The Wokwi reference uses seven
-ordinary and nine finishing frames at 50 ms.  The difference is deliberate
-physical interpolation work, not a change to race rules.  The position formula
-and its perceived ease-in/ease-out direction must be re-measured against the
-reference before acceptance; comments call it ease-out while earlier physical
-observation suggested the opposite.  Do not silently “correct” that formula.
-
-**Observed failure history.**  The original single-framebuffer RGB path showed
-visible flicker when timer or READY values changed, and intermittent corruption
-where the top of the image appeared at the bottom, with small groups of bad
-pixels on horizontal lines.  Large row/full-screen redraws and cache write-back
-made the symptom worse.  During animation experiments, unsynchronised drawing
-and clearing of the one scanout framebuffer could expose a partially rendered
-frame to RGB DMA, producing tearing/flicker and making a 350 ms, seven-frame
-journey hard to follow.  A source-built integrated direct-ESP-IDF
-double-buffer attempt also produced horizontal rolling and, in one revision, a
-blank panel.  The isolated red/blue diagnostic proved that two driver-owned
-PSRAM buffers and `esp_lcd_panel_draw_bitmap()` can alternate in a minimal
-ESP-IDF 5.5.5 program, but that result did not transfer safely to the complete
-Arduino/P&P integration.  Production therefore returned to the known-good
-single-framebuffer path; no animation acceptance may rely on the isolated
-diagnostic.
-
-**Single-buffer and rendering lessons.**  `firmware/include/pp/board_display_esp32s3.h`
-is the hardware boundary.  The validated panel is 800x480 RGB, 12 MHz pixel
-clock, DE 41, VSYNC 40, HSYNC 39, PCLK 42, RGB pins R={14,21,47,48,45},
-G={9,46,3,8,16,1}, B={15,7,6,5,4}, backlight GPIO2, with the established
-20-line bounce buffers (64,000 bytes of internal DMA-capable SRAM in total)
-and the full framebuffer in PSRAM.  Drawing must not change these timings or
-the bounce-buffer contract.  A moving object must restore its own background
-before drawing the next position; stationary timing fields, lane panels,
-labels and cars must not be repainted as collateral.  A single RGB framebuffer
-has no atomic “frame present” boundary, so keeping dirty rectangles small is a
-stability requirement, not merely an optimisation.
-
-The central dirty-region implementation and diagnostics live in
-`wp7_physical_racing_ui.h`: `DirtyRegionSet`, `renderSignature()`,
-`drawCurrent()`, `reportDirtyRegions()` and `FullFrameReason` (initial draw,
-lifecycle transition, welcome transition, dirty-region overflow and unmapped
-signature change).  READY signatures were corrected to represent the displayed
-local mode/value, preventing a pending-to-accepted acknowledgement from causing
-an unnecessary full-frame redraw.  START-button and lap-cell invalidation were
-also narrowed.  These fixes are solved for static presentation, but they do not
-prove that an animated corridor can be updated safely under RGB scanout.
-
-The corrected signature path is important because the old pending-to-accepted
-acknowledgement could look like an unmapped visible change and fall through to
-the full-frame safety fallback.  The fallback is still required for genuine
-unmapped changes; it must be logged as `unmapped-signature-change` rather than
-silently removed.  This distinction is part of the animation handover: a lane
-animation may dirty only its lane corridor, while an actual lifecycle or
-unmapped presentation change is allowed to request a full frame.
-
-An earlier measurement found that READY persistence was another trigger.  With
-normal synchronous NVS writes, visible full-screen jumps occurred at presses 6,
-19 and 31 (intervals 13 and 12).  A no-NVS diagnostic ran about 49 adjustments
-without those jumps, while still showing occasional local flashes.  The
-source-built XIP comparison retained normal NVS persistence and removed the
-recurring jumps/corruption in physical testing, while settings survived power
-disconnection.  The working XIP configuration is
-`CONFIG_SPIRAM_XIP_FROM_PSRAM=y`, Octal PSRAM at 80 MHz,
-`CONFIG_LCD_RGB_RESTART_IN_VSYNC=y`, and single-framebuffer recovery mode.
-The RGB translation unit requires the reproducible, narrowly scoped `-Os`
-workaround for the Windows GCC IRA crash; all other compilation remains at its
-normal settings.  XIP and the RGB workaround are stability prerequisites for
-future animation experiments, not animation proof.
-
-**Verified artifacts and recovery.**  Keep these outside temporary build
-directories and do not overwrite them:
-
-- accepted XIP static baseline:
-  `C:\Users\conna\Documents\Plonk-and-Play\WP8-stage2-xip-enabled-20261112\firmware.bin`
-  SHA-256 `A647A4355A4984E911E2EB5BBF68D8523FDC37C1B603D78E7F0F64F387E4C52D`;
-- read-back recovery image:
-  `C:\Users\conna\Documents\Plonk-and-Play\WP7-recovery-readback-20261109\firmware-recovery.bin`
-  SHA-256 `C8906CD37C6C1D796C89AFD41C9FDD9A1B9F830D3EBA6DBD44B32FF3B1F31CDD`;
-- earlier welcome candidate (not a replacement for the accepted baseline):
-  `C:\Users\conna\Documents\Plonk-and-Play\WP7-XIP-welcome-candidate-20261112\firmware.bin`
-  SHA-256 `8973C4B62EA413D7E9D1CD1EFF4C005FC214D1B3E275A87E7087B165E76C6B12`;
-- latest XIP welcome/startup candidate built from the dirty worktree, not
-  physically accepted:
-  `C:\Users\conna\Documents\Plonk-and-Play\WP8-wp7-welcome-xip-short-20261112\plonk-and-play.bin`
-  SHA-256 `E441FCE63903D6D31040680BA102813326F648FAFA7A2ABEDF831A10C906E1C2`.
-- verified WP7 physical-race checkpoint (17 November 2026):
-  `C:\Users\conna\Documents\P&P Backups\2026-11-17-WP7-physical-tested\firmware\plonk-and-play.bin`
-  SHA-256 `D748ACD92F7F637DA05F37DD6A6B4D1CC85DBAA6D8E9E4390A7D7A2AD31A983E`.
-  Physical testing confirmed that laps stop at the configured target, both
-  lanes finish correctly, countdown/GO remain steady, cars remain static, and
-  only the FINISHED transition produces a visible flash.
-
-- WP7 formatting acceptance (18 November 2026): the physical Taster passed
-  the left-aligned active heading, blank pre-GO lane counters, LAPS/ENDURANCE
-  counter formats, stationary MM:SS timer layout, and smooth three-phase
-  setup adjustment/wraparound checks.  The current display work remains on
-  the established XIP, Octal-PSRAM, single-RGB-framebuffer configuration.
-
-- WP8 GO transition acceptance (18 November 2026): the physical Taster passed
-  the local dirty-region red-to-green transition with the one-second green
-  presentation intact. The subsequent header/control checkpoint below records
-  physical acceptance of PAUSE feedback and alternating warning lamps.
-
-- WP8 physical header/control acceptance (18 November 2026): the physical
-  Taster accepted the approved 145x55 logo, five centred 60x60 lamp assets,
-  the static bezel, the one-second GO green presentation, PAUSE amber
-  `RELEASE` feedback after a 700 ms hold, and the 500 ms alternating PAUSED
-  yellow/OFF sequence. The accepted flashed application image is
-  `3649CEE0EE12EF4630EFD5A0825B57EB37B7C3603543E7A9093AA540691D1A08`;
-  its preserved recovery copy is
-  `C:\Users\conna\Documents\P&P Backups\2026-11-18-WP8-centred-lamps\plonk-and-play-3649CEE0.bin`.
-  This confirms the static header/control milestone only; it does not close
-  deferred Browser/Taster coexistence, audio, animation, real-track or release
-  obligations.
-
-The accepted baseline image is the recovery target before every animation
-experiment.  The RGB-only `-Os` workaround, XIP configuration and current
-single-framebuffer settings must be recorded with any replacement image; a
-dirty-worktree build must not be described as a committed release artifact.
-
-**Status at this checkpoint.**
-
-- **SOLVED:** static physical Taster presentation is stable enough for the
-  accepted READY/racing workflow; central dirty-region invalidation and fixed
-  numeric geometry are in place; redundant START/lap-cell redraws and the
-  periodic NVS/cache corruption were addressed; XIP plus normal NVS persistence
-  was physically tested and settings survived a power cycle; original car and
-  flag source/artwork and per-lane event wiring remain preserved.
-- **UNPROVEN:** flicker-free physical moving-car animation on the current
-  single-framebuffer panel; whether a lane-local animated corridor can coexist
-  with RGB scanout without tearing or underruns; exact physical easing and
-  flag-wave fidelity; and any claim that the integrated double-buffer path is
-  reliable in the full P&P firmware.
-- **DEFERRED:** all moving MGB/E-Type and animated chequered-flag presentation
-  on the physical Taster; production double-buffer/direct-ESP-IDF switching;
-  and any broader animation polish until the core product is complete.  The
-  Wokwi animation remains a reference implementation, not physical evidence.
-
-**Staged restart plan (do not skip gates).**
-
-1. Restore and verify the accepted XIP single-framebuffer baseline and confirm
-   static READY/RACING, touch, NVS persistence and the recovery procedure.
-2. Enable only one ordinary Lane 1 lap animation on an otherwise static
-   RACING screen.  Arm it solely from the authoritative noticeboard lap
-   transition; never use a timer to invent a lap.  Keep Lane 2 and all timing
-   fields frozen.  Redraw only the Lane 1 car corridor, restoring the reserved
-   background before each frame.
-3. Instrument every frame with lane, frame index, rectangle(s), render time,
-   cache-write bytes/rows, maximum main-loop delay, and any RGB underrun or
-   presentation error.  Capture serial output and a physical video/photo.
-   Start conservatively with the existing 14-frame/700 ms ordinary-lap
-   constants; compare the original Wokwi seven-frame/50 ms sequence only after
-   the corridor is stable.
-4. Pass a gate of at least 30 repeated authoritative Lane 1 events with no
-   tear, top-to-bottom wrap, stationary-field change, touch loss, watchdog or
-   RGB error and with bounded render/cache metrics.  If this fails, stop and
-   return to the accepted baseline; do not add more animation or switch to
-   double buffering speculatively.
-5. Only after Lane 1 passes, add Lane 2 with independent state and the same
-   gate; then add the finishing-lap ribbon/flag for one lane; finally test the
-   other lane finishing while the first lane remains settled.  Each step must
-   preserve authoritative timing and the full-race completion policy.
-
-**Reproduction evidence.**  Focused offline checks that passed with the current
-   source include:
-
-```
-python acceptance/wp7_welcome_startup_test.py
-python acceptance/stage8a/taster_structure.py
-```
-
-The C++ contract sources are `acceptance/wp8_presentation_contract_test.cpp`,
-`acceptance/stage8a_taster_surface_test.cpp`,
-`acceptance/stage8a_dirty_region_test.cpp` and
-`acceptance/wp7_gt911_safety_test.cpp` (the last includes
-`firmware/lib/TAMC_GT911/src`).  They produced, respectively,
-`WP8_PRESENTATION_CONTRACT_PASS`, `STAGE8A_TASTER_SURFACE PASS`,
-`DIRTY_REGION_TEST_PASS` and `GT911_SAFETY_TEST_PASS` in the existing focused
-harness.  The build scaffold is `firmware/wp7_idf_arduino_dbuf` using the
-ESP-IDF 5.5.5/Arduino-as-component external route, `sdkconfig.xip`, and
-environment switch `PP_WP7_IDF_SINGLE_FB_XIP=1`; compile commands must show
-`PP_WP7_SINGLE_FB_RECOVERY=1`, Octal PSRAM, XIP and the RGB-only `-Os` option.
-Always run `git diff --check`, `esptool image_info` (checksum and validation
-hash), and record the final SHA-256 before any physical flash.
-
-The [physical Taster XIP build reference](WP7_XIP_APPLICATION_BUILD_REFERENCE.md)
-contains the full commands and validation procedure.
-
-**WP7 application-only build recovery (confirmed 2026-11-18).** Use the
-existing `bwp7welcome` build directory, not a newly configured build tree.
-Its successful configuration uses the ESP-IDF checkout mounted at `Y:\`, the
-ESP-IDF Ninja executable, and the generated response-file toolchain flags in
-`bwp7welcome/toolchain/`.  Set `IDF_PATH=Y:\`,
-`IDF_TOOLS_PATH=C:\Users\conna\.espressif-wp7`,
-`IDF_PYTHON_ENV_PATH=C:\Users\conna\.espressif-wp7\python_env\idf5.5_py3.11_env`,
-`PP_WP7_IDF_SINGLE_FB_XIP=1`, and the established Arduino/GFX/TAMC paths
-before invoking Ninja.  The build directory's `.ninja_log` and `.ninja_deps`
-allow only read/execute to the sandbox group: run Ninja with the approved
-external owner-level execution permission so it can compact those files.
-This preserves the response-file and compiler-path workaround; do not replace
-it with a fresh toolchain setup or a generic CMake build.
-
-For physical correlation, preserve plain serial output rather than relying on
-terminal rendering: `[WP7 PHYS] redraw regions=... reason=...` reports the
-dirty set and full-frame reason; `[WP8 DIAG] adjust`, `persist begin/end`,
-`loop` and `touch` lines correlate adjustment number, NVS duration, render
-duration, maximum loop delay and GT911 errors; `[DISPLAY]` reports the
-single-frame initialisation/bounce configuration; and `[DBUF]` belongs only to
-the disposable double-buffer diagnostic.  A clean boot or callback log is not
-animation evidence; a physical frame must be observed with its stationary
-content intact.
+Use [XIP build reference](WP7_XIP_APPLICATION_BUILD_REFERENCE.md) and current PR evidence. The original proven tree/image remain protected; separate isolated XIP configuration and full app build passed on 19 November (see §5). Physical and real Browser acceptance remain open.
 
 **G8 closure:** P&P can perform the promised core race experience without phone/PC; Browser and local operation converge correctly; display/audio/control failure behaviour is defined.
 
@@ -599,7 +338,7 @@ This is a **scope gate**, not an invitation to add features. Connal and Archie d
 
 Default answer is **none**. Anything not explicitly promoted remains post-v1.
 
-**GATE D — FEATURE FREEZE:** final v1 feature list frozen. No Rex/REU, Drag, Rally or other attractive rabbit hole may enter v1 without an explicit scope/cost/schedule decision by Connal.
+**GATE D — FEATURE FREEZE:** final v1 feature list is controlled by explicit owner decisions. **Owner scope exception, 21 November 2026:** basic Timed Stage (Rally/Hill Climb/Sprint) and single-lane two-sensor Drag are REQUIRED V1 modes. Owner accepts additional implementation/testing effort and has no fixed launch date; quality and completion, not an artificial deadline, control release. This is an explicit exception to the former Drag/Rally deferral, not permission to add Rex/REU, dual-beam competitive Drag or other optional features. All other promotions still require owner approval and documented scope/dependency review.
 
 ---
 
@@ -620,52 +359,48 @@ Complete instructions, first-start/access experience, firmware/release process, 
 
 **GATE E — P&P v1 RELEASED:** a novice can unpack, connect, power on and race; release package/support path is complete; no open release blocker remains.
 
-## 5. Current project position
+## 5. Current project position and active work
 
-**Current activity: WP8 local-appliance implementation and physical Taster
-acceptance; WP7 real hardware remains open.**
+**WP8 local appliance in progress; WP7 real hardware OPEN.** 21 November update: scripted Stage 15/13/8 physical acceptance evidence is substantially positive, but final immutable-baseline run and state-specific human screen witness remain to be signed off. WP0–WP5 completion evidence remains credited. WP6 physical signed validation/rollback and WP10 qualification remain later gates. The static header/control milestone is accepted; full appliance acceptance is not.
 
-**Project-owner decisions (18 November 2026).** Official-record eligibility is
-frozen in the authoritative `SessionDefinition` at START. A standalone Taster
-race is non-official: it must not enter official History, PB or Track Records;
-a later SMUG connection cannot change that eligibility, and simulated-race
-classification remains preserved. The approved display description is one full
-RGB framebuffer plus 20-line bounce buffers. These are binding requirements;
-implementation and regression evidence remain open until separately accepted.
+### 5.1 Current v1 tasks
 
-WP0–WP5 accepted completion evidence remains credited. WP6 retains its parked
-signed-validation and automatic-rollback physical obligations. WP7 has bounded
-software work but no accepted real detector/track system. WP8 is in progress:
-the static Taster header/control milestone is physically accepted, while its
-remaining appliance obligations are open.
+| ID / WP | Task / owner | Status and next evidence |
+|---|---|---|
+| WP8-01 / WP8 | Physical UI/Noticeboard mismatch and isolated XIP build — Archie/Al | PASSED source correction, focused timing regression and candidate build at `9f78657`; exact tree matches Archie's prepared correction. Reported image validation passed; SHA-256 `4A01F0EBE45569719E3282BC63292FACA76C453894E0E7405635F659D5A38812`, image size 0x23fa00, 64% app partition free. XIP/80 MHz Octal PSRAM/single framebuffer/animations disabled confirmed. [Evidence](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7012016540). Candidate and accepted recovery image preserved separately and rehashed; [local artifact and proposed checkpoint](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7012216516). Cloud copy unverified; physical acceptance remains WP8/Gate C. |
+| WP8-02 / WP8+WP3 | Record eligibility and Browser authority — Archie/Al | **Current evidence 21 November 2026:** Stage 15 real HTTP/controller, History/degradation and official-record isolation PASS on the previous verified acceptance candidate; Stage 13 physical Results lifecycle PASS on the latest app-only image `F6A415CF20AE943095491D8AD7DDCB460E228B05CD74B52505C1744F35C1040A`; Stage 8 automated standalone Lap/Endurance, pause/resume, finishing policies, simulated-record isolation and Browser handover assertions PASS as reported by Al. [Physical report](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7052587568). Last final-check anomaly `ENDURANCE / 943` is now explained by owner's own prior +/- button testing, not a demonstrated firmware defect. Earlier mutable per-stage baseline was a **harness defect**, corrected by an immutable read-only pre-suite baseline; [source-reviewed runner and tests commit 9e7d708](https://github.com/ConnalM/Plonk-and-Play/commit/9e7d708e66dd3c341139059eec79c21b8120283f). One bounded final physical verification authorised [21 November](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7053060759). Owner watched earlier Taster testing and saw no glitches but was not cued to individual states. **Acceptance OPEN** until final runner logs/per-stage restoration/record integrity and identified human visual checkpoints are independently reviewed; don't rerun credited tests solely for explanation. Outstanding broader WP8/physical production gates: concurrent HTTP/SSE stress and lifecycle, standalone official-eligibility physical positive/negative controls, release fixture-ingress isolation/legacy-queue compatibility, live detector and storage/power-cycle work. **No new flash/firmware merge authorised merely by this status update.** |
+| WP8-03 / WP8 | Display setup and shared audio — Archie/Al | OPEN: implement and accept shared remembered settings/restoration and sound. |
+| WP8-04 / WP8 | Browser design / implementation — Gina (design complete), Archie/Al | V18 owner-approved subject to testing; superseded by V21 consolidated Browser + auxiliary design, owner-approved and frozen subject to physical testing ([Owner approval, 20 November 2026](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7039376953); WP8-08); production implementation and acceptance OPEN. Correct issues identified by testing through review; no new scope.  [V21 implementation brief](WP8_V21_IMPLEMENTATION_BRIEF.md) prepared; not authorised to start until WP8-02 physical acceptance, Archie review and explicit owner approval. |
+| WP8-07 / WP1+WP8 | Optional Practice start — Archie/Gina/Al | Owner approved 19 November 2026: SMUG selects Immediate start (default) or five-light Practice start within Open Practice; shared countdown, normal Practice timing and no competitive records. Included in reviewed V21 prototype; effective five reds confirmed in reported targeted regression. Firmware implementation and acceptance after current automated simulation checkpoint. Agree false-start and repeat-start details before implementation. Existing approved standalone display/racing checkpoint unaffected. |
+| WP8-08 / WP8 | Auxiliary Integrated Display — Gina (design), Archie (architecture/review), Al (implementation/acceptance later) | V1 owner-approved requirements: [governing design](PP_DESIGN_SPEC.md#pp-taster-spec--auxiliary-display). Archie FINAL DESIGN REVIEW PASS on [V21](https://github.com/ConnalM/Plonk-and-Play/blob/b794e9e78642d586b107e6982d0372d7dc356b53/design/smugland/PP_Browser_v21_auxiliary_review.html), owner-approved and frozen subject to physical testing ([Owner approval, 20 November 2026](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7039376953)). [Reported evidence](https://github.com/ConnalM/Plonk-and-Play/blob/06fcc4973abda975d912c29ececc6f28ad1bbd2c/design/smugland/PP_Browser_v21_test_evidence.md): 156 Chromium assertions (128 cumulative + 28 targeted); read source, not independently rerun. Native-origin reload unavailable; stubbed storage and memory fallback covered, not actual SD. [Review](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7039289523). No further Gina iteration required absent an authorised change or actual defect. Design 1–8 lanes inclusive conditional on physical/firmware capability; current XIP build and Track Configuration are two-lane. Technical confirmation needed for adaptive sizing/render performance, SD persistence/recovery, factory fallback, apply-in-race isolation and real lane capacity. Design in parallel; implementation after present WP8-02 checkpoint and review; preserve standalone contract and V18 behaviour within frozen V21 baseline. Verify all supported modes, event overrides, pagination/winner retention, power-cycle/defaults, absent SD, and live application without race interruption. No customer Demo/showcase or new race modes implied. |
+| WP8-05 / WP1+WP8 | Shared configuration/Race Engine — Archie/Al | Legacy 1200-lap and >999 local adjustment host evidence passes. Physical NVS and coexistence remain open. Fix/regress lapTarget + penalties overflow; UINT32_MAX is currently storage/Browser boundary evidence only, not safe Race Engine target. |
+| WP8-06 / WP3+WP6 | HTTP socket and WP6 regressions — Al | Prior source/config and WP6 adapter host tests pass; live saturation/reconnect/coexistence and physical signed update/rollback remain open. |
+| DOC-01 / Support | Documentation — Archie | **Reconciled on PR #4 branch, 21 November 2026:** 22 original governing documents consolidated/retired into [Design Specification](PP_DESIGN_SPEC.md), with sole backlog here. Owner-promoted Timed Stage and basic Drag documented as required V1; [manual draft](PP_USER_MANUAL_DRAFT.md), [index](PRODUCT_SPEC_INDEX.md) and [standalone record-eligibility acceptance reference](STANDALONE_TASTER_RECORD_ELIGIBILITY_PLAN.md) updated to remove old scope exclusions and distinguish staged evidence. V21 frozen design and Timed Stage frozen design retained. **GitHub main-branch integration still separate from source review** until PR #4 merge is verified; PR #3 overlaps this plan and standalone acceptance reference and must be reconciled before its eventual firmware merge. Release manual still needs customer-facing Rally/Drag detail only after implementation/physical testing, actual screenshots/hardware/support and novice testing. Residual semantic checks remain incremental, not a claim of exhaustive full-document auditing. |
 
-Immediate technical order is:
+Evidence: [PR #3](https://github.com/ConnalM/Plonk-and-Play/pull/3), [issue #2](https://github.com/ConnalM/Plonk-and-Play/issues/2), [18 November checkpoint](ARCHIE_CHECKPOINT_REVIEW_2026-11-18.md) and [compliance reconciliation](ARCHIE_COMPLIANCE_RECONCILIATION_2026-11-18.md). Do not rerun credited tests without relevant change; no flash without separately authorised candidate.
 
-1. Complete WP8 software: the static Taster presentation, Browser/Taster
-   coexistence, audio, Browser visual design and regression obligations.
-   obligations without weakening their acceptance criteria.
-2. Review the [standalone Taster record-eligibility implementation and acceptance
-   plan](STANDALONE_TASTER_RECORD_ELIGIBILITY_PLAN.md) before authorising changes
-   to the local session flow.
-3. After WP8 software completion, select and integrate real WP7 detector hardware, wiring and gantry, then prove
-   two-lane product-intent detection and replacement/fault behaviour.
-4. Execute the shared-configuration/Race Engine/HTTP-socket/WP6 adapter
-   regression matrix recorded in the compliance reconciliation.
-   The [checkpoint evidence](ARCHIE_CHECKPOINT_REVIEW_2026-11-18.md) records an
-   legacy compatibility fix and its host regression evidence. The source
-   preserves a historically valid 1,200-lap target and unrelated settings.
-   Physical NVS and Browser/Taster coexistence evidence remain open.
-   The standalone Taster rejects START above 999 until an explicit local
-   distance adjustment is made; Browser-controlled races retain the shared
-   positive 32-bit range. Focused host acceptance has passed. Physical
-   Browser/Taster coexistence acceptance remains open, and the restriction must
-   never be met by overwriting shared configuration.
-5. Resolve and regress Race Engine penalty-lap arithmetic: its current
-   32-bit `lapTarget() + penalties_` finish calculation can overflow at an
-   extreme valid shared lap target. Until corrected, UINT32_MAX is storage and
-   Browser-boundary evidence only, not a safe Race Engine target.
-6. Establish Gina's SMUGLAND Browser visual design and complete its dedicated
-   implementation and acceptance workstream.
+### 5.1a Owner-promoted V1 race modes — 21 November 2026
+
+**Scope decision:** Timed Stage (Rally/Hill Climb/Sprint) and base single-lane two-sensor Drag are **required for V1**, not post-V1. Owner has no fixed go-live date and accepts the additional implementation, integration and qualification work. Neither design-only sign-off nor simulated prototype tests count as firmware/product acceptance. Do not interrupt WP8-02 physical verification or the approved V21 Browser implementation sequence; Al should assess dependencies and effort before scheduling the new mode implementation. New release gate: both modes must pass complete race-engine, sensor, controller, Browser, auxiliary-display, records/persistence, negative/lifecycle and physical acceptance alongside existing V1 modes.
+
+| V1 requirement / responsible work | Approved baseline and outstanding delivery |
+|---|---|
+| V1-TIMED-STAGE / Race Engine + WP8 Browser/auxiliary — Al implementation, Archie review | **Required V1, design frozen.** [Final HTML](https://github.com/ConnalM/Plonk-and-Play/blob/c26ff55dc6d21cd1317d92ca239c3db063b85f07/design/smugland/PP_Timed_Stage_review.html), [manual](https://github.com/ConnalM/Plonk-and-Play/blob/d3f46e8a56e134e11388e6127d957283259167af/design/smugland/PP_Timed_Stage_manual.md), [evidence](https://github.com/ConnalM/Plonk-and-Play/blob/8368c32bb1c62cbe4bd7f95f2af62a129b1c2cac/design/smugland/PP_Timed_Stage_test_evidence.md), 146/146 reported prototype assertions, [owner design freeze](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7047117044). Implement authoritative timing, configured attempts and penalties, stage/event classification, DNF/retry/tie rules, sensor mapping, lifecycle and actual results/record policy. Full host/Browser/physical tests OPEN. |
+| V1-DRAG / Race Engine + WP8 Browser/auxiliary — Gina design completion, Al implementation, Archie review | **Required V1, design review not yet complete.** Existing consolidated/refined [Drag prototype](https://github.com/ConnalM/Plonk-and-Play/blob/7a67d135a09952bcc993a34364aa8c7d2232697d/design/smugland/PP_Drag_review.html); manual, source/Chromium regression and final design approval pending. Base two-sensor **single-lane** staging, rollback, Sportsman/Pro tree, reaction/ET, red-light, results, optional average speed, RACE AGAIN/NEW SETUP and auxiliary. Implement/test actual state machine, start/finish timing, record policy and physical acceptance. Dual-beam/REU competitive Drag and trap-speed hardware remain post-V1. |
+
+**Planning gate:** assess implementation effort, shared engine/sensor interfaces, race results schema, track configuration and UI/auxiliary integration after current WP8-02 checkpoint; sequence small verified increments rather than expanding the active acceptance candidate. [Owner promotion on issue #2](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7061304177).
+
+### 5.2 Later v1 tasks — deferred by dependency, not abandoned
+
+| WP | Outstanding work |
+|---|---|
+| WP7 | Integrate real optical detectors, wiring, gantry, Track Setup, replacement/fault handling, two-lane product-intent detection and expansion architecture. |
+| WP6 | Physical signed firmware validation/automatic rollback. |
+| WP8 / Gate C | Concentrated Browser/Integrated Display coexistence, Stage14C and Stage15 Phase8B, official-record isolation/reconnect/power-cycle, NVS, physical storage, audio and local operation. |
+| WP9 | Owner scope gate; Timed Stage and base single-lane Drag explicitly promoted to mandatory V1 on 21 November 2026; other options excluded unless separately approved. |
+| WP10 | Long-run qualification/abuse, network/SD/power/resource and diagnostic rollover follow-up, detector faults, independent review. |
+| WP11 | Production PSU, electronics, cables, connectors, enclosure, gantry and reproducible tests. |
+| WP12 | Instructions, novice-user trial, production/release/support process. |
 
 ## 6. Status reporting
 
@@ -680,3 +415,47 @@ Routine status should contain only:
 - next gate.
 
 Technical detail remains in the underlying specifications, reconciliation, commits and acceptance evidence unless Connal asks for it.
+
+## 7. Post-v1 / v2 candidate backlog
+
+These entries preserve the existing deferred scope decisions. They are not a
+separate plan or a commitment to a v2 release feature set. Prioritisation and
+design approval remain outstanding; no entry may be promoted into v1 without
+the Project Owner's explicit approval.
+
+| Candidate | Disposition |
+|---|---|
+| Personal MUG displays | Post-v1 |
+| Dedicated TV/projector display | Post-v1 |
+| Timed Practice | Post-v1 |
+| Wireless detectors | Post-v1 |
+| Screen Designer | Post-v1 (distinct from the V1 auxiliary field-selection editor) |
+| Multiple physical auxiliary displays, inter-P&P communications and independent per-unit configurations | Post-v1; single auxiliary Integrated Display only in V1 |
+| Automated showcase of screens and product capabilities | Post-v1; distinct from ordinary simulated race presentation |
+| Championships/events | Post-v1 |
+| Rex/REU-dependent facilities | Post-v1 |
+| Personalised spoken announcements using racer names | Post-v1 |
+| Named Race Setup presets / Save Setup and Load Setup | Post-v1 candidate if real use warrants it |
+| Richer Racer/Car profiles, long-term statistics and car-specific records | Post-v1 candidates; stable identities retained in v1 |
+| Other later expansion | Post-v1 unless explicitly promoted |
+
+### 7.1 Previously deferred/unallocated design decisions
+
+| Decision | Disposition |
+|---|---|
+| Exact controller hardware, electronics, speaker/amplifier, power and physical product | Required v1 under WP7/WP8/WP11 as applicable |
+| Audio/SD implementation | WP8-03; required v1 audio and existing storage foundation |
+| Persistence/history schema | Existing frozen storage design controls; outstanding compatibility and qualification in WP8-05/WP10 |
+| Visual tokens, fonts, responsive design | WP8-04 for v1 |
+| Physical moving cars, chequered flags, double-buffer experiments, animation polish | Deferred until core complete; WP9 scope decision |
+| Power Module electrical design and RMS Yellow/Red/resume/track-power detail | Unallocated optional scope; WP9 |
+| Attract hardware/artwork/sequence/wake-exit and local/Browser scope | Optional WP9 decision; automated showcase is deferred post-v1 as above |
+| Shared simulation-input foundation and automated physical acceptance | WP8-02: extend the existing arm-enabled mechanism; PC-driven test sequences, no separate Race Engine. Verify standalone and SMUG paths and exclude all simulated races from records. Build/flash require owner authority. |
+| Customer Automatic Demo Race virtual-car routine, physical detection during Demo, manual controls and demo UI | Detailed design deferred; WP9 scope decision. Reuse WP8 simulation foundation; all simulated races non-recorded. |
+| QR connection aid | Later optional enhancement |
+| Drag dual-beam/REU design | Post-v1 |
+| Championship management including CONTINUE | Post-v1 |
+| Optional fuel/pit/refuelling, tyres/weather and sector/trap capabilities | Future candidates, no v1 commitment |
+| Customer-installed audio packs | Outside approved scope, no automatic promotion |
+
+Residual reconciliation is DOC-01; old stage deferrals are not automatically new tasks. Credit later acceptance and preserve existing scope. This register is not a promise about the contents of v2.
