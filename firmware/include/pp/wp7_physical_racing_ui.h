@@ -75,7 +75,7 @@ public:
     Message request{};
     request.type = Type::SetupRequest;
     request.correlation = correlation;
-    request.clientContext = ClientContext::RaceDirectorSmug;
+    request.clientContext = ClientContext::StandaloneTaster;
     request.sessionMode = mode;
     request.setupLapTarget = lapTarget;
     request.setupDurationMinutes = durationMinutes;
@@ -95,7 +95,7 @@ public:
     request.type = Type::StartRequest;
     request.correlation = correlation;
     request.sessionMode = SessionMode::None;
-    request.clientContext = ClientContext::RaceDirectorSmug;
+    request.clientContext = ClientContext::StandaloneTaster;
     const Delivery result = bus_.publish(tasterEndpoint_, request);
     Serial.printf("[WP7 PHYS] START request=%s correlation=%lu\n",
                   result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
@@ -108,7 +108,7 @@ public:
     Message request{};
     request.type = Type::SessionOperationRequest;
     request.correlation = correlation;
-    request.clientContext = ClientContext::RaceDirectorSmug;
+    request.clientContext = ClientContext::StandaloneTaster;
     request.operation = operation;
     request.probe = confirmed ? 1U : 0U;
     const Delivery result = bus_.publish(tasterEndpoint_, request);
@@ -966,8 +966,11 @@ private:
     if (!out || !capacity) return;
     out[0] = '\0';
     if (state.sessionMode == SessionMode::Endurance) {
-      if (entry && entry->completed && entry->overtimeOffset) {
+      if (entry && entry->hasOvertimeOffset) {
         formatOffset(entry->overtimeOffset, out, capacity);
+      } else if (entry && entry->completed) {
+        // A settled entry without a legitimate expiry crossing has no offset.
+        snprintf(out, capacity, "--");
       } else if (state.durationExpired) {
         snprintf(out, capacity, "+%llu",
                  static_cast<unsigned long long>(wholeSeconds(state.overtime)));
@@ -978,12 +981,12 @@ private:
       }
       return;
     }
-    if (entry && entry->completed && entry->completionTime) {
+    if (entry && entry->completed && entry->finishDuration) {
       // The Taster's Race Time column uses the same compact MM:SS clock at
       // completion as it does while racing.  The authoritative completion
-      // timestamp remains unchanged; only this client-side presentation is
-      // rounded to whole seconds.
-      formatClockMinutesSeconds(entry->completionTime, out, capacity);
+      // timestamp remains unchanged; the Race Engine supplies the elapsed
+      // duration (without pauses), and this client formats whole seconds.
+      formatClockMinutesSeconds(entry->finishDuration, out, capacity);
     } else if (state.raceElapsed) {
       formatWholeSeconds(state.raceElapsed, out, capacity);
     } else {
@@ -1040,7 +1043,8 @@ private:
       add(entry.lastLapTime);
       add(entry.bestLapTime);
       add(entry.completed ? 1U : 0U);
-      add(entry.completionTime);
+      add(entry.finishDuration);
+      add(entry.hasOvertimeOffset ? 1U : 0U);
       add(entry.overtimeOffset);
       add(static_cast<uint32_t>(entry.gapKind));
       add(entry.lapsBehind);
@@ -1653,7 +1657,8 @@ private:
       add(entry.lastLapTime);
       add(entry.bestLapTime);
       add(entry.completed ? 1U : 0U);
-      add(entry.completionTime);
+      add(entry.finishDuration);
+      add(entry.hasOvertimeOffset ? 1U : 0U);
       add(entry.overtimeOffset);
       add(static_cast<uint32_t>(entry.gapKind));
       add(entry.lapsBehind);
@@ -2067,8 +2072,8 @@ private:
     request.sessionMode = SessionMode::None;
     request.correlation = nextCorrelation_++;
     if (!request.correlation) request.correlation = nextCorrelation_++;
-    request.clientContext = ClientContext::RaceDirectorSmug;
-    const Delivery result = bus_.publish(presentationEndpoint_, request);
+    request.clientContext = ClientContext::StandaloneTaster;
+    const Delivery result = bus_.publish(tasterEndpoint_, request);
     Serial.printf("[WP7 PHYS] START request=%s correlation=%lu\n",
                   result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
                   static_cast<unsigned long>(request.correlation));
@@ -2079,9 +2084,9 @@ private:
     request.type = Type::SessionOperationRequest;
     request.correlation = nextCorrelation_++;
     if (!request.correlation) request.correlation = nextCorrelation_++;
-    request.clientContext = ClientContext::RaceDirectorSmug;
+    request.clientContext = ClientContext::StandaloneTaster;
     request.operation = SessionOperation::Resume;
-    const Delivery result = bus_.publish(presentationEndpoint_, request);
+    const Delivery result = bus_.publish(tasterEndpoint_, request);
     Serial.printf("[WP7 PHYS] RESUME request=%s correlation=%lu\n",
                   result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
                   static_cast<unsigned long>(request.correlation));
@@ -2092,10 +2097,10 @@ private:
     request.type = Type::SessionOperationRequest;
     request.correlation = nextCorrelation_++;
     if (!request.correlation) request.correlation = nextCorrelation_++;
-    request.clientContext = ClientContext::RaceDirectorSmug;
+    request.clientContext = ClientContext::StandaloneTaster;
     request.operation = SessionOperation::EndRace;
     request.probe = 1;
-    const Delivery result = bus_.publish(presentationEndpoint_, request);
+    const Delivery result = bus_.publish(tasterEndpoint_, request);
     Serial.printf("[WP7 PHYS] ABANDON request=%s correlation=%lu\n",
                   result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
                   static_cast<unsigned long>(request.correlation));
@@ -2106,9 +2111,9 @@ private:
     request.type = Type::SessionOperationRequest;
     request.correlation = nextCorrelation_++;
     if (!request.correlation) request.correlation = nextCorrelation_++;
-    request.clientContext = ClientContext::RaceDirectorSmug;
+    request.clientContext = ClientContext::StandaloneTaster;
     request.operation = SessionOperation::Pause;
-    const Delivery result = bus_.publish(presentationEndpoint_, request);
+    const Delivery result = bus_.publish(tasterEndpoint_, request);
     Serial.printf("[WP7 PHYS] PAUSE request=%s correlation=%lu\n",
                   result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
                   static_cast<unsigned long>(request.correlation));
@@ -2119,9 +2124,9 @@ private:
     request.type = Type::SessionOperationRequest;
     request.correlation = nextCorrelation_++;
     if (!request.correlation) request.correlation = nextCorrelation_++;
-    request.clientContext = ClientContext::RaceDirectorSmug;
+    request.clientContext = ClientContext::StandaloneTaster;
     request.operation = SessionOperation::RaceAgain;
-    const Delivery result = bus_.publish(presentationEndpoint_, request);
+    const Delivery result = bus_.publish(tasterEndpoint_, request);
     Serial.printf("[WP7 PHYS] RACE_AGAIN request=%s correlation=%lu\n",
                   result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
                   static_cast<unsigned long>(request.correlation));

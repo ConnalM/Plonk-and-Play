@@ -45,7 +45,7 @@ enum class SessionMode : uint8_t { None=0, LapRace=1, OpenPractice=2, Endurance=
 // Numeric values through DiagnosticProbe are the accepted Stage 7 compatibility baseline.
 // Stage 14C appends EnduranceExpired; earlier values remain stable.
 enum class Type : uint8_t { LoadConfiguration=0, ConfigurationLoaded=1, InputEvent=2, GoScheduled=3, LapCompleted=4, CompetitionComplete=5, NoticeboardChanged=6, DiagnosticProbe=7, StartRequest=8, RequestResult=9, RaceIntegrityFault=10, SessionOperationRequest=11, SessionOperation=12, InputSettlement=13, PauseSettled=14, Paused=15, RestartScheduled=16, Resumed=17, FinishSettlement=18, FinishSettled=19, FalseStart=20, HistoryStored=21, StorageFault=22, EnduranceExpired=23, SetupRequest=24, Count=25 };
-enum class ClientContext : uint8_t { Spectator, RaceDirectorSmug };
+enum class ClientContext : uint8_t { Spectator, RaceDirectorSmug, StandaloneTaster };
 enum class RequestResult : uint8_t { Accepted, Rejected };
 enum class RequestRejection : uint8_t { None, PermissionDenied, LifecycleNotStartable, InvalidRaceSetup, RequiredCapabilityUnavailable, SessionDefinitionUnavailable, LifecycleNotPausable, LifecycleNotRestartable, PauseSettlementPending, LifecycleNotRaceAgain, ConfirmationRequired, LifecycleNotAbandonable, StorageUnavailable, LifecycleNotResumable, LifecycleNotEndable, ProposalRevisionConflict, LifecycleNotPracticeAgain };
 enum class RaceIntegrityReason : uint8_t { None, InputEventDeliveryOverrun };
@@ -93,6 +93,7 @@ struct Message {
   uint16_t source = 0; // Set by bus, never trusted from a caller.
   Time relevantTime = 0;
   uint32_t correlation = 0;
+  uint64_t controlOwner = 0;
   uint32_t eventId = 0;
   uint32_t raceEntryId = 0;
   Time lapTime = 0;
@@ -120,6 +121,12 @@ struct Message {
   union { uint32_t lapNumber = 0; uint32_t setupLapTarget; };
   union { uint16_t durationMinutes = 0; uint16_t setupDurationMinutes; };
   union { uint8_t finishPolicy = 0; uint8_t setupFinishPolicy; };
+};
+class StartAuthority {
+public:
+  virtual bool authorizesStart(uint64_t owner) const = 0;
+  virtual bool hasController() const = 0;
+  virtual ~StartAuthority() = default;
 };
 enum class Delivery { Delivered, Forbidden, Invalid, NoSubscribers, Full };
 class Bus {

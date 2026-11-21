@@ -4,6 +4,8 @@
 #include <esp_system.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <atomic>
+#include <new>
 #include "noticeboard.h"
 #include "system_time.h"
 #include "diagnostic_trace.h"
@@ -11,9 +13,11 @@
 #include "diagnostic_retrieval.h"
 #include "diagnostic_export.h"
 #include "control_lease.h"
+#include "published_control_authority.h"
 #include "external_wifi.h"
 #include "firmware_update.h"
 #include "mug_catalog.h"
+#include "fixture_command_queue.h"
 #if defined(PP_PHASE8B_REAL_SD)
 #include "physical_sd_owner.h"
 #endif
@@ -47,8 +51,18 @@ private:
   uint64_t fingerprint_ = 0;
   bool set_ = false;
 };
-class BrowserInterface {
+class BrowserInterface : public StartAuthority {
 public:
+  // This is an acceptance-only bridge, not a Browser control role.  It asks
+  // the physical Taster adapter to publish its normal local request so Race
+  // Control still decides standalone authority and frozen record policy.
+  enum class FixtureTasterAction : uint8_t { Arm, Start, Pause, Resume, PassageLane1, PassageLane2, Reset };
+  struct FixtureTasterSetup {
+    SessionMode mode = SessionMode::None;
+    uint32_t lapTarget = 0;
+    uint16_t durationMinutes = 0;
+    LapFinishBehaviour finish = LapFinishBehaviour::Immediate;
+  };
   struct ResultView {
     bool ready = false;
     RequestResult result = RequestResult::Rejected;
@@ -76,7 +90,9 @@ public:
     if (controlLease_.hasOwner()) return true;
     uint64_t persisted = 0;
     if (!authority_->loadMaster(persisted) || !persisted) return false;
-    return controlLease_.restore(persisted);
+    const bool restored = controlLease_.restore(persisted);
+    if (restored) publishControlAuthority();
+    return restored;
   }
   void setDiagnosticTrace(diagnostic::ControllerOperationTrace* trace) { diagnosticTrace_ = trace; }
   void setDiagnosticBuildIdentity(const char* identity) {
@@ -152,6 +168,9 @@ public:
     const bool connected = WiFi.status() == WL_CONNECTED;
 #endif
     const uint32_t now = millis();
+    // A failed stop leaves the HTTP task potentially alive. Do not reopen or
+    // publish controller authority until the old task has actually stopped.
+    if (serverStopping_) { stopServer(); if (serverStopping_) return; }
     if (!connected) {
       wifiConnected_ = false;
       if (server_) stopServer();
@@ -195,18 +214,47 @@ public:
     // Noticeboard and presentation changes are coalesced independently for
     // each bounded Browser SSE session.  A slow client cannot block another
     // client or any authoritative P&P work.
-    if (server_) {
-      for (size_t i = 0; i < MaxSseClients; ++i) {
-        SseSession* session = sseSessions_[i];
-        if (!session || !session->valid) continue;
-        const bool changed = noticeRevision_ != session->sentRevision;
-        const bool presentationChanged = presentationSequence_ != session->sentPresentationSequence;
-        const bool keepalive = static_cast<uint32_t>(now - session->lastSendMs) >= 10000U;
-        if ((changed || presentationChanged || session->controlPending || session->controlRefreshPending || keepalive) && !session->workQueued) {
-          queueEventWork(session);
+    // Only the HTTPD task may inspect or dereference an SSE session. Queue
+    // bounded polling work on revision changes and periodically for retries
+    // and heartbeat. The main loop never holds a socket/session pointer.
+    if (server_ && (noticeRevision_ != lastSsePollRevision_ ||
+                    presentationSequence_ != lastSsePollPresentation_ ||
+                    static_cast<uint32_t>(now - lastSsePollMs_) >= 25U)) {
+      if (!ssePollQueued_.exchange(true)) {
+        if (httpd_queue_work(server_, &BrowserInterface::pollSseWork, this) == ESP_OK) {
+          lastSsePollRevision_ = noticeRevision_;
+          lastSsePollPresentation_ = presentationSequence_;
+          lastSsePollMs_ = now;
+        } else {
+          ssePollQueued_.store(false);
         }
       }
     }
+  }
+  // Called only by the Arduino main loop. HTTP handlers may enqueue fixture
+  // work, but must never invoke a fixture callback directly.
+  void processFixtureCommands() {
+    if (fixtureCompletionPending_) {
+      if (!fixtureQueue_.tryComplete(fixtureCompletionRequest_, fixtureCompletionResult_)) return;
+      fixtureCompletionPending_ = false;
+      if (fixtureCancelPending_) {
+        if (!fixtureQueue_.tryCancelPending()) return;
+        fixtureCancelPending_ = false;
+      }
+    }
+    if (fixtureCancelPending_) {
+      if (!fixtureQueue_.tryCancelPending()) return;
+      fixtureCancelPending_ = false;
+    }
+    FixtureWork work{};
+    const auto taken = fixtureQueue_.tryTake(millis(), work);
+    if (taken != FixtureQueue::Take::Ready) return;
+    const FixtureQueueResult result = executeFixtureCommand(work.payload);
+    fixtureCompletionRequest_ = work.requestId;
+    fixtureCompletionResult_ = result;
+    fixtureCompletionPending_ = true;
+    if (work.payload.action == FixtureAction::Reset && result == FixtureQueueResult::Accepted)
+      fixtureCancelPending_ = true;
   }
   // The public overload is retained for non-Browser test fixtures. HTTP calls
   // always include their server-resolved owner token below.
@@ -219,6 +267,7 @@ public:
     request.type = Type::StartRequest;
     request.correlation = nextInternalCorrelation();
     request.clientContext = context;
+    request.controlOwner = owner;
     // START is deliberately generic: Race Control commits the accepted P&P
     // proposal.  Browser-supplied setup values are never authoritative.
     (void)mode; (void)durationMinutes; (void)finishPolicy;
@@ -241,7 +290,7 @@ public:
                    uint8_t racerAssignmentMask=0, uint32_t lane1MugId=0, uint32_t lane2MugId=0) {
     if (!visibleCorrelation) return false;
     Message request{}; request.type=Type::SetupRequest; request.correlation=nextInternalCorrelation();
-    request.clientContext=context; request.sessionMode=mode; request.setupLapTarget=lapTarget;
+    request.clientContext=context; request.controlOwner=owner; request.sessionMode=mode; request.setupLapTarget=lapTarget;
     request.setupDurationMinutes=durationMinutes; request.setupFinishPolicy=finishPolicy;
     request.proposalRevision=proposalRevision;
     request.setupAssignmentMask=assignmentMask; request.setupLane1=lane1; request.setupLane2=lane2;
@@ -252,12 +301,23 @@ public:
     Pending& pending=pending_[nextPending_++ % ResultCapacity]; pending.internal=request.correlation;
     pending.visible=visibleCorrelation; pending.owner=owner; pending.ready=true; return true;
   }
-  void clearForFixture(){controlLease_.reset();clearRaceForFixture();}
+  bool clearForFixture() {
+    // The serial-only full reset must not mutate the HTTP-owned lease while
+    // the HTTPD task is running. A subsequent tick restarts the server.
+    stopServer();
+    if (server_) return false;
+    controlLease_.reset();
+    publishControlAuthority();
+    clearRaceForFixture();
+    return true;
+  }
   void clearRaceForFixture(){for(auto& p:pending_)p.ready=false;for(auto& r:results_)r.ready=false;hasFact_=false;lastFact_={};noticeRevision_=0;factRevision_=0;scheduledGo_=0;}
-  void setFixtureCallbacks(bool (*pass)(uint8_t), void (*reset)(), bool (*arm)()=nullptr){fixturePass_=pass;fixtureReset_=reset;fixtureArm_=arm;}
+  void setFixtureCallbacks(bool (*pass)(uint8_t), void (*reset)(), bool (*arm)()=nullptr,
+                           bool (*taster)(FixtureTasterAction)=nullptr,
+                           bool (*tasterSetup)(const FixtureTasterSetup&)=nullptr){fixturePass_=pass;fixtureReset_=reset;fixtureArm_=arm;fixtureTaster_=taster;fixtureTasterSetup_=tasterSetup;}
   bool submitOperation(uint32_t visibleCorrelation, SessionOperation operation, ClientContext context, uint64_t owner, bool confirmed=false, uint64_t traceId=0) {
     if (!visibleCorrelation) return false;
-    Message request{}; request.type=Type::SessionOperationRequest; request.correlation=nextInternalCorrelation(); request.operation=operation; request.clientContext=context;request.probe=confirmed?1:0;
+    Message request{}; request.type=Type::SessionOperationRequest; request.correlation=nextInternalCorrelation(); request.operation=operation; request.clientContext=context;request.controlOwner=owner;request.probe=confirmed?1:0;
     if (diagnosticTrace_) { diagnostic::ClientId clientId{}; clientId.value = owner; diagnosticTrace_->observeInterfaceRequest(diagnosticOperation(operation), visibleCorrelation, request.correlation, clientId, traceId, systemTime()); }
     if (bus_.publish(endpoint_,request)!=Delivery::Delivered) return false;
     Pending& pending=pending_[nextPending_++%ResultCapacity]; pending.internal=request.correlation; pending.visible=visibleCorrelation; pending.owner=owner; pending.ready=true; return true;
@@ -276,38 +336,48 @@ public:
     }
     return false;
   }
-  // Setting the in-RAM binding before persistence prevents another request in
-  // this Browser Interface instance from racing in and replacing it. A failed
-  // persistence attempt restores the no-Master state.
+  // Mutable lease transitions are HTTPD-owned (except startup and a fully
+  // stopped serial fixture/server reset). Publish only the committed state.
   bool bootstrap(uint64_t token) {
     if (!token || controlLease_.hasOwner()) return false;
     const uint64_t candidate = fingerprint(token);
-    if (authority_->saveMaster(candidate) && controlLease_.restore(candidate)) return true;
+    if (authority_->saveMaster(candidate) && controlLease_.restore(candidate)) {
+      if (findSseSessionByFingerprint(candidate)) controlLease_.connected(candidate);
+      publishControlAuthority();
+      return true;
+    }
     return false;
   }
-  bool hasMaster() const { return controlLease_.hasOwner(); }
+  bool hasMaster() const { return publishedAuthority_.read().owner != 0; }
   ClientContext context(uint64_t token) const {
-    return token && controlLease_.isOwner(fingerprint(token))
-               ? ClientContext::RaceDirectorSmug
-               : ClientContext::Spectator;
+    return isControlOwner(token) ? ClientContext::RaceDirectorSmug : ClientContext::Spectator;
   }
-  bool isControlOwner(uint64_t token) const { return token && controlLease_.isOwner(fingerprint(token)); }
-  bool controlOwnerConnected() const { return controlLease_.ownerConnected(); }
-  bool controlTakeoverPending() const { return controlLease_.pending(); }
-  uint32_t controlTakeoverRequestId() const { return controlLease_.requestId(); }
+  bool isControlOwner(uint64_t token) const {
+    return token && publishedAuthority_.read().owner == fingerprint(token);
+  }
+  bool authorizesStart(uint64_t token) const override {
+    return token && publishedAuthority_.authorizes(fingerprint(token));
+  }
+  // Retained identity is not interchangeable with connected authority.
+  bool hasController() const override { return publishedAuthority_.hasController(); }
+  bool controlOwnerConnected() const { return publishedAuthority_.hasController(); }
+  bool controlTakeoverPending() const { return publishedAuthority_.read().requester != 0; }
+  uint32_t controlTakeoverRequestId() const { return publishedAuthority_.read().requestId; }
   bool controlTakeoverRequestedBy(uint64_t token) const {
-    return token && controlLease_.requester() == fingerprint(token);
+    return token && publishedAuthority_.read().requester == fingerprint(token);
   }
   ControlLeaseResult requestControl(uint64_t token, uint32_t& requestId) {
     const uint64_t candidate = fingerprint(token);
-    const ControlLease::Snapshot before = controlLease_.snapshot();
-    const ControlLeaseResult result = controlLease_.request(candidate, requestId);
-    if (result == ControlLeaseResult::Accepted &&
-        (!authority_->saveMaster(controlLease_.owner()))) {
-      controlLease_.restoreSnapshot(before);
+    ControlLease next = controlLease_;
+    const ControlLeaseResult result = next.request(candidate, requestId);
+    if (result == ControlLeaseResult::Accepted && !authority_->saveMaster(next.owner())) {
       requestId = 0;
       return ControlLeaseResult::NotOwner;
     }
+    if (result == ControlLeaseResult::Accepted && findSseSessionByFingerprint(next.owner()))
+      next.connected(next.owner());
+    controlLease_ = next;
+    publishControlAuthority();
     if (result == ControlLeaseResult::Pending) {
       SseSession* ownerSession = findSseSessionByFingerprint(controlLease_.owner());
       if (ownerSession) {
@@ -323,26 +393,34 @@ public:
   }
   ControlLeaseResult respondControl(uint64_t token, bool allow, uint32_t& requestId) {
     const uint64_t candidate = fingerprint(token);
-    const ControlLease::Snapshot before = controlLease_.snapshot();
-    const ControlLeaseResult result = controlLease_.respond(candidate, allow, requestId);
-    if (result == ControlLeaseResult::Accepted &&
-        (!authority_->saveMaster(controlLease_.owner()))) {
-      controlLease_.restoreSnapshot(before);
+    ControlLease next = controlLease_;
+    const ControlLeaseResult result = next.respond(candidate, allow, requestId);
+    if (result == ControlLeaseResult::Accepted && !authority_->saveMaster(next.owner())) {
+      requestId = 0;
       return ControlLeaseResult::NotOwner;
     }
+    if (result == ControlLeaseResult::Accepted && findSseSessionByFingerprint(next.owner()))
+      next.connected(next.owner());
+    controlLease_ = next;
+    publishControlAuthority();
     if (result == ControlLeaseResult::Accepted || result == ControlLeaseResult::Refused) {
       queueControlRefresh();
     }
     return result;
   }
-  void controlConnected(uint64_t token) { if (token) controlLease_.connected(fingerprint(token)); }
-  void controlDisconnected(uint64_t token) { if (token) controlLease_.disconnected(fingerprint(token)); }
+  void controlConnected(uint64_t token) {
+    if (token) { controlLease_.connected(fingerprint(token)); publishControlAuthority(); }
+  }
+  void controlDisconnected(uint64_t token) {
+    if (token) { controlLease_.disconnected(fingerprint(token)); publishControlAuthority(); }
+  }
   ControlLeaseResult controlResultFor(uint64_t token) const {
-    if (!token || controlLease_.lastRequestId() == 0) return ControlLeaseResult::NoPending;
+    const auto state = publishedAuthority_.read();
+    if (!token || state.lastRequestId == 0) return ControlLeaseResult::NoPending;
     const uint64_t candidate = fingerprint(token);
-    if (candidate == controlLease_.requester() || candidate == controlLease_.lastRequester() ||
-        (controlLease_.lastResult() == ControlLeaseResult::Accepted && controlLease_.isOwner(candidate))) {
-      return controlLease_.lastResult();
+    if (candidate == state.requester || candidate == state.lastRequester ||
+        (state.lastResult == ControlLeaseResult::Accepted && state.owner == candidate)) {
+      return state.lastResult;
     }
     return ControlLeaseResult::NoPending;
   }
@@ -609,7 +687,13 @@ private:
   VolatileAuthorityStore fallback_;
   ExternalWifiManager network_{};
   httpd_handle_t server_ = nullptr;
+  // HTTPD owns mutable lease/session state; cross-task readers see only this publication.
   ControlLease controlLease_{};
+  PublishedControlAuthority publishedAuthority_{};
+  void publishControlAuthority() { publishedAuthority_.publish(controlLease_.snapshot()); }
+  bool serverStopping_ = false; // main-loop owned
+  std::atomic<bool> ssePollQueued_{false};
+  uint32_t lastSsePollRevision_ = 0, lastSsePollPresentation_ = 0, lastSsePollMs_ = 0;
   uint64_t controllerEpoch_ = 0;
   diagnostic::ControllerOperationTrace* diagnosticTrace_ = nullptr;
   const char* diagnosticBuildIdentity_ = "unknown";
@@ -684,7 +768,6 @@ private:
     volatile bool controlPending = false;
     volatile bool controlRefreshPending = false;
     volatile uint32_t controlRequestId = 0;
-    bool deferDelete = false;
   };
   struct SseWork {
     BrowserInterface* owner = nullptr;
@@ -708,9 +791,78 @@ private:
   size_t nextPending_ = 0;
   int serverStartError_ = 0;
   DestructiveConfirmation confirmation_{};
+  enum class FixtureOrigin : uint8_t { Controller, StandaloneTaster };
+  enum class FixtureAction : uint8_t { Arm, PassageLane1, PassageLane2, Reset, TasterStart, TasterPause, TasterResume, TasterSetup };
+  struct FixturePayload {
+    FixtureOrigin origin = FixtureOrigin::Controller;
+    FixtureAction action = FixtureAction::Arm;
+    uint64_t owner = 0;
+    FixtureTasterSetup setup{};
+  };
+  using FixtureQueue = FixtureCommandQueue<FixturePayload>;
+  using FixtureWork = typename FixtureQueue::Work;
+  FixtureQueue fixtureQueue_{};
+  bool fixtureCompletionPending_ = false;
+  uint32_t fixtureCompletionRequest_ = 0;
+  FixtureQueueResult fixtureCompletionResult_ = FixtureQueueResult::Rejected;
+  bool fixtureCancelPending_ = false;
   bool (*fixturePass_)(uint8_t) = nullptr;
   void (*fixtureReset_)() = nullptr;
   bool (*fixtureArm_)() = nullptr;
+  bool (*fixtureTaster_)(FixtureTasterAction) = nullptr;
+  bool (*fixtureTasterSetup_)(const FixtureTasterSetup&) = nullptr;
+  bool fixtureControllerStillAuthorised(uint64_t token) const {
+    const auto authority = publishedAuthority_.read();
+    const uint64_t fingerprinted = fingerprint(token);
+    return token && fingerprinted == authority.owner &&
+           authority.connectedOwner == authority.owner;
+  }
+  FixtureQueueResult executeFixtureCommand(const FixturePayload& command) {
+    // Recheck on the main loop against the committed authority. A command
+    // admitted just before a disconnect, handover, or controller arrival is
+    // rejected rather than executing under stale HTTPD state.
+    if (command.origin == FixtureOrigin::Controller) {
+      if (!fixtureControllerStillAuthorised(command.owner)) return FixtureQueueResult::Rejected;
+    } else if (hasController()) {
+      return FixtureQueueResult::Rejected;
+    }
+    bool accepted = false;
+    switch (command.action) {
+      case FixtureAction::Arm:
+        accepted = command.origin == FixtureOrigin::StandaloneTaster ?
+            fixtureTaster_ && fixtureTaster_(FixtureTasterAction::Arm) : fixtureArm_ && fixtureArm_();
+        break;
+      case FixtureAction::PassageLane1:
+        accepted = command.origin == FixtureOrigin::StandaloneTaster ?
+            fixtureTaster_ && fixtureTaster_(FixtureTasterAction::PassageLane1) : fixturePass_ && fixturePass_(1);
+        break;
+      case FixtureAction::PassageLane2:
+        accepted = command.origin == FixtureOrigin::StandaloneTaster ?
+            fixtureTaster_ && fixtureTaster_(FixtureTasterAction::PassageLane2) : fixturePass_ && fixturePass_(2);
+        break;
+      case FixtureAction::Reset:
+        if (command.origin == FixtureOrigin::StandaloneTaster) accepted = fixtureTaster_ && fixtureTaster_(FixtureTasterAction::Reset);
+        else if (fixtureReset_) { fixtureReset_(); accepted = true; }
+        break;
+      case FixtureAction::TasterStart:
+        accepted = fixtureTaster_ && fixtureTaster_(FixtureTasterAction::Start);
+        break;
+      case FixtureAction::TasterPause:
+        accepted = fixtureTaster_ && fixtureTaster_(FixtureTasterAction::Pause);
+        break;
+      case FixtureAction::TasterResume:
+        accepted = fixtureTaster_ && fixtureTaster_(FixtureTasterAction::Resume);
+        break;
+      case FixtureAction::TasterSetup:
+        accepted = fixtureTasterSetup_ && fixtureTasterSetup_(command.setup);
+        break;
+    }
+    return accepted ? FixtureQueueResult::Accepted : FixtureQueueResult::Rejected;
+  }
+  FixtureQueue::Submission enqueueFixture(const FixturePayload& payload) {
+    return fixtureQueue_.submit(payload, millis(), 1000);
+  }
+  FixtureQueueResult fixtureResult(uint32_t requestId) const { return fixtureQueue_.result(requestId); }
 #if defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
   struct LapDisplayPending {
     bool active = false;
@@ -1282,7 +1434,24 @@ private:
       browser->removeSseSession(session);
       browser->controlDisconnected(session->clientToken);
     }
-    if (!session->deferDelete) delete session;
+    delete session;
+  }
+  static void pollSseWork(void* argument) {
+    auto* browser = static_cast<BrowserInterface*>(argument);
+    if (!browser) return;
+    const uint32_t now = millis();
+    for (size_t i = 0; i < MaxSseClients; ++i) {
+      SseSession* session = browser->sseSessions_[i];
+      if (!session || !session->valid) continue;
+      const bool changed = browser->noticeRevision_ != session->sentRevision;
+      const bool presentationChanged = browser->presentationSequence_ != session->sentPresentationSequence;
+      const bool keepalive = static_cast<uint32_t>(now - session->lastSendMs) >= 10000U;
+      if ((changed || presentationChanged || session->controlPending ||
+           session->controlRefreshPending || keepalive) && !session->workQueued) {
+        browser->queueEventWork(session);
+      }
+    }
+    browser->ssePollQueued_.store(false);
   }
   static void eventWork(void* argument) {
     auto* work = static_cast<SseWork*>(argument);
@@ -1343,7 +1512,7 @@ private:
   SseSession* allocateSseSession(uint64_t token) {
     for (size_t i = 0; i < MaxSseClients; ++i) {
       if (!sseSessions_[i]) {
-        auto* session = new SseSession{};
+        auto* session = new (std::nothrow) SseSession{};
         if (!session) return nullptr;
         session->owner = this;
         session->server = server_;
@@ -1370,7 +1539,7 @@ private:
   }
   void queueEventWork(SseSession* session) {
     if (!server_ || !session || !session->valid || session->server != server_ || session->workQueued) return;
-    auto* work = new SseWork{};
+    auto* work = new (std::nothrow) SseWork{};
     if (!work) return;
     work->owner = this;
     work->clientToken = session->clientToken;
@@ -1537,12 +1706,12 @@ private:
       static_cast<unsigned long long>(systemTime()));
 #endif
     if (!browser || fd < 0) { trace.complete(ESP_ERR_INVALID_ARG); return ESP_FAIL; }
-    if (SseSession* previous = browser->findSseSession(browserToken)) {
-      browser->invalidateSseSession(previous, true, false);
-    }
+    // Keep a known live old generation until the new response has started.
+    // A failed replacement must not retire a healthy controlling stream.
+    SseSession* previous = browser->findSseSession(browserToken);
     size_t slotCount = 0;
     for (size_t i = 0; i < MaxSseClients; ++i) if (browser->sseSessions_[i]) ++slotCount;
-    if (slotCount >= MaxSseClients) {
+    if (!previous && slotCount >= MaxSseClients) {
       httpd_resp_set_status(request, "503 Service Unavailable");
       trace.complete(ESP_ERR_NO_MEM);
       return ESP_FAIL;
@@ -1563,16 +1732,27 @@ private:
       Serial.printf("[SSE] initial_result fd=%d result=%d at_us=%llu\n", fd, int(sent),
         static_cast<unsigned long long>(systemTime()));
 #endif
+      if (previous && previous->fd == fd) browser->invalidateSseSession(previous, true);
       trace.complete(sent); return ESP_FAIL;
     }
+    if (previous) browser->invalidateSseSession(previous, previous->fd != fd, false);
     // Keep the chunked response open for the EventSource client.  Subsequent
     // notifications are sent from the HTTPD work queue, never by blocking
     // this request handler.  The context also marks this socket as the
     // browser's asynchronous notification session for diagnostics.
     auto* session = browser->allocateSseSession(browserToken);
-    if (!session) { trace.complete(ESP_ERR_NO_MEM); return ESP_FAIL; }
+    if (!session) {
+      browser->controlDisconnected(browserToken);
+      trace.complete(ESP_ERR_NO_MEM); return ESP_FAIL;
+    }
     session->fd = fd;
     httpd_sess_set_ctx(browser->server_, fd, session, &BrowserInterface::freeSseSession);
+    if (httpd_sess_get_ctx(browser->server_, fd) != session) {
+      browser->removeSseSession(session);
+      browser->controlDisconnected(browserToken);
+      delete session;
+      trace.complete(ESP_FAIL); return ESP_FAIL;
+    }
     session->sentRevision = browser->noticeRevision_;
     session->sentPresentationSequence = browser->presentationSequence_;
     session->lastSendMs = millis();
@@ -2160,20 +2340,100 @@ private:
   static esp_err_t clearTrackRecordConfirmRoute(httpd_req_t* r){return confirmOperationRoute(r,SessionOperation::ClearTrackRecord);}
   static esp_err_t clearAllRecordsRoute(httpd_req_t* r){return openConfirmationRoute(r,SessionOperation::ClearAllRecords);}
   static esp_err_t clearAllRecordsConfirmRoute(httpd_req_t* r){return confirmOperationRoute(r,SessionOperation::ClearAllRecords);}
+  static const char* fixtureResultName(FixtureQueueResult result) {
+    switch (result) {
+      case FixtureQueueResult::Queued: return "QUEUED";
+      case FixtureQueueResult::Accepted: return "ACCEPTED";
+      case FixtureQueueResult::Rejected: return "REJECTED";
+      case FixtureQueueResult::Expired: return "EXPIRED";
+      case FixtureQueueResult::Cancelled: return "CANCELLED";
+      case FixtureQueueResult::Busy: return "BUSY";
+      case FixtureQueueResult::Full: return "FULL";
+      default: return "UNKNOWN";
+    }
+  }
+  static esp_err_t queueFixtureResponse(httpd_req_t* request, const FixturePayload& payload, const char* role) {
+    const auto submission = instance()->enqueueFixture(payload);
+    if (submission.result == FixtureQueueResult::Busy) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      return httpd_resp_sendstr(request, "fixture queue busy");
+    }
+    if (submission.result == FixtureQueueResult::Full) {
+      httpd_resp_set_status(request, "429 Too Many Requests");
+      return httpd_resp_sendstr(request, "fixture queue full");
+    }
+    if (submission.result != FixtureQueueResult::Queued) {
+      httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "fixture queue unavailable");
+      return ESP_FAIL;
+    }
+    char response[112]{};
+    snprintf(response, sizeof(response), "{\"requestId\":%lu,\"state\":\"QUEUED\",\"role\":\"%s\"}",
+             static_cast<unsigned long>(submission.requestId), role);
+    httpd_resp_set_status(request, "202 Accepted");
+    httpd_resp_set_type(request, "application/json");
+    return httpd_resp_sendstr(request, response);
+  }
   static esp_err_t fixtureRoute(httpd_req_t* request){
-#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE)
-    char body[64]{}; int n=httpd_req_recv(request,body,sizeof(body)-1); if(n<=0){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"fixture action required");return ESP_FAIL;} body[n]=0;
-    if(instance()->context(client(request))!=ClientContext::RaceDirectorSmug){httpd_resp_send_err(request,HTTPD_403_FORBIDDEN,"Race Director required");return ESP_FAIL;}
-    if(strstr(body,"arm")&&instance()->fixtureArm_){if(!instance()->fixtureArm_()){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"A READY session is required before enabling simulated racing.");return ESP_FAIL;}}
-    else if(strstr(body,"lane1")&&instance()->fixturePass_){if(!instance()->fixturePass_(1)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"An armed simulated racing session is required before triggering a simulated car.");return ESP_FAIL;}}
-    else if(strstr(body,"lane2")&&instance()->fixturePass_){if(!instance()->fixturePass_(2)){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"An active session is required before triggering a simulated car.");return ESP_FAIL;}}
-    else if(strstr(body,"reset")&&instance()->fixtureReset_) instance()->fixtureReset_();
+#if defined(PP_PHASE8B_P1_TEST) || defined(PP_STAGE11_DEMO) || defined(PP_STAGE11_ACCEPTANCE) || defined(PP_STAGE12_DEMO) || defined(PP_STAGE12_ACCEPTANCE) || defined(PP_STAGE13_DEMO) || defined(PP_STAGE13_ACCEPTANCE) || defined(PP_STAGE14A_DEMO) || defined(PP_STAGE14A_ACCEPTANCE) || defined(PP_STAGE14B_DEMO) || defined(PP_STAGE14B_ACCEPTANCE) || defined(PP_STAGE14C_DEMO) || defined(PP_STAGE14C_ACCEPTANCE) || defined(PP_WP7_ACCEPTANCE_SIMULATION)
+    char body[512]{}; int n=httpd_req_recv(request,body,sizeof(body)-1); if(n<=0){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"fixture action required");return ESP_FAIL;} body[n]=0;
+#if defined(PP_WP7_ACCEPTANCE_SIMULATION)
+    // These actions intentionally require no connected Race Director. The
+    // queue repeats that authority check on the main loop before execution.
+    const FixtureTasterAction tasterActions[] = {FixtureTasterAction::Arm,FixtureTasterAction::Start,FixtureTasterAction::Pause,FixtureTasterAction::Resume,FixtureTasterAction::PassageLane1,FixtureTasterAction::PassageLane2,FixtureTasterAction::Reset};
+    const char* tasterNames[] = {"taster-arm","taster-start","taster-pause","taster-resume","taster-lane1","taster-lane2","taster-reset"};
+    for(uint8_t i=0;i<7;++i)if(strstr(body,tasterNames[i])){
+      if(instance()->hasController()||!instance()->fixtureTaster_){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"standalone Taster fixture action unavailable");return ESP_FAIL;}
+      FixturePayload payload{}; payload.origin=FixtureOrigin::StandaloneTaster;
+      switch(tasterActions[i]){
+        case FixtureTasterAction::Arm: payload.action=FixtureAction::Arm; break;
+        case FixtureTasterAction::Start: payload.action=FixtureAction::TasterStart; break;
+        case FixtureTasterAction::Pause: payload.action=FixtureAction::TasterPause; break;
+        case FixtureTasterAction::Resume: payload.action=FixtureAction::TasterResume; break;
+        case FixtureTasterAction::PassageLane1: payload.action=FixtureAction::PassageLane1; break;
+        case FixtureTasterAction::PassageLane2: payload.action=FixtureAction::PassageLane2; break;
+        case FixtureTasterAction::Reset: payload.action=FixtureAction::Reset; break;
+      }
+      return queueFixtureResponse(request,payload,"standalone-taster");
+    }
+    if(strstr(body,"taster-setup")){
+      const char* mode=strstr(body,"\"mode\"");const char* laps=strstr(body,"\"lapTarget\"");const char* duration=strstr(body,"\"durationMinutes\"");const char* finish=strstr(body,"\"finishPolicy\"");
+      if(instance()->hasController()||!instance()->fixtureTasterSetup_||!mode||!laps||!duration||!finish){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"complete standalone Taster setup unavailable");return ESP_FAIL;}
+      FixtureTasterSetup setup{}; setup.mode=strstr(mode,"LAP_RACE")?SessionMode::LapRace:(strstr(mode,"ENDURANCE")?SessionMode::Endurance:(strstr(mode,"OPEN_PRACTICE")?SessionMode::OpenPractice:SessionMode::None));
+      const char* colon=strchr(laps,':'); if(!colon){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid standalone Taster setup");return ESP_FAIL;} setup.lapTarget=uint32_t(strtoul(colon+1,nullptr,10));
+      colon=strchr(duration,':'); if(!colon){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid standalone Taster setup");return ESP_FAIL;} setup.durationMinutes=uint16_t(strtoul(colon+1,nullptr,10));
+      colon=strchr(finish,':'); if(!colon){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid standalone Taster setup");return ESP_FAIL;} const uint8_t finishValue=uint8_t(strtoul(colon+1,nullptr,10)); if(finishValue>2||setup.mode==SessionMode::None){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid standalone Taster setup");return ESP_FAIL;} setup.finish=static_cast<LapFinishBehaviour>(finishValue);
+      FixturePayload payload{};payload.origin=FixtureOrigin::StandaloneTaster;payload.action=FixtureAction::TasterSetup;payload.setup=setup;
+      return queueFixtureResponse(request,payload,"standalone-taster");
+    }
+#endif
+    const uint64_t owner=client(request);
+    if(instance()->context(owner)!=ClientContext::RaceDirectorSmug){httpd_resp_send_err(request,HTTPD_403_FORBIDDEN,"Race Director required");return ESP_FAIL;}
+    FixturePayload payload{};payload.origin=FixtureOrigin::Controller;payload.owner=owner;
+    if(strstr(body,"arm")&&instance()->fixtureArm_)payload.action=FixtureAction::Arm;
+    else if(strstr(body,"lane1")&&instance()->fixturePass_)payload.action=FixtureAction::PassageLane1;
+    else if(strstr(body,"lane2")&&instance()->fixturePass_)payload.action=FixtureAction::PassageLane2;
+    else if(strstr(body,"reset")&&instance()->fixtureReset_)payload.action=FixtureAction::Reset;
     else if(strstr(body,"target3")){httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"session proposal must be changed through /request/setup");return ESP_FAIL;}
     else {httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"unknown fixture action");return ESP_FAIL;}
-    httpd_resp_set_type(request,"application/json"); return httpd_resp_sendstr(request,"{\"accepted\":true}");
+    return queueFixtureResponse(request,payload,"race-director");
 #else
     httpd_resp_send_err(request,HTTPD_404_NOT_FOUND,"fixture unavailable"); return ESP_FAIL;
 #endif
+  }
+  static esp_err_t fixtureResultRoute(httpd_req_t* request) {
+    char query[64]{}, rawRequestId[16]{};
+    if (httpd_req_get_url_query_str(request, query, sizeof(query)) != ESP_OK ||
+        httpd_query_key_value(query, "requestId", rawRequestId, sizeof(rawRequestId)) != ESP_OK) {
+      httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "requestId required"); return ESP_FAIL;
+    }
+    char* end=nullptr; const unsigned long raw=strtoul(rawRequestId,&end,10);
+    if (!end || *end || raw==0 || raw>UINT32_MAX) {httpd_resp_send_err(request,HTTPD_400_BAD_REQUEST,"invalid requestId");return ESP_FAIL;}
+    const FixtureQueueResult result=instance()->fixtureResult(uint32_t(raw));
+    if(result==FixtureQueueResult::Unknown){httpd_resp_send_err(request,HTTPD_404_NOT_FOUND,"fixture request unavailable");return ESP_FAIL;}
+    if(result==FixtureQueueResult::Busy){httpd_resp_set_status(request,"503 Service Unavailable");return httpd_resp_sendstr(request,"fixture queue busy");}
+    char response[96]{};
+    snprintf(response,sizeof(response),"{\"requestId\":%lu,\"state\":\"%s\",\"complete\":%s,\"accepted\":%s}",raw,fixtureResultName(result),result==FixtureQueueResult::Queued?"false":"true",result==FixtureQueueResult::Accepted?"true":"false");
+    httpd_resp_set_type(request,"application/json");return httpd_resp_sendstr(request,response);
   }
   static esp_err_t resultRoute(httpd_req_t* request) {
     const uint64_t owner = client(request);
@@ -3145,6 +3405,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/request/reset-settings", HTTP_POST, resetSettingsRoute, nullptr},
       {"/request/erase-everything", HTTP_POST, eraseEverythingRoute, nullptr},
       {"/fixture", HTTP_POST, fixtureRoute, nullptr},
+      {"/fixture-result", HTTP_GET, fixtureResultRoute, nullptr},
       {"/request-result", HTTP_GET, resultRoute, nullptr},
     };
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -3152,9 +3413,11 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
     config.stack_size = 8192;
     config.recv_wait_timeout = 5;
     config.send_wait_timeout = 5;
-    // ESP32 Arduino's configured LWIP limit permits at most 13 sockets.
-    // LRU eviction keeps sleeping presentation clients from exhausting them.
-    config.max_open_sockets = 13;
+    // The XIP configuration permits seven client sockets after HTTPD reserves
+    // three of its ten LWIP sockets internally: four SSE presentation clients
+    // plus three concurrent ordinary Browser requests. LRU eviction keeps
+    // sleeping presentation clients from exhausting this bounded capacity.
+    config.max_open_sockets = 7;
     config.lru_purge_enable = true;
     config.max_uri_handlers = static_cast<uint16_t>(sizeof(routes) / sizeof(routes[0]));
     const esp_err_t started = httpd_start(&server_, &config);
@@ -3167,34 +3430,33 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       const esp_err_t registered = httpd_register_uri_handler(server_, &route);
       if (registered != ESP_OK) {
         serverStartError_ = int(registered);
-        httpd_stop(server_);
-        server_ = nullptr;
+        stopServer();
         return;
       }
     }
+    publishedAuthority_.resumeTransport();
     ++serverStarts_;
     serverStartError_ = 0;
   }
   void stopServer() {
     if (!server_) return;
-    SseSession* closing[MaxSseClients]{};
-    size_t closingCount = 0;
-    for (size_t i = 0; i < MaxSseClients; ++i) {
-      SseSession* session = sseSessions_[i];
-      if (!session) continue;
-      session->deferDelete = true;
-      closing[closingCount++] = session;
-      session->valid = false;
-      removeSseSession(session);
-      controlDisconnected(session->clientToken);
-      httpd_sess_trigger_close(session->server, session->fd);
+    // Revoke connected authority immediately. HTTPD may finish a handler or
+    // invoke freeSseSession during stop, but cannot republish connectivity
+    // while the transport is suspended. Do not touch the session table from
+    // the main loop until the HTTP task has stopped.
+    serverStopping_ = true;
+    publishedAuthority_.suspendTransport();
+    const esp_err_t stopped = httpd_stop(server_);
+    if (stopped != ESP_OK) {
+      serverStartError_ = int(stopped);
+      return;
     }
-    ++serverStops_;
-    const httpd_handle_t old = server_;
     server_ = nullptr;
-    const esp_err_t stopped = httpd_stop(old);
-    if (stopped != ESP_OK) serverStartError_ = int(stopped);
-    for (size_t i = 0; i < closingCount; ++i) delete closing[i];
+    serverStopping_ = false;
+    ssePollQueued_.store(false);
+    controlLease_.disconnected(controlLease_.owner());
+    publishControlAuthority();
+    ++serverStops_;
   }
 };
 }  // namespace pp

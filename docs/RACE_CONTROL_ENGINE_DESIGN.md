@@ -1,288 +1,42 @@
-# Race Control and Race Engine Detailed Design
-
-**Status:** Draft v0.1  
-**Parent architecture:** SYSTEM_ARCHITECTURE.md v1.0
-
-## 1. Purpose
-
-This document resolves the Race Control / Race Engine responsibility question deliberately left open in System Architecture v1.0. It defines the responsibility boundary sufficiently for later implementation and isolated testing without prescribing C++ classes, files, packet formats or other implementation details.
-
-## 2. Responsibility split
-
-**Race Control owns the operation and lifecycle of a session.**
-
-This includes:
-- preparing and starting a session;
-- the start procedure;
-- establishing the authoritative GO time in P&P System Time;
-- PAUSE and RESUME;
-- operational STOP;
-- RESET as an operational request;
-- coordinating operational actions such as start sequences and track power;
-- deciding the operational consequence of relevant capability/availability changes.
-
-**Race Engine owns the interpretation, state, rules and calculations of the competition within that session.**
-
-This includes:
-- interpreting physical Input Events through the active Session Definition;
-- lap, sector and other competition timing;
-- lap counts, positions and other competition state;
-- race-mode rules;
-- optional competition features such as simulated fuel;
-- results;
-- determining when the competition's rules say it has completed.
-
-Together Race Control and Race Engine remain the single authoritative source of P&P race/session state, with each responsibility having one owner.
-
-Race Control may request/announce defined operations to the Race Engine through standard P&P messages on the common bus but must not manipulate its internal competition state. The Race Engine reports competition facts and completion conditions through the same communications architecture but does not control session lifecycle or physical hardware.
-
-## 3. Conceptual boundary
-
-### Race Control to Race Engine
-
-The conceptual information/operations crossing the boundary are:
-
-1. **PREPARE**
-   - supplies the fixed session definition for the competition, for example mode, race length and enabled optional features.
-
-2. **GO @ P&P time**
-   - establishes the authoritative time from which the Race Engine regards competition as active.
-
-3. **SESSION OPERATION / STATE CHANGE @ P&P time**
-   - communicates operational changes such as Pause, Resume and Stop where relevant.
-   - RESET is an operational request; the Race Engine remains responsible for creating, clearing or reinitialising its own competition state.
-
-4. **COMPETITION INPUT**
-   - clean physical Input Events identify the stable input/capability and original P&P event time;
-   - the Race Engine interprets each relevant Input ID through the fixed Session Definition to obtain its session role;
-   - these events are delivered to the Race Engine through the common P&P communications architecture and need not be mechanically relayed through Race Control merely because Race Control owns session lifecycle.
-
-### Race Engine to Race Control
-
-1. **COMPETITION FACTS**
-   - examples include lap completed, fastest lap, position changed and pit/refuelling state.
-
-2. **CURRENT COMPETITION STATE**
-   - authoritative competition information such as laps, times, positions and enabled-feature state.
-
-3. **COMPLETION**
-   - indicates that the active rule set says the competition has completed normally.
-
-4. **PROBLEM / STATUS**
-   - reports conditions that prevent or impair correct interpretation of the competition.
-
-These categories are conceptual contracts, not final packet formats, APIs or C++ methods.
-
-## 4. Session definition
-
-An active session uses a fixed **Session Definition held in working RAM**. It is immutable working data for the session, not a module or bus participant and not something the SMUG edits directly.
-
-Before START, the SMUG edits the proposed **Race Setup**. When START is accepted, P&P validates that setup against the applicable working installation/capability information and creates the Session Definition. The Session Definition freezes only the information required to interpret and execute that session, including the session-specific roles assigned to every required input, output and other capability.
-
-For the first two-lane Lap Race it contains:
-- Session ID;
-- mode, lap/distance target, finish behaviour, enabled race features and relevant start/first-crossing behaviour;
-- one stable Race Entry ID for each competitor;
-- for each Race Entry, its lane, stable MUG ID and frozen MUG display name, plus optional stable Car ID and frozen Car display name where Cars are enabled;
-- required semantic input roles mapped to stable Input IDs/capabilities;
-- required semantic output roles mapped to stable Output IDs/capabilities;
-- the trusted session source and record policy: standalone Taster (non-official),
-  SMUG-controlled P&P (official under the normal rules), or development
-  simulation (non-official);
-- only the physical/rule parameters required to interpret or execute the session.
-
-Installed capabilities unused by the session do not need session roles merely because they exist. Hardware implementation details such as GPIOs, transport addresses, detector thresholds and Browser connections do not belong in the Session Definition.
-
-Stable record IDs preserve permanent links. Display values whose later alteration would change the historical meaning of the race are frozen. Thus a MUG renamed after the race does not retrospectively rename that Race Entry in the completed session/result.
-
-Ordinary configuration changes must not silently alter a session already in progress. The definition used by Race Control and the Race Engine remains the definition for that session unless a particular runtime change is explicitly supported by later design.
-
-For the initial product, race-affecting configuration is not changed while an individual race is active. The Race Director changes it after that race has ended. This is a deliberate product simplification, not an architectural prohibition on harmless live presentation preferences or a future explicitly designed runtime feature.
-
-This does not prescribe whether the implementation copies, references, serialises or otherwise represents the definition.
-
-### 4.1 Session source and record policy
-
-**Owner decision, 18 November 2026.** Official-record eligibility is frozen
-in the authoritative `SessionDefinition` at START. A standalone Taster race is
-non-official and must not create official History, PB or Track Record entries.
-A later SMUG connection cannot change that frozen eligibility. Simulated-race
-classification remains independently preserved. The current implementation
-must be reconciled and tested against this decision before standalone Taster
-official-record behaviour is claimed.
-
-Race Control derives the session source from the trusted control boundary when
-START is accepted; it must not accept a Browser-supplied presentation label as
-proof of source. The resulting record policy is immutable for the session.
-
-The Race Engine uses that frozen policy at its existing persistence gates:
-
-- standalone Taster sessions seal and present their results in memory but do
-  not append official History or update PB/Track Record data;
-- SMUG-controlled Lap Race and Endurance sessions retain the normal official
-  History, PB and Track Record behaviour;
-- development simulation remains non-official and remains distinct from a
-  real standalone Taster race.
-
-Control handover during an active session cannot change this policy or
-retroactively publish a previously non-official result.
-
-## 5. Time and event ordering
-
-Race Control establishes authoritative session-state boundaries using P&P System Time.
-
-Where timing affects competition interpretation, the Race Engine uses event timestamps relative to those boundaries rather than communication arrival order.
-
-For example, if PAUSE is effective at P&P time 250.000:
-- an event timestamped 249.999 belongs before the pause even if it arrives afterwards;
-- an event timestamped 250.001 belongs after the pause.
-
-For a local Input Module pause, PAUSED lifecycle State does not by itself mean that pre-pause competition State is final. A clean input accepted locally before the authoritative pause boundary can still be delivered and interpreted afterwards. Before Race Control accepts a restart, the Race Engine confirms through the common Message Bus that it has interpreted every clean input accepted locally before that boundary. This is a local delivery fence, not a distributed-device watermark, clock-synchronisation, or remote-input settlement protocol.
-
-Detailed buffering and sequencing mechanisms remain implementation/subsystem decisions.
-
-If two relevant events have the same effective P&P timestamp, the responsibility interpreting those events defines the consequence of equality. P&P does not require a universal tie-breaking mechanism merely to force an artificial order.
-
-START and GO are distinct concepts:
-- START begins the operational start procedure;
-- GO is the authoritative P&P timestamp at which competition becomes active.
-
-## 6. Completion, stop and reset
-
-Normal completion originates from the Race Engine because it owns the competition rules.
-
-Race Control then performs the appropriate session-lifecycle transition and operational consequences.
-
-Manual STOP originates from Race Control and is distinct from normal competition completion. Stopping a race must not manufacture a normal competition-completion event or result. The later product design may decide how a partial stopped race is displayed, retained, discarded or restarted.
-
-RESET of an individual race is requested operationally by Race Control, but Race Control must not reach into Race Engine state and directly zero lap counts, timers or other competition variables. The Race Engine owns the creation and clearing of its own competition state.
-
-An individual-race reset/restart, abandonment/reset of a larger competition and a factory/system reset are distinct operations owned at their appropriate boundaries. They must not be collapsed into a universal `resetEverything()` operation.
-
-Starting a new individual race creates fresh individual-race state within the already-running P&P system. It does not normally reinitialise unrelated services, devices, installation configuration, retained results or longer-lived competition state.
-
-## 7. Race modes
-
-Race modes are replaceable rule sets within the common Race Engine framework rather than a single growing collection of mode-specific conditions.
-
-Known customer-facing modes include:
-- Lap Race;
-- Practice;
-- Endurance;
-- Timed Stage;
-- Drag;
-- future modes.
-
-Different modes may have different concepts of start, competitor, completion and result while retaining the same Race Control / Race Engine responsibility boundary.
-
-Practice demonstrates that a mode need not have a normal competition finishing condition: Race Control still owns lifecycle while the Race Engine times laps and maintains practice state until operational STOP.
-
-## 8. Optional race features
-
-Optional race features are separate from race modes.
-
-For example, simulated fuel may operate across more than one mode and maintains its own competition-feature state while consuming relevant competition facts/events interpreted through the active Session Definition.
-
-**Race Mode defines the fundamental form and completion rules of the competition. Optional Race Features add behaviours that can operate across more than one race mode.**
-
-The Race Engine must not know detector identities or sensor technologies. A fuel/pit feature may consume an event such as:
-
-`Lane 1 : PIT_ENTRY : ACTIVE : time`
-
-but not `Detector 5` or a particular sensor API.
-
-Physical enforcement of a feature is possible only where installed hardware exposes the required capability.
-
-## 8.1 Start/Finish first-crossing behaviour
-
-Lap-race behaviour must support the physical starting-grid arrangement relative to the Start/Finish detector.
-
-The grid/Start-Finish relationship is installation configuration because it describes the physical track arrangement. When a Lap Race is prepared, the effective first-crossing behaviour derived from that installation configuration becomes part of the fixed session definition for that race.
-
-Where cars start **after** the Start/Finish detector in the direction of travel, they cross the detector shortly after GO. That first post-GO crossing does not complete a lap; it establishes the timing origin for Lap 1. The next Start/Finish crossing completes Lap 1.
-
-Where cars start **before** the Start/Finish detector in the direction of travel, they travel almost a complete circuit before their first post-GO crossing. That first Start/Finish crossing completes Lap 1, timed from GO.
-
-This behaviour is not inferred by the detector or Input Module. The Input Module reports the same stable input identity and physical event in either arrangement. The active Session Definition assigns that input its session-specific Start/Finish role, and the Lap Race rule set interprets the event according to that fixed definition. Another session may assign the same physical input a different role without changing the Input Module.
-
-## 9. Hardware, availability and outputs
-
-Race Engine does not discover hardware failures.
-
-The Registry owns current device/capability availability information. Race Control receives or obtains availability information relevant to the current session and decides its operational consequence.
-
-When a START request is made, Race Control performs the final authoritative readiness check against the Registry's current capability availability before accepting the start. Presentation may indicate apparent readiness, but it does not authorise a session to start.
-
-Loss of an optional capability need not stop a session. Loss of a capability essential to meaningful continuation may require the session to be stopped or restarted.
-
-Race Engine does not manipulate physical outputs.
-
-Race Control resolves required session roles through the active Session Definition and publishes device-level logical operational actions through the established common P&P communications bus. The Output Module/appropriate Output Device performs the hardware-specific action without needing to know the racing role of that output. For example, Race Control may resolve `Lane 2 Track Power` to the stable output capability assigned to that role for this session, while neither Race Control nor Race Engine manipulates GPIO or transport-specific hardware directly.
-
-Detailed false-start behaviour remains a later design decision and depends upon the physical/start arrangement. In particular, a system in which lane power is held off until GO cannot use pre-GO vehicle movement in the same way as a continuously powered arrangement.
-
-## 10. Information boundaries
-
-Each component publishes and receives information only through its defined boundaries. It may publish information for which it is the authoritative owner and consume information made available through its defined interfaces. It must not bypass those boundaries to read, alter or reproduce another component's internal state.
-
-A source reports what happened at its own boundary; it does not need to know or control the eventual consequence. For example, a physical control can report that a button was activated just as a detector reports a state transition. The responsibility receiving that information decides what it means in its own context. Where an interface deliberately defines a genuine operation such as PREPARE, GO or RESET between Race Control and Race Engine, that operation remains part of that defined boundary.
-
-Race Engine consumes physical Input Events and interprets their stable Input IDs through the active Session Definition. It does not require knowledge of:
-- sensor model;
-- detector transport;
-- I2C/GPIO details;
-- ESP-NOW/Wi-Fi details;
-- browser/client identity.
-
-Similarly, Race Control should receive capability/function availability rather than unnecessary low-level failure details.
-
-Operational consumers receive information in the form appropriate to their boundary and do not depend on upstream implementation or transport. Diagnostics may trace information across boundaries without becoming part of the operational dependency chain.
-
-This boundary should be enforceable structurally during implementation wherever practical.
-
-## 10.1 Authoritative facts, current state, Noticeboard and persistence
-
-P&P distinguishes between three information behaviours:
-
-- **facts/events** describe something that happened;
-- **current state** describes what is true now;
-- **persistent information/configuration** describes information that must remain available across the relevant lifecycle.
-
-Authoritative race facts/events are published once through a common logical interface. Interested consumers may consume them independently. The producer does not require knowledge of those consumers, and consumers must not independently recreate or alter authoritative race state.
-
-The **Noticeboard** is the current authoritative state of every relevant thing needed to understand the session now. It may combine information from several authoritative owners for consumption, but the Noticeboard does not become another owner of that information. Presentation never owns authoritative P&P data; it displays or derives views from information supplied through defined boundaries by the components that own it.
-
-Current fastest lap is an example of Noticeboard State: once established it remains the current fastest lap until superseded or until it ceases to be relevant. It does not disappear merely because later unrelated state changes occur.
-
-A material Noticeboard change may publish the standard `NOTICEBOARD_CHANGED` notification. The notification says only that something material has changed; it does not carry a replacement copy of State. A newly connected or recovering current-state consumer obtains the current authoritative information it needs without replaying every intermediate state change.
-
-The Noticeboard itself does not conceptually require an exposed version number. An implementation may use revision counters, dirty flags, sequence numbers or another internal mechanism where useful without making that mechanism part of the architectural State contract.
-
-Continuous values must not generate streams of authoritative events or `NOTICEBOARD_CHANGED` notifications merely because their displayed value changes with time. Significant transitions may be published as facts/events, while consumers obtain or derive the current value from authoritative state and P&P System Time where appropriate. A race clock can therefore count locally from authoritative timing information without changing the Noticeboard every second.
-
-The authoritative fact/state exists independently of whether a particular consumer successfully receives a live notification. Current-state consumers can resynchronise; obsolete transient notifications may simply be missed; information that P&P has decided must persist is retained by the Memory Module rather than depending on a live consumer receiving a notification.
-
-Consumers may derive information for their own presentation or local use, but this does not create new authoritative P&P state or facts. If derived information must itself be authoritative or shared, it is produced by the responsibility that owns that meaning and exposed through its defined boundary.
-
-Retained history may preserve earlier facts for later retrieval without requiring those facts to remain live current-state information.
-
-## 11. Testability
-
-The Race Control / Race Engine boundary must support controlled test implementations in either direction.
-
-Examples:
-- Race Control can be tested with a stub Race Engine returning predetermined competition facts, state, completion and status.
-- Race Engine can be tested with predetermined physical Input Events plus Session Definitions that assign those stable input identities to session roles, without real sensors, the Input Module or browser clients.
-- Input and Output Modules can be tested independently of lanes, MUGs and race modes: stimulate a known input and verify the standard device event, or issue a device-level output action and verify the correct physical output behaviour.
-
-Production and test implementations must use the same defined interfaces; testing must not rely on special shortcuts through the production architecture.
-
-Neither side may reach into the other's internal variables.
-
-## 12. Proportionality
-
-The design must remain proportionate to a consumer slot-car timing system.
-
-The separation exists to provide clear ownership, replaceability, testability and resistance to accidental architectural coupling. It is not justification for unnecessary layers, distributed-state machinery or high-availability engineering.
-
-**Design broadly. Implement narrowly.**
+# Race Control and Race Engine Detailed Design — retired
+
+**RETIRED as a separate governing specification on 19 November 2026.** The authoritative content has moved into the single [P&P Design Specification](PP_DESIGN_SPEC.md#race-control-engine-design--race-control-and-race-engine-detailed-design). Do not edit requirements here.
+
+[Original preserved revision](https://github.com/ConnalM/Plonk-and-Play/blob/35aedb5470f9a06193aefd2073e5a911acae53da/docs/RACE_CONTROL_ENGINE_DESIGN.md) (historical only).
+
+## Legacy section links
+
+<a id="1-purpose"></a>
+- [1. Purpose](PP_DESIGN_SPEC.md#race-control-engine-design--1-purpose)
+<a id="2-responsibility-split"></a>
+- [2. Responsibility split](PP_DESIGN_SPEC.md#race-control-engine-design--2-responsibility-split)
+<a id="3-conceptual-boundary"></a>
+- [3. Conceptual boundary](PP_DESIGN_SPEC.md#race-control-engine-design--3-conceptual-boundary)
+<a id="race-control-to-race-engine"></a>
+- [Race Control to Race Engine](PP_DESIGN_SPEC.md#race-control-engine-design--race-control-to-race-engine)
+<a id="race-engine-to-race-control"></a>
+- [Race Engine to Race Control](PP_DESIGN_SPEC.md#race-control-engine-design--race-engine-to-race-control)
+<a id="4-session-definition"></a>
+- [4. Session definition](PP_DESIGN_SPEC.md#race-control-engine-design--4-session-definition)
+<a id="41-session-source-and-record-policy"></a>
+- [4.1 Session source and record policy](PP_DESIGN_SPEC.md#race-control-engine-design--41-session-source-and-record-policy)
+<a id="5-time-and-event-ordering"></a>
+- [5. Time and event ordering](PP_DESIGN_SPEC.md#race-control-engine-design--5-time-and-event-ordering)
+<a id="6-completion-stop-and-reset"></a>
+- [6. Completion, stop and reset](PP_DESIGN_SPEC.md#race-control-engine-design--6-completion-stop-and-reset)
+<a id="7-race-modes"></a>
+- [7. Race modes](PP_DESIGN_SPEC.md#race-control-engine-design--7-race-modes)
+<a id="8-optional-race-features"></a>
+- [8. Optional race features](PP_DESIGN_SPEC.md#race-control-engine-design--8-optional-race-features)
+<a id="81-startfinish-first-crossing-behaviour"></a>
+- [8.1 Start/Finish first-crossing behaviour](PP_DESIGN_SPEC.md#race-control-engine-design--81-startfinish-first-crossing-behaviour)
+<a id="9-hardware-availability-and-outputs"></a>
+- [9. Hardware, availability and outputs](PP_DESIGN_SPEC.md#race-control-engine-design--9-hardware-availability-and-outputs)
+<a id="10-information-boundaries"></a>
+- [10. Information boundaries](PP_DESIGN_SPEC.md#race-control-engine-design--10-information-boundaries)
+<a id="101-authoritative-facts-current-state-noticeboard-and-persistence"></a>
+- [10.1 Authoritative facts, current state, Noticeboard and persistence](PP_DESIGN_SPEC.md#race-control-engine-design--101-authoritative-facts-current-state-noticeboard-and-persistence)
+<a id="11-testability"></a>
+- [11. Testability](PP_DESIGN_SPEC.md#race-control-engine-design--11-testability)
+<a id="12-proportionality"></a>
+- [12. Proportionality](PP_DESIGN_SPEC.md#race-control-engine-design--12-proportionality)

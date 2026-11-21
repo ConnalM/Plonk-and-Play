@@ -35,6 +35,9 @@ public:
   void setRequiredCapabilityAvailable(bool available){requiredCapabilityAvailable_=available;}
   void setDetectorProvider(DetectorProvider& provider){detectorProvider_=&provider;}
   void setMugCatalog(MugCatalog& catalog){mugCatalog_=&catalog;}
+  // The physical Taster's local START is a distinct, non-official source.
+  void setStandaloneTasterEndpoint(Bus::Endpoint endpoint){standaloneTasterSource_=endpoint.id;}
+  void setControllerStartAuthority(Bus::Endpoint endpoint, const StartAuthority& authority){controllerSource_=endpoint.id;controllerAuthority_=&authority;}
   // The simulated-racing fixture is armed before START through a dedicated
   // test-only Browser action. The flag is carried by the controller-owned
   // proposal and frozen into SessionDefinition; ordinary setup requests never
@@ -191,7 +194,14 @@ private:
   }
   void publishFact(Type type,Time at){Message f{};f.type=type;f.relevantTime=at;f.restartMethod=restartMethod_;lastFactDelivery_=bus_.publish(endpoint_,f);}
   void handleOperation(const Message& request,Time now){
-    if(request.clientContext!=ClientContext::RaceDirectorSmug){reject(request.correlation,RequestRejection::PermissionDenied);return;}
+    const bool tasterControl=request.clientContext==ClientContext::StandaloneTaster&&request.source==standaloneTasterSource_&&(!controllerAuthority_||!controllerAuthority_->hasController());
+    const bool controllerControl=request.clientContext==ClientContext::RaceDirectorSmug&&controllerAuthority_&&request.source==controllerSource_&&controllerAuthority_->authorizesStart(request.controlOwner);
+#if !defined(ARDUINO)
+    const bool fixtureControl=!controllerAuthority_&&request.clientContext==ClientContext::RaceDirectorSmug&&request.source!=standaloneTasterSource_;
+#else
+    const bool fixtureControl=false;
+#endif
+    if(!tasterControl&&!controllerControl&&!fixtureControl){reject(request.correlation,RequestRejection::PermissionDenied);return;}
     if(request.operation==SessionOperation::ClearHistory||request.operation==SessionOperation::ClearLane1Records||request.operation==SessionOperation::ClearLane2Records||request.operation==SessionOperation::ClearTrackRecord||request.operation==SessionOperation::ClearAllRecords){
       if(request.probe!=1){reject(request.correlation,RequestRejection::ConfirmationRequired);return;}
       bool cleared=false;
@@ -276,7 +286,14 @@ private:
     state_=SessionLifecycle::Restarting;publishFact(Type::RestartScheduled,scheduledRestart_);changed();result(request.correlation,RequestResult::Accepted);
   }
   void handleSetup(const Message& request){
-    if(request.clientContext!=ClientContext::RaceDirectorSmug){reject(request.correlation,RequestRejection::PermissionDenied);return;}
+    const bool tasterSetup=request.clientContext==ClientContext::StandaloneTaster&&request.source==standaloneTasterSource_&&(!controllerAuthority_||!controllerAuthority_->hasController());
+    const bool controllerSetup=request.clientContext==ClientContext::RaceDirectorSmug&&controllerAuthority_&&request.source==controllerSource_&&controllerAuthority_->authorizesStart(request.controlOwner);
+#if !defined(ARDUINO)
+    const bool fixtureSetup=!controllerAuthority_&&request.clientContext==ClientContext::RaceDirectorSmug&&request.source!=standaloneTasterSource_;
+#else
+    const bool fixtureSetup=false;
+#endif
+    if(!tasterSetup&&!controllerSetup&&!fixtureSetup){reject(request.correlation,RequestRejection::PermissionDenied);return;}
     if(state_!=SessionLifecycle::Ready||startCommitted_){reject(request.correlation,RequestRejection::LifecycleNotStartable);return;}
     if(!setup_){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
     if(request.proposalRevision!=proposalRevision_){reject(request.correlation,RequestRejection::ProposalRevisionConflict);return;}
@@ -354,7 +371,14 @@ private:
     proposedSetup_=normalised(candidate);setup_=&proposedSetup_;practiceSummaryPending_=false;++proposalRevision_;changed();result(request.correlation,RequestResult::Accepted);
   }
   void handleStart(const Message& request,Time now){
-    if(request.clientContext!=ClientContext::RaceDirectorSmug){reject(request.correlation,RequestRejection::PermissionDenied);return;}
+    const bool standaloneStart=request.clientContext==ClientContext::StandaloneTaster&&standaloneTasterSource_!=0&&request.source==standaloneTasterSource_&&(!controllerAuthority_||!controllerAuthority_->hasController());
+    bool controllerStart=request.clientContext==ClientContext::RaceDirectorSmug&&controllerAuthority_&&request.source==controllerSource_&&controllerAuthority_->authorizesStart(request.controlOwner);
+#if !defined(ARDUINO)
+    // Host fixtures without an ingress adapter are explicit test-only shims;
+    // production firmware remains fail-closed without the registered authority.
+    if(!controllerAuthority_)controllerStart=request.clientContext==ClientContext::RaceDirectorSmug&&request.source!=standaloneTasterSource_;
+#endif
+    if(!standaloneStart&&!controllerStart){reject(request.correlation,RequestRejection::PermissionDenied);return;}
     // startCommitted_ reserves the race before a second closely arriving
     // request can be accepted, even if presentation has not yet refreshed.
     if(state_!=SessionLifecycle::Ready||startCommitted_){reject(request.correlation,RequestRejection::LifecycleNotStartable);return;}
@@ -368,7 +392,8 @@ private:
       return;
     }
     const uint32_t sessionId=nextSessionId_,firstEntryId=nextRaceEntryId_;
-    if(!active_.commit(requested,sessionId,firstEntryId)){reject(request.correlation,RequestRejection::SessionDefinitionUnavailable);return;}
+    const bool officialRecordEligible=controllerStart;
+    if(!active_.commit(requested,sessionId,firstEntryId,officialRecordEligible)){reject(request.correlation,RequestRejection::SessionDefinitionUnavailable);return;}
     ++nextSessionId_;nextRaceEntryId_+=requested.activeLanes;
     definition_=active_.current(); practiceSummaryPending_=false;
     startCommitted_=true;
@@ -426,7 +451,7 @@ private:
     }
     return true;
   }
-  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;DetectorProvider* detectorProvider_=nullptr;TrackConfigurationPersistence* trackConfigurationPersistence_=nullptr;RacerSelectionPersistence* racerSelectionPersistence_=nullptr;MugCatalog* mugCatalog_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;
+  Bus& bus_;Bus::Endpoint endpoint_;ActiveSessionDefinition& active_;HistoryStore* history_=nullptr;TrackRecordStore* records_=nullptr;DetectorProvider* detectorProvider_=nullptr;TrackConfigurationPersistence* trackConfigurationPersistence_=nullptr;RacerSelectionPersistence* racerSelectionPersistence_=nullptr;MugCatalog* mugCatalog_=nullptr;const SessionDefinition* definition_=nullptr;const ProposedRaceSetup* setup_=nullptr;uint16_t standaloneTasterSource_=0,controllerSource_=0;const StartAuthority* controllerAuthority_=nullptr;
   SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0,finalDelay_=0,durationExpiry_=0,durationRemaining_=0,finishDisplayUntil_=0,goPresentationUntil_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=false,startCommitted_=false,integrityFaulted_=false,practiceSummaryPending_=false,pauseSettled_=false,durationExpired_=false,durationPublished_=false,resumeScheduled_=false,finishDisplayActive_=false;uint8_t finishDisplayDurationSeconds_=5;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
   uint32_t nextSessionId_=1,nextRaceEntryId_=1;
   ProposedRaceSetup proposedSetup_{}; uint32_t proposalRevision_=1;

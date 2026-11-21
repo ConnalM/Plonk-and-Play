@@ -1,20 +1,6 @@
 # Standalone Taster record eligibility
 
-Implementation and acceptance plan for independent review. Approval of this plan precedes implementation. The physically accepted WP8 image and its recovery checkpoint remain the reference for presentation behaviour.
-
-## Binding behaviour
-
-Race Control determines official-record eligibility when it accepts START and freezes it in the authoritative `SessionDefinition`. A standalone Taster race can finish and display its live result, but it must leave official History, PB and Track Records unchanged. SMUG connection, disconnection and accepted control handover cannot change eligibility or publish an earlier standalone result into official History. Development simulation retains its existing classification and exclusion from official records. Existing rules for official SMUG-controlled Lap Race and Endurance, Open Practice and abandoned or invalid results continue to apply.
-
-Authority references are [Race Control and Engine Design](RACE_CONTROL_ENGINE_DESIGN.md#41-session-source-and-record-policy) and [Taster Specification](PP_TASTER_SPEC.md#control-hierarchy-and-records). Taster may use configuration previously saved by SMUG. Configuration provenance does not determine the next race's control source.
-
-## Implementation sequence
-
-1. Trace the production START routes and fixtures. In the current XIP application, `main.cpp` attaches a separate `tasterEndpoint` alongside `presentationEndpoint`. Both use the Presentation role, and `wp7_physical_racing_ui.h` sets `ClientContext::RaceDirectorSmug` on its local START. `Bus::publish` stamps the sending endpoint in `Message::source`. Use the registered trusted ingress and controlling SMUG lease, or equivalent authenticated internal provenance if a route shares an endpoint. Keep authorisation and eligibility distinct. A presentation role or a client-provided label alone must never qualify a race as official. Check also the demo and simulated fixtures for direct START or direct definition commits, and ensure each production START route supplies trusted provenance.
-2. Resolve ownership at START acceptance using the existing control hierarchy. A Taster action with no controlling SMUG starts a standalone session. A Taster control action while SMUG owns control follows the existing subordinate-control rule. A trusted SMUG START uses ordinary eligibility. Define the ordering for START racing a lease transition, with a single authoritative decision at acceptance and no eligibility change during countdown. Unknown provenance must never promote a session into official recording.
-3. Pass an explicit record-eligibility decision through `ActiveSessionDefinition::commit` into the immutable `SessionDefinition`. Keep the control source auditable and keep `simulatedSession()` independent of the eligibility decision. The current definition already freezes the simulated flag and race setup but has no standalone eligibility field. Do not place eligibility in persistent settings or copy it back to the next proposal. Resume and in-session restart preserve the active definition. RACE AGAIN and RESTART RACE currently return to READY. A subsequent accepted START must make a fresh decision.
-4. Apply the frozen policy at Race Engine sinks. `recordEligible_` currently filters simulated sessions and eligible modes before lap-driven record observations. `persistResult()` currently bypasses History for simulation. Gate all PB and Track Record observations, official History appends, associated detail-store operations, and the `HistoryStored` fact on the frozen policy and existing mode rules. Keep the in-memory result available for live presentation, with no pending official write, false storage fault, or nonzero History sequence due to an intentional skip. Preserve telemetry and disposition for genuinely simulated races. Verify the bounded in-memory lap-detail path for long standalone sessions and report any display limitation without introducing an official storage fallback.
-5. Verify Browser/Noticeboard consumption. An active or just-finished result may remain visible under coexistence rules, while official History queries, PB and Track Records remain unchanged. Check that later connection or reconstruction does not promote the live result. Keep existing persisted results and schemas intact unless a separately approved requirement needs a schema change.
+**Status: ACCEPTANCE REFERENCE ONLY.** Separate implementation plan retired; accepted WP8-02 evidence and the remaining physical gates are recorded in the [Master Project Plan](MASTER_PROJECT_PLAN.md). Binding behaviour resides in [Design Specification](PP_DESIGN_SPEC.md#race-control-engine-design--41-session-source-and-record-policy). The [original sequence](https://github.com/ConnalM/Plonk-and-Play/blob/13662fbc5e42fbc83204b7662643a2c43fe8fefb/docs/STANDALONE_TASTER_RECORD_ELIGIBILITY_PLAN.md#implementation-sequence) is preserved historically. Test obligations below are unchanged; consolidation grants no acceptance beyond the separately recorded WP8-02 closure.
 
 ## Acceptance evidence
 
@@ -31,3 +17,52 @@ Use fresh host tests with real Race Control/Engine flow and instrumented History
 | Storage and detail bounds | Standalone racing works without official storage. No false pending or storage fault solely from skipping records. Long runs respect the bounded detail contract. Official persistence and fault handling retain their existing behaviour. |
 
 At the separately authorised physical checkpoint, record the application hash and seed official History, PB and Track Records on representative storage. Run a standalone race, connect SMUG before finish, then verify the three official views and storage snapshots through Browser reconnect and power-cycle. Repeat a newly started official SMUG race as a positive control and retain the existing simulated-race check. Record the test IDs, pre/post values, session IDs, frozen classification, visible live results and serial or request evidence. Credit physical results separately from host assertions and preserve Stage 14C and Stage 15 Phase 8B acceptance requirements. Real detector acceptance remains a WP7 hardware obligation.
+
+## Implemented source boundary and evidence (references only)
+
+The isolated PR #3 source at `9f78657` registers a dedicated physical Integrated
+Display ingress as `StandaloneTaster`; Browser START retains its controller
+lease check. The immutable Session Definition freezes official eligibility and
+Race Engine excludes non-official History, PB/Track and official detail
+writes. This is consistent with the design section referenced above.
+
+The [18 November initial host evidence](https://github.com/ConnalM/Plonk-and-Play/blob/9f78657830cabbd8ac17108cb738e79c2b8330f6/docs/STANDALONE_TASTER_RECORD_ELIGIBILITY_PLAN.md#initial-implementation-evidence--18-november-2026)
+and the later [19 November build/regression evidence](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7012016540)
+are preserved. The exact physical
+[candidate and recovery checkpoint](https://github.com/ConnalM/Plonk-and-Play/pull/3#issuecomment-7012216516)
+remain separately identified. The Master Project Plan owns acceptance status
+and outstanding work; neither synthetic detector inputs nor a successful
+build prove physical detector/official persistence or Browser acceptance.
+
+## Accepted WP8-02 physical evidence — 21 November 2026
+
+**WP8-02 is CLOSED / PASS.** The accepted application-only image is
+`F6A415CF20AE943095491D8AD7DDCB460E228B05CD74B52505C1744F35C1040A`.
+Stage 15 passed Browser controller/spectator authority, reconnect and official
+record isolation. Stage 13 passed Results lifecycle, Browser/SSE handling and
+RACE AGAIN cleanup. Stage 8 passed automated Lap/Endurance, pause/resume,
+finish-policy and Browser-handover assertions. The independent guided Stage 8
+Taster screen observation also passed, with no observed display glitches.
+
+The immutable full-suite evidence is retained at
+`acceptance/evidence/wp8-02-final-20261120-232321/`; the guided Stage 8
+evidence is retained at
+`acceptance/evidence/wp8-02-guided-stage8-20261121-170852/`. Both record
+proposal-baseline restoration. The owner confirmed the `ENDURANCE / 943`
+proposal was created during manual +/- testing, not by configuration
+corruption.
+
+Original settings and official records were preserved. The temporary SD failure
+was a physically absent card; powered-off reinsertion restored access without
+data repair or writes. Final read-only checks retained 12 readable History
+entries and two explicitly flagged pre-existing unreadable entries, Lane PBs
+and Track Record. The source-reviewed `8669011d` change only paces generated
+external-test crossings by at least 1.05 seconds; it does not alter production
+firmware, rejected input behaviour or the accepted physical image.
+
+This bounded closure proves the stated automated acceptance scenarios and
+observed Taster presentation. It does **not** complete the separately open
+real-detector, physical standalone-record positive/negative, power-cycle,
+general production-storage, Stage 14C/15 production or broader release gates.
+Source/host, real-device and human visual evidence remain distinct; no
+firmware merge or product-release acceptance is implied.

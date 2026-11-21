@@ -1,73 +1,103 @@
-"""Stage 12 real-HTTP acceptance against the production Browser Interface.
-Requires a freshly booted stage12demo image and uses independent cookie stores.
+"""Stage 13 real-controller HTTP/SSE acceptance (synthetic input only).
+
+Run with the authorised idle physical acceptance-controller URL and --acceptance.
+A simulation-arm callback is mandatory. No records or settings are erased.
+Reads and real HTTP requests only; fixture reset is limited to this test's own
+volatile race. No positive official-persistence or real-detector claim.
 """
-import json,sys,time
-from urllib.request import Request,build_opener,HTTPCookieProcessor,ProxyHandler
-from urllib.error import HTTPError,URLError
-from http.cookiejar import CookieJar
-BASE=sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:9080'
-def client():
- jar=CookieJar();return build_opener(ProxyHandler({}),HTTPCookieProcessor(jar)),jar
-def call(o,path,method='GET',body=None,timeout=5):
- data=None if body is None else json.dumps(body).encode()
- last=None
- for attempt in range(5):
-  req=Request(BASE+path,data=data,method=method,headers={'Content-Type':'application/json','Connection':'close'})
-  try:
-   with o.open(req,timeout=timeout) as r:
-    raw=r.read().decode();return r.status,json.loads(raw) if raw else None
-  except HTTPError as e:
-   raw=e.read().decode();
-   try:value=json.loads(raw) if raw else None
-   except:value=raw
-   return e.code,value
-  except (URLError,ConnectionError,TimeoutError,OSError) as e:
-   last=e
-   if attempt<4:time.sleep(.25*(attempt+1))
- if last:raise last
-def wait_state(o,lifecycle,seconds=8):
- end=time.time()+seconds
- while time.time()<end:
-  status,state=call(o,'/state')
-  if status==200 and state['lifecycle']==lifecycle:return state
-  time.sleep(.1)
- raise AssertionError(f'expected {lifecycle}, last={state}')
-def operation(o,path,corr):
- status,_=call(o,path,'POST',{'correlationId':corr});assert status==202
- end=time.time()+5
- while time.time()<end:
-  status,result=call(o,f'/request-result?correlationId={corr}')
-  if status==200:return result
-  time.sleep(.05)
- raise AssertionError('request result timeout')
-def fixture(o,action,expected=200):
- status,value=call(o,'/fixture','POST',{'action':action});assert status==expected,(status,value);return value
-master,master_jar=client();spectator,spectator_jar=client()
-assert call(master,'/health')[0]==200
-for o,j in ((master,master_jar),(spectator,spectator_jar)):
- status,c=call(o,'/context');assert status==200 and c['role']=='Spectator' and len(list(j))==1
-assert call(master,'/bootstrap','POST')[1]['bootstrap'] is True
-assert call(master,'/context')[1]['role']=='Race Director'
-assert call(spectator,'/context')[1]['role']=='Spectator'
-assert call(spectator,'/bootstrap','POST')[0]==409
-assert operation(spectator,'/request/race-again',12)['result']=='REJECTED'
-assert call(master,'/request-result?correlationId=12')[0]==204
-assert operation(master,'/request/start',1)['result']=='ACCEPTED';wait_state(master,'RACING')
-fixture(master,'lane1');time.sleep(.25);fixture(master,'lane2');time.sleep(.25);fixture(master,'lane1');finished=wait_state(master,'FINISHED')
-assert finished['resultSealed'] and finished['winningTime']==finished['finishTime']
-status,results=call(master,'/results');assert status==200 and results['sealed'] and len(results['entries'])==2
-status,details=call(master,'/details');assert status==200 and details['sealed'] and any(e['records'] for e in details['entries'])
-assert call(spectator,'/results')[1]==results and call(spectator,'/details')[1]==details
-before=json.dumps(results,sort_keys=True);fixture(master,'lane1',400);assert json.dumps(call(master,'/results')[1],sort_keys=True)==before
-assert operation(spectator,'/request/race-again',22)['result']=='REJECTED';assert call(master,'/request-result?correlationId=22')[0]==204
-assert operation(master,'/request/race-again',2)['result']=='ACCEPTED';ready=wait_state(master,'READY');assert ready['resultSealed']
-fixture(master,'target3');old_ids=[e['raceEntryId'] for e in results['entries']]
-assert operation(master,'/request/start',3)['result']=='ACCEPTED';fresh=wait_state(master,'RACING');assert not fresh['resultSealed'] and all(e['laps']==0 for e in fresh['entries']) and min(e['raceEntryId'] for e in fresh['entries'])>min(old_ids)
-assert call(spectator,'/context')[1]['role']=='Spectator'
-# Leave the live human checkpoint in a repeatable READY state while retaining
-# the Browser identity that deliberately acquired Race Director authority.
-fixture(master,'reset');clean=wait_state(master,'READY')
-assert call(master,'/context')[1]['role']=='Race Director'
-assert not clean['resultSealed'] and all(e['laps']==0 for e in clean['entries'])
-assert call(master,'/fact')[1]['type']=='NONE'
-print('Stage 12 real HTTP Browser acceptance PASS')
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage15"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from physical_acceptance_baseline import require_immutable_baseline
+from multiclient_http_acceptance import (
+    EventStream, acquire_owner, arm_simulation, call, client, context, fixture,
+    get_json, operation, passage, record_snapshot, require_authorised_target,
+    restore_proposal, session_identity, set_proposal, start_simulated, state,
+    wait_state, wait_until,
+)
+
+
+def main():
+    require_authorised_target()
+    master, master_jar = client()
+    spectator, spectator_jar = client()
+    assert call(master, "/health")[0] == 200
+    original = require_immutable_baseline(get_json(master, "/proposal"))
+    assert state(master)["lifecycle"] == "READY" and original["activeLanes"] == 2
+    assert isinstance(original["simulatedSession"], bool), original
+    assert not context(master)["ownerConnected"], "Close existing controlling Browser first"
+    context(spectator)
+    assert len(list(master_jar)) == len(list(spectator_jar)) == 1
+    assert list(master_jar)[0].value != list(spectator_jar)[0].value
+    stream = EventStream(master, "stage13-controller").start()
+    stream.discard_initial()
+    acquire_owner(master, spectator)
+    records = record_snapshot(master)
+    assert call(spectator, "/bootstrap", "POST")[0] == 409
+    assert operation(spectator, "/request/race-again", 12)["result"] == "REJECTED"
+    assert call(master, "/request-result?correlationId=12")[0] == 204
+
+    arm_simulation(master)
+    duration = max(1, original["durationMinutes"])
+    set_proposal(master, 10001, "LAP_RACE", 2, duration, 0)
+    start_simulated(master, 1)
+    passage(master, 1)
+    passage(master, 2)
+    passage(master, 1)
+    finished = wait_state(master, "FINISHED")
+    assert finished["resultSealed"] and finished["winningTime"] == finished["finishTime"]
+    assert finished["historySequence"] == 0 and not finished["persistencePending"] and not finished["persistenceFault"], finished
+    results = get_json(master, "/results")
+    details = get_json(master, "/details")
+    assert results["sealed"] and len(results["entries"]) == 2
+    assert details["sealed"] and any(e["records"] for e in details["entries"])
+    assert get_json(spectator, "/results") == results and get_json(spectator, "/details") == details
+    # The main loop rejects the passage after queue admission because the
+    # completed session is no longer an active simulated race.
+    rejected = fixture(master, "lane1", accepted=False)
+    assert rejected["state"] == "REJECTED", rejected
+    assert get_json(master, "/results") == results
+    assert record_snapshot(master) == records
+    assert operation(spectator, "/request/race-again", 22)["result"] == "REJECTED"
+    assert call(master, "/request-result?correlationId=22")[0] == 204
+
+    assert operation(master, "/request/race-again", 2)["result"] == "ACCEPTED"
+    wait_state(master, "READY")
+    # Non-official live result is not reconstructed as Browser History on READY.
+    # The engine may retain a sealed internal summary; the HTTP result boundary
+    # must hide it after RACE AGAIN.
+    assert not get_json(master, "/results")["sealed"]
+    assert record_snapshot(master) == records
+    old_ids = {e["raceEntryId"] for e in results["entries"]}
+    arm_simulation(master)
+    set_proposal(master, 10002, "LAP_RACE", 3, duration, 0)
+    fresh = start_simulated(master, 3)
+    assert fresh["lapTarget"] == 3 and not fresh["resultSealed"]
+    assert all(e["laps"] == 0 for e in fresh["entries"])
+    assert old_ids.isdisjoint(e["raceEntryId"] for e in fresh["entries"])
+    assert context(spectator)["role"] == "Spectator"
+
+    fixture(master, "reset")
+    wait_state(master, "READY")
+    clean = state(master)
+    assert not clean["resultSealed"] and all(e["laps"] == 0 for e in clean["entries"])
+    assert get_json(master, "/fact")["type"] == "NONE"
+    arm_simulation(master)
+    stream.close()
+    wait_until(lambda: context(master), lambda c: not c["ownerConnected"], timeout=25)
+    assert context(master)["isMaster"] is True
+    assert operation(master, "/request/start", 4)["result"] == "REJECTED"
+    assert state(master)["lifecycle"] == "READY"
+    reconnected = EventStream(master, "stage13-reconnect").start()
+    reconnected.discard_initial()
+    wait_until(lambda: context(master), lambda c: c["ownerConnected"])
+    start_simulated(master, 5)
+    restore_proposal(master, original, 10003)
+    assert record_snapshot(master) == records
+    reconnected.close()
+    print("Stage 13 real-controller HTTP/SSE acceptance PASS (simulated input only)")
+
+
+if __name__ == "__main__":
+    main()

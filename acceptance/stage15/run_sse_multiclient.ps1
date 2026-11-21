@@ -20,7 +20,7 @@ Require $browser 'httpd_sess_set_ctx\([^;]+freeSseSession' 'missing HTTP session
 Require $browser 'session->generation != generation' 'queued work is not generation checked'
 Require $browser 'httpd_sess_get_ctx\(handle, fd\) != session' 'missing fd/session validation'
 Require $browser '503 Service Unavailable' 'missing bounded-capacity response'
-Require $browser 'findSseSession\(browserToken\)[\s\S]{0,180}invalidateSseSession\(previous, true, false\)' 'same-identity reconnect does not replace its own generation'
+Require $browser 'if \(previous\) browser->invalidateSseSession\(previous, previous->fd != fd, false\);' 'same-identity reconnect does not replace its own generation'
 Require $browser 'for \(size_t i = 0; i < MaxSseClients; \+\+i\)' 'missing per-client fan-out iteration'
 Require $main 'PP_PHASE8B_P1_TEST' 'P1 fixture guard missing from main path'
 Require $browser 'PP_PHASE8B_P1_TEST' 'P1 fixture route guard missing from Browser path'

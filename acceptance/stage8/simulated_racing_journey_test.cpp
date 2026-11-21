@@ -81,6 +81,7 @@ int main() {
 
   Bus bus;
   const auto presentation = bus.attach(Role::Presentation);
+  const auto taster = bus.attach(Role::Presentation);
   const auto controlEndpoint = bus.attach(Role::RaceControl);
   const auto engineEndpoint = bus.attach(Role::RaceEngine);
   const auto inputEndpoint = bus.attach(Role::Input);
@@ -92,11 +93,13 @@ int main() {
                             nullptr, nullptr, &catalog);
   RaceEngineModule engine(bus, engineEndpoint, active, &history, &records);
   InputModule input(bus, inputEndpoint, provider);
+  control.setStandaloneTasterEndpoint(taster);
 
   ok &= require(bus.subscribe(controlEndpoint, Type::StartRequest), "Race Control receives START");
   ok &= require(bus.subscribe(controlEndpoint, Type::SessionOperationRequest), "Race Control receives operations");
   ok &= require(bus.subscribe(controlEndpoint, Type::CompetitionComplete), "Race Control receives completion");
   ok &= require(bus.subscribe(presentation, Type::RequestResult), "Browser receives request results");
+  ok &= require(bus.subscribe(taster, Type::RequestResult), "Taster receives request results");
   ok &= require(bus.subscribe(engineEndpoint, Type::GoScheduled), "Race Engine receives GO");
   ok &= require(bus.subscribe(engineEndpoint, Type::InputEvent), "Race Engine receives passages");
   ok &= require(bus.subscribe(engineEndpoint, Type::SessionOperation), "Race Engine receives Race Again");
@@ -180,11 +183,13 @@ int main() {
   ok &= require(control.state() == SessionLifecycle::Ready && control.proposedRaceSetup() &&
                 control.proposedRaceSetup()->simulatedSession && !control.definition(),
                 "Race Again preserves the armed test boundary without reboot");
-  Message secondStart = start; secondStart.correlation = 3;
-  ok &= require(bus.publish(presentation, secondStart) == Delivery::Delivered, "second START is accepted without reboot");
+  Message secondStart = start; secondStart.correlation = 3; secondStart.clientContext = ClientContext::StandaloneTaster;
+  ok &= require(bus.publish(taster, secondStart) == Delivery::Delivered, "standalone Taster START enters the same bus without reboot");
   control.tick(go + 6'300'000);
   ok &= require(control.state() == SessionLifecycle::Starting && control.definition() &&
                 control.definition()->simulatedSession(), "second session starts with the same authoritative test boundary");
+  ok &= require(!control.definition()->officialRecordEligible(),
+                "simulated standalone Taster session remains frozen outside official records");
 
   std::cout << (ok ? "Simulated racing journey PASS\n" : "Simulated racing journey FAIL\n");
   return ok ? 0 : 1;
