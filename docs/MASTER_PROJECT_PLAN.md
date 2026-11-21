@@ -345,19 +345,21 @@ Default answer is **none**. Anything not explicitly promoted remains post-v1.
 ### WP10 — Qualification and release-candidate acceptance
 Run the deliberate abuse/soak campaign: repeated races, reboots, AP+STA cycles, router loss/restore, wrong credentials, DHCP changes, SD removal/recovery, power interruption, storage load/wear/throughput, heap/stack/resources, long-duration races, sensor faults, update/reset/recovery and first-use abuse.
 
+Complete a release-readiness security and privacy review: unauthorised AP/Browser/API access, controller recovery/takeover, home-network boundary, credential/diagnostic redaction, and proportionate device and signed-update production hardening. This is acceptance evidence, not a change to the account-less V1 control model.
+
 Bob may independently review evidence here.
 
-**G10 closure:** qualification matrix passes with no release-blocking defect and no unexplained resource/stability trend.
+**G10 closure:** qualification and security/privacy matrices pass with no release-blocking defect and no unexplained resource/stability trend.
 
 ### WP11 — Production hardware
-Finalise PCB/electronics as applicable, PSU, connectors, cables, SD, enclosure, gantry/mounting and labels. Build production-intent unit(s).
+Finalise PCB/electronics as applicable, components/substitutions, PSU, connectors, cables, SD, enclosure, gantry/mounting and labels. Review connector and power misuse/fault protection, thermal behaviour, practical EMC/ESD/tolerance needs and applicable compliance/marking implications. Build production-intent unit(s).
 
-**G11 closure:** production-intent unit passes all relevant cumulative acceptance and can be built/tested reproducibly.
+**G11 closure:** production-intent unit passes all relevant cumulative acceptance and can be built/tested reproducibly, with production hardware and compliance decisions recorded.
 
 ### WP12 — Release
-Complete instructions, first-start/access experience, firmware/release process, unit production test, support procedure, diagnostic support workflow and novice-user Plonk & Play trial.
+Complete instructions, first-start/access experience, firmware/release process, unit identity and known-good release-image control, production programming/provisioning and end-of-line test, support/fault workflow, diagnostic support workflow, applicable customer/legal/safety information, and novice-user Plonk & Play trial. Record the release support, warranty/returns and update/recovery route appropriate to the product.
 
-**GATE E — P&P v1 RELEASED:** a novice can unpack, connect, power on and race; release package/support path is complete; no open release blocker remains.
+**GATE E — P&P v1 RELEASED:** a novice can unpack, connect, power on and race; release package/support/provisioning path is complete; no open release blocker remains.
 
 ## 5. Current project position and active work
 
@@ -433,7 +435,7 @@ the Project Owner's explicit approval.
 | Multiple physical auxiliary displays, inter-P&P communications and independent per-unit configurations | Post-v1; single auxiliary Integrated Display only in V1 |
 | Automated showcase of screens and product capabilities | Post-v1; distinct from ordinary simulated race presentation |
 | Championships/events | Post-v1 |
-| Rex/REU-dependent facilities | Post-v1 |
+| Rex/REU-dependent facilities | Post-v1. The 22 October architecture, analogue-interface and electrical records are preserved as [historical future-reference inputs](MAIN_BRANCH_RECONCILIATION_2026-11-21.md); core P&P remains independent and no V1 REU, controller-wiring, BEMF or motor-observation commitment is implied. |
 | Personalised spoken announcements using racer names | Post-v1 |
 | Named Race Setup presets / Save Setup and Load Setup | Post-v1 candidate if real use warrants it |
 | Richer Racer/Car profiles, long-term statistics and car-specific records | Post-v1 candidates; stable identities retained in v1 |
