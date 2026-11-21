@@ -1,6 +1,6 @@
 # Plonk & Play
 ## User Manual — V1
-**Editorial draft 0.1 · 20 November 2026 · Not for customer distribution until release verification**
+**Editorial draft 0.2 · 21 November 2026 · Not for customer distribution until release verification**
 
 *Plonk. Plug. Play.*
 
@@ -14,7 +14,7 @@ Welcome to Plonk & Play (P&P), a slot-car racing system designed to get you raci
 3. Installing and configuring your track
 4. Using the Integrated Display
 5. Connecting to Race Control
-6. Choosing and running a race
+6. Choosing and running a race (Lap, Practice, Endurance, Timed Stage and Drag)
 7. Results, History and records
 8. Racers, cars and settings
 9. Customising the auxiliary display
