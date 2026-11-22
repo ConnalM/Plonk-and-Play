@@ -35,6 +35,17 @@ def phase(page):
 def fits(page):
     return page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
 
+def aux_geometry(page):
+    return page.evaluate("""() => {
+      const a=document.querySelector('.aux'), t=a.querySelector('.tree'), d=a.querySelector('.dragTime'), e=a.querySelector('.bigET');
+      if (!t||!d||!e) return false;
+      const ar=a.getBoundingClientRect(),tr=t.getBoundingClientRect(),dr=d.getBoundingClientRect();
+      const inside=(r,b)=>r.left>=b.left-1&&r.right<=b.right+1&&r.top>=b.top-1&&r.bottom<=b.bottom+1;
+      if (!inside(tr,ar)||!inside(dr,ar)||tr.right+7>dr.left||tr.height<280||dr.height<280) return false;
+      const nodes=[...t.querySelectorAll('.treeLine'),...d.querySelectorAll('.bigET,.redHero,.metric')];
+      return nodes.every(n=>inside(n.getBoundingClientRect(),n.closest('.tree')?tr:dr));
+    }""")
+
 def aux_fits(page):
     return page.locator(".aux").evaluate(
         "e => e.offsetWidth===800 && e.offsetHeight===480 && "
@@ -82,6 +93,7 @@ with sync_playwright() as pw:
         check(label,"result fits",lambda: fits(page))
         page.locator("[data-nav=aux]").click()
         check(label,"aux exact frame",lambda: aux_fits(page))
+        check(label,"aux panel/text geometry",lambda: aux_geometry(page))
         page.locator(".aux").screenshot(path=str(shots / (label + "_valid_800x480.png")))
         check(label,"aux valid screenshot exists",lambda: (shots / (label + "_valid_800x480.png")).stat().st_size > 1000)
         check(label,"aux tree read-only",lambda: page.locator(".aux .treeLine").count()==7 and page.locator(".aux [data-action]").count()==0)
@@ -114,6 +126,7 @@ with sync_playwright() as pw:
     check("Pro","whole run speed, not trap speed",lambda: "AVG SPEED 3.3 mph" in page.locator("#main").inner_text() and "TRAP SPEED — REU required" in page.locator("#main").inner_text())
     page.locator("[data-nav=aux]").click()
     check("Pro","red auxiliary",lambda: aux_fits(page) and page.locator(".aux .redHero").inner_text()=="RED LIGHT")
+    check("Pro","red aux panel/text geometry",lambda: aux_geometry(page))
     page.locator(".aux").screenshot(path=str(shots / "desktop_red_800x480.png"))
     check("Pro","red auxiliary screenshot exists",lambda: (shots / "desktop_red_800x480.png").stat().st_size > 1000)
     page.locator("[data-nav=setup]").click()
