@@ -1,45 +1,48 @@
-# Drag design review — regression and provenance
+# Drag — final visual design regression evidence
 
-**Status: consolidated review candidate; Chromium execution pending.** No final design approval claimed. All tests concern supplied visual-review fixtures, not the production race engine.
+**Gina final submission candidate for Archie/owner approval, 22 November 2026.** This evidence supersedes the preliminary unexecuted-browser status. No design freeze is claimed until owner approval.
 
-## Exact committed source
+## Exact reviewed artifacts
 
-- [HTML, commit 87cf26a](https://github.com/ConnalM/Plonk-and-Play/blob/87cf26aa6ed12913ca59f24d35fd0bcedbdeadc4/design/smugland/PP_Drag_review.html), **Git blob 3a17cce430c5b447f0ab1be6986db4cdba97bc83**. Only the V1 scope label differs from the previously refined working candidate; Timed Stage and V21 unchanged.
-- [Source regression, commit 0ec2491](https://github.com/ConnalM/Plonk-and-Play/blob/0ec24913011c28c662ef54ec95fff94e0761b012/design/smugland/PP_Drag_regression.cjs).
-- [Chromium regression, commit b76b93b](https://github.com/ConnalM/Plonk-and-Play/blob/b76b93b45f11280af6fd92d23f332e42ef1e78dc/design/smugland/PP_Drag_browser_regression.py).
-- [Concise manual chapter, commit ad0ec57](https://github.com/ConnalM/Plonk-and-Play/blob/ad0ec57053eac2118f24320b124507b10f8158f8/design/smugland/PP_Drag_manual.md).
+| Artifact | Exact commit / blob |
+|---|---|
+| [Drag HTML](https://github.com/ConnalM/Plonk-and-Play/blob/62bb2657519db57a065570c953311efdd638efdb/design/smugland/PP_Drag_review.html) | Commit `62bb2657519db57a065570c953311efdd638efdb`; **Git blob `b98fc6a090dae4f6348ff015f79949dc3affb94a`** |
+| [Drag manual chapter](https://github.com/ConnalM/Plonk-and-Play/blob/ad0ec57053eac2118f24320b124507b10f8158f8/design/smugland/PP_Drag_manual.md) | `ad0ec57053eac2118f24320b124507b10f8158f8` |
+| [Source regression](https://github.com/ConnalM/Plonk-and-Play/blob/0ec24913011c28c662ef54ec95fff94e0761b012/design/smugland/PP_Drag_regression.cjs) | `0ec24913011c28c662ef54ec95fff94e0761b012` |
+| [Chromium regression with geometry and screenshots](https://github.com/ConnalM/Plonk-and-Play/blob/5a41ef3e5dc130c3f11e822ffc93f471ec58e7dc/design/smugland/PP_Drag_browser_regression.py) | `5a41ef3e5dc130c3f11e822ffc93f471ec58e7dc` |
+| [Continuous test workflow](https://github.com/ConnalM/Plonk-and-Play/blob/8ebfe6aabd20e917d7702edded2bc8ec16bc6975/.github/workflows/gina-drag-browser.yml) | Workflow on design branch only |
 
-## Execution log
+**Final executed GitHub Actions run:** [45066450633 — success](https://github.com/ConnalM/Plonk-and-Play/actions/runs/45066450633), head commit `5a41ef3e5dc130c3f11e822ffc93f471ec58e7dc`. The executed browser program printed **Git blob b98fc6a090dae4f6348ff015f79949dc3affb94a**, matching the HTML above. Full logs and PNG screen evidence are retained in the [run's artifact](https://github.com/ConnalM/Plonk-and-Play/actions/runs/45066450633/artifacts/14771721833).
 
-| Gate | Status | Evidence |
-|---|---|---|
-| Source-level rules and state-transition assertions | **PASS, 43/43** | Full committed script's `test(script)` executed in an isolated JavaScript runtime against the exact committed HTML script. All 43 rows passed. |
-| HTML JavaScript syntax | **PASS** | Function compiled from exact committed script during regression. |
-| Chromium desktop 1440×900 | **NOT RUN** | Reproducible script committed; interactive/visual evidence not yet gathered. |
-| Chromium tablet 768×1024 | **NOT RUN** | Reproducible script committed. |
-| Chromium mobile 390×844 | **NOT RUN** | Reproducible script committed. |
-| Auxiliary 800×480 no overflow | **NOT RUN** | Exact frame, scroll clipping, tree and red-light checks are scripted, not yet executed. |
-| Physical Taster and firmware acceptance | **OUT OF SCOPE** | Remains Al's later implementation acceptance work. |
+## Executed results
 
-Source-level coverage includes: two-sensor mapping; single-beam staging and rollback; pre-tree reblock without false start; blocked-tree start rejection; Sportsman sequential amber and Pro simultaneous amber; GO and separate reaction/ET; early crossing and negative reaction; valid/red-light results; optional average and scale-equivalent speed; absent ET; dormant REU-only trap speed; view-only authority; no SAVE; immutable session-local fixture history; reset of stale metrics on NEW SETUP; rejection of duplicate Finish.
+| Check | Pass / total |
+|---|---:|
+| Node/source transitions and presentation fixtures | **43 / 43** |
+| Chromium desktop 1440×900 | **24 / 24** |
+| Chromium tablet 768×1024 | **24 / 24** |
+| Chromium mobile 390×844 | **24 / 24** |
+| Pro tree, early RED LIGHT, red auxiliary geometry, retry and history | **10 / 10** |
+| MUG view-only control | **1 / 1** |
+| Unknown ET handling | **1 / 1** |
+| **Total** | **127 / 127** |
 
-## Chromium reproduction
+No browser page exceptions occurred in the executed desktop, tablet, mobile or Pro scenario checks. The viewport tests verified initial setup, staging, blocked STAGE, rollback, reblocking before start without red-light, sequential Sportsman amber, GO, reaction, elapsed-time result, no invented speed, unavailable REU fields, full seven-lamp tree, session-local fixture results and setup locking.
 
-Install the Python Playwright dependency and its Chromium browser, place the linked HTML and Python suite together, then run:
+Pro tests verified all-three-ambers start, premature crossing RED LIGHT with negative reaction, retained 6.71 s sample ET, whole-run average speed not labelled trap speed, 800×480 red display, RACE AGAIN, and isolated review history. View-only STAGE was disabled; missing ET remains visibly unavailable.
 
-```bash
-python -m playwright install chromium
-python PP_Drag_browser_regression.py
-```
+## Physical-pixel screenshot inspection — 800 × 480
 
-With system Chromium, set `CHROMIUM_PATH` to the executable. The suite prints the exact HTML Git blob and individual PASS/FAIL rows and exits nonzero on failures. The suite does not operate live hardware. Before using its output for approval, verify the printed blob equals **3a17cce430c5b447f0ab1be6986db4cdba97bc83**, investigate failures, and retain the test output. No browser pass count is asserted prematurely.
+The actual browser-rendered PNG captures were inspected after the successful run. Both the **valid result** (ET **6.84 s**, reaction **0.23 s**, green lamp) and **false start** (**RED LIGHT** visually dominant, ET **6.71 s**, reaction **−0.08 s**, red lamp) fit and remain legible inside the native 800×480 display. PRE-STAGE is dormant, all seven lamps/labels remain visible, the REU trap-speed line is marked unavailable, and the bottom sensor mapping is separate and readable.
 
-## Design semantics and constraints
+The original script's frame/no-scroll assertions had missed overlapping content. The **initial run failed 77/80**; screenshot inspection showed collapsed panels. Root cause: **a missing closing quote in the dynamically generated `class` attribute of the Drag result panel**. Fixed in HTML commit `62bb265`. Regression added actual panel/text bounding boxes, minimum usable panel heights, tree-versus-metrics separation and text-within-panel assertions; the enhanced final browser suite passed **84/84**. The defect was not excused by the earlier false no-overflow pass.
 
-Design specification §6 controls base **single-lane two-sensor Drag**. Optional length and track scale do not block reaction and ET, PRE-STAGE remains dormant on the base hardware, and red-light runs can retain negative reaction and elapsed time. The engineering-only signal injector and session-local results are explicitly labelled simulated, not production result storage. No new drag sporting rule was invented.
+Responsive results: all three normal page widths passed document overflow checks, and the results table is wrapped in a horizontal-scroll container to retain columns on narrow screens. The scripted checks did **not** prove all text is readable on a physical handset or test touchscreen interactions by a human.
 
-Open acceptance gates: independently execute Chromium suite and inspect auxiliary physical-scale readability, plus later real detector, reaction/ET accuracy, authority and eligible records integration under implementation assignments. **Not** part of this review: dual-lane competition, dual-beam REU, hardware speed trap, V21 or Timed Stage modifications, Al work, production storage or merging.
+## Limits and safety boundary
 
-## Scope
+Design review uses explicitly **simulated** detector/GO/finish inputs and immutable example results. The review-only signal injector is **not** a production SMUG control and simulated history is **not** persistent product History, Personal Best, Track Record or storage. No actual sensor event ingress, authoritative timing, race engine, SD/NVS, race records, firmware, flashing or physical Taster testing was performed.
 
-Owner explicitly placed **basic Drag and Timed Stage in V1** on [issue #2](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7061304177). This package is only the Drag visual design; V1 production implementation is separate.
+Production acceptance must separately verify Start/Finish mapping, real reaction/ET timing and precision, Director/view-only authority, false-start lifecycle and eligible automatic record integration, controller recovery and physical readability. This candidate is for basic **V1 single-lane two-sensor Drag only**. Dual-beam REU, trap-speed hardware and two-lane competition Drag remain out of scope. Frozen SMUGLAND V21 and Timed Stage untouched; no Al work changed; no merge.
+
+Owner V1 scope: [issue #2](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7061304177). Archie visual gate: [review](https://github.com/ConnalM/Plonk-and-Play/issues/2#issuecomment-7085118538).
