@@ -1,0 +1,33 @@
+name: Browser Step B2 Chromium
+
+on:
+  pull_request:
+    paths:
+      - firmware/browser/normal_browser.html
+      - firmware/include/pp/normal_browser_page.inc
+      - acceptance/stage14c/browser_step_b2_chromium.cjs
+      - .github/workflows/browser-step-b2-chromium.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright@1.51.0
+          npx playwright install --with-deps chromium
+      - name: Run Browser Step B2 evidence
+        run: node acceptance/stage14c/browser_step_b2_chromium.cjs
+      - name: Upload Browser screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-step-b2-chromium-screenshots
+          path: acceptance/stage14c/evidence/browser-step-b2
+          if-no-files-found: error
+          retention-days: 14
