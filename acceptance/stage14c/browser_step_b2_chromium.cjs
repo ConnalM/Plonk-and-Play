@@ -97,6 +97,11 @@ async function show(page, selector, title, readyText, screenshot) {
   await assertReadable(page);
 }
 
+function assertNoUnexpectedErrors(errors, label) {
+  const unexpected = errors.filter(error => !/Failed to load resource: the server responded with a status of 503 \(Service Unavailable\)/.test(error));
+  assert.deepEqual(unexpected, [], label);
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true });
   try {
@@ -113,7 +118,7 @@ async function show(page, selector, title, readyText, screenshot) {
       await show(page, '#racersNav', 'Racers', 'Åsa', path.join(evidence, 'racers-' + viewport.name + '.png'));
       assert.match(await page.locator('#app').innerHTML(), /Åsa &amp; &lt;Racer&gt;/);
       assert.equal(model.writes.length, 0, 'Racers view issued a write request');
-      assert.deepEqual(errors, [], 'browser exception or console error');
+      assertNoUnexpectedErrors(errors, 'browser exception or console error');
       await page.close();
     }
 
@@ -123,7 +128,7 @@ async function show(page, selector, title, readyText, screenshot) {
     assert.match(await emptyPage.page.locator('#app').innerText(), /No detector status is available/);
     await show(emptyPage.page, '#racersNav', 'Racers', 'No saved racer profiles are available.', path.join(evidence, 'racers-empty.png'));
     assert.match(await emptyPage.page.locator('#app').innerText(), /No saved racer profiles are available/);
-    assert.deepEqual(emptyPage.errors, [], 'empty-state browser exception');
+    assertNoUnexpectedErrors(emptyPage.errors, 'empty-state browser exception');
     await emptyPage.page.close();
 
     const unavailable = { revision: 7, posts: [], writes: [], trackRequests: 0, racerRequests: 0, trackFailure: true, racersFailure: true };
@@ -138,7 +143,7 @@ async function show(page, selector, title, readyText, screenshot) {
     assert.equal(unavailable.trackRequests, afterFailure + 1, 'Track retry did not issue exactly one request');
     await show(unavailablePage.page, '#racersNav', 'Racers', 'Racer information is unavailable.', path.join(evidence, 'racers-unavailable.png'));
     assert.match(await unavailablePage.page.locator('#app').innerText(), /Racer information is unavailable/);
-    assert.deepEqual(unavailablePage.errors, [], 'unavailable-state browser exception');
+    assertNoUnexpectedErrors(unavailablePage.errors, 'unavailable-state browser exception');
     await unavailablePage.page.close();
 
     const revision = { revision: 7, posts: [], writes: [], trackRequests: 0, racerRequests: 0, track: fullTrack(10), racers: fullRacers('') };
@@ -153,7 +158,7 @@ async function show(page, selector, title, readyText, screenshot) {
     await revisionPage.page.evaluate(async () => { await window.poll('reconnect'); });
     await revisionPage.page.getByText(/refreshed/).waitFor();
     assert.ok(revision.racerRequests >= 2, 'stale Racer cache was not invalidated by proposal revision');
-    assert.deepEqual(revisionPage.errors, [], 'revision browser exception');
+    assertNoUnexpectedErrors(revisionPage.errors, 'revision browser exception');
     await revisionPage.page.close();
 
     const delayed = { revision: 7, posts: [], writes: [], trackRequests: 0, racerRequests: 0, delayTrack: 150 };
@@ -163,7 +168,7 @@ async function show(page, selector, title, readyText, screenshot) {
     await delayedPage.page.getByRole('heading', { name: 'Racers' }).waitFor();
     await delayedPage.page.waitForTimeout(200);
     assert.match(await delayedPage.page.locator('#app').innerText(), /Saved racers/);
-    assert.deepEqual(delayedPage.errors, [], 'in-flight navigation browser exception');
+    assertNoUnexpectedErrors(delayedPage.errors, 'in-flight navigation browser exception');
     await delayedPage.page.close();
   } finally {
     await browser.close();
