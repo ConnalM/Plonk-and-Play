@@ -2,7 +2,11 @@ const fs = require('fs');
 const vm = require('vm');
 
 const html = fs.readFileSync('firmware/browser/normal_browser.html', 'utf8');
-const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
+// Browser source has deliberately separated extension scripts (for example
+// Track Setup) as well as the main controller script. Execute each source
+// script in document order instead of greedily treating the intervening HTML
+// tag as JavaScript.
+const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]).join('\n');
 
 class Element {
   constructor(id) {
@@ -28,6 +32,8 @@ const ids = ['logo', 'head', 'status', 'reason', 'app', 'controlLease', 'overlay
 const elements = Object.fromEntries(ids.map(id => [id, new Element(id)]));
 global.document = {
   elements,
+  head: { appendChild() {} },
+  createElement() { return {}; },
   querySelector(selector) {
     if (selector.startsWith('#')) return elements[selector.slice(1)] || null;
     return null;
