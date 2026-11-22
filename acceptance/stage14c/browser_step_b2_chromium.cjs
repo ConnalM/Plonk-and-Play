@@ -156,7 +156,7 @@ function assertNoUnexpectedErrors(errors, label) {
     await show(revisionPage.page, '#racersNav', 'Racers', 'Åsa', path.join(evidence, 'racers-revision-8.png'));
     revision.revision = 9; revision.racers = fullRacers(' · refreshed');
     await revisionPage.page.evaluate(async () => { await window.poll('reconnect'); });
-    await revisionPage.page.getByText(/refreshed/).waitFor();
+    await revisionPage.page.waitForFunction(() => document.getElementById('app').innerText.includes('refreshed'));
     assert.ok(revision.racerRequests >= 2, 'stale Racer cache was not invalidated by proposal revision');
     assertNoUnexpectedErrors(revisionPage.errors, 'revision browser exception');
     await revisionPage.page.close();
@@ -165,7 +165,7 @@ function assertNoUnexpectedErrors(errors, label) {
     const delayedPage = await mockedPage(browser, { width: 390, height: 844 }, delayed);
     await delayedPage.page.locator('#trackNav').click();
     await delayedPage.page.locator('#racersNav').click();
-    await delayedPage.page.getByRole('heading', { name: 'Racers' }).waitFor();
+    await delayedPage.page.getByRole('heading', { name: 'Racers', exact: true }).waitFor();
     await delayedPage.page.waitForTimeout(200);
     assert.match(await delayedPage.page.locator('#app').innerText(), /Saved racers/);
     assertNoUnexpectedErrors(delayedPage.errors, 'in-flight navigation browser exception');
