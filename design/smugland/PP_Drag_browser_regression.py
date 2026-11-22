@@ -14,6 +14,8 @@ raw = html_path.read_bytes()
 html = raw.decode("utf-8")
 print("Git blob:", hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest())
 results = []
+shots = Path(os.getenv("DRAG_SCREENSHOT_DIR", "drag_screenshots"))
+shots.mkdir(parents=True, exist_ok=True)
 
 def check(scope, name, fn):
     try:
@@ -80,6 +82,8 @@ with sync_playwright() as pw:
         check(label,"result fits",lambda: fits(page))
         page.locator("[data-nav=aux]").click()
         check(label,"aux exact frame",lambda: aux_fits(page))
+        page.locator(".aux").screenshot(path=str(shots / (label + "_valid_800x480.png")))
+        check(label,"aux valid screenshot exists",lambda: (shots / (label + "_valid_800x480.png")).stat().st_size > 1000)
         check(label,"aux tree read-only",lambda: page.locator(".aux .treeLine").count()==7 and page.locator(".aux [data-action]").count()==0)
         check(label,"aux not faked PRE-STAGE",lambda: page.locator(".aux .treeLine.dormant").count()==1)
         page.locator("[data-nav=results]").click()
@@ -110,6 +114,8 @@ with sync_playwright() as pw:
     check("Pro","whole run speed, not trap speed",lambda: "AVG SPEED 3.3 mph" in page.locator("#main").inner_text() and "TRAP SPEED — REU required" in page.locator("#main").inner_text())
     page.locator("[data-nav=aux]").click()
     check("Pro","red auxiliary",lambda: aux_fits(page) and page.locator(".aux .redHero").inner_text()=="RED LIGHT")
+    page.locator(".aux").screenshot(path=str(shots / "desktop_red_800x480.png"))
+    check("Pro","red auxiliary screenshot exists",lambda: (shots / "desktop_red_800x480.png").stat().st_size > 1000)
     page.locator("[data-nav=setup]").click()
     page.locator("[data-action=return]").click()
     page.locator("[data-action=again]").click()
