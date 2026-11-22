@@ -7,7 +7,7 @@ const checkedInPath = path.join(ROOT, 'firmware', 'include', 'pp', 'normal_brows
 const embedded = fs.readFileSync(checkedInPath, 'utf8');
 const match = embedded.match(/R"PPHTML\(([\s\S]*)\)PPHTML";/);
 if (!match) throw new Error('embedded normal Browser payload missing');
-const scriptMatch = match[1].match(/<script>([\s\S]*)<\/script>/);
+const scriptMatch = match[1].match(/<script>([\s\S]*?)<\/script>/);
 if (!scriptMatch) throw new Error('embedded normal Browser script missing');
 
 class Element {

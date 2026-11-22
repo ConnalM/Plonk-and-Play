@@ -11,7 +11,7 @@ const embedded = fs.readFileSync(embeddedPath, 'utf8');
 const match = embedded.match(/R"PPHTML\(([\s\S]*)\)PPHTML";/);
 if (!match) throw new Error('could not extract embedded normal Browser HTML');
 const pageIds = [...new Set([...match[1].matchAll(/id=["']([^"']+)["']/g)].map(found => found[1]))];
-const scriptMatch = match[1].match(/<script>([\s\S]*)<\/script>/);
+const scriptMatch = match[1].match(/<script>([\s\S]*?)<\/script>/);
 if (!scriptMatch) throw new Error('embedded normal Browser script is missing');
 const script = scriptMatch[1];
 

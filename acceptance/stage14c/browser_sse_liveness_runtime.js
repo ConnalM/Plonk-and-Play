@@ -5,7 +5,7 @@ const vm = require('vm');
 const ROOT = path.resolve(__dirname, '..', '..');
 const embedded = fs.readFileSync(path.join(ROOT, 'firmware', 'include', 'pp', 'normal_browser_page.inc'), 'utf8');
 const page = embedded.match(/R"PPHTML\(([\s\S]*)\)PPHTML";/)[1];
-const script = page.match(/<script>([\s\S]*)<\/script>/)[1];
+const script = page.match(/<script>([\s\S]*?)<\/script>/)[1];
 
 class Element {
   constructor(id) {
