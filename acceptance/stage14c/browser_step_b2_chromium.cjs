@@ -151,7 +151,7 @@ function assertNoUnexpectedErrors(errors, label) {
     await show(revisionPage.page, '#trackNav', 'Track Setup', 'HEALTHY', path.join(evidence, 'track-revision-7.png'));
     revision.revision = 8; revision.track = fullTrack(88);
     await revisionPage.page.evaluate(async () => { await window.poll('reconnect'); });
-    await revisionPage.page.getByText('device 88 / capability 8').waitFor();
+    await revisionPage.page.waitForFunction(() => document.getElementById('app').innerText.includes('device 88 / capability 8'));
     assert.ok(revision.trackRequests >= 2, 'stale Track cache was not invalidated by proposal revision');
     await show(revisionPage.page, '#racersNav', 'Racers', 'Åsa', path.join(evidence, 'racers-revision-8.png'));
     revision.revision = 9; revision.racers = fullRacers(' · refreshed');
