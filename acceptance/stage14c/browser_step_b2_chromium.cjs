@@ -44,6 +44,7 @@ async function mockedPage(browser, viewport, model) {
     if (pathname === '/events') return route.fulfill({ status: 200, contentType: 'text/event-stream', body: 'event: heartbeat\ndata: {}\n\n' });
     if (request.method() === 'POST') {
       model.posts.push({ pathname, method: request.method() });
+      if (pathname.startsWith('/request/')) model.writes.push({ pathname, method: request.method() });
       return route.fulfill({ status: 204 });
     }
     if (pathname === '/state') return json(state());
@@ -104,19 +105,19 @@ async function show(page, selector, title, readyText, screenshot) {
       { name: 'tablet', width: 768, height: 1024 },
       { name: 'mobile', width: 390, height: 844 },
     ]) {
-      const model = { revision: 7, posts: [], trackRequests: 0, racerRequests: 0 };
+      const model = { revision: 7, posts: [], writes: [], trackRequests: 0, racerRequests: 0 };
       const { page, errors } = await mockedPage(browser, viewport, model);
       await show(page, '#trackNav', 'Track Setup', 'HEALTHY', path.join(evidence, 'track-' + viewport.name + '.png'));
       assert.match(await page.locator('#app').innerHTML(), /HEALTHY.*FAULT.*UNKNOWN/s);
-      assert.equal(model.posts.length, 0, 'Track view issued a POST request');
+      assert.equal(model.writes.length, 0, 'Track view issued a write request');
       await show(page, '#racersNav', 'Racers', 'Åsa', path.join(evidence, 'racers-' + viewport.name + '.png'));
       assert.match(await page.locator('#app').innerHTML(), /Åsa &amp; &lt;Racer&gt;/);
-      assert.equal(model.posts.length, 0, 'Racers view issued a POST request');
+      assert.equal(model.writes.length, 0, 'Racers view issued a write request');
       assert.deepEqual(errors, [], 'browser exception or console error');
       await page.close();
     }
 
-    const empty = { revision: 7, posts: [], trackRequests: 0, racerRequests: 0, track: { assignments: [], detectors: [] }, racers: { racers: [], assignments: [] } };
+    const empty = { revision: 7, posts: [], writes: [], trackRequests: 0, racerRequests: 0, track: { assignments: [], detectors: [] }, racers: { racers: [], assignments: [] } };
     const emptyPage = await mockedPage(browser, { width: 1440, height: 900 }, empty);
     await show(emptyPage.page, '#trackNav', 'Track Setup', 'No detector status is available.', path.join(evidence, 'track-empty.png'));
     assert.match(await emptyPage.page.locator('#app').innerText(), /No detector status is available/);
@@ -125,7 +126,7 @@ async function show(page, selector, title, readyText, screenshot) {
     assert.deepEqual(emptyPage.errors, [], 'empty-state browser exception');
     await emptyPage.page.close();
 
-    const unavailable = { revision: 7, posts: [], trackRequests: 0, racerRequests: 0, trackFailure: true, racersFailure: true };
+    const unavailable = { revision: 7, posts: [], writes: [], trackRequests: 0, racerRequests: 0, trackFailure: true, racersFailure: true };
     const unavailablePage = await mockedPage(browser, { width: 1440, height: 900 }, unavailable);
     await show(unavailablePage.page, '#trackNav', 'Track Setup', 'Detector information is unavailable.', path.join(evidence, 'track-unavailable.png'));
     assert.match(await unavailablePage.page.locator('#app').innerText(), /Detector information is unavailable/);
@@ -140,7 +141,7 @@ async function show(page, selector, title, readyText, screenshot) {
     assert.deepEqual(unavailablePage.errors, [], 'unavailable-state browser exception');
     await unavailablePage.page.close();
 
-    const revision = { revision: 7, posts: [], trackRequests: 0, racerRequests: 0, track: fullTrack(10), racers: fullRacers('') };
+    const revision = { revision: 7, posts: [], writes: [], trackRequests: 0, racerRequests: 0, track: fullTrack(10), racers: fullRacers('') };
     const revisionPage = await mockedPage(browser, { width: 768, height: 1024 }, revision);
     await show(revisionPage.page, '#trackNav', 'Track Setup', 'HEALTHY', path.join(evidence, 'track-revision-7.png'));
     revision.revision = 8; revision.track = fullTrack(88);
@@ -155,7 +156,7 @@ async function show(page, selector, title, readyText, screenshot) {
     assert.deepEqual(revisionPage.errors, [], 'revision browser exception');
     await revisionPage.page.close();
 
-    const delayed = { revision: 7, posts: [], trackRequests: 0, racerRequests: 0, delayTrack: 150 };
+    const delayed = { revision: 7, posts: [], writes: [], trackRequests: 0, racerRequests: 0, delayTrack: 150 };
     const delayedPage = await mockedPage(browser, { width: 390, height: 844 }, delayed);
     await delayedPage.page.locator('#trackNav').click();
     await delayedPage.page.locator('#racersNav').click();
