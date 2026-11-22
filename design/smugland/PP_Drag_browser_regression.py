@@ -110,7 +110,6 @@ with sync_playwright() as pw:
     check("Pro","whole run speed, not trap speed",lambda: "AVG SPEED 3.3 mph" in page.locator("#main").inner_text() and "TRAP SPEED — REU required" in page.locator("#main").inner_text())
     page.locator("[data-nav=aux]").click()
     check("Pro","red auxiliary",lambda: aux_fits(page) and page.locator(".aux .redHero").inner_text()=="RED LIGHT")
-    page.locator("[data-nav=run]").count() # navigation back via Race/setup and RETURN TO RESULT
     page.locator("[data-nav=setup]").click()
     page.locator("[data-action=return]").click()
     page.locator("[data-action=again]").click()
