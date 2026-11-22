@@ -38,4 +38,6 @@ jobs:
             drag_source.log
             drag_browser.log
             drag_screenshots/
+            design/smugland/PP_Drag_review.html
+            design/smugland/PP_Drag_browser_regression.py
           if-no-files-found: warn
