@@ -90,7 +90,7 @@ async function assertReadable(page) {
 
 async function show(page, selector, title, readyText, screenshot) {
   await page.locator(selector).click();
-  await page.getByRole('heading', { name: title }).waitFor();
+  await page.getByRole('heading', { name: title, exact: true }).waitFor();
   await page.waitForFunction(text => document.getElementById('app').innerText.includes(text), readyText);
   await page.screenshot({ path: screenshot, fullPage: true });
   await assertReadable(page);
