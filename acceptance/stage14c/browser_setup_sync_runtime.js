@@ -9,6 +9,7 @@ class Element{constructor(id){this.id=id;this.textContent='';this._innerHTML='';
  get innerHTML(){return this._innerHTML;}}
 const ids=['logo','head','status','reason','app','overlay','notice','setupNav','resultsNav','trackNav','racersNav','settingsNav','start','change','devTab','devDrawer','devClose','devL1','devL2','devState','devLanes','devFact','devHealth','devHealthMore','devFixture'];
 global.document={activeElement:null,elements:{},querySelector(s){if(s.startsWith('#'))return this.elements[s.slice(1)]||null;return null;},querySelectorAll(s){if(s==='[data-m]:not(:disabled)')return Object.values(this.elements).filter(e=>e.dataset&&e.dataset.m&&!e.disabled);return [];},createElement(id){return new Element(id)}};for(const id of ids)document.elements[id]=new Element(id);
+require('./browser_dom_harness').completeBrowserDom(global.document);
 const intervals=[];global.window=global;global.$=s=>document.querySelector(s);global.performance={now:()=>1000};global.setInterval=fn=>{intervals.push(fn);return intervals.length};global.clearInterval=()=>{};const realSetTimeout=setTimeout;const realClearTimeout=clearTimeout;global.setTimeout=(fn,ms)=>realSetTimeout(fn,ms===100?0:ms);global.clearTimeout=id=>realClearTimeout(id);
 // The production setup view populates its racer controls in this class-based
 // host. An absent host makes the embedded page keep fetching /racers.

@@ -24,6 +24,7 @@ class Element {
 const ids=['logo','head','status','reason','app','overlay','notice','setupNav','resultsNav','trackNav','racersNav','settingsNav','start','change','devTab','devDrawer','devClose','devL1','devL2','devState','devLanes','devFact','devHealth','devHealthMore','devFixture'];
 global.document={elements:{},querySelector(sel){if(sel.startsWith('#')) return this.elements[sel.slice(1)]||null; if(sel==='.historyItem') return Object.values(this.elements).find(e=>e.id.startsWith('historyItem_'))||null; return null;},querySelectorAll(sel){if(sel==='.historyItem') return Object.values(this.elements).filter(e=>e.id.startsWith('historyItem_')); return []}};
 for(const id of ids) document.elements[id]=new Element(id);
+require('./browser_dom_harness').completeBrowserDom(global.document);
 global.window=global;global.$=s=>document.querySelector(s);global.performance={now:()=>1000};
 const intervals=[];global.setInterval=fn=>{intervals.push(fn);return intervals.length};global.clearInterval=()=>{};
 let nextTimer=1;const timers=new Map();global.setTimeout=(fn,ms)=>{const id=nextTimer++;timers.set(id,{fn,ms});return id};global.clearTimeout=id=>timers.delete(id);

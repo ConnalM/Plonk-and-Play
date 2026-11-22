@@ -27,6 +27,7 @@ const ids = ['logo', 'head', 'status', 'reason', 'app', 'overlay', 'notice', 'se
   'resultsNav', 'start', 'change', ...[...page.matchAll(/id=["']([^"']+)["']/g)].map(x => x[1])];
 global.document = { elements: {}, querySelector(s) { return this.elements[s.replace(/^#/, '')] || null; }, createElement: id => new Element(id) };
 for (const id of new Set(ids)) document.elements[id] = new Element(id);
+require('./browser_dom_harness').completeBrowserDom(global.document);
 global.window = global;
 global.performance = { now: () => now };
 global.sessionStorage = { getItem() { return null; }, setItem() {} };
