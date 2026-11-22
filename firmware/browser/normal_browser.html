@@ -130,6 +130,7 @@ function note(t){let n=$('#notice');n.textContent=t;n.classList.remove('hide');s
 <script>
 (function(){
   let b2TrackData=null,b2TrackLoading=false,b2RacersData=null,b2RacersLoading=false;
+  const b2Style=document.createElement('style');b2Style.textContent='.entry{min-width:0}.entry>div{min-width:0;overflow-wrap:anywhere}';document.head.appendChild(b2Style);
   const b2Esc=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
   const b2Revision=()=>Number(P?.proposalRevision||0);
   const b2Fresh=value=>!!value&&!value.error&&Number(value.proposalRevision||0)===b2Revision();

@@ -17,6 +17,7 @@ async function renderViews({ track, racers, unavailable = false, laneCount = 2, 
   const elements = { trackNav: {}, racersNav: {} };
   const context = {
     A: { innerHTML: '' },
+    document: { head: { appendChild() {} }, createElement() { return { textContent: '' }; } },
     P: { proposalRevision: 7, entries: [{ lane: 1, mugId: 7 }, { lane: 2, mugId: 77 }] },
     C: { isMaster },
     V: 'track',
