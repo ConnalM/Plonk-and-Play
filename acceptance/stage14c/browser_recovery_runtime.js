@@ -25,6 +25,7 @@ const ids = [
 global.document = { elements: {}, querySelector(s) { return this.elements[s.replace(/^#/, '')] || null; } };
 for (const id of ids) document.elements[id] = new Element(id);
 global.$ = s => document.querySelector(s);
+require('./browser_dom_harness').completeBrowserDom(global.document);
 global.window = global;
 global.performance = { now: () => Date.now() };
 const realSetTimeout = global.setTimeout;

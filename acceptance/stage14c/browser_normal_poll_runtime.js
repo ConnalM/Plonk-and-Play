@@ -44,6 +44,7 @@ global.document = {
   createElement(id) { return new Element(id); },
 };
 for (const id of ids) document.elements[id] = new Element(id);
+require('./browser_dom_harness').completeBrowserDom(global.document);
 global.window = global;
 const sessionValues = new Map();
 global.sessionStorage = {

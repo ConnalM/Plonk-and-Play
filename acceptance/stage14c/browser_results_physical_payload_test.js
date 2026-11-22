@@ -8,6 +8,20 @@ const html = fs.readFileSync('firmware/browser/normal_browser.html', 'utf8');
 // tag as JavaScript.
 const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]).join('\n');
 
+const responsiveContracts = {
+  desktop: html.includes('.tr{display:grid;grid-template-columns:80px 1.5fr 1fr 1fr 1fr 1fr') &&
+    html.includes('.result{display:grid;grid-template-columns:70px 1.3fr 1fr 1fr 1fr 1fr'),
+  tablet: html.includes('@media(min-width:801px) and (max-width:1050px)'),
+  mobile: html.includes('.table,.card{overflow-x:auto;-webkit-overflow-scrolling:touch}') &&
+    html.includes('.tr,.result{min-width:640px}') &&
+    !html.includes('.tr>div:nth-child(n+4),.result>div:nth-child(n+4){display:none}'),
+  accessibility: html.includes("aria-label','Primary navigation'") &&
+    html.includes("setAttribute('aria-current',button.id===active?'page':'false')"),
+};
+for (const [viewport, available] of Object.entries(responsiveContracts)) {
+  if (!available) throw new Error(`${viewport} responsive metrics/accessibility contract missing`);
+}
+
 class Element {
   constructor(id) {
     this.id = id; this.textContent = ''; this._innerHTML = '';
@@ -32,14 +46,12 @@ const ids = ['logo', 'head', 'status', 'reason', 'app', 'controlLease', 'overlay
 const elements = Object.fromEntries(ids.map(id => [id, new Element(id)]));
 global.document = {
   elements,
-  head: { appendChild() {} },
-  createElement() { return {}; },
   querySelector(selector) {
     if (selector.startsWith('#')) return elements[selector.slice(1)] || null;
     return null;
-  },
-  querySelectorAll() { return []; }
+  }
 };
+require('./browser_dom_harness').completeBrowserDom(global.document);
 global.window = global;
 global.performance = { now: () => 1000 };
 global.setInterval = () => 1;
@@ -83,12 +95,12 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await wait(1100);
   if (resultRequests < 2) throw new Error(`expected bounded retry, got ${resultRequests} request(s)`);
   const rendered = elements.app.innerHTML;
-  for (const expected of ['2 / 2', '1 / 2', '4.74 s', '3.40 s']) {
+  for (const expected of ['POSITION', 'LANE/RACER', 'PROGRESS', 'TIME', 'BEST', 'GAP', '2 / 2', '1 / 2', '4.74 s', '1.98 s', '3.40 s', '+1 lap']) {
     if (!rendered.includes(expected)) throw new Error(`physical Results payload did not render ${expected}`);
   }
   if (!rendered.includes('<div>2 / 2</div><div>4.74 s</div>') ||
       !rendered.includes('<div>1 / 2</div><div>3.40 s</div>')) {
     throw new Error('physical non-zero finish durations rendered as unavailable');
   }
-  console.log(`Normal Browser physical Results payload regression PASS: ${resultRequests} /results requests, both elapsed times rendered`);
+  console.log(`Normal Browser physical Results/responsive regression PASS: ${resultRequests} /results requests, all metrics retained across viewport contracts`);
 })().catch(error => { console.error(error.stack || error); process.exitCode = 1; });
