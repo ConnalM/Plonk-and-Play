@@ -18,6 +18,7 @@
 #include "firmware_update.h"
 #include "mug_catalog.h"
 #include "fixture_command_queue.h"
+#include "taster_presentation_preferences.h"
 #if defined(PP_PHASE8B_REAL_SD)
 #include "physical_sd_owner.h"
 #endif
@@ -76,11 +77,12 @@ public:
                    MaintenanceEndpoint* maintenance = nullptr,
                    DetectorProvider* detectorProvider = nullptr,
                    MugCatalog* mugCatalog = nullptr,
-                   MugCatalogAuthority* mugAuthority = nullptr)
+                   MugCatalogAuthority* mugAuthority = nullptr,
+                   TasterPresentationPreferencesController* tasterPreferences = nullptr)
       : bus_(bus), endpoint_(endpoint), noticeboard_(noticeboard),
         authority_(authority ? authority : &fallback_), history_(history), records_(records), detailSource_(detailSource),
         physicalOwner_(physicalOwner), firmwareUpdate_(firmwareUpdate), maintenance_(maintenance), detectorProvider_(detectorProvider),
-        mugCatalog_(mugCatalog), mugAuthority_(mugAuthority) {
+        mugCatalog_(mugCatalog), mugAuthority_(mugAuthority), tasterPreferences_(tasterPreferences) {
     controllerEpoch_ = newControllerEpoch();
   }
   uint64_t controllerEpoch() const { return controllerEpoch_; }
@@ -684,6 +686,7 @@ private:
   DetectorProvider* detectorProvider_ = nullptr;
   MugCatalog* mugCatalog_ = nullptr;
   MugCatalogAuthority* mugAuthority_ = nullptr;
+  TasterPresentationPreferencesController* tasterPreferences_ = nullptr;
   VolatileAuthorityStore fallback_;
   ExternalWifiManager network_{};
   httpd_handle_t server_ = nullptr;
@@ -2229,6 +2232,142 @@ private:
     httpd_resp_set_type(request,"application/json"); httpd_resp_set_hdr(request,"Cache-Control","no-store");
     const esp_err_t sent=httpd_resp_sendstr(request,json); free(json); trace.complete(sent); return sent;
   }
+  static bool tasterPreferencesFromBody(httpd_req_t* request,
+                                        TasterPresentationPreferences& preferences) {
+    if (!request || request->content_len <= 0 || request->content_len >= 256) return false;
+    char body[256]{};
+    int received = 0;
+    while (received < request->content_len) {
+      const int part = httpd_req_recv(request, body + received, request->content_len - received);
+      if (part <= 0) return false;
+      received += part;
+    }
+    auto text = [&body](const char* key, char* out, size_t capacity) {
+      const char* field = strstr(body, key);
+      const char* colon = field ? strchr(field, ':') : nullptr;
+      if (!colon) return false;
+      const char* value = colon + 1;
+      while (*value == ' ' || *value == '\t') ++value;
+      if (*value != '"') return false;
+      ++value;
+      size_t length = 0;
+      while (*value && *value != '"') {
+        if (*value == '\\' || length + 1 >= capacity) return false;
+        out[length++] = *value++;
+      }
+      if (*value != '"') return false;
+      out[length] = '\0';
+      return true;
+    };
+    auto graphic = [&body](const char* key, TasterCarGraphic& out) {
+      const char* field = strstr(body, key);
+      const char* colon = field ? strchr(field, ':') : nullptr;
+      if (!colon) return false;
+      char* end = nullptr;
+      const unsigned long value = strtoul(colon + 1, &end, 10);
+      while (end && (*end == ' ' || *end == '\t')) ++end;
+      if (!end || (end == colon + 1) || (*end != ',' && *end != '}') ||
+          value > static_cast<unsigned long>(TasterCarGraphic::RedEtype)) return false;
+      out = static_cast<TasterCarGraphic>(value);
+      return true;
+    };
+    return text("\"lane1Label\"", preferences.lane1Label, sizeof(preferences.lane1Label)) &&
+           text("\"lane2Label\"", preferences.lane2Label, sizeof(preferences.lane2Label)) &&
+           graphic("\"lane1Graphic\"", preferences.lane1Graphic) &&
+           graphic("\"lane2Graphic\"", preferences.lane2Graphic) && preferences.valid();
+  }
+  static const char* tasterPreferencesResultText(TasterPresentationPreferencesResult result) {
+    switch (result) {
+      case TasterPresentationPreferencesResult::Accepted: return "ACCEPTED";
+      case TasterPresentationPreferencesResult::PermissionDenied: return "CONTROLLING_RACE_DIRECTOR_REQUIRED";
+      case TasterPresentationPreferencesResult::LifecycleNotReady: return "LIFECYCLE_NOT_READY";
+      case TasterPresentationPreferencesResult::StorageUnavailable: return "STORAGE_UNAVAILABLE";
+      case TasterPresentationPreferencesResult::InvalidPreferences: return "INVALID_PREFERENCES";
+    }
+    return "REJECTED";
+  }
+  static esp_err_t tasterPreferencesRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/taster/preferences");
+    BrowserInterface* browser = instance();
+    client(request);
+    if (!browser->tasterPreferences_) {
+      httpd_resp_set_status(request, "503 Service Unavailable");
+      trace.complete(ESP_ERR_INVALID_STATE);
+      return httpd_resp_sendstr(request, "taster preferences unavailable");
+    }
+    const auto& preferences = browser->tasterPreferences_->current();
+    char json[256]{};
+    snprintf(json, sizeof(json),
+             "{\"lane1Label\":\"%s\",\"lane2Label\":\"%s\",\"lane1Graphic\":%u,\"lane2Graphic\":%u}",
+             preferences.lane1Label, preferences.lane2Label,
+             unsigned(preferences.lane1Graphic), unsigned(preferences.lane2Graphic));
+    httpd_resp_set_type(request, "application/json");
+    httpd_resp_set_hdr(request, "Cache-Control", "no-store");
+    const esp_err_t sent = httpd_resp_sendstr(request, json);
+    trace.complete(sent);
+    return sent;
+  }
+  static esp_err_t tasterPreferencesUpdateRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/request/taster/preferences");
+    BrowserInterface* browser = instance();
+    const uint64_t owner = client(request);
+    TasterPresentationPreferences preferences{};
+    if (!tasterPreferencesFromBody(request, preferences)) {
+      httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "complete valid Taster preferences required");
+      trace.complete(ESP_ERR_INVALID_ARG);
+      return ESP_FAIL;
+    }
+    const bool controlling = browser->authorizesStart(owner);
+    const bool ready = browser->noticeboard_.current().lifecycle == SessionLifecycle::Ready;
+    const auto result = browser->tasterPreferences_
+        ? browser->tasterPreferences_->update(controlling, ready, preferences)
+        : TasterPresentationPreferencesResult::StorageUnavailable;
+    const char* status = result == TasterPresentationPreferencesResult::Accepted ? "202 Accepted" :
+                         result == TasterPresentationPreferencesResult::PermissionDenied ? "403 Forbidden" :
+                         result == TasterPresentationPreferencesResult::LifecycleNotReady ? "409 Conflict" :
+                         result == TasterPresentationPreferencesResult::StorageUnavailable ? "503 Service Unavailable" :
+                         "400 Bad Request";
+    char json[128]{};
+    snprintf(json, sizeof(json), "{\"accepted\":%s,\"result\":\"%s\"}",
+             result == TasterPresentationPreferencesResult::Accepted ? "true" : "false",
+             tasterPreferencesResultText(result));
+    httpd_resp_set_status(request, status);
+    httpd_resp_set_type(request, "application/json");
+    const esp_err_t sent = httpd_resp_sendstr(request, json);
+    trace.complete(sent);
+    return sent;
+  }
+  static esp_err_t tasterPreferencesRestoreRoute(httpd_req_t* request) {
+    RequestTrace trace(instance(), "/request/taster/preferences/restore-factory");
+    char body[64]{};
+    const int received = request->content_len > 0 && request->content_len < int(sizeof(body))
+                           ? httpd_req_recv(request, body, request->content_len) : 0;
+    if (received <= 0 || !strstr(body, "\"confirmed\":true")) {
+      httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "factory restore confirmation required");
+      trace.complete(ESP_ERR_INVALID_ARG);
+      return ESP_FAIL;
+    }
+    BrowserInterface* browser = instance();
+    const uint64_t owner = client(request);
+    const bool controlling = browser->authorizesStart(owner);
+    const bool ready = browser->noticeboard_.current().lifecycle == SessionLifecycle::Ready;
+    const auto result = browser->tasterPreferences_
+        ? browser->tasterPreferences_->restoreFactory(controlling, ready)
+        : TasterPresentationPreferencesResult::StorageUnavailable;
+    const char* status = result == TasterPresentationPreferencesResult::Accepted ? "202 Accepted" :
+                         result == TasterPresentationPreferencesResult::PermissionDenied ? "403 Forbidden" :
+                         result == TasterPresentationPreferencesResult::LifecycleNotReady ? "409 Conflict" :
+                         "503 Service Unavailable";
+    char json[128]{};
+    snprintf(json, sizeof(json), "{\"accepted\":%s,\"result\":\"%s\"}",
+             result == TasterPresentationPreferencesResult::Accepted ? "true" : "false",
+             tasterPreferencesResultText(result));
+    httpd_resp_set_status(request, status);
+    httpd_resp_set_type(request, "application/json");
+    const esp_err_t sent = httpd_resp_sendstr(request, json);
+    trace.complete(sent);
+    return sent;
+  }
   static bool mugNameFromBody(httpd_req_t* request, char* out, size_t cap) {
     if (!request || !out || cap < 2 || request->content_len <= 0 || request->content_len >= 256) return false;
     char body[256]{}; int received=0;
@@ -3353,6 +3492,7 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/network/disconnect", HTTP_POST, networkDisconnectRoute, nullptr},
       {"/network/forget", HTTP_POST, networkForgetRoute, nullptr},
       {"/proposal", HTTP_GET, proposalRoute, nullptr},
+      {"/taster/preferences", HTTP_GET, tasterPreferencesRoute, nullptr},
       {"/racers", HTTP_GET, racersRoute, nullptr},
       {"/request/mug/create", HTTP_POST, mugCreateRoute, nullptr},
       {"/practice-summary", HTTP_GET, practiceSummaryRoute, nullptr},
@@ -3374,6 +3514,8 @@ window.reconcileModeFromState=()=>{};window.poll=authorityPoll;window.dispatchSt
       {"/request/take-control/keep", HTTP_POST, keepControlRoute, nullptr},
       {"/request/start", HTTP_POST, startRoute, nullptr},
       {"/request/setup", HTTP_POST, setupRoute, nullptr},
+      {"/request/taster/preferences", HTTP_POST, tasterPreferencesUpdateRoute, nullptr},
+      {"/request/taster/preferences/restore-factory", HTTP_POST, tasterPreferencesRestoreRoute, nullptr},
       {"/request/pause", HTTP_POST, pauseRoute, nullptr},
       {"/request/resume", HTTP_POST, resumeRoute, nullptr},
       {"/request/end-session", HTTP_POST, endSessionRoute, nullptr},
