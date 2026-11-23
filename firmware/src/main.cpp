@@ -9,6 +9,7 @@
 #include "pp/core.h"
 #include "pp/session_definition.h"
 #include "pp/track_configuration.h"
+#include "pp/taster_presentation_preferences.h"
 #include "pp/mug_catalog.h"
 #include "pp/race_control.h"
 #include "pp/race_engine.h"
@@ -151,6 +152,8 @@ private: Preferences preferences;bool ready=false;
 pp::Bus bus;
 pp::Memory memory(storage);
 pp::TrackConfigurationMemory trackConfigurationMemory(storage);
+pp::TasterPresentationPreferencesMemory tasterPresentationPreferencesMemory(storage);
+pp::TasterPresentationPreferencesController tasterPresentationPreferences(tasterPresentationPreferencesMemory);
 pp::TrackConfiguration workingTrackConfiguration{};
 bool trackConfigurationRemembered = false;
 #if defined(PP_WP7_PHYSICAL_RACING_TEST)
@@ -313,7 +316,8 @@ const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
 pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
 #if defined(PP_WP7_PHYSICAL_RACING_TEST)
 const auto tasterEndpoint=bus.attach(pp::Role::Presentation);
-pp::Wp7PhysicalRacingUi wp7PhysicalUi(boardDisplay,raceControl,noticeboard,bus,presentationEndpoint,tasterEndpoint);
+pp::Wp7PhysicalRacingUi wp7PhysicalUi(boardDisplay,raceControl,noticeboard,bus,presentationEndpoint,tasterEndpoint,
+                                       &tasterPresentationPreferences);
 #endif
 pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthority,&history,&records,&raceEngine,
 #if defined(PP_PHASE8B_REAL_SD)
@@ -329,7 +333,8 @@ pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthor
 #else
                              nullptr,
 #endif
-                             &raceControl
+  &raceControl,
+  &tasterPresentationPreferences
 );
 #if defined(PP_STAGE8A_TASTER_WOKWI)
 pp::TasterRuntime taster(browser, tasterLaneStimulus);
@@ -927,6 +932,9 @@ void setup(){
   auto first=systemTime(),second=systemTime();testsPassed=second>=first;
   diagnostics.log("[INIT] System Time %s: monotonic 64-bit microseconds",testsPassed?"READY":"FAIL");
   storage.begin();
+  const auto tasterPreferencesLoadStatus = tasterPresentationPreferences.load();
+  const char* tasterPreferencesSource[] = {"REMEMBERED", "FACTORY: MISSING", "FACTORY: INVALID", "FACTORY: STORAGE UNAVAILABLE"};
+  diagnostics.log("[INIT] Taster presentation preferences %s", tasterPreferencesSource[unsigned(tasterPreferencesLoadStatus)]);
   const auto trackLoadStatus = trackConfigurationMemory.load(workingTrackConfiguration);
   trackConfigurationRemembered = trackLoadStatus == pp::LoadStatus::Remembered;
   if (!trackConfigurationRemembered) workingTrackConfiguration = pp::TrackConfiguration{};

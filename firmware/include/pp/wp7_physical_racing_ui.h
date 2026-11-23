@@ -12,6 +12,7 @@
 #include "race_engine.h"
 #include "system_time.h"
 #include "taster_surface.h"
+#include "taster_presentation_preferences.h"
 #include "ui_dirty_regions.h"
 #include "wp7_presentation_contract.h"
 #include "wp7_barlow_bold_28.h"
@@ -53,10 +54,12 @@ public:
                       Noticeboard& noticeboard,
                       Bus& bus,
                       Bus::Endpoint presentationEndpoint,
-                      Bus::Endpoint tasterEndpoint)
+                      Bus::Endpoint tasterEndpoint,
+                      const TasterPresentationPreferencesController* presentationPreferences = nullptr)
       : display_(display), control_(control), noticeboard_(noticeboard),
         bus_(bus), presentationEndpoint_(presentationEndpoint),
         tasterEndpoint_(tasterEndpoint), surface_(*this, 0x544153544552ULL),
+        presentationPreferences_(presentationPreferences),
         touch_(kTouchSda, kTouchScl, kTouchInt, kTouchRst,
                kPanelWidth, kPanelHeight) {}
 
@@ -1073,26 +1076,26 @@ private:
   }
 
   const char* laneName(uint8_t lane, char* fallback, size_t capacity) const {
-    const SessionDefinition* definition = control_.definition();
-    if (definition && lane >= 1 && lane <= definition->entryCount()) {
-      const auto& entry = definition->entry(static_cast<uint8_t>(lane - 1));
-      if (entry.mugId <= 2) {
-        snprintf(fallback, capacity, "Lane %u", unsigned(lane));
-        return fallback;
-      }
-      if (entry.mugName[0]) return entry.mugName;
-    }
-    const ProposedRaceSetup* setup = control_.proposedRaceSetup();
-    if (setup && lane >= 1 && lane <= setup->activeLanes) {
-      const auto& entry = setup->entries[static_cast<uint8_t>(lane - 1)];
-      if (entry.mugId <= 2 || !entry.mugName[0]) {
-        snprintf(fallback, capacity, "Lane %u", unsigned(lane));
-        return fallback;
-      }
-      return entry.mugName;
+    // A committed presentation label owns this text. It is deliberately
+    // separate from MUG identity and does not change when a race entry or
+    // its frozen racer name changes. Blank labels use the generic lane name.
+    if (presentationPreferences_ && lane >= 1 && lane <= 2) {
+      const auto& preferences = presentationPreferences_->current();
+      const char* label = lane == 1 ? preferences.lane1Label : preferences.lane2Label;
+      if (label[0]) return label;
     }
     snprintf(fallback, capacity, "Lane %u", unsigned(lane));
     return fallback;
+  }
+
+  const Wp7RleAsset& laneCar(uint8_t lane) const {
+    if (presentationPreferences_ && lane >= 1 && lane <= 2) {
+      const auto& preferences = presentationPreferences_->current();
+      const TasterCarGraphic graphic = lane == 1 ? preferences.lane1Graphic
+                                                  : preferences.lane2Graphic;
+      return graphic == TasterCarGraphic::RedEtype ? kWp7Etype : kWp7Mgb;
+    }
+    return lane == 2 ? kWp7Etype : kWp7Mgb;
   }
 
   static uint16_t startingLightColorForPhase(const NoticeboardState& state,
@@ -1694,10 +1697,10 @@ private:
     }
     char lane1Fallback[16]{}, lane2Fallback[16]{};
     drawLaneRow(gfx, 183, kGreen, 1, state,
-                laneName(1, lane1Fallback, sizeof(lane1Fallback)), kWp7Mgb,
+                laneName(1, lane1Fallback, sizeof(lane1Fallback)), laneCar(1),
                 nowMs);
     drawLaneRow(gfx, 299, kRed, 2, state,
-                laneName(2, lane2Fallback, sizeof(lane2Fallback)), kWp7Etype,
+                laneName(2, lane2Fallback, sizeof(lane2Fallback)), laneCar(2),
                 nowMs);
     drawBottom(gfx, state);
   }
@@ -1985,7 +1988,7 @@ private:
       if (dirty.has(Wp7UiComponent::Lane1Static)) {
         char fallback[16]{};
         drawLaneStatic(gfx, 183, kGreen, 1,
-                       laneName(1, fallback, sizeof(fallback)), kWp7Mgb,
+                       laneName(1, fallback, sizeof(fallback)), laneCar(1),
                        currentMs);
       }
       if (dirty.has(Wp7UiComponent::Lane1Metrics)) {
@@ -1997,7 +2000,7 @@ private:
       if (dirty.has(Wp7UiComponent::Lane2Static)) {
         char fallback[16]{};
         drawLaneStatic(gfx, 299, kRed, 2,
-                       laneName(2, fallback, sizeof(fallback)), kWp7Etype,
+                       laneName(2, fallback, sizeof(fallback)), laneCar(2),
                        currentMs);
       }
       if (dirty.has(Wp7UiComponent::Lane2Metrics)) {
@@ -2297,6 +2300,7 @@ private:
   Bus& bus_;
   Bus::Endpoint presentationEndpoint_;
   Bus::Endpoint tasterEndpoint_;
+  const TasterPresentationPreferencesController* presentationPreferences_ = nullptr;
   TasterSurfaceModel surface_;
   CachedResult results_[8]{};
   uint8_t resultCursor_ = 0;

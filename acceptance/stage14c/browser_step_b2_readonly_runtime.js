@@ -3,7 +3,11 @@ const vm = require('vm');
 
 const html = fs.readFileSync('firmware/browser/normal_browser.html', 'utf8');
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
-const extension = scripts.at(-1);
+const finalScript = scripts.at(-1);
+// Step C1 shares the final Browser script but must not dilute B2's strict
+// read-only Track/Racers contract. Test only the B2 extension prefix.
+const c1Match = /\(function\(\)\{\s*const c1BaseRender=window\.render;/.exec(finalScript);
+const extension = c1Match ? finalScript.slice(0, c1Match.index) : finalScript;
 if (!extension.includes("G('/track/setup')") || !extension.includes("G('/racers')")) {
   throw new Error('Step B2 does not use both authoritative read-only endpoints');
 }
