@@ -1088,14 +1088,16 @@ private:
     return fallback;
   }
 
-  const Wp7RleAsset& laneCar(uint8_t lane) const {
+  TasterCarGraphic laneGraphic(uint8_t lane) const {
     if (presentationPreferences_ && lane >= 1 && lane <= 2) {
       const auto& preferences = presentationPreferences_->current();
-      const TasterCarGraphic graphic = lane == 1 ? preferences.lane1Graphic
-                                                  : preferences.lane2Graphic;
-      return graphic == TasterCarGraphic::RedEtype ? kWp7Etype : kWp7Mgb;
+      return lane == 1 ? preferences.lane1Graphic : preferences.lane2Graphic;
     }
-    return lane == 2 ? kWp7Etype : kWp7Mgb;
+    return lane == 2 ? TasterCarGraphic::RedEtype : TasterCarGraphic::GreenMgb;
+  }
+
+  const Wp7RleAsset& laneCar(uint8_t lane) const {
+    return laneGraphic(lane) == TasterCarGraphic::RedEtype ? kWp7Etype : kWp7Mgb;
   }
 
   static uint16_t startingLightColorForPhase(const NoticeboardState& state,
@@ -1616,22 +1618,13 @@ private:
 
   uint32_t laneStaticSignature(const NoticeboardState& state,
                                uint8_t lane) const {
-    uint32_t hash = 2166136261U;
-    const auto add = [&hash](uint64_t value) {
-      hash ^= static_cast<uint32_t>(value);
-      hash *= 16777619U;
-      hash ^= static_cast<uint32_t>(value >> 32);
-      hash *= 16777619U;
-    };
     // Mode, target and timing values are rendered by drawLaneMetrics().  The
     // static signature covers only panel identity, so changing READY values
     // cannot promote both lanes to a full-row redraw.
     (void)state;
     char fallback[16]{};
     const char* name = laneName(lane, fallback, sizeof(fallback));
-    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(name);
-         p && *p; ++p) add(*p);
-    return hash;
+    return tasterPresentationIdentityHash(name, laneGraphic(lane));
   }
 
   uint32_t laneRenderSignature(const NoticeboardState& state,

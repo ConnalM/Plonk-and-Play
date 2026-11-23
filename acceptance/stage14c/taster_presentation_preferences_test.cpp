@@ -61,6 +61,12 @@ int main() {
   assert(strcmp(loaded.lane2Label, "LANE 2") == 0);
   assert(loaded.lane1Graphic == pp::TasterCarGraphic::GreenMgb);
   assert(loaded.lane2Graphic == pp::TasterCarGraphic::RedEtype);
+  // A graphic-only change is a lane-static presentation change.  It does
+  // not require a metric update or a full-frame redraw to be observable.
+  assert(pp::tasterPresentationIdentityHash("LANE 1", pp::TasterCarGraphic::GreenMgb) !=
+         pp::tasterPresentationIdentityHash("LANE 1", pp::TasterCarGraphic::RedEtype));
+  assert(pp::tasterPresentationIdentityHash("LANE 1", pp::TasterCarGraphic::GreenMgb) ==
+         pp::tasterPresentationIdentityHash("LANE 1", pp::TasterCarGraphic::GreenMgb));
 
   const auto first = preferences("Blue team", "Red team", pp::TasterCarGraphic::RedEtype,
                                  pp::TasterCarGraphic::GreenMgb);

@@ -9,6 +9,18 @@ namespace pp {
 // already compiled into the accepted two-lane Taster source.
 enum class TasterCarGraphic : uint8_t { GreenMgb = 0, RedEtype = 1 };
 
+inline uint32_t tasterPresentationIdentityHash(const char* label,
+                                                TasterCarGraphic graphic) {
+  uint32_t hash = 2166136261U;
+  for (const unsigned char* p = reinterpret_cast<const unsigned char*>(label);
+       p && *p; ++p) {
+    hash ^= *p;
+    hash *= 16777619U;
+  }
+  hash ^= static_cast<uint8_t>(graphic);
+  return hash * 16777619U;
+}
+
 struct TasterPresentationPreferences {
   static constexpr size_t LabelBytes = 24;
   static constexpr size_t LabelCharacters = 16;

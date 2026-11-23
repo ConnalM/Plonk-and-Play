@@ -10,7 +10,7 @@ const evidence = path.join(__dirname, 'evidence', 'browser-step-b2');
 fs.mkdirSync(evidence, { recursive: true });
 
 const state = () => ({ lifecycle: 'READY', sessionMode: 'NONE', finishDisplay: { active: false }, entries: [], resultSealed: false });
-const context = () => ({ hasMaster: true, isMaster: true, role: 'Race Director' });
+const context = model => ({ hasMaster: true, isMaster: model.isMaster !== false, role: 'Race Director' });
 const proposal = revision => ({ proposalRevision: revision, mode: 'LAP_RACE', lapTarget: 10, durationMinutes: 5, finishBehaviour: 'IMMEDIATE', startable: true, entries: [{ lane: 1, mugId: 7 }, { lane: 2, mugId: 77 }], supportedModes: [] });
 const fullTrack = device => ({
   assignments: [{ lane: 1, device, capability: 8 }, { lane: 2, device: 20, capability: 2 }],
@@ -45,11 +45,21 @@ async function mockedPage(browser, viewport, model) {
     if (request.method() === 'POST') {
       model.posts.push({ pathname, method: request.method() });
       if (pathname.startsWith('/request/')) model.writes.push({ pathname, method: request.method() });
+      if (pathname === '/request/taster/preferences') {
+        if (model.preferenceFailure) return json({ accepted: false, result: 'Storage unavailable' });
+        model.preferences = JSON.parse(request.postData() || '{}');
+        return json({ accepted: true });
+      }
+      if (pathname === '/request/taster/preferences/restore-factory') {
+        model.preferences = { lane1Label: 'LANE 1', lane2Label: 'LANE 2', lane1Graphic: 0, lane2Graphic: 1 };
+        return json({ accepted: true });
+      }
       return route.fulfill({ status: 204 });
     }
     if (pathname === '/state') return json(state());
     if (pathname === '/proposal') return json(proposal(model.revision));
-    if (pathname === '/context') return json(context());
+    if (pathname === '/context') return json(context(model));
+    if (pathname === '/taster/preferences') return json(model.preferences || { lane1Label: 'LANE 1', lane2Label: 'LANE 2', lane1Graphic: 0, lane2Graphic: 1 });
     if (pathname === '/track/setup') {
       model.trackRequests += 1;
       if (model.delayTrack) await new Promise(resolve => setTimeout(resolve, model.delayTrack));
@@ -97,6 +107,37 @@ async function show(page, selector, title, readyText, screenshot) {
   await assertReadable(page);
 }
 
+async function assertTasterPresentation(browser, viewport) {
+  const model = { revision: 7, posts: [], writes: [], trackRequests: 0, racerRequests: 0 };
+  const { page, errors } = await mockedPage(browser, viewport, model);
+  await page.locator('#settingsNav').click();
+  await page.getByRole('heading', { name: 'Taster presentation', exact: true }).waitFor();
+  const field = page.locator('#c1Lane1Label');
+  await field.fill('Slow editor');
+  await page.evaluate(async () => { await window.poll('reconnect'); });
+  assert.equal(await field.inputValue(), 'Slow editor', 'poll overwrote an unsaved label');
+  model.isMaster = false;
+  await page.evaluate(async () => { await window.poll('reconnect'); });
+  assert.equal(await field.inputValue(), 'Slow editor', 'authority loss overwrote an unsaved label');
+  assert.equal(await field.isDisabled(), true, 'authority loss left the editor writable');
+  model.isMaster = true;
+  await page.evaluate(async () => { await window.poll('reconnect'); });
+  assert.equal(await field.inputValue(), 'Slow editor', 'reconnect overwrote an unsaved label');
+  assert.equal(await field.isDisabled(), false, 'reconnect did not restore eligible edit controls');
+  model.preferenceFailure = true;
+  await page.locator('#c1Save').click();
+  await page.getByText('Storage unavailable').waitFor();
+  assert.equal(await field.inputValue(), 'Slow editor', 'failed Save discarded the draft');
+  model.preferenceFailure = false;
+  await page.locator('#c1Save').click();
+  await page.getByText('Taster preferences saved.').waitFor();
+  assert.equal(model.preferences.lane1Label, 'Slow editor', 'Save did not use the edited label');
+  await page.screenshot({ path: path.join(evidence, 'taster-presentation-' + viewport.name + '.png'), fullPage: true });
+  await assertReadable(page);
+  assertNoUnexpectedErrors(errors, 'C1 Browser exception or console error');
+  await page.close();
+}
+
 function assertNoUnexpectedErrors(errors, label) {
   const unexpected = errors.filter(error => !/Failed to load resource: the server responded with a status of 503 \(Service Unavailable\)/.test(error));
   assert.deepEqual(unexpected, [], label);
@@ -121,6 +162,11 @@ function assertNoUnexpectedErrors(errors, label) {
       assertNoUnexpectedErrors(errors, 'browser exception or console error');
       await page.close();
     }
+
+    for (const viewport of [
+      { name: 'desktop', width: 1440, height: 900 },
+      { name: 'mobile', width: 390, height: 844 },
+    ]) await assertTasterPresentation(browser, viewport);
 
     const empty = { revision: 7, posts: [], writes: [], trackRequests: 0, racerRequests: 0, track: { assignments: [], detectors: [] }, racers: { racers: [], assignments: [] } };
     const emptyPage = await mockedPage(browser, { width: 1440, height: 900 }, empty);
@@ -173,5 +219,5 @@ function assertNoUnexpectedErrors(errors, label) {
   } finally {
     await browser.close();
   }
-  console.log('Step B2 Chromium PASS: desktop/tablet/mobile Track and Racers screenshots, read-only routes, errors/retry, revision invalidation and in-flight navigation');
+  console.log('V21 Chromium PASS: desktop/tablet/mobile Track and Racers plus C1 preferences, read-only routes, errors/retry, draft preservation, revision invalidation and in-flight navigation');
 })().catch(error => { console.error(error.stack || error); process.exitCode = 1; });

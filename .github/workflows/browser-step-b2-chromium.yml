@@ -1,4 +1,4 @@
-name: Browser Step B2 Chromium
+name: Browser V21 Chromium
 
 on:
   pull_request:
@@ -6,6 +6,7 @@ on:
       - firmware/browser/normal_browser.html
       - firmware/include/pp/normal_browser_page.inc
       - acceptance/stage14c/browser_step_b2_chromium.cjs
+      - acceptance/stage14c/browser_taster_presentation_runtime.js
       - .github/workflows/browser-step-b2-chromium.yml
   workflow_dispatch:
 
@@ -22,12 +23,12 @@ jobs:
         run: |
           npm install --no-save playwright@1.51.0
           npx playwright install --with-deps chromium
-      - name: Run Browser Step B2 evidence
+      - name: Run Browser V21 evidence
         run: node acceptance/stage14c/browser_step_b2_chromium.cjs
       - name: Upload Browser screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: browser-step-b2-chromium-screenshots
+          name: browser-v21-chromium-screenshots
           path: acceptance/stage14c/evidence/browser-step-b2
           if-no-files-found: error
           retention-days: 14
