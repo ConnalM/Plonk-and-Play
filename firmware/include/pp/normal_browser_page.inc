@@ -198,6 +198,12 @@ let onlineOffer=null,maintenanceBusy=false,maintenanceMessage='';const baseUpdat
   let c1Draft=null,c1Dirty=false,c1Loading=false,c1Saving=false,c1Request=0,c1Message='';
   function c1CanEdit(){return C?.isMaster===true&&S?.lifecycle==='READY'}
   function c1Capture(){if(!c1Draft)return;c1Draft.lane1Label=$('#c1Lane1Label').value;c1Draft.lane2Label=$('#c1Lane2Label').value;c1Draft.lane1Graphic=Number($('#c1Lane1Graphic').value);c1Draft.lane2Graphic=Number($('#c1Lane2Graphic').value);c1Dirty=true}
+  function c1ApplyEligibility(){
+    const enabled=c1CanEdit()&&!c1Saving,notice=c1Message||(c1CanEdit()?'':'Only the controlling Race Director may change the Taster while P&amp;P is READY.');
+    for(const id of ['c1Lane1Label','c1Lane2Label','c1Lane1Graphic','c1Lane2Graphic','c1Save','c1Restore']){const element=$('#'+id);if(element)element.disabled=!enabled}
+    const cancel=$('#c1Cancel');if(cancel)cancel.disabled=!c1Dirty||c1Saving;
+    const message=$('#c1Message');if(message)message.innerHTML=c1Esc(notice);
+  }
   function c1Page(){
     if(!c1Draft)return;const enabled=c1CanEdit()&&!c1Saving,disabled=enabled?'':'disabled',active=document.activeElement?.id;
     const notice=c1Message||(c1CanEdit()?'':'Only the controlling Race Director may change the Taster while P&amp;P is READY.');
@@ -206,11 +212,12 @@ let onlineOffer=null,maintenanceBusy=false,maintenanceMessage='';const baseUpdat
     $('#c1Lane1Graphic').value=String(c1Draft.lane1Graphic);$('#c1Lane2Graphic').value=String(c1Draft.lane2Graphic);
     for(const id of ['c1Lane1Label','c1Lane2Label','c1Lane1Graphic','c1Lane2Graphic'])$('#'+id).oninput=$('#'+id).onchange=()=>c1Capture();
     $('#c1Save').onclick=()=>c1Save(false);$('#c1Restore').onclick=()=>c1Save(true);$('#c1Cancel').onclick=()=>{c1Draft=null;c1Dirty=false;c1Message='Unsaved Taster changes discarded.';c1Load()};
+    c1ApplyEligibility();
     if(active&&$('#'+active)&&!c1Saving)$('#'+active).focus();
   }
   async function c1Load(){if(c1Loading||c1Draft)return;c1Loading=true;const request=++c1Request;try{const value=await G('/taster/preferences');if(request!==c1Request||V!=='settings'||c1Draft)return;c1Draft=c1Copy(value);c1Page()}catch(_){if(request===c1Request&&V==='settings'&&!c1Draft){c1Message='P&amp;P could not read its committed Taster preferences.';A.innerHTML='<section class="card"><h1>Taster presentation unavailable</h1><p class="muted">'+c1Message+'</p></section>'}}finally{c1Loading=false}}
-  async function c1Save(factory){if(c1Saving)return;if(!c1CanEdit()){c1Message='Taster preferences can only change while P&amp;P is READY.';return c1Page()}c1Capture();if(factory&&!window.confirm('Restore the factory Taster labels and graphics? Race, track and racer settings are unchanged.'))return;c1Saving=true;c1Page();try{const path=factory?'/request/taster/preferences/restore-factory':'/request/taster/preferences';const body=factory?{confirmed:true}:c1Draft;const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const result=await response.json();if(result.accepted){c1Draft=null;c1Dirty=false;c1Message=factory?'Factory Taster restored.':'Taster preferences saved.'}else c1Message=result.result||'P&amp;P rejected the Taster preferences.'}catch(_){c1Message='Taster preferences could not be saved.'}finally{c1Saving=false;if(V==='settings'){if(c1Draft)c1Page();else c1Load()}}}
-  window.render=function(){if(S&&P&&V==='settings'){header();if(c1Draft)c1Page();else c1Load();return}return c1BaseRender()};
+  async function c1Save(factory){if(c1Saving)return;if(!c1CanEdit()){c1Message='Taster preferences can only change while P&amp;P is READY.';return c1ApplyEligibility()}c1Capture();if(factory&&!window.confirm('Restore the factory Taster labels and graphics? Race, track and racer settings are unchanged.'))return;c1Saving=true;c1ApplyEligibility();try{const path=factory?'/request/taster/preferences/restore-factory':'/request/taster/preferences';const body=factory?{confirmed:true}:c1Draft;const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const result=await response.json();if(result.accepted){c1Draft=null;c1Dirty=false;c1Message=factory?'Factory Taster restored.':'Taster preferences saved.'}else c1Message=result.result||'P&amp;P rejected the Taster preferences.'}catch(_){c1Message='Taster preferences could not be saved.'}finally{c1Saving=false;if(V==='settings'){if(c1Draft)c1ApplyEligibility();else c1Load()}}}
+  window.render=function(){if(S&&P&&V==='settings'){header();if(c1Draft&&$('#c1Lane1Label'))c1ApplyEligibility();else if(c1Draft)c1Page();else c1Load();return}return c1BaseRender()};
 })();
 </script>
 )PPHTML";

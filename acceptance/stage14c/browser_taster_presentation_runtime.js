@@ -19,10 +19,10 @@ function browserHarness() {
   const elements = {};
   const document = { activeElement: null };
   const install = markup => {
-    for (const match of markup.matchAll(/<(?:input|select|button)[^>]*\bid="([^"]+)"[^>]*>/g)) {
+    for (const match of markup.matchAll(/<[a-z]+[^>]*\bid="([^"]+)"[^>]*>/gi)) {
       const tag = match[0], id = match[1];
       elements[id] = {
-        id, value: '', disabled: /\sdisabled(?:\s|>)/.test(tag),
+        id, value: '', disabled: /\sdisabled(?:\s|>)/.test(tag), selectionStart: 0, selectionEnd: 0,
         focus() { document.activeElement = this; },
       };
     }
@@ -64,9 +64,9 @@ function browserHarness() {
 
   // A slow editor survives ordinary Browser refreshes, a temporary loss of
   // authority and reconnection without a second read clobbering the draft.
-  app.elements.c1Lane1Label.value = 'The slow editor'; app.elements.c1Lane1Label.oninput();
+  app.elements.c1Lane1Label.value = 'The slow editor'; app.elements.c1Lane1Label.selectionStart = app.elements.c1Lane1Label.selectionEnd = 4; app.elements.c1Lane1Label.focus(); app.elements.c1Lane1Label.oninput();
   app.context.window.render();
-  if (app.elements.c1Lane1Label.value !== 'The slow editor' || app.requests !== initialRequests) throw new Error('poll refresh overwrote draft');
+  if (app.elements.c1Lane1Label.value !== 'The slow editor' || app.requests !== initialRequests || app.context.document.activeElement !== app.elements.c1Lane1Label || app.elements.c1Lane1Label.selectionStart !== 4) throw new Error('poll refresh overwrote draft or disrupted caret');
   app.context.C.isMaster = false; app.context.window.render();
   if (app.elements.c1Lane1Label.value !== 'The slow editor' || !app.elements.c1Save.disabled) throw new Error('authority loss did not preserve and lock draft');
   app.context.C.isMaster = true; app.context.window.render();
@@ -75,7 +75,7 @@ function browserHarness() {
   // A failed Save preserves what the user typed. An accepted Save is the
   // deliberate boundary at which the local draft is replaced from firmware.
   app.failSave = true; app.elements.c1Save.onclick(); await tick(); await tick();
-  if (app.elements.c1Lane1Label.value !== 'The slow editor' || !app.A.innerHTML.includes('could not be saved')) throw new Error('failed save discarded draft');
+  if (app.elements.c1Lane1Label.value !== 'The slow editor' || !app.elements.c1Message.innerHTML.includes('could not be saved')) throw new Error('failed save discarded draft');
   app.failSave = false; app.elements.c1Save.onclick(); await tick(); await tick();
   if (app.committed.lane1Label !== 'The slow editor' || app.elements.c1Lane1Label.value !== 'The slow editor') throw new Error('accepted save did not commit/reload draft');
 

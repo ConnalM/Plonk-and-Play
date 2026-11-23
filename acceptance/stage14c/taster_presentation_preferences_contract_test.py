@@ -24,7 +24,7 @@ required = {
     "real settings controls": "SAVE TASTER" in page and "RESTORE FACTORY TASTER" in page,
     "view-only guard": "Only the controlling Race Director may change the Taster" in page,
     "unavailable display state": "Taster presentation unavailable" in page,
-    "draft survives normal render": "if(c1Draft)c1Page();else c1Load()" in page,
+    "draft survives normal render without form rebuild": "if(c1Draft&&$('#c1Lane1Label'))c1ApplyEligibility()" in page,
     "draft is explicitly discarded": "Unsaved Taster changes discarded." in page,
     "failed save preserves draft": "Taster preferences could not be saved." in page and "if(c1Draft)c1Page();else c1Load()" in page,
     "no browser-local persistence": "localStorage" not in page and "sessionStorage.setItem('c1" not in page,

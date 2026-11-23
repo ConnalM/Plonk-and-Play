@@ -114,8 +114,11 @@ async function assertTasterPresentation(browser, viewport) {
   await page.getByRole('heading', { name: 'Taster presentation', exact: true }).waitFor();
   const field = page.locator('#c1Lane1Label');
   await field.fill('Slow editor');
+  await field.evaluate(element => { element.focus(); element.setSelectionRange(4, 4); });
   await page.evaluate(async () => { await window.poll('reconnect'); });
   assert.equal(await field.inputValue(), 'Slow editor', 'poll overwrote an unsaved label');
+  assert.deepEqual(await field.evaluate(element => ({ focused: document.activeElement === element, start: element.selectionStart, end: element.selectionEnd })),
+                   { focused: true, start: 4, end: 4 }, 'poll disrupted the editor cursor');
   model.isMaster = false;
   await page.evaluate(async () => { await window.poll('reconnect'); });
   assert.equal(await field.inputValue(), 'Slow editor', 'authority loss overwrote an unsaved label');
