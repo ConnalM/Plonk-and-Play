@@ -184,5 +184,76 @@ int main(){
   assert(result.type==Type::RequestResult && result.correlation==1 && result.requestResult==RequestResult::Accepted);
   assert(!r.control.remoteTasterContext().tasterAllowed);
   assert(r.status(q)==tl::Status::Forbidden);
+  // Exercise the actual Browser SetupRequest path for a shared LAPS target
+  // beyond the fixed Taster limit. No direct fixture mutation of the target.
+  Rig limit;
+  limit.owner.connected(true);
+  Message large{};large.type=Type::SetupRequest;large.correlation=101;
+  large.clientContext=ClientContext::RaceDirectorSmug;large.controlOwner=7;
+  large.sessionMode=SessionMode::LapRace;large.setupLapTarget=1000;
+  large.setupDurationMinutes=5;
+  large.setupFinishPolicy=static_cast<uint8_t>(LapFinishBehaviour::CompleteFullRaceDistance);
+  large.proposalRevision=limit.control.proposalRevision();
+  assert(limit.bus.publish(limit.browser,large)==Delivery::Delivered);
+  limit.control.tick(clockUs);
+  for(auto ep:{limit.browser,limit.local}) {
+    Message reply{};assert(limit.bus.receive(ep,reply));
+    assert(reply.type==Type::RequestResult && reply.correlation==101 &&
+           reply.requestResult==RequestResult::Accepted);
+  }
+  assert(limit.control.proposedRaceSetup()->lapTarget==1000);
+  const auto savedRevision=limit.control.proposalRevision();
+  limit.owner.connected(false);
+  assert(limit.control.openRemoteTaster({2,1}));
+  assert(limit.control.remoteTasterContext().tasterAllowed);
+  auto tooLarge=limit.command(1,tl::Action::Start);
+  assert(limit.submit(tooLarge)==tl::Status::Queued);
+  assert(limit.control.executeRemoteTaster() && limit.status(tooLarge)==tl::Status::Rejected);
+  assert(limit.control.state()==SessionLifecycle::Ready && !limit.active.current());
+  assert(!limit.control.startCommitted());
+  assert(limit.control.proposedRaceSetup()->lapTarget==1000);
+  assert(limit.control.proposalRevision()==savedRevision);
+  assert(!limit.bus.queued(limit.engine) && !limit.bus.queued(limit.browser) &&
+         !limit.bus.queued(limit.local));
+  // Explicit Taster adjustment is still permitted, and 999 is inclusive.
+  auto adjust=limit.command(2,tl::Action::Setup);
+  adjust.mode=tl::Mode::Laps;adjust.value=999;limit.accepted(adjust);
+  assert(limit.control.proposedRaceSetup()->lapTarget==999);
+  auto within=limit.command(3,tl::Action::Start);limit.accepted(within);
+  assert(limit.active.current() && limit.active.current()->lapTarget()==999 &&
+         !limit.active.current()->officialRecordEligible());
+  // TIMED ignores the inactive shared lap target; this is a LAPS START
+  // restriction, not a reason to clamp values or reject another mode.
+  Rig timed;
+  auto tSetup=*timed.control.proposedRaceSetup();tSetup.lapTarget=1000;
+  timed.control.setProposedRaceSetup(tSetup);
+  assert(timed.control.openRemoteTaster({3,1}));
+  auto timedAdjust=timed.command(1,tl::Action::Setup);
+  timedAdjust.mode=tl::Mode::Timed;timedAdjust.value=5;timed.accepted(timedAdjust);
+  assert(timed.control.proposedRaceSetup()->lapTarget==1000);
+  timed.accepted(timed.command(2,tl::Action::Start));
+  assert(timed.active.current() && timed.active.current()->mode()==SessionMode::Endurance &&
+         !timed.active.current()->officialRecordEligible());
+  // The ordinary Browser handler must still accept 1000 laps and return its
+  // official correlated result, even with the remote session open.
+  Rig browserLarge;
+  browserLarge.owner.connected(true);
+  assert(browserLarge.control.openRemoteTaster({4,1}));
+  large.proposalRevision=browserLarge.control.proposalRevision();
+  assert(browserLarge.bus.publish(browserLarge.browser,large)==Delivery::Delivered);
+  browserLarge.control.tick(clockUs);
+  for(auto ep:{browserLarge.browser,browserLarge.local}) {
+    Message reply{};assert(browserLarge.bus.receive(ep,reply));
+    assert(reply.type==Type::RequestResult && reply.correlation==101 &&
+           reply.requestResult==RequestResult::Accepted);
+  }
+  assert(browserLarge.control.proposedRaceSetup()->lapTarget==1000);
+  assert(browserLarge.bus.publish(browserLarge.browser,start)==Delivery::Delivered);
+  browserLarge.control.tick(clockUs);
+  assert(browserLarge.active.current() && browserLarge.active.current()->lapTarget()==1000 &&
+         browserLarge.active.current()->officialRecordEligible());
+  assert(browserLarge.bus.receive(browserLarge.browser,result));
+  assert(result.type==Type::RequestResult && result.correlation==1 &&
+         result.requestResult==RequestResult::Accepted);
   std::cout<<"S3f actual Race Control remote execution and authority generation PASS\n";
 }
