@@ -362,6 +362,12 @@ public:
   }
   // Retained identity is not interchangeable with connected authority.
   bool hasController() const override { return publishedAuthority_.hasController(); }
+  StandaloneAuthorityStamp standaloneStamp() const override {
+    return publishedAuthority_.standaloneStamp();
+  }
+  bool claimStandalone(uint64_t generation) const override {
+    return publishedAuthority_.claimStandalone(generation);
+  }
   bool controlOwnerConnected() const { return publishedAuthority_.hasController(); }
   bool controlTakeoverPending() const { return publishedAuthority_.read().requester != 0; }
   uint32_t controlTakeoverRequestId() const { return publishedAuthority_.read().requestId; }
