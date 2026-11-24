@@ -125,6 +125,7 @@ public:
     :role_(role),store_(store),crypto_(crypto),maintenance_(maintenance),material_(crypto){}
   Vault(const Vault&)=delete;
   Vault& operator=(const Vault&)=delete;
+  Role role() const {return role_;}
   State state() const {return state_;}
   uint32_t revision() const {return revision_;}
   // Borrow only during normal operation; owner must stop/destroy transport
