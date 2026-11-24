@@ -1,0 +1,60 @@
+name: WP8 S3g2b pairing vault host
+on:
+  pull_request:
+    paths:
+      - firmware/include/pp/taster_link*.h
+      - firmware/include/pp/race_control.h
+      - firmware/include/pp/core.h
+      - firmware/include/pp/published_control_authority.h
+      - firmware/include/pp/browser_interface.h
+      - acceptance/stage14c/taster_link*_test.cpp
+      - .github/workflows/wp8-s3g2b-pairing-vault.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pairing vault and credential lifecycle
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/taster_link_pairing_test.cpp -lcrypto -o /tmp/pp-s3g2b
+          timeout 60s /tmp/pp-s3g2b
+      - name: Concrete socket owners and PPTH KDF
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/taster_link_socket_runtime_test.cpp -pthread -lcrypto -o /tmp/pp-s3g2a
+          timeout 60s /tmp/pp-s3g2a
+      - name: Real loopback TCP peer and Core handlers
+        run: |
+          g++ -std=c++17 -Wall -Wextra -DPP_MAX_ENTRIES=2 -Ifirmware/include acceptance/stage14c/taster_link_tcp_test.cpp -pthread -lcrypto -o /tmp/pp-s3g1
+          timeout 60s /tmp/pp-s3g1
+      - name: Actual Race Control execution fence
+        run: |
+          g++ -std=c++17 -Wall -Wextra -DPP_MAX_ENTRIES=2 -Ifirmware/include acceptance/stage14c/taster_link_execution_test.cpp -pthread -o /tmp/pp-s3f
+          /tmp/pp-s3f
+      - name: S2 local adapter regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -DPP_MAX_ENTRIES=2 -Ifirmware/include acceptance/stage14c/taster_local_authority_test.cpp -o /tmp/pp-s2
+          /tmp/pp-s2
+      - name: S3e health regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/taster_link_health_test.cpp -o /tmp/pp-s3e
+          /tmp/pp-s3e
+      - name: S3d authentication regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/taster_link_handshake_test.cpp -lcrypto -o /tmp/pp-s3d
+          /tmp/pp-s3d
+      - name: S3c display regression
+        run: |
+          g++ -std=c++17 -DPP_MAX_ENTRIES=2 -Ifirmware/include acceptance/stage14c/taster_link_display_test.cpp -lcrypto -o /tmp/pp-s3c
+          /tmp/pp-s3c
+      - name: S3b wire regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/taster_link_wire_test.cpp -lcrypto -o /tmp/pp-s3b
+          /tmp/pp-s3b
+      - name: S3a gate regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/taster_link_gate_test.cpp -o /tmp/pp-s3a
+          /tmp/pp-s3a
