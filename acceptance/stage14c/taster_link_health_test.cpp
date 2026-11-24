@@ -116,6 +116,22 @@ int main() {
   h::Client noDisplay;establish(noDisplay,A,0);
   ping(noDisplay,A,200000);
   assert(noDisplay.view(502200).state==h::State::Stale);
+  // A new clock observation must agree with the earlier mapping.
+  h::Client jump;establish(jump,A,0);
+  w::Ping refresh{};
+  assert(jump.startPing(100000,refresh));
+  assert(!jump.acceptPong(A,{refresh.token,refresh.tasterSendUs,1191000,1191200},102200));
+  assert(!jump.connected() && jump.view(102200).state==h::State::Stale);
+  // A timely refreshed mapping permits ongoing display beyond the first
+  // mapping lifetime, without refreshing any old snapshot.
+  h::Client renewed;establish(renewed,A,0);
+  for(uint64_t t=200000;t<=4600000;t+=200000)
+    assert(renewed.acceptSnapshot(snapshot(A,t),t));
+  ping(renewed,A,4700000);
+  assert(renewed.acceptSnapshot(snapshot(A,4800000),4800000));
+  assert(renewed.acceptSnapshot(snapshot(A,5000000),5000000));
+  assert(renewed.view(5100000).state==h::State::Fresh);
+
   // Delayed/future/out-of-order snapshots cannot revive or replace current data.
   h::Client delayed;assert(delayed.open(A,0));ping(delayed,A,0);
   auto old=snapshot(A,0);
