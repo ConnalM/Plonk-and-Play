@@ -78,9 +78,14 @@ public:
     ++writes;if(blockWrites) return 0;
     const size_t size=std::min(n,size_t(23));
     if(tamperNext) {
-      uint8_t corrupt[23];std::memcpy(corrupt,p,size);corrupt[0]^=1;
+      // Modify an authenticated payload byte, not the magic or length.
+      uint8_t corrupt[23];std::memcpy(corrupt,p,size);
+      if(tamperSkip_<size) corrupt[tamperSkip_]^=1;
       const auto count=::send(fd_,corrupt,size,MSG_DONTWAIT|MSG_NOSIGNAL);
-      if(count>0) tamperNext=false;
+      if(count>0) {
+        if(static_cast<size_t>(count)>tamperSkip_) tamperNext=false;
+        else tamperSkip_-=static_cast<size_t>(count);
+      }
       return io(count);
     }
     return io(::send(fd_,p,size,MSG_DONTWAIT|MSG_NOSIGNAL));
@@ -93,6 +98,7 @@ private:
     return -1;
   }
   int fd_;
+  size_t tamperSkip_=40;
 };
 class Listener {
 public:
@@ -268,7 +274,7 @@ int main(){
     corrupt.touch(tl::Action::Pause);
     corrupt.ts.tamperNext=true;
     corrupt.until([&]{return !corrupt.core.alive() && !corrupt.taster.alive();});
-    assert(rig.control.state()==SessionLifecycle::Racing);
+    assert(!corrupt.ts.tamperNext && rig.control.state()==SessionLifecycle::Racing);
     assert(corrupt.view().uncertainOutcome && !corrupt.view().mayControl);
   }
   {
