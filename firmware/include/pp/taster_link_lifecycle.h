@@ -147,6 +147,7 @@ private:
       vault_.state()!=pv::State::Empty);
     clearBootstrap();
     if(uncertain)state_=CoreState::Recovery;
+    else if(!terminal())state_=CoreState::Offline;
   }
   const tr::ClockSource& clock_;const hs::Crypto& crypto_;pv::Vault& vault_;
   tr::CorePort& port_;hs::LinkIds& ids_;const CorePolicy& policy_;
@@ -232,7 +233,7 @@ public:
   // Only call after boot load of vault and platform initialisation.
   bool start(){
     if(state_!=TasterState::Unloaded)return false;
-    if(vault_.role()!=pv::Role::Taster){state_=TasterState::Fault;return false;}
+    if(!port_ || vault_.role()!=pv::Role::Taster){state_=TasterState::Fault;return false;}
     const auto c=vault_.state()==pv::State::Empty?ds::Credential::Empty:
       vault_.active()?ds::Credential::Paired:ds::Credential::Fault;
     if(selector_.load(c,vault_.active()?vault_.active()->pair():hs::PairId{})!=ds::State::Idle){
@@ -388,7 +389,7 @@ private:
     retire();
     if(uncertain){recover();return;}
     if(selector_.state()==ds::State::Connected)selector_.disconnected();
-    else if(selector_.state()==ds::State::Connecting)selector_.failed(attempt_.token,true);
+    else if(selector_.state()==ds::State::Connecting)selector_.failed(selector_.attempt().token,true);
     else if(selector_.state()==ds::State::Scanning)
       selector_.finishScan(selector_.scanToken(),false,now);
     else if(selector_.state()==ds::State::Choose)
