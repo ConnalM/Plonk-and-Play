@@ -8,10 +8,9 @@
 #include <mbedtls/pk.h>
 #include <mbedtls/ecp.h>
 #include <mbedtls/x509_crt.h>
-#include <mbedtls/bignum.h>
 
-#if MBEDTLS_VERSION_MAJOR != 2 && MBEDTLS_VERSION_MAJOR != 3
-#error "Review TLS API before using another Mbed TLS major version"
+#if MBEDTLS_VERSION_MAJOR != 3 || MBEDTLS_VERSION_NUMBER < 0x03060000
+#error "First-use TLS requires reviewed Mbed TLS 3.6+ API"
 #endif
 #if !defined(MBEDTLS_SSL_PROTO_TLS1_2) || !defined(MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED) || !defined(MBEDTLS_GCM_C) || !defined(MBEDTLS_X509_CRT_WRITE_C) || !defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED)
 #error "First-use TLS needs TLS 1.2 ECDHE-ECDSA AES-GCM and P-256 X.509 generation"
@@ -52,13 +51,8 @@ public:
     const int endpoint=role==pv::Role::Core?MBEDTLS_SSL_IS_SERVER:MBEDTLS_SSL_IS_CLIENT;
     if(mbedtls_ssl_config_defaults(&config_,endpoint,MBEDTLS_SSL_TRANSPORT_STREAM,
                                    MBEDTLS_SSL_PRESET_DEFAULT)!=0)return fail();
-#if MBEDTLS_VERSION_MAJOR == 3
     mbedtls_ssl_conf_min_tls_version(&config_,MBEDTLS_SSL_VERSION_TLS1_2);
     mbedtls_ssl_conf_max_tls_version(&config_,MBEDTLS_SSL_VERSION_TLS1_2);
-#else
-    mbedtls_ssl_conf_min_version(&config_,MBEDTLS_SSL_MAJOR_VERSION_3,MBEDTLS_SSL_MINOR_VERSION_3);
-    mbedtls_ssl_conf_max_version(&config_,MBEDTLS_SSL_MAJOR_VERSION_3,MBEDTLS_SSL_MINOR_VERSION_3);
-#endif
     mbedtls_ssl_conf_ciphersuites(&config_,Suites);
     mbedtls_ssl_conf_rng(&config_,&rng,this);
     // Deliberate first-use-only identity limitation: no trust anchor.
@@ -67,7 +61,7 @@ public:
 #if defined(MBEDTLS_SSL_RENEGOTIATION)
     mbedtls_ssl_conf_renegotiation(&config_,MBEDTLS_SSL_RENEGOTIATION_DISABLED);
 #endif
-    mbedtls_ssl_conf_legacy_renegotiation(&config_,MBEDTLS_SSL_LEGACY_NO_RENEGOTIATION);
+    mbedtls_ssl_conf_legacy_renegotiation(&config_,MBEDTLS_SSL_LEGACY_BREAK_HANDSHAKE);
 #if defined(MBEDTLS_SSL_SESSION_TICKETS) && defined(MBEDTLS_SSL_CLI_C)
     if(endpoint==MBEDTLS_SSL_IS_CLIENT)
       mbedtls_ssl_conf_session_tickets(&config_,MBEDTLS_SSL_SESSION_TICKETS_DISABLED);
@@ -91,11 +85,7 @@ public:
     last_=now;
     const int rc=mbedtls_ssl_handshake_step(&ssl_);
     if(rc && !wouldBlock(rc)){fail();return state_;}
-#if MBEDTLS_VERSION_MAJOR == 3
     const bool over=mbedtls_ssl_is_handshake_over(&ssl_)!=0;
-#else
-    const bool over=ssl_.state==MBEDTLS_SSL_HANDSHAKE_OVER;
-#endif
     if(over){
       const char* suite=mbedtls_ssl_get_ciphersuite(&ssl_);
       const char* version=mbedtls_ssl_get_version(&ssl_);
@@ -109,7 +99,7 @@ public:
   }
   bool secure() const override{return state_==TlsState::Secure && admission_.permitted();}
   int read(uint8_t* out,size_t n) override{
-    if(!secure() || !out || !n || n>OfferSize){fail();return -1;}
+    if(!secure() || pending_ || !out || !n || n>OfferSize){fail();return -1;}
     return result(mbedtls_ssl_read(&ssl_,out,n));
   }
   int write(const uint8_t* in,size_t n) override{
@@ -139,7 +129,7 @@ private:
   }
   static int rng(void* ctx,unsigned char* out,size_t n){
     auto& self=*static_cast<MbedFirstUseChannel*>(ctx);
-    return self.admission_.permitted() && self.crypto_.random(out,n)?0:MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
+    return self.admission_.permitted() && (!n || self.crypto_.random(out,n))?0:MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
   }
   static int send(void* ctx,const unsigned char* in,size_t n){
     auto& self=*static_cast<MbedFirstUseChannel*>(ctx);
@@ -165,14 +155,7 @@ private:
     std::array<uint8_t,16> serial{};
     bool ok=crypto_.random(serial.data(),serial.size()) && hs::nonzero(serial);
     serial[0]=(serial[0]&0x7f)|0x01;
-#if MBEDTLS_VERSION_MAJOR == 3
     ok=ok && mbedtls_x509write_crt_set_serial_raw(&writer,serial.data(),serial.size())==0;
-#else
-    mbedtls_mpi number;mbedtls_mpi_init(&number);
-    ok=ok && mbedtls_mpi_read_binary(&number,serial.data(),serial.size())==0 &&
-      mbedtls_x509write_crt_set_serial(&writer,&number)==0;
-    mbedtls_mpi_free(&number);
-#endif
     // No clock/Internet dependency. This self-signed certificate is
     // merely a transient TLS key, not a trusted identity or validity proof.
     ok=ok && mbedtls_x509write_crt_set_subject_name(&writer,"CN=P&P first use")==0 &&
