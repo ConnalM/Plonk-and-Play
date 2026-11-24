@@ -158,5 +158,40 @@ int main() {
   assert(w::projectDisplay(sample,nullptr,0,c,1000001,s));
   assert(s.activeMode==w::DisplayMode::Practice && !s.tasterAllowed);
   c.tasterAllowed=true; assert(!w::projectDisplay(sample,nullptr,0,c,1000001,s));
+  // READY must not expose Taster authority for either active or proposed Practice.
+  // Exercise both the projection and authenticated decoder independently.
+  n.lifecycle=SessionLifecycle::Ready; c.lifecycle=Lifecycle::Ready;
+  for(unsigned which=0;which<2;++which) {
+    n.sessionMode=which==0?SessionMode::OpenPractice:SessionMode::None;
+    sample.proposal.mode=which==1?SessionMode::OpenPractice:SessionMode::LapRace;
+    c.tasterAllowed=false;
+    assert(w::projectDisplay(sample,nullptr,0,c,1000002+which,s));
+    assert(s.lifecycle==w::DisplayLifecycle::Ready && !s.tasterAllowed);
+    assert((which==0?s.activeMode:s.proposalMode)==w::DisplayMode::Practice);
+    const auto displayOnly=w::displayState(s,1);
+    w::Packet valid;
+    assert(w::seal(displayOnly,w::Direction::ToTaster,mac,valid));
+    w::StreamDecoder displayDecoder(session,w::Direction::ToTaster,mac);
+    w::Frame decodedFrame{};
+    assert(feed(displayDecoder,valid,0,valid.length,decodedFrame)==w::Read::Ready);
+    w::DisplaySnapshot decoded{};
+    assert(w::readDisplayState(decodedFrame,decoded) && !decoded.tasterAllowed);
+    // A correctly authenticated but forbidden authority bit must fail closed.
+    auto forbidden=valid;
+    forbidden.bytes[w::HeaderSize+37]=1;
+    assert(mac.sign(forbidden.bytes.data(),forbidden.length-w::TagSize,
+                    forbidden.bytes.data()+forbidden.length-w::TagSize));
+    w::StreamDecoder rejectDecoder(session,w::Direction::ToTaster,mac);
+    decodedFrame.sequence=123;
+    assert(feed(rejectDecoder,forbidden,0,forbidden.length,decodedFrame)==w::Read::Fatal &&
+           decodedFrame.sequence==123);
+    c.tasterAllowed=true;
+    assert(!w::projectDisplay(sample,nullptr,0,c,1000002+which,s));
+  }
+  // Supported READY still permits control; the fix is not a blanket lockout.
+  n.sessionMode=SessionMode::None; sample.proposal.mode=SessionMode::LapRace;
+  c.tasterAllowed=true;
+  assert(w::projectDisplay(sample,nullptr,0,c,1000004,s) && s.tasterAllowed);
+
   std::cout<<"S3c display snapshot projection, authenticated framing and malformed-input checks PASS\n";
 }
