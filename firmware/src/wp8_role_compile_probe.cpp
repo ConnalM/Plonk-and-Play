@@ -5,6 +5,13 @@
 // with the actual ESP-IDF/Arduino SDK and configuration.
 #include "pp/taster_link_startup_esp.h"
 
+// The adapter must not permanently remove or redefine the lwIP sentinel.
+#if !defined(INADDR_NONE)
+#error "ESP adapter must preserve lwIP INADDR_NONE after Arduino headers"
+#endif
+static_assert(static_cast<uint32_t>(INADDR_NONE)==UINT32_MAX,
+              "ESP adapter must preserve the lwIP sentinel value");
+
 namespace pp::taster_link::compile_probe {
 namespace st=startup;
 // External linkage ensures the compiler checks these complete call paths.
