@@ -8,6 +8,9 @@
 #include <cassert>
 #include <iostream>
 #include <thread>
+#if defined(MBEDTLS_USE_PSA_CRYPTO)
+#include <psa/crypto.h>
+#endif
 
 namespace b=pp::taster_link::bootstrap;
 namespace p=pp::taster_link::pairing;
@@ -101,6 +104,9 @@ static bool authenticates(const p::Material& c,const p::Material& t,const Crypto
     core.keys()->toCore==taster.keys()->toCore && core.keys()->toTaster==taster.keys()->toTaster;
 }
 int main(){
+#if defined(MBEDTLS_USE_PSA_CRYPTO)
+  assert(psa_crypto_init()==PSA_SUCCESS);
+#endif
   using T=b::TlsState;using O=b::Outcome;
   {
     Rig r;r.start();r.negotiate();
