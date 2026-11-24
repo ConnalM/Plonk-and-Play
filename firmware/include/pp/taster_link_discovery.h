@@ -173,6 +173,8 @@ public:
   void disconnected(){
     if(state_==State::Connected){attempt_={};state_=State::Retry;}
   }
+  // Explicit cancellation on commissioning loss; never advance the clock artificially.
+  void cancelChoice(){if(state_==State::Choose){state_=State::Retry;count_=0;}}
   void tick(uint64_t now) {
     if(!clock(now)) return;
     if(state_==State::Choose && now-chosenAt_>=ChoiceUs){state_=State::Retry;count_=0;}
