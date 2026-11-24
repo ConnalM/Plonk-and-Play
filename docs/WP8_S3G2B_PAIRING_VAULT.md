@@ -2,7 +2,9 @@
 
 This increment provides the private role-specific credential record, explicit local maintenance gate, high-entropy material generation/import, revoke-before-replace and an opt-in dedicated encrypted NVS backend. It does not provide a customer pairing screen, a secure transfer channel, factory station, partition layout, actual encryption key provisioning, ESP compilation or production activation. No existing Browser, racing, storage, SDK, flash or device entry points change.
 
-## Customer workflow proposal — not frozen
+## Historical customer workflow proposal — superseded
+
+**Superseded by the [owner's automatic-connection decision](https://github.com/ConnalM/Plonk-and-Play/issues/14#issuecomment-7143384071) and the design specification.** Retained below as historical rationale, not a current requirement. No customer code, pairing button or service equipment is required. The automatic first-use bootstrap and replacement mechanism must be designed separately; the tested vault is not itself an automatic commissioning protocol.
 
 The preferred out-of-box experience is a factory-matched optional Taster and Core, with a different random 128-bit PairId and 256-bit PSK for every matched pair. Core-only customers have no Taster credential. Neither normal startup nor reconnect needs customer intervention. Pairing is independent of Wi-Fi association; a public SSID, MAC, IP address or short PIN must never become a shared secret. A Taster cannot join the race-control link merely by seeing the Core's AP.
 
