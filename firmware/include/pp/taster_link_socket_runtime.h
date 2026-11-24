@@ -230,7 +230,12 @@ public:
     const auto now=clock_.now();
     if(timeSeen_ && now<lastNow_) clockFault_=true;
     timeSeen_=true;lastNow_=now;
-    if(!network.same(network_)) {stop();retry_.reset();network_=network;}
+    if(!network.same(network_)) {
+      // Preserve backoff across association flaps. An interrupted attempt
+      // counts as failure; only a fresh authenticated display resets it.
+      if(peer_ || connecting_) failed(now);else stop();
+      network_=network;
+    }
     if(clockFault_ || !commissioned || !network.ready || !network.generation ||
        !tcpPort_ || !usableAddress(network.local) || !usableAddress(network.core) ||
        !handshake::nonzero(pair_) || !handshake::nonzero(psk_)) {stop();return;}
