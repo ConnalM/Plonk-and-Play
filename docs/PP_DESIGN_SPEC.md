@@ -73,6 +73,21 @@ Working principles:
 
 The architecture must not assume that today's known sensors, outputs, race modes, lane count or optional features are exhaustive.
 
+<a id="core-and-optional-wireless-taster"></a>
+### Core and optional wireless Taster
+
+**Owner-approved architecture — 24 November 2026.** See [decision record](https://github.com/ConnalM/Plonk-and-Play/issues/14#issuecomment-7137741329) and [TCP direction](https://github.com/ConnalM/Plonk-and-Play/issues/14#issuecomment-7138679955). This supersedes earlier assumptions that the production display and controller must be one physical device; it does not supersede the approved Taster interaction or race rules.
+
+- **Core (required):** screenless ESP32-S3 controller with microSD, all detector connections, authoritative race timing, Race Control, Race Engine, shared settings, records/storage and SMUGLAND server. Core operates without a Taster and can be controlled through SMUGLAND.
+- **Taster (optional):** one paired wireless ESP32-8048S070 7-inch 800×480 touchscreen. It is a presentation/control client, not an independent race engine or records/storage authority. It can provide the approved standalone (no Browser controller) experience only while connected to Core. With a controlling Browser connected, Browser authority takes precedence and Taster becomes subordinate; after release, Taster resumes permitted controls only from fresh authoritative state. No second race product, passive screen variant or remote detector support is included in V1.
+- One shared codebase, two distinct production firmware builds; the integrated development/test arrangement remains available. The final Core board, electrical layout and SD mapping are not yet selected. Historic integrated-board acceptance remains valid for its stated scope, not proof of the production split.
+
+**Communications:** dedicated TCP over Wi-Fi; Taster connects directly to Core without requiring internet or a home router. Keep SMUGLAND HTTP/SSE capacity and responsiveness unchanged. No parallel ESP-NOW development. Secure unique pairing and authenticated link sessions, bounded explicit versioned wire framing, fresh boot/link identities, monotonic command identification, duplicate protection, deadlines, authority and lifecycle fences at actual execution, explicit results and full authoritative snapshots are required. The protocol may not expose raw internal structs as its wire ABI. Authentication, commissioning/replacement UX, clock estimation and implementation details remain subject to review. Host protocol prototypes are not a production security or connectivity claim.
+
+**Failure and recovery:** connection failure disables Taster commands, cancels pending gestures/requests, labels displayed stale information and does not generate stale GO or invent a race outcome. Core continues its authoritative race and storage policy independently; no automatic pause, start, abandonment or change of official eligibility solely because the accessory disconnects. Reconnect obtains a fresh snapshot and requires a new deliberate command; no automatic replay. Display clock synchronisation is for presentation only, never authoritative detector timing. No unapproved change to fixed READY, start, pause, finish or Race Again behaviour. Confirm acceptable visible responsiveness on actual devices; no submillisecond wireless performance requirement.
+
+**Qualification:** reliability, automatic recovery and no detrimental effect on SMUGLAND take precedence over speed. Prove simultaneous Browser use and Taster connection/reconnection/off state, resource budgets, race-loop isolation, detector timing, SD/record policy and role isolation in the two production builds. Socket limits must not be taken from SMUGLAND; the current XIP source budget is ten total sockets (seven HTTP clients plus three reserved), with at least twelve needed for stated maximum HTTP usage plus one dedicated TCP listener and peer before margin/other services. Actual Core configuration and measurements remain open. See the [Master Project Plan](MASTER_PROJECT_PLAN.md) for delivery and evidence status.
+
 <a id="system-architecture--2-high-level-responsibilities"></a>
 #### 2. High-level responsibilities
 
@@ -4389,13 +4404,13 @@ Equally, do not allow temporary development UI to become the product appearance 
 <a id="pp-taster-spec--purpose"></a>
 #### Purpose
 
-P&P Taster is the built-in, restricted client of the normal P&P Browser/Race
-Control experience. It is not a separate racing product. It is deliberately
-simpler than full browser-based P&P Race Control: its purpose is to let a MUG
-switch on the standard base product and run the supported subset without first
-connecting a phone, tablet or computer.
+P&P Taster is the optional wireless restricted client of the normal P&P Browser/Race
+Control experience, paired with the required Core. It is not a separate racing
+product. It is deliberately simpler than full browser-based P&P Race Control:
+its purpose is to let a MUG switch on Core and Taster and run the supported subset
+without first connecting a phone, tablet or computer. See [Core and optional wireless Taster](#core-and-optional-wireless-taster).
 
-The Taster uses the integrated 7-inch, 800 × 480 landscape colour touchscreen.
+The Taster uses the 7-inch, 800 × 480 landscape colour touchscreen; the integrated development arrangement is retained for testing.
 It should be capable of attractive fonts, colours, graphics and the P&P visual
 language. It must not look or behave like a crude segment display. No rotary
 encoder or physical control buttons are required; local operation is through
@@ -4404,8 +4419,8 @@ the touchscreen.
 <a id="pp-taster-spec--cross-client-contract-alignment"></a>
 #### Cross-client contract alignment
 
-The Taster is a controller-local presentation and control client over the
-normal P&P authority. It does not create a second Race Control, Race Engine,
+The Taster is a presentation and control client over the normal P&P Core authority;
+its production connection is wireless, with the local adapter retained for integrated development. It does not create a second Race Control, Race Engine,
 timing, results or persistence authority. The canonical race behaviour is
 defined in [Race modes](#race-modes-product-spec--plonk--play--race-modes-product-specification) and the shared presentation rules are
 defined in [Shared display](#common-display-spec--plonk--play--common-display-specification) and [Presentation design](#presentation-design-spec--plonk--play--presentation-design-specification); this
@@ -4418,7 +4433,7 @@ race state, timing, finish policy, result meaning or event presentation.
 The Taster leaves its Welcome state only after configuration has loaded and
 P&P is genuinely capable of racing for the selected installation. Optional
 services, including Browser connectivity and official record storage, must not
-block a standalone Taster race when the required race capabilities are healthy.
+block a standalone Taster race when the required race capabilities and the authenticated Core link are healthy.
 
 <a id="pp-taster-spec--auxiliary-display"></a>
 #### SMUG-controlled auxiliary Integrated Display
@@ -6992,7 +7007,7 @@ The base product has two standard optical timing sensors.
 
 The same sensors are repurposed according to mode rather than being permanently tied to one race form.
 
-The System Controller is authoritative for timing, race logic and state. Browser clients are presentation/control clients and must not become timing authorities.
+The System Controller (Core) is authoritative for timing, race logic, state and storage. Browser and optional wireless Taster clients are presentation/control clients and must not become timing authorities. See [Core and optional wireless Taster](#core-and-optional-wireless-taster).
 
 <a id="product-facilities-spec--10-deferred-decisions"></a>
 #### 10. Deferred decisions
