@@ -45,6 +45,12 @@ int main() {
   assert(!clock.update(0,10,UINT64_MAX-1,UINT64_MAX));
   assert(clock.update(10,10,100,100));
   assert(clock.at(10,b) && b.lower==100 && b.upper==100);
+  // Very asymmetric delays: true Core now is near either end of the
+  // interval. Neither case assumes half the round-trip latency.
+  assert(clock.update(1000,11000,1001001,1001201));
+  assert(clock.at(11000,b) && b.lower<=1011000 && b.upper>=1011000);
+  assert(clock.update(1000,11000,1010799,1010999));
+  assert(clock.at(11000,b) && b.lower<=1011000 && b.upper>=1011000);
   // Negative offset is just as valid; no signed offset overflow.
   assert(clock.update(10000000,10002200,1000,1200));
   assert(clock.at(10002200,b) && b.lower==1200 && b.upper==3201);
