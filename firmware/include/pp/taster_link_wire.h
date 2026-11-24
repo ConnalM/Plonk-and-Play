@@ -1,6 +1,7 @@
 #pragma once
 
 #include "taster_link_gate.h"
+#include "taster_link_display_payload.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -15,11 +16,11 @@ namespace pp::taster_link::wire {
 constexpr uint8_t Version = 1;
 constexpr size_t HeaderSize = 32;
 constexpr size_t TagSize = 32; // HMAC-SHA256, full tag
-constexpr size_t MaxPayload = 64;
+constexpr size_t MaxPayload = DisplayPayloadSize;
 constexpr size_t MaxFrame = HeaderSize + MaxPayload + TagSize;
 
 enum class Direction : uint8_t { ToCore, ToTaster };
-enum class Kind : uint8_t { Command = 1, Result = 2, ControlState = 3, Ping = 4, Pong = 5 };
+enum class Kind : uint8_t { Command = 1, Result = 2, ControlState = 3, Ping = 4, Pong = 5, DisplayState = 6 };
 
 class Mac {
 public:
@@ -72,13 +73,14 @@ inline uint16_t payloadSize(Kind kind) {
     case Kind::ControlState: return 38;
     case Kind::Ping: return 16;
     case Kind::Pong: return 32;
+    case Kind::DisplayState: return static_cast<uint16_t>(DisplayPayloadSize);
     default: return 0;
   }
 }
 inline bool allowedDirection(Kind kind, Direction d) {
   if (d == Direction::ToCore) return kind == Kind::Command || kind == Kind::Ping;
   if (d == Direction::ToTaster)
-    return kind == Kind::Result || kind == Kind::ControlState || kind == Kind::Pong;
+    return kind == Kind::Result || kind == Kind::ControlState || kind == Kind::Pong || kind == Kind::DisplayState;
   return false;
 }
 inline Frame init(Kind kind, Session session, uint64_t sequence) {
@@ -174,6 +176,16 @@ inline bool readPong(const Frame& f, Pong& out) {
   if (!v.token || v.coreSendUs < v.coreReceiveUs) return false;
   out=v; return true;
 }
+// One complete snapshot in one authenticated record; no mixed lane samples.
+inline Frame displayState(const DisplaySnapshot& s, uint64_t sequence) {
+  Frame f=init(Kind::DisplayState,s.session,sequence);
+  if(!encodeDisplay(s,f.payload.data(),f.length)) f.length=0;
+  return f;
+}
+inline bool readDisplayState(const Frame& f, DisplaySnapshot& out) {
+  return hasShape(f,Kind::DisplayState) &&
+         decodeDisplay(f.session,f.payload.data(),f.length,out);
+}
 inline bool validPayload(const Frame& f) {
   switch (f.kind) {
     case Kind::Command: { Command q; return readCommand(f,q); }
@@ -181,6 +193,7 @@ inline bool validPayload(const Frame& f) {
     case Kind::ControlState: { ControlState s; return readControlState(f,s); }
     case Kind::Ping: { Ping v; return readPing(f,v); }
     case Kind::Pong: { Pong v; return readPong(f,v); }
+    case Kind::DisplayState: { DisplaySnapshot v; return readDisplayState(f,v); }
     default: return false;
   }
 }
