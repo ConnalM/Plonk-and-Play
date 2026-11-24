@@ -3,8 +3,16 @@
 #error "Taster discovery adapter requires ESP-IDF/Arduino"
 #endif
 #include "taster_link_discovery.h"
+// lwIP's INADDR_NONE macro collides with Arduino IPAddress's object
+// declaration. Load the guarded lwIP header first, hide only this macro
+// while parsing the Arduino headers, then restore its original definition.
+// Keep the compatibility boundary local to this ESP/Arduino adapter.
+#include <lwip/inet.h>
+#pragma push_macro("INADDR_NONE")
+#undef INADDR_NONE
 #include <Arduino.h>
 #include <WiFi.h>
+#pragma pop_macro("INADDR_NONE")
 #include <esp_wifi.h>
 #include <nvs.h>
 #include "taster_link_pairing_esp_store.h"
