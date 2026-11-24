@@ -21,6 +21,13 @@ set(PP_SOURCES
   "${PP_FIRMWARE_ROOT}/src/system_time.cpp"
   "${PP_FIRMWARE_ROOT}/src/wifi_scan_instrumentation.cpp")
 
+# Explicit compile-only probe for the two future role compositions.
+# Never use the accepted bwp7welcome build directory with this option.
+option(PP_WP8_ROLE_COMPILE_PROBE "Compile inactive WP8 role startup paths" OFF)
+if(PP_WP8_ROLE_COMPILE_PROBE)
+  list(APPEND PP_SOURCES "${PP_FIRMWARE_ROOT}/src/wp8_role_compile_probe.cpp")
+endif()
+
 idf_component_register(
   SRCS ${PP_SOURCES}
   INCLUDE_DIRS
@@ -48,6 +55,10 @@ idf_component_register(
     nvs_flash
     sdmmc
     spi_flash)
+
+if(PP_WP8_ROLE_COMPILE_PROBE)
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE PP_WP8_ROLE_COMPILE_PROBE=1)
+endif()
 
 # The approved WP7 welcome screen is a single, read-only RGB565 raster.  Keep
 # it in flash rather than allocating a second framebuffer or a PSRAM staging
