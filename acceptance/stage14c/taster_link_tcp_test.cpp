@@ -1,6 +1,7 @@
 // Linux loopback TCP acceptance only. The production ESP socket, RNG,
 // provisioning, scheduler and resource budget are separate integration work.
 #include "pp/taster_link_core_port.h"
+#include "pp/published_control_authority.h"
 #include <openssl/crypto.h>
 #include <openssl/hmac.h>
 #include <openssl/kdf.h>
