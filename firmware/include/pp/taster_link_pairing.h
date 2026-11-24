@@ -105,6 +105,7 @@ inline bool decode(const Record& b,Role role,uint32_t& revision,State& state,Mat
   const auto* tail=b.data()+60;
   if(!validRole(role) || magic!=0x50504352 || version!=1 ||
      storedRole!=static_cast<uint8_t>(role) || paired>1 || reserved || !rev ||
+     (paired && rev==UINT32_MAX) ||
      wire::get(tail,4)!=checksum(b.data(),60)) return false;
   hs::PairId pair{};hs::Secret key{};
   std::memcpy(pair.data(),p,pair.size());std::memcpy(key.data(),p+pair.size(),key.size());
@@ -160,7 +161,9 @@ public:
     const auto check=permission(expected);
     if(check!=Result::Applied) return check;
     if(state_!=State::Empty && state_!=State::Revoked) return Result::WrongState;
-    if(!candidate.valid() || &candidate==&material_) return Result::Invalid;
+    // Reserve the final revision for revocation; never install a pair
+    // that cannot subsequently be revoked without counter wrap.
+    if(revision_==UINT32_MAX-1 || !candidate.valid() || &candidate==&material_) return Result::Invalid;
     return commit(&candidate);
   }
 private:
