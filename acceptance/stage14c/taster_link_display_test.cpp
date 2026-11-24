@@ -192,6 +192,13 @@ int main() {
   n.sessionMode=SessionMode::None; sample.proposal.mode=SessionMode::LapRace;
   c.tasterAllowed=true;
   assert(w::projectDisplay(sample,nullptr,0,c,1000004,s) && s.tasterAllowed);
+  // Explicit READY/LAPS positive case: both modes are LAPS and authority is true.
+  n.sessionMode=SessionMode::LapRace;
+  assert(n.lifecycle==SessionLifecycle::Ready && c.lifecycle==Lifecycle::Ready &&
+         sample.proposal.mode==SessionMode::LapRace && c.tasterAllowed);
+  assert(w::projectDisplay(sample,nullptr,0,c,1000005,s));
+  assert(s.lifecycle==w::DisplayLifecycle::Ready && s.activeMode==w::DisplayMode::Laps &&
+         s.proposalMode==w::DisplayMode::Laps && s.tasterAllowed);
 
   std::cout<<"S3c display snapshot projection, authenticated framing and malformed-input checks PASS\n";
 }
