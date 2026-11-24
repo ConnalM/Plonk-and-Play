@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core.h"
+#include <mutex>
 
 namespace pp {
 
@@ -199,9 +200,22 @@ public:
   explicit TasterPresentationPreferencesController(TasterPresentationPreferencesMemory& memory)
       : memory_(memory) {}
 
+  struct Committed {
+    TasterPresentationPreferences value{};
+    uint64_t revision=0;
+    bool loaded=false;
+  };
   LoadStatus load() {
     TasterPresentationPreferences ignored{};
-    return memory_.load(ignored);
+    const auto result=memory_.load(ignored);
+    if(result!=LoadStatus::DefaultsStorageError) publish();
+    return result;
+  }
+  // Remote Core owner reads one committed value/revision under a short
+  // lock. The existing HTTP writer owns storage operations; no lock held
+  // over persistence. Startup load precedes HTTP startup.
+  Committed committed() const {
+    std::lock_guard<std::mutex> lock(publicationLock_);return publication_;
   }
   const TasterPresentationPreferences& current() const { return memory_.current(); }
 
@@ -210,19 +224,25 @@ public:
     if (!controllingBrowser) return TasterPresentationPreferencesResult::PermissionDenied;
     if (!ready) return TasterPresentationPreferencesResult::LifecycleNotReady;
     if (!value.valid()) return TasterPresentationPreferencesResult::InvalidPreferences;
-    return memory_.save(value) ? TasterPresentationPreferencesResult::Accepted
-                               : TasterPresentationPreferencesResult::StorageUnavailable;
+    if(!memory_.save(value))return TasterPresentationPreferencesResult::StorageUnavailable;
+    publish();return TasterPresentationPreferencesResult::Accepted;
   }
 
   TasterPresentationPreferencesResult restoreFactory(bool controllingBrowser, bool ready) {
     if (!controllingBrowser) return TasterPresentationPreferencesResult::PermissionDenied;
     if (!ready) return TasterPresentationPreferencesResult::LifecycleNotReady;
-    return memory_.restoreFactory() ? TasterPresentationPreferencesResult::Accepted
-                                    : TasterPresentationPreferencesResult::StorageUnavailable;
+    if(!memory_.restoreFactory())return TasterPresentationPreferencesResult::StorageUnavailable;
+    publish();return TasterPresentationPreferencesResult::Accepted;
   }
 
 private:
+  void publish(){
+    Committed next{memory_.current(),memory_.generation(),true};
+    std::lock_guard<std::mutex> lock(publicationLock_);publication_=next;
+  }
   TasterPresentationPreferencesMemory& memory_;
+  mutable std::mutex publicationLock_;
+  Committed publication_{};
 };
 
 } // namespace pp
