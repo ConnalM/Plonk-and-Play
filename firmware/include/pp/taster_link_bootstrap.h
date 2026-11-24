@@ -7,8 +7,8 @@ namespace pv=pairing;
 
 // First use only, over a fresh standard TLS session. This interface is
 // deliberately not transport::Stream: raw TCP is not a provisioning channel.
-// The exclusive platform owner must establish TLS >=1.2 with an AEAD suite,
-// no early data/session resumption/plaintext fallback, and bind the selected
+// The exclusive platform owner must establish TLS 1.3 or TLS 1.2 ECDHE with an AEAD suite,
+// no early data/session resumption/renegotiation/plaintext fallback, and bind the selected
 // STA association to this attempt. First-use peer identity is unverified
 // (TOFU); TLS protects against passive interception, NOT an active MITM.
 // Nonblocking progress: positive bytes, zero would block, negative failure.
