@@ -104,7 +104,8 @@ public:
     // This runtime is sole owner of the vault. Empty bootstrap may borrow
     // only its own exchange; paired credential references exclude mutation.
     policy_.prepare(n,enabled,store_.protectedReady(),approval.targetQualified,
-      approval.exclusiveOwnership && vault_.state()==pv::State::Empty,
+      approval.exclusiveOwnership && (vault_.state()==pv::State::Empty ||
+        (owner_ && owner_->state()==lc::CoreState::Bootstrap)),
       approval.idleForBootstrap);
     // A single PPTH allocator for the boot, never regenerate on reconnect.
     if(!owner_){
