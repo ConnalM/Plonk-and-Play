@@ -77,26 +77,84 @@ int main() {
   assert(c.acceptResult(A,{1,Status::InFlight},4200) && c.pending());
   assert(c.acceptResult(A,{1,Status::Accepted},4300) && !c.pending());
   assert(c.view(4300).snapshot.lifecycle==w::DisplayLifecycle::Ready);
-  c.observeReleased(4300);assert(c.beginTouch(4300));
-  assert(!c.releaseForCommand(4300,1,ctx)); // no replay
-  c.observeReleased(4400);assert(c.beginTouch(4400));
-  assert(c.releaseForCommand(4400,2,ctx));
-  c.disconnect();auto lost=c.view(4500);
+  assert(c.view(4300).awaitingPostResultSnapshot && !c.view(4300).mayControl);
+  c.observeReleased(4300);assert(!c.beginTouch(4300));
+  assert(!c.releaseForCommand(4300,2,ctx));
+  s=snapshot(A,6000);s.authorityGeneration=3;
+  assert(c.acceptSnapshot(s,6000));
+  assert(c.view(6000).mayControl && !c.view(6000).readyForNewTouch);
+  c.observeReleased(6000);assert(c.beginTouch(6000));
+  assert(!c.releaseForCommand(6000,1,ctx)); // no replay
+  c.observeReleased(6100);assert(c.beginTouch(6100));
+  assert(c.releaseForCommand(6100,2,ctx));
+  c.disconnect();auto lost=c.view(6500);
   assert(lost.state==h::State::Stale && lost.hasSnapshot && !lost.mayControl &&
     !lost.snapshot.tasterAllowed && lost.uncertainOutcome);
-  assert(!c.pending() && !c.releaseForCommand(4500,3,ctx));
-  assert(!c.open(A,4600)); // same identity never resumes
-  establish(c,B,5000);
-  assert(c.view(7200).uncertainOutcome && !c.beginTouch(7200));
-  c.acknowledgeUncertainty();assert(!c.view(7200).uncertainOutcome);
-  c.observeReleased(7200);assert(c.beginTouch(7200));
-  assert(c.releaseForCommand(7200,1,ctx) && ctx.session==B);
+  assert(!c.pending() && !c.releaseForCommand(6500,3,ctx));
+  assert(!c.open(A,6600)); // same identity never resumes
+  establish(c,B,7000);
+  assert(c.view(9200).uncertainOutcome && !c.beginTouch(9200));
+  c.acknowledgeUncertainty();assert(!c.view(9200).uncertainOutcome);
+  c.observeReleased(9200);assert(c.beginTouch(9200));
+  assert(c.releaseForCommand(9200,1,ctx) && ctx.session==B);
   // Ownership change cancels pending knowledge, never replays it.
-  s=snapshot(B,8000);s.authorityGeneration=2;s.tasterAllowed=false;
-  assert(c.acceptSnapshot(s,8000) && !c.pending() && c.view(8000).uncertainOutcome);
-  assert(!c.acceptResult(B,{1,Status::Accepted},8000));
-  c.disconnect();assert(c.open(C,9000));
-  assert(!c.view(9000).hasSnapshot); // different Core boot: no old race
+  s=snapshot(B,10000);s.authorityGeneration=2;s.tasterAllowed=false;
+  assert(c.acceptSnapshot(s,10000) && !c.pending() && c.view(10000).uncertainOutcome);
+  assert(!c.acceptResult(B,{1,Status::Accepted},10000));
+  c.disconnect();assert(c.open(C,11000));
+  assert(!c.view(11000).hasSnapshot); // different Core boot: no old race
+
+  // Both successful and rejected commands may leave an obsolete READY
+  // snapshot. All terminal statuses use the same post-result barrier.
+  for(const auto status:{Status::Accepted,Status::Rejected,Status::Unknown,
+                         Status::WrongSession,Status::Stale,Status::Expired,
+                         Status::Forbidden,Status::Invalid,Status::OldId,
+                         Status::Conflict,Status::Busy}) {
+    h::Client barrier;establish(barrier,A,0);
+    barrier.observeReleased(2200);assert(barrier.beginTouch(2200));
+    assert(barrier.releaseForCommand(2300,1,ctx));
+    assert(!barrier.view(2300).snapshot.tasterAllowed);
+    // Even a sample newer than the command sample may precede execution.
+    auto queued=snapshot(A,3000);
+    assert(barrier.acceptSnapshot(queued,3000));
+    assert(barrier.acceptResult(A,{1,status},4000) && !barrier.pending());
+    const auto bound=barrier.view(4000).coreNow.upper;
+    auto blocked=[&](uint64_t t) {
+      auto v=barrier.view(t);
+      assert(v.state==h::State::Fresh && v.awaitingPostResultSnapshot &&
+             !v.mayControl && !v.snapshot.tasterAllowed &&
+             !v.readyForNewTouch && !v.gestureActive);
+      barrier.observeReleased(t);assert(!barrier.beginTouch(t));
+      assert(!barrier.releaseForCommand(t,2,ctx));
+    };
+    blocked(4000);
+    assert(barrier.acceptSnapshot(queued,4100)); // same sample time
+    blocked(4100);
+    queued.coreTimeUs=1004100; // newer but not provably after result receipt
+    assert(barrier.acceptSnapshot(queued,4200));
+    blocked(4200);
+    queued.coreTimeUs=bound;
+    assert(barrier.acceptSnapshot(queued,6000)); // exact threshold not enough
+    blocked(6000);
+    queued.coreTimeUs=bound+1;
+    assert(barrier.acceptSnapshot(queued,6100));
+    assert(!barrier.view(6100).awaitingPostResultSnapshot &&
+           barrier.view(6100).mayControl && barrier.view(6100).snapshot.tasterAllowed);
+    assert(!barrier.beginTouch(6100)); // earlier neutral reports do not count
+    barrier.observeReleased(6200);assert(barrier.beginTouch(6200));
+    assert(barrier.releaseForCommand(6200,2,ctx));
+  }
+  // A new sample may instead show authority lost; it must not grant control.
+  h::Client spectator;establish(spectator,A,0);
+  spectator.observeReleased(2200);assert(spectator.beginTouch(2200));
+  assert(spectator.releaseForCommand(2300,1,ctx));
+  assert(spectator.acceptResult(A,{1,Status::Accepted},4000));
+  auto updated=snapshot(A,6000);updated.tasterAllowed=false;
+  ++updated.authorityGeneration;
+  assert(spectator.acceptSnapshot(updated,6000));
+  assert(!spectator.view(6000).awaitingPostResultSnapshot &&
+         !spectator.view(6000).mayControl);
+  spectator.observeReleased(6000);assert(!spectator.beginTouch(6000));
 
   // Fresh GO is sampled, not invented. Once its possible validity expires,
   // suppress it even before the snapshot becomes stale.
