@@ -1,0 +1,25 @@
+name: WP8 S3b wire protocol host
+on:
+  pull_request:
+    paths:
+      - firmware/include/pp/taster_link_wire.h
+      - firmware/include/pp/taster_link_gate.h
+      - acceptance/stage14c/taster_link_wire_test.cpp
+      - .github/workflows/wp8-s3b-wire-protocol.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authenticated framing and command exchange
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/taster_link_wire_test.cpp -lcrypto -o /tmp/pp-s3b
+          /tmp/pp-s3b
+      - name: S3a command gate regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/taster_link_gate_test.cpp -o /tmp/pp-s3a
+          /tmp/pp-s3a
