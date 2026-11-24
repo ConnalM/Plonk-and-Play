@@ -2,6 +2,7 @@
 // mixed preference fields while HTTP writer persists a change.
 #include "pp/taster_presentation_preferences.h"
 #include <cassert>
+#include <cstring>
 #include <iostream>
 #include <map>
 #include <vector>
