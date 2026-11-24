@@ -122,10 +122,18 @@ struct Message {
   union { uint16_t durationMinutes = 0; uint16_t setupDurationMinutes; };
   union { uint8_t finishPolicy = 0; uint8_t setupFinishPolicy; };
 };
+// Coherent Browser authority stamp for the optional remote Taster.
+// A zero generation means unavailable/exhausted, never a permission.
+struct StandaloneAuthorityStamp { uint64_t generation=0; bool allowed=false; };
 class StartAuthority {
 public:
   virtual bool authorizesStart(uint64_t owner) const = 0;
   virtual bool hasController() const = 0;
+  // Older/local fixtures need not implement the remote capability. Fail closed.
+  virtual StandaloneAuthorityStamp standaloneStamp() const { return {}; }
+  // Atomic linearisation of remote execution against committed lease changes.
+  // No network, storage or race processing may run under the authority lock.
+  virtual bool claimStandalone(uint64_t) const { return false; }
   virtual ~StartAuthority() = default;
 };
 enum class Delivery { Delivered, Forbidden, Invalid, NoSubscribers, Full };
