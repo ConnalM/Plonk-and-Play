@@ -1,0 +1,32 @@
+name: WP8 S2 local Taster host
+on:
+  pull_request:
+    paths:
+      - 'firmware/include/pp/physical_taster_authority.h'
+      - 'firmware/include/pp/local_taster_authority.h'
+      - 'firmware/include/pp/taster_surface.h'
+      - 'firmware/include/pp/wp7_physical_racing_ui.h'
+      - 'acceptance/stage14c/taster_local_authority*'
+      - '.github/workflows/wp8-s2-local-taster.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Local adapter host test
+        run: |
+          g++ -std=c++17 -Wall -Wextra -DPP_MAX_ENTRIES=2 -Ifirmware/include acceptance/stage14c/taster_local_authority_test.cpp -o /tmp/pp-s2
+          /tmp/pp-s2
+      - name: Source boundary and C1 contracts
+        run: |
+          python3 acceptance/stage14c/taster_local_authority_contract.py
+          python3 acceptance/stage14c/taster_presentation_preferences_contract_test.py
+          python3 acceptance/stage14c/taster_presentation_storage_transport_contract.py
+      - name: C1 preference persistence regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -DPP_MAX_ENTRIES=2 -Ifirmware/include acceptance/stage14c/taster_presentation_preferences_test.cpp -o /tmp/pp-c1
+          /tmp/pp-c1
