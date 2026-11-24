@@ -5,6 +5,7 @@ root = Path(__file__).resolve().parents[2]
 preferences = (root / "firmware/include/pp/taster_presentation_preferences.h").read_text(encoding="utf-8")
 browser = (root / "firmware/include/pp/browser_interface.h").read_text(encoding="utf-8")
 renderer = (root / "firmware/include/pp/wp7_physical_racing_ui.h").read_text(encoding="utf-8")
+adapter = (root / "firmware/include/pp/local_taster_authority.h").read_text(encoding="utf-8")
 page = (root / "firmware/browser/normal_browser.html").read_text(encoding="utf-8")
 main = (root / "firmware/src/main.cpp").read_text(encoding="utf-8")
 
@@ -17,7 +18,7 @@ required = {
     "read route": '"/taster/preferences"' in browser,
     "update route": '"/request/taster/preferences"' in browser,
     "factory route": '"/request/taster/preferences/restore-factory"' in browser,
-    "renderer committed values": "presentationPreferences_->current()" in renderer and "laneCar(uint8_t lane)" in renderer,
+    "renderer committed values": "presentationPreferences_->current()" in adapter and "authority_.committedPreferences()" in renderer and "laneCar(uint8_t lane)" in renderer,
     "graphic redraw identity": "tasterPresentationIdentityHash(name, laneGraphic(lane))" in renderer,
     "lane-static dirty regions stay separate": "lane1StaticChanged" in renderer and "lane2StaticChanged" in renderer and "Wp7UiComponent::Lane1Static" in renderer and "Wp7UiComponent::Lane2Static" in renderer,
     "main loads before use": "tasterPresentationPreferences.load()" in main,

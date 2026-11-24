@@ -33,6 +33,7 @@
 #endif
 #if defined(PP_WP7_PHYSICAL_RACING_TEST)
 #include "pp/wp7_physical_racing_ui.h"
+#include "pp/local_taster_authority.h"
 #endif
 #include "pp/diagnostic_memory.h"
 #include "pp/diagnostic_trace.h"
@@ -316,8 +317,9 @@ const auto presentationEndpoint=bus.attach(pp::Role::Presentation);
 pp::Noticeboard noticeboard(raceControl,raceEngine,activeSession);
 #if defined(PP_WP7_PHYSICAL_RACING_TEST)
 const auto tasterEndpoint=bus.attach(pp::Role::Presentation);
-pp::Wp7PhysicalRacingUi wp7PhysicalUi(boardDisplay,raceControl,noticeboard,bus,presentationEndpoint,tasterEndpoint,
-                                       &tasterPresentationPreferences);
+pp::LocalTasterAuthority localTasterAuthority(raceControl,noticeboard,bus,tasterEndpoint,
+                                             &tasterPresentationPreferences);
+pp::Wp7PhysicalRacingUi wp7PhysicalUi(boardDisplay,localTasterAuthority);
 #endif
 pp::BrowserInterface browser(bus,presentationEndpoint,noticeboard,&browserAuthority,&history,&records,&raceEngine,
 #if defined(PP_PHASE8B_REAL_SD)
@@ -468,11 +470,11 @@ bool browserFixtureTasterAction(pp::BrowserInterface::FixtureTasterAction action
     case pp::BrowserInterface::FixtureTasterAction::Arm:
       return browserFixtureArm();
     case pp::BrowserInterface::FixtureTasterAction::Start:
-      return wp7PhysicalUi.submitStart(++fixtureTasterCorrelation);
+      return localTasterAuthority.submitStart(++fixtureTasterCorrelation);
     case pp::BrowserInterface::FixtureTasterAction::Pause:
-      return wp7PhysicalUi.submitOperation(++fixtureTasterCorrelation,pp::SessionOperation::Pause,false);
+      return localTasterAuthority.submitOperation(++fixtureTasterCorrelation,pp::SessionOperation::Pause,false);
     case pp::BrowserInterface::FixtureTasterAction::Resume:
-      return wp7PhysicalUi.submitOperation(++fixtureTasterCorrelation,pp::SessionOperation::Resume,false);
+      return localTasterAuthority.submitOperation(++fixtureTasterCorrelation,pp::SessionOperation::Resume,false);
     case pp::BrowserInterface::FixtureTasterAction::PassageLane1:
       return browserFixturePass(1);
     case pp::BrowserInterface::FixtureTasterAction::PassageLane2:
@@ -485,7 +487,7 @@ bool browserFixtureTasterAction(pp::BrowserInterface::FixtureTasterAction action
 }
 bool browserFixtureTasterSetup(const pp::BrowserInterface::FixtureTasterSetup& setup){
   if(browser.hasController())return false;
-  return wp7PhysicalUi.submitSetup(++fixtureTasterCorrelation,setup.mode,setup.lapTarget,
+  return localTasterAuthority.submitSetup(++fixtureTasterCorrelation,setup.mode,setup.lapTarget,
                                    setup.durationMinutes,setup.finish,raceControl.proposalRevision());
 }
 #endif

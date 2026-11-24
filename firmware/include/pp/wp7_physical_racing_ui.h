@@ -7,12 +7,8 @@
 
 #include "board_display_esp32s3.h"
 #include "core.h"
-#include "noticeboard.h"
-#include "race_control.h"
-#include "race_engine.h"
 #include "system_time.h"
-#include "taster_surface.h"
-#include "taster_presentation_preferences.h"
+#include "physical_taster_authority.h"
 #include "ui_dirty_regions.h"
 #include "wp7_presentation_contract.h"
 #include "wp7_barlow_bold_28.h"
@@ -47,86 +43,12 @@ extern const uint8_t wp7HeaderLogoStart[]
 
 // Disposable physical WP7 surface. It is a presentation/control client only:
 // Race Control, InputModule and Race Engine remain the authorities.
-class Wp7PhysicalRacingUi final : public TasterAuthority {
+class Wp7PhysicalRacingUi final {
 public:
-  Wp7PhysicalRacingUi(Esp32S3BoardDisplay& display,
-                      RaceControlModule& control,
-                      Noticeboard& noticeboard,
-                      Bus& bus,
-                      Bus::Endpoint presentationEndpoint,
-                      Bus::Endpoint tasterEndpoint,
-                      const TasterPresentationPreferencesController* presentationPreferences = nullptr)
-      : display_(display), control_(control), noticeboard_(noticeboard),
-        bus_(bus), presentationEndpoint_(presentationEndpoint),
-        tasterEndpoint_(tasterEndpoint), surface_(*this, 0x544153544552ULL),
-        presentationPreferences_(presentationPreferences),
+  Wp7PhysicalRacingUi(Esp32S3BoardDisplay& display, PhysicalTasterAuthority& authority)
+      : display_(display), authority_(authority), surface_(authority, 0x544153544552ULL, 0x80000000U),
         touch_(kTouchSda, kTouchScl, kTouchInt, kTouchRst,
                kPanelWidth, kPanelHeight) {}
-
-  TasterSnapshot snapshot() const override {
-    TasterSnapshot result{};
-    result.state = noticeboard_.current();
-    result.readiness = control_.readiness();
-    if (const ProposedRaceSetup* proposal = control_.proposedRaceSetup()) result.proposal = *proposal;
-    result.proposalRevision = control_.proposalRevision();
-    return result;
-  }
-
-  bool submitSetup(uint32_t correlation, SessionMode mode,
-                   uint32_t lapTarget, uint16_t durationMinutes,
-                   LapFinishBehaviour finish, uint32_t revision) override {
-    Message request{};
-    request.type = Type::SetupRequest;
-    request.correlation = correlation;
-    request.clientContext = ClientContext::StandaloneTaster;
-    request.sessionMode = mode;
-    request.setupLapTarget = lapTarget;
-    request.setupDurationMinutes = durationMinutes;
-    request.setupFinishPolicy = static_cast<uint8_t>(finish);
-    request.proposalRevision = revision;
-    const Delivery result = bus_.publish(tasterEndpoint_, request);
-    Serial.printf("[WP7 PHYS] SETUP mode=%u laps=%lu duration=%u result=%s correlation=%lu\n",
-                  static_cast<unsigned>(mode), static_cast<unsigned long>(lapTarget),
-                  static_cast<unsigned>(durationMinutes),
-                  result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
-                  static_cast<unsigned long>(correlation));
-    return result == Delivery::Delivered;
-  }
-
-  bool submitStart(uint32_t correlation) override {
-    Message request{};
-    request.type = Type::StartRequest;
-    request.correlation = correlation;
-    request.sessionMode = SessionMode::None;
-    request.clientContext = ClientContext::StandaloneTaster;
-    const Delivery result = bus_.publish(tasterEndpoint_, request);
-    Serial.printf("[WP7 PHYS] START request=%s correlation=%lu\n",
-                  result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
-                  static_cast<unsigned long>(correlation));
-    return result == Delivery::Delivered;
-  }
-
-  bool submitOperation(uint32_t correlation, SessionOperation operation,
-                       bool confirmed) override {
-    Message request{};
-    request.type = Type::SessionOperationRequest;
-    request.correlation = correlation;
-    request.clientContext = ClientContext::StandaloneTaster;
-    request.operation = operation;
-    request.probe = confirmed ? 1U : 0U;
-    const Delivery result = bus_.publish(tasterEndpoint_, request);
-    return result == Delivery::Delivered;
-  }
-
-  bool result(uint32_t correlation, RequestResult& value,
-              RequestRejection& rejection) const override {
-    for (const CachedResult& cached : results_) {
-      if (cached.valid && cached.correlation == correlation) {
-        value = cached.value; rejection = cached.rejection; return true;
-      }
-    }
-    return false;
-  }
 
   uint32_t touchReadErrors() const { return touch_.readErrorCount(); }
   uint32_t touchInvalidSamples() const { return touch_.invalidSampleCount(); }
@@ -208,7 +130,7 @@ public:
   }
 
   void tick(Time now) {
-    pollAuthorityResults();
+    authority_.pollResults();
     surface_.service();
     const uint32_t currentMs = millis();
     if (welcomeActive_) {
@@ -407,12 +329,6 @@ private:
     TouchIncrease = 9,
   };
 
-  struct CachedResult {
-    uint32_t correlation = 0;
-    RequestResult value = RequestResult::Rejected;
-    RequestRejection rejection = RequestRejection::None;
-    bool valid = false;
-  };
 
   static int mapClamped(uint16_t value, int inMin, int inMax,
                        int outMin, int outMax) {
@@ -834,7 +750,7 @@ private:
       }
       return;
     }
-    const TasterSnapshot current = snapshot();
+    const TasterSnapshot current = authority_.snapshot();
     uint8_t progress = 70U;
     bool failed = !touchReady_;
     if (!touchReady_) {
@@ -1079,8 +995,9 @@ private:
     // A committed presentation label owns this text. It is deliberately
     // separate from MUG identity and does not change when a race entry or
     // its frozen racer name changes. Blank labels use the generic lane name.
-    if (presentationPreferences_ && lane >= 1 && lane <= 2) {
-      const auto& preferences = presentationPreferences_->current();
+    const auto* committed = authority_.committedPreferences();
+    if (committed && lane >= 1 && lane <= 2) {
+      const auto& preferences = *committed;
       const char* label = lane == 1 ? preferences.lane1Label : preferences.lane2Label;
       if (label[0]) return label;
     }
@@ -1089,8 +1006,9 @@ private:
   }
 
   TasterCarGraphic laneGraphic(uint8_t lane) const {
-    if (presentationPreferences_ && lane >= 1 && lane <= 2) {
-      const auto& preferences = presentationPreferences_->current();
+    const auto* committed = authority_.committedPreferences();
+    if (committed && lane >= 1 && lane <= 2) {
+      const auto& preferences = *committed;
       return lane == 1 ? preferences.lane1Graphic : preferences.lane2Graphic;
     }
     return lane == 2 ? TasterCarGraphic::RedEtype : TasterCarGraphic::GreenMgb;
@@ -1822,7 +1740,7 @@ private:
     Arduino_RGB_Display* gfx = display_.touchTestCanvas();
     if (!gfx) return;
     const uint32_t currentMs = millis();
-    const NoticeboardState state = noticeboard_.currentAt(now);
+    const NoticeboardState state = authority_.stateAt(now);
     if (state.lifecycle == SessionLifecycle::Paused &&
         lastState_.lifecycle != SessionLifecycle::Paused) {
       pausedWarningStartedMs_ = currentMs;
@@ -2062,87 +1980,20 @@ private:
     return TouchNone;
   }
 
-  void publishStart() {
-    Message request{};
-    request.type = Type::StartRequest;
-    request.sessionMode = SessionMode::None;
-    request.correlation = nextCorrelation_++;
-    if (!request.correlation) request.correlation = nextCorrelation_++;
-    request.clientContext = ClientContext::StandaloneTaster;
-    const Delivery result = bus_.publish(tasterEndpoint_, request);
-    Serial.printf("[WP7 PHYS] START request=%s correlation=%lu\n",
-                  result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
-                  static_cast<unsigned long>(request.correlation));
+  // Share the model's correlation allocator while preserving the existing
+  // direct physical operation submission behavior.
+  void publishOperation(SessionOperation operation, bool confirmed, const char* name) {
+    const uint32_t correlation = surface_.allocateCorrelation();
+    const bool delivered = authority_.submitOperation(correlation, operation, confirmed);
+    Serial.printf("[WP7 PHYS] %s request=%s correlation=%lu\n", name,
+                  delivered ? "PUBLISHED" : "REJECTED",
+                  static_cast<unsigned long>(correlation));
   }
 
-  void publishResume() {
-    Message request{};
-    request.type = Type::SessionOperationRequest;
-    request.correlation = nextCorrelation_++;
-    if (!request.correlation) request.correlation = nextCorrelation_++;
-    request.clientContext = ClientContext::StandaloneTaster;
-    request.operation = SessionOperation::Resume;
-    const Delivery result = bus_.publish(tasterEndpoint_, request);
-    Serial.printf("[WP7 PHYS] RESUME request=%s correlation=%lu\n",
-                  result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
-                  static_cast<unsigned long>(request.correlation));
-  }
-
-  void publishAbandon() {
-    Message request{};
-    request.type = Type::SessionOperationRequest;
-    request.correlation = nextCorrelation_++;
-    if (!request.correlation) request.correlation = nextCorrelation_++;
-    request.clientContext = ClientContext::StandaloneTaster;
-    request.operation = SessionOperation::EndRace;
-    request.probe = 1;
-    const Delivery result = bus_.publish(tasterEndpoint_, request);
-    Serial.printf("[WP7 PHYS] ABANDON request=%s correlation=%lu\n",
-                  result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
-                  static_cast<unsigned long>(request.correlation));
-  }
-
-  void publishPause() {
-    Message request{};
-    request.type = Type::SessionOperationRequest;
-    request.correlation = nextCorrelation_++;
-    if (!request.correlation) request.correlation = nextCorrelation_++;
-    request.clientContext = ClientContext::StandaloneTaster;
-    request.operation = SessionOperation::Pause;
-    const Delivery result = bus_.publish(tasterEndpoint_, request);
-    Serial.printf("[WP7 PHYS] PAUSE request=%s correlation=%lu\n",
-                  result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
-                  static_cast<unsigned long>(request.correlation));
-  }
-
-  void publishRaceAgain() {
-    Message request{};
-    request.type = Type::SessionOperationRequest;
-    request.correlation = nextCorrelation_++;
-    if (!request.correlation) request.correlation = nextCorrelation_++;
-    request.clientContext = ClientContext::StandaloneTaster;
-    request.operation = SessionOperation::RaceAgain;
-    const Delivery result = bus_.publish(tasterEndpoint_, request);
-    Serial.printf("[WP7 PHYS] RACE_AGAIN request=%s correlation=%lu\n",
-                  result == Delivery::Delivered ? "PUBLISHED" : "REJECTED",
-                  static_cast<unsigned long>(request.correlation));
-  }
-
-  void pollAuthorityResults() {
-    Message event;
-    while (bus_.receive(tasterEndpoint_, event)) {
-      if (event.type != Type::RequestResult || event.correlation == 0) continue;
-      CachedResult& cached = results_[resultCursor_++ % (sizeof(results_) / sizeof(results_[0]))];
-      cached.correlation = event.correlation;
-      cached.value = event.requestResult;
-      cached.rejection = event.rejection;
-      cached.valid = true;
-      Serial.printf("[WP7 PHYS] authority result correlation=%lu result=%s rejection=%u\n",
-                    static_cast<unsigned long>(event.correlation),
-                    event.requestResult == RequestResult::Accepted ? "ACCEPTED" : "REJECTED",
-                    static_cast<unsigned>(event.rejection));
-    }
-  }
+  void publishResume() { publishOperation(SessionOperation::Resume, false, "RESUME"); }
+  void publishAbandon() { publishOperation(SessionOperation::EndRace, true, "ABANDON"); }
+  void publishPause() { publishOperation(SessionOperation::Pause, false, "PAUSE"); }
+  void publishRaceAgain() { publishOperation(SessionOperation::RaceAgain, false, "RACE_AGAIN"); }
 
   void pollTouch(uint32_t now) {
     if (!touchReady_ || static_cast<int32_t>(now - nextPollMs_) < 0) return;
@@ -2161,7 +2012,7 @@ private:
         touchState_.down = true;
         touchState_.downAt = now;
         touchState_.missingSince = 0;
-        touchState_.lifecycle = control_.state();
+        touchState_.lifecycle = authority_.lifecycle();
         touchState_.target = touchTarget(mappedX, mappedY, touchState_.lifecycle);
         touchState_.mainTarget = touchState_.target == TouchMain;
         touchState_.adjustmentTarget =
@@ -2288,22 +2139,14 @@ private:
   }
 
   Esp32S3BoardDisplay& display_;
-  RaceControlModule& control_;
-  Noticeboard& noticeboard_;
-  Bus& bus_;
-  Bus::Endpoint presentationEndpoint_;
-  Bus::Endpoint tasterEndpoint_;
-  const TasterPresentationPreferencesController* presentationPreferences_ = nullptr;
+  PhysicalTasterAuthority& authority_;
   TasterSurfaceModel surface_;
-  CachedResult results_[8]{};
-  uint8_t resultCursor_ = 0;
   TAMC_GT911 touch_;
   TouchState touchState_{};
   uint8_t detectedAddress_ = 0;
   uint32_t nextPollMs_ = 0;
   uint32_t nextDrawMs_ = 0;
   uint32_t nextTouchDiagnosticMs_ = 0;
-  uint32_t nextCorrelation_ = 1;
   uint32_t adjustmentSequence_ = 0;
   mutable char readyValueSlots_[3]{};
   mutable bool readyValueSlotsValid_ = false;
