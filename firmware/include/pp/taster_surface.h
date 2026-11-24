@@ -33,8 +33,9 @@ public:
 // from TasterAuthority::snapshot().
 class TasterSurfaceModel {
 public:
-  explicit TasterSurfaceModel(TasterAuthority& authority, uint64_t clientId = 0x544153544552ULL)
-      : authority_(authority), clientId_(clientId) {}
+  explicit TasterSurfaceModel(TasterAuthority& authority, uint64_t clientId = 0x544153544552ULL,
+                              uint32_t initialCorrelation = 1)
+      : authority_(authority), clientId_(clientId), nextCorrelation_(initialCorrelation) {}
 
   void sync() {
     snapshot_ = authority_.snapshot();
@@ -62,6 +63,10 @@ public:
            (selectedMode_ != SessionMode::LapRace || lapValue_ <= kTasterLapMaximum);
   }
   uint32_t clientId() const { return clientId_; }
+  uint32_t allocateCorrelation() {
+    const uint32_t value = nextCorrelation_++;
+    return value ? value : nextCorrelation_++;
+  }
 
   void toggleMode() {
     if (snapshot_.state.lifecycle != SessionLifecycle::Ready) return;
@@ -116,7 +121,7 @@ public:
   bool start() {
     if (!startEnabled() || requestPending_) return false;
     pendingWasSetup_ = false;
-    pendingCorrelation_ = nextCorrelation_++;
+    pendingCorrelation_ = allocateCorrelation();
     requestPending_ = authority_.submitStart(pendingCorrelation_);
     return requestPending_;
   }
@@ -124,7 +129,7 @@ public:
   bool operation(SessionOperation operation, bool confirmed = false) {
     if (requestPending_) return false;
     pendingWasSetup_ = false;
-    pendingCorrelation_ = nextCorrelation_++;
+    pendingCorrelation_ = allocateCorrelation();
     requestPending_ = authority_.submitOperation(pendingCorrelation_, operation, confirmed);
     return requestPending_;
   }
@@ -187,7 +192,7 @@ private:
     pendingWasSetup_ = true;
     desiredRevision_ = snapshot_.proposalRevision;
     if (requestPending_) return;
-    pendingCorrelation_ = nextCorrelation_++;
+    pendingCorrelation_ = allocateCorrelation();
     // Taster's two supported modes use their authoritative P&P finish
     // policies: a LAPS race completes the full configured distance, while a
     // TIMED race (the Endurance model) finishes the current lap after expiry.
