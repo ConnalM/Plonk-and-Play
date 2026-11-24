@@ -14,6 +14,7 @@ class Owner final : public StartAuthority {
 public:
   mutable PublishedControlAuthority published;
   mutable bool intervene=false;
+  mutable Time delayAtClaim=0;
   bool authorizesStart(uint64_t id) const override {return published.authorizes(id);}
   bool hasController() const override {return published.hasController();}
   StandaloneAuthorityStamp standaloneStamp() const override {return published.standaloneStamp();}
@@ -25,7 +26,9 @@ public:
       s.owner=s.connectedOwner=7;published.publish(s);
       s.connectedOwner=0;published.publish(s);
     }
-    return published.claimStandalone(generation);
+    const bool claimed=published.claimStandalone(generation);
+    clockUs+=delayAtClaim;delayAtClaim=0;
+    return claimed;
   }
   void connected(bool value) {
     ControlLease::Snapshot s{};s.owner=7;s.connectedOwner=value?7:0;
@@ -121,6 +124,14 @@ int main(){
   assert(!r.control.executeRemoteTaster() && r.status(q)==tl::Status::WrongSession);
   assert(!r.control.openRemoteTaster(A));assert(r.control.openRemoteTaster(B));
   assert(r.submit(q)==tl::Status::WrongSession);
+  // Time may advance while obtaining the final claim. It must not let an
+  // expired command execute merely because dequeue preceded the deadline.
+  q=r.command(1,tl::Action::Start);assert(r.submit(q)==tl::Status::Queued);
+  r.owner.delayAtClaim=100000;
+  assert(!r.control.executeRemoteTaster() && r.status(q)==tl::Status::Rejected);
+  assert(!r.active.current());
+  // Use a fresh link before restarting command IDs.
+  r.control.closeRemoteTaster();assert(r.control.openRemoteTaster({1,3}));
   // Supported setup preserves inactive values/identities; no administrative
   // native message fields arrive from the network.
   q=r.command(1,tl::Action::Setup);q.mode=tl::Mode::Timed;q.value=8;r.accepted(q);
