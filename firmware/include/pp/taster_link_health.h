@@ -56,6 +56,8 @@ enum class State { Offline, Synchronising, Fresh, Stale };
 struct View {
   State state=State::Offline;
   bool hasSnapshot=false,mayControl=false,uncertainOutcome=false;
+  bool readyForNewTouch=false,gestureActive=false;
+  uint64_t interactionRevision=0;
   wire::DisplaySnapshot snapshot{};
   Bounds coreNow{};
 };
@@ -74,6 +76,9 @@ inline bool sameGestureContext(const wire::DisplaySnapshot& a,const wire::Displa
 // No access to Core race control, no automatic replay, no UI/transport calls.
 class Client {
 public:
+  Client()=default;
+  Client(const Client&)=delete;
+  Client& operator=(const Client&)=delete;
   bool open(Session fresh,uint64_t now) {
     if(connected_ || !fresh.valid() || fresh==session_ || !observeTime(now)) return false;
     if(have_ && fresh.epoch!=last_.session.epoch) {have_=false;last_={};}
@@ -132,15 +137,18 @@ public:
     View v{};
     v.state=fresh_?State::Fresh:(connected_?State::Synchronising:(have_?State::Stale:State::Offline));
     v.hasSnapshot=have_;v.uncertainOutcome=uncertain_;
+    v.interactionRevision=interactionRevision_;
     if(have_) v.snapshot=last_;
     if(fresh_) {
       if(!clock_.at(now,v.coreNow)) {retire();return view(now);}
       v.mayControl=last_.tasterAllowed && !pendingId_;
+      v.readyForNewTouch=v.mayControl && neutral_ && !touch_;
+      v.gestureActive=v.mayControl && touch_;
       // Display only sampled values. Never synthesize GO or interpolate
       // clocks. Suppress a sampled GO once its validity may have elapsed.
-      if(v.snapshot.phase==wire::Phase::Go &&
-         (!v.snapshot.phaseUntilUs || v.coreNow.upper>=v.snapshot.phaseUntilUs)) {
-        v.snapshot.phase=wire::Phase::None;
+      if(v.snapshot.phase!=wire::Phase::Go || !v.snapshot.phaseUntilUs ||
+         v.coreNow.upper>=v.snapshot.phaseUntilUs) {
+        if(v.snapshot.phase==wire::Phase::Go) v.snapshot.phase=wire::Phase::None;
         v.snapshot.flags&=static_cast<uint16_t>(~wire::Green);
       }
     } else {
@@ -156,13 +164,19 @@ public:
   // and a new physical down/up are required. The renderer still enforces
   // the existing 700 ms pause hold and button-specific confirmation rules.
   void observeReleased(uint64_t now) {
-    if(tick(now) && fresh_ && last_.tasterAllowed && !pendingId_ && !touch_) neutral_=true;
+    if(tick(now) && fresh_ && last_.tasterAllowed && !pendingId_ && !touch_ &&
+       interactionRevision_!=UINT64_MAX) neutral_=true;
   }
   bool beginTouch(uint64_t now) {
     if(!tick(now) || !fresh_ || !last_.tasterAllowed || pendingId_ || !neutral_ || touch_) return false;
     neutral_=false;touch_=true;return true;
   }
-  void cancelTouch() {touch_=false;neutral_=false;}
+  void cancelTouch() {
+    touch_=false;neutral_=false;
+    // A saturated revision cannot signal future invalidations. Permanently
+    // disallow touch initiation on this client rather than silently wrap.
+    if(interactionRevision_!=UINT64_MAX) ++interactionRevision_;
+  }
   // Called only for a valid release/confirmed action, on the same owner
   // loop as transport enqueue. Returns a context, not an execution result.
   // ID must be fresh per session. No retry of the pending command.
@@ -204,7 +218,7 @@ private:
   Clock clock_{};
   wire::DisplaySnapshot last_{};
   uint64_t opened_=0,lastNow_=0,token_=0,pingSent_=0,firstSampleAfter_=0,
-    pendingId_=0,pendingSince_=0,lastIssued_=0;
+    pendingId_=0,pendingSince_=0,lastIssued_=0,interactionRevision_=0;
   bool haveTime_=false,connected_=false,mapped_=false,pingPending_=false,
     have_=false,fresh_=false,neutral_=false,touch_=false,uncertain_=false;
 };
