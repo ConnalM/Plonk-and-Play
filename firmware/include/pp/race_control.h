@@ -5,6 +5,8 @@
 #include "record_store.h"
 #include "track_configuration.h"
 #include "mug_catalog.h"
+#include "taster_link_gate.h"
+#include "system_time.h"
 
 namespace pp {
 
@@ -28,16 +30,16 @@ public:
   void prepare(const SessionDefinition& definition){definition_=&definition;setup_=nullptr;practiceSummaryPending_=false;state_=SessionLifecycle::Ready;go_=pauseAt_=scheduledRestart_=settledAt_=durationExpiry_=durationRemaining_=finishDisplayUntil_=goPresentationUntil_=0;restartMethod_=RestartMethod::None;startCommitted_=false;integrityFaulted_=false;pauseSettled_=false;durationExpired_=false;durationPublished_=false;resumeScheduled_=false;finishDisplayActive_=false;changed();}
   // Stage 8 supplies the mutable working setup and current required-capability
   // availability. Race Control alone validates and commits an active session.
-  void setProposedRaceSetup(const ProposedRaceSetup& setup){proposedSetup_=normalised(setup);setup_=&proposedSetup_;++proposalRevision_;definition_=active_.current();}
+  void setProposedRaceSetup(const ProposedRaceSetup& setup){proposedSetup_=normalised(setup);setup_=&proposedSetup_;++proposalRevision_;definition_=active_.current();advanceRemoteRevision();}
   // Race Control remains the sole start-readiness authority.  The owning
   // integration supplies the current required-capability snapshot; consumers
   // never infer readiness from detector events or cached Browser state.
-  void setRequiredCapabilityAvailable(bool available){requiredCapabilityAvailable_=available;}
+  void setRequiredCapabilityAvailable(bool available){if(requiredCapabilityAvailable_!=available)advanceRemoteRevision();requiredCapabilityAvailable_=available;}
   void setDetectorProvider(DetectorProvider& provider){detectorProvider_=&provider;}
   void setMugCatalog(MugCatalog& catalog){mugCatalog_=&catalog;}
   // The physical Taster's local START is a distinct, non-official source.
   void setStandaloneTasterEndpoint(Bus::Endpoint endpoint){standaloneTasterSource_=endpoint.id;}
-  void setControllerStartAuthority(Bus::Endpoint endpoint, const StartAuthority& authority){controllerSource_=endpoint.id;controllerAuthority_=&authority;}
+  void setControllerStartAuthority(Bus::Endpoint endpoint, const StartAuthority& authority){controllerSource_=endpoint.id;controllerAuthority_=&authority;advanceRemoteRevision();}
   // The simulated-racing fixture is armed before START through a dedicated
   // test-only Browser action. The flag is carried by the controller-owned
   // proposal and frozen into SessionDefinition; ordinary setup requests never
@@ -152,7 +154,102 @@ public:
   static bool supportedMode(SessionMode mode){return mode==SessionMode::LapRace||mode==SessionMode::OpenPractice||mode==SessionMode::Endurance;}
   bool startCommitted()const{return startCommitted_;} bool integrityFaulted()const{return integrityFaulted_;} RaceIntegrityReason integrityReason()const{return integrityReason_;}
   uint8_t redLightCount()const{return definition_?definition_->redLightCount():5;} uint8_t startSignal()const{return definition_?definition_->startSignal():0;} uint8_t startTiming()const{return definition_?definition_->startTiming():2;} Time finalDelay()const{return finalDelay_;}
+  // Optional remote ingress. Owner loop only, after authenticated transport
+  // admission and after processing ordinary Race Control events. No network
+  // worker may call these methods. No Bus request or result correlation is
+  // allocated for the remote path; all actual sporting handlers are shared.
+  bool openRemoteTaster(taster_link::Session fresh) {
+    if(remoteSession_.valid() || !remoteGate_.open(fresh)) return false;
+    remoteSession_=fresh;return true;
+  }
+  void closeRemoteTaster() {
+    remoteGate_.disconnect();remoteSession_={};
+  }
+  taster_link::Context remoteTasterContext() const {
+    namespace tl=taster_link;
+    const auto stamp=controllerAuthority_?controllerAuthority_->standaloneStamp():StandaloneAuthorityStamp{};
+    tl::Lifecycle life=tl::Lifecycle::Other;
+    switch(state_) {
+      case SessionLifecycle::Ready: life=tl::Lifecycle::Ready;break;
+      case SessionLifecycle::Starting: life=tl::Lifecycle::Starting;break;
+      case SessionLifecycle::Racing: life=tl::Lifecycle::Racing;break;
+      case SessionLifecycle::Paused: life=tl::Lifecycle::Paused;break;
+      case SessionLifecycle::Finished: life=tl::Lifecycle::Finished;break;
+      default: break;
+    }
+    const bool activeSupported=remoteMode(mode());
+    const bool proposedSupported=setup_ && remoteMode(setup_->mode) &&
+      setup_->activeLanes>=1 && setup_->activeLanes<=2;
+    const bool fixedModes=life==tl::Lifecycle::Ready?
+      (mode()==SessionMode::None || activeSupported):activeSupported;
+    const bool fixedLanes=!definition_ || (definition_->entryCount()>=1 && definition_->entryCount()<=2);
+    const bool allowed=remoteSession_.valid() && stamp.generation && stamp.allowed &&
+      remoteRevision_ && life!=tl::Lifecycle::Other && fixedModes && proposedSupported &&
+      fixedLanes && !integrityFaulted_;
+    return {remoteSession_,stamp.generation,remoteRevision_,
+      definition_?definition_->sessionId():0,proposalRevision_,life,allowed};
+  }
+  taster_link::Status submitRemoteTaster(const taster_link::Command& cmd,Time now) {
+    return remoteGate_.submit(cmd,remoteTasterContext(),now);
+  }
+  taster_link::Status remoteTasterResult(taster_link::Session session,uint64_t id) const {
+    return remoteGate_.result(session,id);
+  }
+  // Called by the Core owner only, with no intervening owner-loop mutation.
+  // Returns whether a real handler was invoked, not whether it accepted.
+  bool executeRemoteTaster() {
+    namespace tl=taster_link;
+    tl::Command cmd{};
+    if(!remoteGate_.take(remoteTasterContext(),systemTime(),cmd)) return false;
+    Message request{};
+    request.clientContext=ClientContext::StandaloneTaster;
+    // The sole private direct invocation below is not a spoofed local
+    // endpoint or Browser token. Never accept arbitrary native Messages.
+    if(cmd.action==tl::Action::Setup) {
+      if(!setup_) {remoteGate_.complete(cmd.session,cmd.id,false);return false;}
+      request.type=Type::SetupRequest;
+      request.sessionMode=cmd.mode==tl::Mode::Laps?SessionMode::LapRace:SessionMode::Endurance;
+      request.setupLapTarget=cmd.mode==tl::Mode::Laps?cmd.value:setup_->lapTarget;
+      request.setupDurationMinutes=cmd.mode==tl::Mode::Timed?cmd.value:setup_->durationMinutes;
+      request.setupFinishPolicy=static_cast<uint8_t>(cmd.mode==tl::Mode::Laps?
+        LapFinishBehaviour::CompleteFullRaceDistance:LapFinishBehaviour::CompleteCurrentLap);
+      request.proposalRevision=cmd.proposalRevision;
+    } else if(cmd.action==tl::Action::Start) {
+      request.type=Type::StartRequest;request.sessionMode=SessionMode::None;
+    } else {
+      request.type=Type::SessionOperationRequest;
+      switch(cmd.action) {
+        case tl::Action::Pause:request.operation=SessionOperation::Pause;break;
+        case tl::Action::Resume:request.operation=SessionOperation::Resume;break;
+        case tl::Action::Abandon:request.operation=SessionOperation::EndRace;request.probe=1;break;
+        case tl::Action::RaceAgain:request.operation=SessionOperation::RaceAgain;break;
+        default:remoteGate_.complete(cmd.session,cmd.id,false);return false;
+      }
+    }
+    const Time now=systemTime();
+    // Final atomic authority claim is the execution linearisation point:
+    // a committed lease transition BEFORE it invalidates the command, even
+    // after takeover/release. A later transition is ordered AFTER the claim.
+    // No persistence, Bus publication or handler runs under the lease lock.
+    if(now>=cmd.expiresAtUs || !controllerAuthority_ ||
+       !controllerAuthority_->claimStandalone(cmd.authorityGeneration)) {
+      remoteGate_.complete(cmd.session,cmd.id,false);return false;
+    }
+    remoteExecuting_=true;remoteAccepted_=false;
+    if(request.type==Type::SetupRequest) handleSetup(request);
+    else if(request.type==Type::StartRequest) handleStart(request,now);
+    else handleOperation(request,now);
+    remoteExecuting_=false;
+    remoteGate_.complete(cmd.session,cmd.id,remoteAccepted_);
+    return true;
+  }
 private:
+  static bool remoteMode(SessionMode mode) {
+    return mode==SessionMode::LapRace || mode==SessionMode::Endurance;
+  }
+  void advanceRemoteRevision() {
+    if(remoteRevision_) remoteRevision_=remoteRevision_==UINT64_MAX?0:remoteRevision_+1;
+  }
   bool beginStart(Time now){
     if (definition_ && definition_->mode()==SessionMode::OpenPractice) {
       go_=0; finalDelay_=0; goPresentationUntil_=0; state_=SessionLifecycle::Racing; changed(); return true;
@@ -184,6 +281,7 @@ private:
     return true;
   }
   void result(uint32_t correlation,RequestResult value,RequestRejection reason=RequestRejection::None){
+    if(remoteExecuting_) {remoteAccepted_=value==RequestResult::Accepted;return;}
     Message response{};response.type=Type::RequestResult;response.correlation=correlation;response.requestResult=value;response.rejection=reason;
     bus_.publish(endpoint_,response);
   }
@@ -194,7 +292,7 @@ private:
   }
   void publishFact(Type type,Time at){Message f{};f.type=type;f.relevantTime=at;f.restartMethod=restartMethod_;lastFactDelivery_=bus_.publish(endpoint_,f);}
   void handleOperation(const Message& request,Time now){
-    const bool tasterControl=request.clientContext==ClientContext::StandaloneTaster&&request.source==standaloneTasterSource_&&(!controllerAuthority_||!controllerAuthority_->hasController());
+    const bool tasterControl=remoteExecuting_ || (request.clientContext==ClientContext::StandaloneTaster&&request.source==standaloneTasterSource_&&(!controllerAuthority_||!controllerAuthority_->hasController()));
     const bool controllerControl=request.clientContext==ClientContext::RaceDirectorSmug&&controllerAuthority_&&request.source==controllerSource_&&controllerAuthority_->authorizesStart(request.controlOwner);
 #if !defined(ARDUINO)
     const bool fixtureControl=!controllerAuthority_&&request.clientContext==ClientContext::RaceDirectorSmug&&request.source!=standaloneTasterSource_;
@@ -286,7 +384,7 @@ private:
     state_=SessionLifecycle::Restarting;publishFact(Type::RestartScheduled,scheduledRestart_);changed();result(request.correlation,RequestResult::Accepted);
   }
   void handleSetup(const Message& request){
-    const bool tasterSetup=request.clientContext==ClientContext::StandaloneTaster&&request.source==standaloneTasterSource_&&(!controllerAuthority_||!controllerAuthority_->hasController());
+    const bool tasterSetup=remoteExecuting_ || (request.clientContext==ClientContext::StandaloneTaster&&request.source==standaloneTasterSource_&&(!controllerAuthority_||!controllerAuthority_->hasController()));
     const bool controllerSetup=request.clientContext==ClientContext::RaceDirectorSmug&&controllerAuthority_&&request.source==controllerSource_&&controllerAuthority_->authorizesStart(request.controlOwner);
 #if !defined(ARDUINO)
     const bool fixtureSetup=!controllerAuthority_&&request.clientContext==ClientContext::RaceDirectorSmug&&request.source!=standaloneTasterSource_;
@@ -371,7 +469,7 @@ private:
     proposedSetup_=normalised(candidate);setup_=&proposedSetup_;practiceSummaryPending_=false;++proposalRevision_;changed();result(request.correlation,RequestResult::Accepted);
   }
   void handleStart(const Message& request,Time now){
-    const bool standaloneStart=request.clientContext==ClientContext::StandaloneTaster&&standaloneTasterSource_!=0&&request.source==standaloneTasterSource_&&(!controllerAuthority_||!controllerAuthority_->hasController());
+    const bool standaloneStart=remoteExecuting_ || (request.clientContext==ClientContext::StandaloneTaster&&standaloneTasterSource_!=0&&request.source==standaloneTasterSource_&&(!controllerAuthority_||!controllerAuthority_->hasController()));
     bool controllerStart=request.clientContext==ClientContext::RaceDirectorSmug&&controllerAuthority_&&request.source==controllerSource_&&controllerAuthority_->authorizesStart(request.controlOwner);
 #if !defined(ARDUINO)
     // Host fixtures without an ingress adapter are explicit test-only shims;
@@ -403,7 +501,7 @@ private:
     result(request.correlation,RequestResult::Accepted);
   }
   void startFinishDisplay(Time now){finishDisplayActive_=finishDisplayDurationSeconds_!=0;finishDisplayUntil_=finishDisplayActive_?now+Time(finishDisplayDurationSeconds_)*1000000:0;}
-  void changed(){Message notice{};notice.type=Type::NoticeboardChanged;bus_.publish(endpoint_,notice);}
+  void changed(){advanceRemoteRevision();Message notice{};notice.type=Type::NoticeboardChanged;bus_.publish(endpoint_,notice);}
   void copySetupFromDefinition(){
     proposedSetup_={};
     proposedSetup_.lapTarget=definition_->lapTarget(); proposedSetup_.durationMinutes=definition_->durationMinutes(); proposedSetup_.finish=definition_->finishBehaviour(); proposedSetup_.activeLanes=definition_->entryCount();
@@ -455,6 +553,10 @@ private:
   SessionLifecycle state_=SessionLifecycle::Ready;Time go_=0,pauseAt_=0,scheduledRestart_=0,settledAt_=0,finalDelay_=0,durationExpiry_=0,durationRemaining_=0,finishDisplayUntil_=0,goPresentationUntil_=0;RestartMethod restartMethod_=RestartMethod::None;bool requiredCapabilityAvailable_=false,startCommitted_=false,integrityFaulted_=false,practiceSummaryPending_=false,pauseSettled_=false,durationExpired_=false,durationPublished_=false,resumeScheduled_=false,finishDisplayActive_=false;uint8_t finishDisplayDurationSeconds_=5;Delivery lastFactDelivery_=Delivery::Invalid;RaceIntegrityReason integrityReason_=RaceIntegrityReason::None;
   uint32_t nextSessionId_=1,nextRaceEntryId_=1;
   ProposedRaceSetup proposedSetup_{}; uint32_t proposalRevision_=1;
+  taster_link::CommandGate remoteGate_{};
+  taster_link::Session remoteSession_{};
+  uint64_t remoteRevision_=1;
+  bool remoteExecuting_=false,remoteAccepted_=false;
 };
 
 } // namespace pp
