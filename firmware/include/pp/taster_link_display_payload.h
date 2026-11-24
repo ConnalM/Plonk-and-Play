@@ -117,7 +117,7 @@ inline bool validDisplay(const DisplaySnapshot& s) {
      s.entryCount>2 || s.proposedLanes>2 || s.redCount>5 ||
      s.redLit>s.redCount || s.startSignal>1 || (s.flags&~DisplayFlagMask)) return false;
   if((s.lifecycle==DisplayLifecycle::Faulted || s.lifecycle==DisplayLifecycle::Restarting ||
-      (s.activeMode==DisplayMode::Practice && s.lifecycle!=DisplayLifecycle::Ready)) &&
+      s.activeMode==DisplayMode::Practice || s.proposalMode==DisplayMode::Practice) &&
      s.tasterAllowed) return false;
   if(!(s.flags&PreferencesPresent) &&
      (s.preferencesRevision || s.labels[0][0] || s.labels[1][0] ||
