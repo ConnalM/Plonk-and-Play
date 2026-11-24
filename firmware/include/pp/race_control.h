@@ -226,13 +226,18 @@ public:
         default:remoteGate_.complete(cmd.session,cmd.id,false);return false;
       }
     }
-    const Time now=systemTime();
     // Final atomic authority claim is the execution linearisation point:
     // a committed lease transition BEFORE it invalidates the command, even
     // after takeover/release. A later transition is ordered AFTER the claim.
     // No persistence, Bus publication or handler runs under the lease lock.
-    if(now>=cmd.expiresAtUs || !controllerAuthority_ ||
+    if(systemTime()>=cmd.expiresAtUs || !controllerAuthority_ ||
        !controllerAuthority_->claimStandalone(cmd.authorityGeneration)) {
+      remoteGate_.complete(cmd.session,cmd.id,false);return false;
+    }
+    // Recheck the monotonic deadline after any wait for the short lease
+    // mutex; use the fresh owner time for the actual sporting handler.
+    const Time now=systemTime();
+    if(now>=cmd.expiresAtUs) {
       remoteGate_.complete(cmd.session,cmd.id,false);return false;
     }
     remoteExecuting_=true;remoteAccepted_=false;
