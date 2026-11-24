@@ -5,6 +5,7 @@
 #include <openssl/rand.h>
 #include <cassert>
 #include <iostream>
+#include <string>
 
 namespace h=pp::taster_link::handshake;
 namespace w=pp::taster_link::wire;
@@ -98,6 +99,18 @@ int main() {
   const auto p=complete(t,c,ids,pair,key);
   assert(p.hello.length==54 && p.challenge.length==86 && p.proof.length==38 && p.finish.length==38);
   assert(c.session().link==1);
+  // Independently calculated RFC5869/HMAC fixture, including byte order and
+  // domain labels. Mutual agreement alone could hide a shared codec error.
+  const auto hex=[](const uint8_t* bytes,size_t n) {
+    std::string result; const char* digits="0123456789abcdef";
+    for(size_t i=0;i<n;++i) { result+=digits[bytes[i]>>4];result+=digits[bytes[i]&15]; }
+    return result;
+  };
+  assert(hex(p.challenge.bytes.data()+h::ChallengePrefix,32)=="6d9692083e4a5dc600a8f20a1bea83d9dbc7ad9223921ec12f81fde6a751101a");
+  assert(hex(p.proof.bytes.data()+h::Header,32)=="14d08f725c017a77441b4dfaffd077911940ec52c0fab31a6d404bc5a743e0cc");
+  assert(hex(p.finish.bytes.data()+h::Header,32)=="eb89e53036a0592898a1a0a70b85ab66a90f0f13c74c01a33d329d174a6352b3");
+  assert(hex(c.keys()->toCore.data(),32)=="2431c71bd2936fb17a5f45dc82bc7817018e4ac1685eb32ab0576dbc238936ba");
+  assert(hex(c.keys()->toTaster.data(),32)=="d35c729a0b31079f8764b5e10108363860b69e761106f5a90728ae96c221698c");
   // Direction keys actually work with the existing authenticated record codec.
   SessionMac tSend(crypto,t.keys()->toCore),cReceive(crypto,c.keys()->toCore);
   SessionMac cSend(crypto,c.keys()->toTaster),tReceive(crypto,t.keys()->toTaster);
