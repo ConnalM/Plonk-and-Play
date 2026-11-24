@@ -33,11 +33,11 @@ inline bool tasterNetwork(const sr::Network& n){
   return n.ready && n.generation && sr::usableAddress(n.local) &&
     sr::usableAddress(n.core) && n.local!=n.core;
 }
-inline int openListener(uint32_t local,uint16_t port){
+inline int openListener(const sr::Network& network,uint16_t port){
   int fd=::socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
   if(fd<0)return -1;
-  const auto a=sr::address(local,port);const int one=1;
-  if(!sr::nonblocking(fd) || ::setsockopt(fd,SOL_SOCKET,SO_REUSEADDR,&one,sizeof(one))!=0 ||
+  const auto a=sr::address(network.local,port);const int one=1;
+  if(!sr::nonblocking(fd) || !sr::bindInterface(fd,network) || ::setsockopt(fd,SOL_SOCKET,SO_REUSEADDR,&one,sizeof(one))!=0 ||
      ::bind(fd,reinterpret_cast<const sockaddr*>(&a),sizeof(a))!=0 || ::listen(fd,1)!=0)
     sr::closeFd(fd);
   return fd;
@@ -113,7 +113,7 @@ public:
     if(!policy_.bootstrapSafe()){sr::closeFd(listener_);state_=CoreState::Offline;return;}
     if(!retry_.due(now))return;
     if(listener_<0){
-      listener_=openListener(network_.local,tcpPort_);
+      listener_=openListener(network_,tcpPort_);
       if(listener_<0){retry_.failure(now);return;}
       state_=CoreState::Available;
     }
@@ -187,7 +187,7 @@ public:
     close();since_=now;
     if(!tasterNetwork(n) || !port)return fail();
     fd_=::socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
-    if(fd_<0 || !sr::nonblocking(fd_))return fail();
+    if(fd_<0 || !sr::nonblocking(fd_) || !sr::bindInterface(fd_,n))return fail();
     const auto local=sr::address(n.local,0),remote=sr::address(n.core,port);
     if(::bind(fd_,reinterpret_cast<const sockaddr*>(&local),sizeof(local))!=0)return fail();
     if(::connect(fd_,reinterpret_cast<const sockaddr*>(&remote),sizeof(remote))==0)
