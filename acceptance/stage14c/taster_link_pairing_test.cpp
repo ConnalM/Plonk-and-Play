@@ -167,8 +167,14 @@ int main(){
     if(recovery.active()) assert(recovery.active()->pair()==replacement.pair());
   }
   Store max;max.present=true;
-  p::encode(max.stored,p::Role::Core,UINT32_MAX,&first);
+  p::encode(max.stored,p::Role::Core,UINT32_MAX-1,&first);
   p::Vault exhausted(p::Role::Core,max,crypto,owner);
-  assert(exhausted.load()==p::State::Paired && exhausted.revoke(UINT32_MAX)==p::Result::Invalid && !max.writes);
+  assert(exhausted.load()==p::State::Paired && exhausted.revoke(UINT32_MAX-1)==p::Result::Applied);
+  assert(exhausted.revision()==UINT32_MAX && !exhausted.active());
+  assert(exhausted.install(UINT32_MAX,replacement)==p::Result::Invalid && max.writes==1);
+  Store nearMax;nearMax.present=true;
+  p::encode(nearMax.stored,p::Role::Core,UINT32_MAX-1,nullptr);
+  p::Vault noInstall(p::Role::Core,nearMax,crypto,owner);
+  assert(noInstall.load()==p::State::Revoked && noInstall.install(UINT32_MAX-1,replacement)==p::Result::Invalid && !nearMax.writes);
   std::cout<<"S3g2b pairing vault, revocation, replacement and fault isolation PASS\n";
 }
