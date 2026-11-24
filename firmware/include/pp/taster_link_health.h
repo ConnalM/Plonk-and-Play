@@ -56,7 +56,7 @@ enum class State { Offline, Synchronising, Fresh, Stale };
 struct View {
   State state=State::Offline;
   bool hasSnapshot=false,mayControl=false,uncertainOutcome=false;
-  bool readyForNewTouch=false,gestureActive=false;
+  bool readyForNewTouch=false,gestureActive=false,awaitingPostResultSnapshot=false;
   uint64_t interactionRevision=0;
   wire::DisplaySnapshot snapshot{};
   Bounds coreNow{};
@@ -83,7 +83,8 @@ public:
     if(connected_ || !fresh.valid() || fresh==session_ || !observeTime(now)) return false;
     if(have_ && fresh.epoch!=last_.session.epoch) {have_=false;last_={};}
     session_=fresh;connected_=true;opened_=now;fresh_=false;clock_.clear();
-    mapped_=false;pingPending_=false;token_=0;firstSampleAfter_=0;lastIssued_=0;cancelTouch();
+    mapped_=false;pingPending_=false;token_=0;firstSampleAfter_=0;lastIssued_=0;
+    postResult_=false;postResultAfter_=0;cancelTouch();
     return true;
   }
   void disconnect() { retire(); }
@@ -139,6 +140,11 @@ public:
     if(!fresh_ || !sameGestureContext(last_,s)) cancelTouch();
     if(pendingId_ && (!s.tasterAllowed ||
        s.authorityGeneration!=last_.authorityGeneration)) forgetPending();
+    // A newer arrival is not necessarily a newer authoritative sample.
+    // Keep the barrier through equal or queued pre-result snapshots.
+    if(postResult_ && s.coreTimeUs>postResultAfter_) {
+      postResult_=false;postResultAfter_=0;cancelTouch();
+    }
     last_=s;have_=true;fresh_=true;
     return true;
   }
@@ -151,7 +157,11 @@ public:
     if(have_) v.snapshot=last_;
     if(fresh_) {
       if(!clock_.at(now,v.coreNow)) {retire();return view(now);}
-      v.mayControl=last_.tasterAllowed && !pendingId_;
+      v.awaitingPostResultSnapshot=postResult_;
+      v.mayControl=mayControl();
+      // The renderer must not mistake cached Core permission for local
+      // permission while a request or post-result barrier is outstanding.
+      v.snapshot.tasterAllowed=v.mayControl;
       v.readyForNewTouch=v.mayControl && neutral_ && !touch_;
       v.gestureActive=v.mayControl && touch_;
       // Display only sampled values. Never synthesize GO or interpolate
@@ -174,11 +184,10 @@ public:
   // and a new physical down/up are required. The renderer still enforces
   // the existing 700 ms pause hold and button-specific confirmation rules.
   void observeReleased(uint64_t now) {
-    if(tick(now) && fresh_ && last_.tasterAllowed && !pendingId_ && !touch_ &&
-       interactionRevision_!=UINT64_MAX) neutral_=true;
+    if(tick(now) && mayControl() && !touch_) neutral_=true;
   }
   bool beginTouch(uint64_t now) {
-    if(!tick(now) || !fresh_ || !last_.tasterAllowed || pendingId_ || !neutral_ || touch_) return false;
+    if(!tick(now) || !mayControl() || !neutral_ || touch_) return false;
     neutral_=false;touch_=true;return true;
   }
   void cancelTouch() {
@@ -191,7 +200,7 @@ public:
   // loop as transport enqueue. Returns a context, not an execution result.
   // ID must be fresh per session. No retry of the pending command.
   bool releaseForCommand(uint64_t now,uint64_t id,Context& out) {
-    if(!tick(now) || !fresh_ || !last_.tasterAllowed || !touch_ || pendingId_ ||
+    if(!tick(now) || !mayControl() || !touch_ ||
        !id || id<=lastIssued_) {cancelTouch();return false;}
     cancelTouch();lastIssued_=id;pendingId_=id;pendingSince_=now;
     out=wire::commandContext(last_);return true;
@@ -202,6 +211,14 @@ public:
   bool acceptResult(Session from,const wire::Result& r,uint64_t now) {
     if(!tick(now) || !(from==session_) || !pendingId_ || r.commandId!=pendingId_) return false;
     if(r.status==Status::Queued || r.status==Status::InFlight) return true;
+    Bounds b;
+    if(!clock_.at(now,b)) {retire();return false;}
+    // Every terminal result closes input until a coherent Core sample
+    // is provably later than receipt of this result. Use the conservative
+    // upper bound, not the last frame timestamp or arrival order: a queued
+    // snapshot may be newer than the command's sample yet predate execution.
+    // The latest sample cannot exceed this bound (tick checked its age).
+    postResult_=true;postResultAfter_=b.upper;
     if(r.status==Status::Unknown || r.status==Status::WrongSession) forgetPending();
     else pendingId_=0;
     // No mutation of lifecycle, lap count, setup or timing from results.
@@ -212,6 +229,10 @@ public:
   // acknowledgement and not a command retransmission.
   void acknowledgeUncertainty() {uncertain_=false;}
 private:
+  bool mayControl() const {
+    return connected_ && fresh_ && last_.tasterAllowed && !pendingId_ &&
+      !postResult_ && interactionRevision_!=UINT64_MAX;
+  }
   bool observeTime(uint64_t now) {
     if(haveTime_ && now<lastNow_) return false;
     haveTime_=true;lastNow_=now;return true;
@@ -223,14 +244,15 @@ private:
   void retire() {
     forgetPending();cancelTouch();connected_=false;fresh_=false;
     mapped_=false;clock_.clear();pingPending_=false;lastIssued_=0;
+    postResult_=false;postResultAfter_=0;
   }
   Session session_{};
   Clock clock_{};
   wire::DisplaySnapshot last_{};
   uint64_t opened_=0,lastNow_=0,token_=0,pingSent_=0,firstSampleAfter_=0,
-    pendingId_=0,pendingSince_=0,lastIssued_=0,interactionRevision_=0;
+    pendingId_=0,pendingSince_=0,lastIssued_=0,interactionRevision_=0,postResultAfter_=0;
   bool haveTime_=false,connected_=false,mapped_=false,pingPending_=false,
-    have_=false,fresh_=false,neutral_=false,touch_=false,uncertain_=false;
+    have_=false,fresh_=false,neutral_=false,touch_=false,uncertain_=false,postResult_=false;
 };
 
 } // namespace pp::taster_link::health
