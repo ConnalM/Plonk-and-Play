@@ -7,6 +7,7 @@
 #include "sdkconfig.h"
 #include "lwip/sockets.h"
 #include "lwip/inet.h"
+#include "lwip/netif.h"
 #else
 #include <sys/socket.h>
 #include <sys/select.h>
@@ -50,13 +51,36 @@ struct Network {
   bool ready=false;
   uint64_t generation=0;
   uint32_t local=0,core=0;
+  // ESP-NETIF implementation name (6-byte buffer including NUL).
+  // Empty is allowed only in the existing host fixture.
+  std::array<char,6> interfaceName{};
   bool same(const Network& n) const {
-    return ready==n.ready && generation==n.generation && local==n.local && core==n.core;
+    return ready==n.ready && generation==n.generation && local==n.local && core==n.core && interfaceName==n.interfaceName;
   }
 };
 inline bool usableAddress(uint32_t ip) {
   const uint32_t host=ntohl(ip);
   return host!=0 && host!=UINT32_MAX && (host>>24)!=0 && (host>>24)<224;
+}
+// Bind before listen/connect. Never fall back to an IP-only socket on ESP.
+// Confirm the actual SDK fork's inbound listener filtering and accepted
+// PCB inheritance during target qualification before resource approval.
+inline bool bindInterface(int fd,const Network& n){
+  if(fd<0)return false;
+#if defined(ESP_PLATFORM)
+#if defined(SO_BINDTODEVICE)
+  if(!n.interfaceName[0] || n.interfaceName.back()!=0)return false;
+  struct ifreq iface{};
+  static_assert(sizeof(iface.ifr_name)>=6);
+  std::memcpy(iface.ifr_name,n.interfaceName.data(),n.interfaceName.size());
+  return ::setsockopt(fd,SOL_SOCKET,SO_BINDTODEVICE,&iface,sizeof(iface))==0;
+#else
+  return false;
+#endif
+#else
+  // Linux loopback fixtures do not claim physical interface provenance.
+  return n.interfaceName==std::array<char,6>{};
+#endif
 }
 inline sockaddr_in address(uint32_t ip,uint16_t port) {
   sockaddr_in a{};
@@ -161,7 +185,7 @@ public:
     if(peer_ && !peer_->poll()) peer_.reset();
     if(listener_<0) {
       if(!retry_.due(now)) return;
-      if(!listenOn(network.local)) {retry_.failure(now);return;}
+      if(!listenOn(network)) {retry_.failure(now);return;}
       retry_.reset();
     }
     if(acceptSeen_ && now-lastAccept_<AcceptEveryUs) return;
@@ -182,12 +206,12 @@ public:
     if(!peer_->start()) peer_.reset();
   }
 private:
-  bool listenOn(uint32_t local) {
+  bool listenOn(const Network& n) {
     int fd=::socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
     if(fd<0) return false;
-    const auto a=address(local,tcpPort_);
+    const auto a=address(n.local,tcpPort_);
     const int one=1;
-    if(!nonblocking(fd) || ::setsockopt(fd,SOL_SOCKET,SO_REUSEADDR,&one,sizeof(one))!=0 ||
+    if(!nonblocking(fd) || !bindInterface(fd,n) || ::setsockopt(fd,SOL_SOCKET,SO_REUSEADDR,&one,sizeof(one))!=0 ||
        ::bind(fd,reinterpret_cast<const sockaddr*>(&a),sizeof(a))!=0 ||
        ::listen(fd,1)!=0) {closeFd(fd);return false;}
     listener_=fd;return true;
@@ -267,7 +291,7 @@ public:
     const int fd=::socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
     if(!stream_.adopt(fd)) {failed(now);return;}
     const auto source=address(network.local,0),dest=address(network.core,tcpPort_);
-    if(::bind(fd,reinterpret_cast<const sockaddr*>(&source),sizeof(source))!=0) {
+    if(!bindInterface(fd,network) || ::bind(fd,reinterpret_cast<const sockaddr*>(&source),sizeof(source))!=0) {
       failed(now);return;
     }
     const int rc=::connect(fd,reinterpret_cast<const sockaddr*>(&dest),sizeof(dest));
