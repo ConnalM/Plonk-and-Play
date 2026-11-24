@@ -489,6 +489,12 @@ private:
     if(readiness()==StartReadiness::InvalidRaceSetup){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
     if(readiness()==StartReadiness::CapabilityUnavailable){reject(request.correlation,RequestRejection::RequiredCapabilityUnavailable);return;}
     if(!setup_){reject(request.correlation,RequestRejection::InvalidRaceSetup);return;}
+    // The shared Browser proposal may legitimately exceed the fixed Taster's
+    // lap limit. Reject only remote LAPS START, without changing the proposal
+    // or blocking the explicit Setup command that can bring it into range.
+    if(remoteExecuting_ && setup_->mode==SessionMode::LapRace && setup_->lapTarget>999) {
+      reject(request.correlation,RequestRejection::InvalidRaceSetup);return;
+    }
     ProposedRaceSetup requested=*setup_;
     if (!freezeMugNames(requested)) {
       reject(request.correlation, RequestRejection::InvalidRaceSetup);
