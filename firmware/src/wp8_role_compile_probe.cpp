@@ -1,3 +1,4 @@
+#if defined(PP_WP8_ROLE_COMPILE_PROBE)
 // Compile-only role composition probe. Deliberately not called by setup,
 // loop, app_main or any registered callback. No role activation, key
 // provisioning, firmware flash or runtime test. Compile BOTH role paths
@@ -25,3 +26,4 @@ void taster(transport::EspCrypto::EntropyReady entropy,nvs_sec_cfg_t& cfg,
   role.observeReleased();(void)role.beginTouch();role.cancelTouch();
 }
 }
+#endif
