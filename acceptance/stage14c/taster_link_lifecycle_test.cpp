@@ -224,12 +224,13 @@ int main(){
     sr::closeFd(extra);
     assert(r.core.session()==first && r.port.opens==1 && r.port.executions==1);
     // Losing STA immediately suppresses input before the next poll.
+    const auto associationsBeforeLoss=r.radio.associations;
     r.radio.online=false;
     assert(!r.taster->view().mayControl && !r.taster->command(tl::Action::Start));
     r.step();assert(r.taster->state()==T::Waiting);
     r.radio.visible=false;r.radio.multiple=true;
     for(unsigned i=0;i<1500;++i)r.step();
-    assert(r.radio.associations==1 && !r.taster->view().mayControl);
+    assert(r.radio.associations==associationsBeforeLoss && !r.taster->view().mayControl);
     r.radio.online=r.radio.visible=true;
     r.until([&]{return r.fresh();});
     assert(r.core.session().link>first.link && r.port.executions==1 &&
