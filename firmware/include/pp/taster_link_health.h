@@ -107,11 +107,21 @@ public:
   }
   bool acceptPong(Session from,const wire::Pong& pong,uint64_t now) {
     if(!tick(now)) return false;
+    Clock candidate;
     if(!(from==session_) || !pingPending_ || pong.token!=token_ ||
        pong.tasterSendUs!=pingSent_ ||
-       !clock_.update(pingSent_,now,pong.coreReceiveUs,pong.coreSendUs)) {
+       !candidate.update(pingSent_,now,pong.coreReceiveUs,pong.coreSendUs)) {
       retire();return false;
     }
+    // Two valid observations of the same clock must admit a common current
+    // time under the declared drift bound. A discontinuity is not a new
+    // offset to silently trust within the same authenticated session.
+    Bounds oldBounds,newBounds;
+    if(mapped_ && (!clock_.at(now,oldBounds) || !candidate.at(now,newBounds) ||
+       oldBounds.lower>newBounds.upper || newBounds.lower>oldBounds.upper)) {
+      retire();return false;
+    }
+    clock_=candidate;
     pingPending_=false;
     if(!mapped_) firstSampleAfter_=pong.coreSendUs;
     mapped_=true;
