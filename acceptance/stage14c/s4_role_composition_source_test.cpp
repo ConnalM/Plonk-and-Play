@@ -25,6 +25,7 @@ int main() {
   // These are source-boundary checks, not ESP target compiler evidence.
   assert(has(core,"taster_link_platform_core_esp.h"));
   assert(has(core,"taster_link_core_port.h"));
+  assert(has(core,"taster_link_pairing_esp_store.h"));
   assert(has(core,"CoreRuntime"));
   assert(!has(core,"taster_link_platform_taster_esp.h"));
   assert(!has(core,"Arduino_GFX"));
@@ -41,12 +42,16 @@ int main() {
   assert(!has(corePlatform,"Arduino_GFX"));
   assert(!has(corePlatform,"TAMC"));
   assert(!has(corePlatform,"taster_link_discovery_esp.h"));
+  assert(has(source("firmware/include/pp/taster_link_startup_common_esp.h"),
+             "taster_link_pairing.h"));
   assert(has(combined,"INADDR_NONE"));
   assert(has(combined,"void core("));
   assert(has(combined,"void taster("));
   assert(has(coreProbe,"taster_link_startup_core_esp.h"));
+  assert(has(coreProbe,"INADDR_NONE"));
   assert(!has(coreProbe,"taster_link_startup_taster_esp.h"));
   assert(has(tasterProbe,"taster_link_startup_taster_esp.h"));
+  assert(has(tasterProbe,"INADDR_NONE"));
   assert(!has(tasterProbe,"RaceControlModule"));
   assert(!has(tasterProbe,"taster_link_startup_core_esp.h"));
   assert(has(cmake,"PP_WP8_CORE_ROLE_COMPILE_PROBE"));

@@ -3,6 +3,12 @@
 // setup, loop, app_main or a callback.
 #include "pp/taster_link_startup_taster_esp.h"
 
+#if !defined(INADDR_NONE)
+#error "Taster ESP adapter must preserve lwIP INADDR_NONE after Arduino headers"
+#endif
+static_assert(static_cast<uint32_t>(INADDR_NONE)==UINT32_MAX,
+              "Taster ESP adapter must preserve the lwIP sentinel value");
+
 namespace pp::taster_link::taster_compile_probe {
 namespace st=startup;
 void composition(transport::EspCrypto::EntropyReady entropy,nvs_sec_cfg_t& cfg,

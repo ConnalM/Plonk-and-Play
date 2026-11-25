@@ -22,7 +22,8 @@ private:
 };
 
 // Taster composition has no RaceControl, detector, Browser or record service.
-// Renderer integration receives only the gated link surface from this owner.
+// Renderer integration receives only the gated link surface from this owner;
+// it retains physical touch/hold and confirmation and synthesises nothing.
 class TasterRuntime final {
 public:
   static TasterRuntime& bootInstance(tr::EspCrypto::EntropyReady entropy,uint16_t port){
@@ -45,6 +46,9 @@ public:
   void poll(const Approval& approval){
     if(!owner_ || state_==State::Cold || state_==State::Recovery || state_==State::Fault)return;
     const bool enabled=approval.enabled() && store_.protectedReady();
+    // Do not require RF entropy before enabling scans: radio is initially off.
+    // EspCrypto requires live entropy before and after random. Mutation is
+    // allowed only for initial bootstrap in exclusive STA.
     maintenance_.update(enabled,store_.protectedReady(),
       approval.idleForBootstrap && owner_->state()==lc::TasterState::Bootstrap,
       approval.exclusiveOwnership && owner_->state()==lc::TasterState::Bootstrap &&

@@ -2,6 +2,7 @@
 #include "taster_link_startup_common_esp.h"
 #include "taster_link_platform_core_esp.h"
 #include "taster_link_core_port.h"
+#include "taster_link_pairing_esp_store.h"
 
 namespace pp::taster_link::startup {
 namespace pf=platform;
@@ -36,6 +37,8 @@ public:
   lc::CoreState linkState() const{return owner_?owner_->state():lc::CoreState::Offline;}
   bool begin(nvs_sec_cfg_t& cfg,bool keyProtectionApproved){
     if(state_!=State::Cold)return false;
+    // cfg is caller-owned protected, device-specific material; caller wipes
+    // it immediately after return. No erase/key generation/default NVS.
     if(!port_ || !entropy_ || !CoreRoleEvents::install(network_) || !initCrypto() ||
        !store_.begin(cfg,keyProtectionApproved)){state_=State::Fault;return false;}
     policy_.prepare({},false,true,false,true,false);

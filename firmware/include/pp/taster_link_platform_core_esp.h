@@ -80,6 +80,9 @@ public:
   bool bootstrapPeer(int fd,const sr::Network& expected) const override{
     if(!bootstrapSafe() || !expected.same(current_) || fd<0 ||
        !expected.interfaceName[0])return false;
+    // Listener was bound to this interface BEFORE listen. Target
+    // qualification must verify lwIP inbound filtering and PCB inheritance;
+    // local address checks alone do not establish interface provenance.
     sockaddr_in local{},peer{};socklen_t ln=sizeof(local),pn=sizeof(peer);
     return ::getsockname(fd,reinterpret_cast<sockaddr*>(&local),&ln)==0 &&
       ::getpeername(fd,reinterpret_cast<sockaddr*>(&peer),&pn)==0 &&

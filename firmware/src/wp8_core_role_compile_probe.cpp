@@ -3,6 +3,12 @@
 // setup, loop, app_main or a callback.
 #include "pp/taster_link_startup_core_esp.h"
 
+#if !defined(INADDR_NONE)
+#error "Core ESP adapter must preserve lwIP INADDR_NONE after Arduino headers"
+#endif
+static_assert(static_cast<uint32_t>(INADDR_NONE)==UINT32_MAX,
+              "Core ESP adapter must preserve the lwIP sentinel value");
+
 namespace pp::taster_link::core_compile_probe {
 namespace st=startup;
 void composition(RaceControlModule& race,const Noticeboard& notice,
