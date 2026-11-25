@@ -27,6 +27,14 @@ option(PP_WP8_ROLE_COMPILE_PROBE "Compile inactive WP8 role startup paths" OFF)
 if(PP_WP8_ROLE_COMPILE_PROBE)
   list(APPEND PP_SOURCES "${PP_FIRMWARE_ROOT}/src/wp8_role_compile_probe.cpp")
 endif()
+option(PP_WP8_CORE_ROLE_COMPILE_PROBE "Compile inactive WP8 Core role path" OFF)
+if(PP_WP8_CORE_ROLE_COMPILE_PROBE)
+  list(APPEND PP_SOURCES "${PP_FIRMWARE_ROOT}/src/wp8_core_role_compile_probe.cpp")
+endif()
+option(PP_WP8_TASTER_ROLE_COMPILE_PROBE "Compile inactive WP8 Taster role path" OFF)
+if(PP_WP8_TASTER_ROLE_COMPILE_PROBE)
+  list(APPEND PP_SOURCES "${PP_FIRMWARE_ROOT}/src/wp8_taster_role_compile_probe.cpp")
+endif()
 
 idf_component_register(
   SRCS ${PP_SOURCES}
@@ -58,6 +66,12 @@ idf_component_register(
 
 if(PP_WP8_ROLE_COMPILE_PROBE)
   target_compile_definitions(${COMPONENT_LIB} PRIVATE PP_WP8_ROLE_COMPILE_PROBE=1)
+endif()
+if(PP_WP8_CORE_ROLE_COMPILE_PROBE)
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE PP_WP8_CORE_ROLE_COMPILE_PROBE=1)
+endif()
+if(PP_WP8_TASTER_ROLE_COMPILE_PROBE)
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE PP_WP8_TASTER_ROLE_COMPILE_PROBE=1)
 endif()
 
 # The approved WP7 welcome screen is a single, read-only RGB565 raster.  Keep
