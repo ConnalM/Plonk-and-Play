@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: S4 role-manifest contract
         run: |
-          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/s4_role_manifest_test.cpp -o /tmp/pp-s4
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/s4_role_manifest_test.cpp -pthread -lcrypto -o /tmp/pp-s4
           /tmp/pp-s4
       - name: S3a command-gate regression
         run: |
