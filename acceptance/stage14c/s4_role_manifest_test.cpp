@@ -51,8 +51,8 @@ int main() {
   // the existing host adapter, so the platform-independent manifest checks
   // above remain the local Windows contract.
 #if !defined(_WIN32)
-  assert(!pp::taster_link::socket_runtime::Budget{12u, 10u}.permits());
-  assert(pp::taster_link::socket_runtime::Budget{13u, 10u}.permits());
+  assert((!pp::taster_link::socket_runtime::Budget{12u, 10u}.permits()));
+  assert((pp::taster_link::socket_runtime::Budget{13u, 10u}.permits()));
 #endif
   assert(!s4::permitsRuntimeAdmission(s4::kCoreSocketBudget, 12u));
   assert(s4::permitsRuntimeAdmission(s4::kCoreSocketBudget, 13u));
