@@ -49,7 +49,6 @@ inline constexpr RoleManifest kIntegratedManifest{
     serviceMask(Service::DetectorInput) | serviceMask(Service::RaceAuthority) |
         serviceMask(Service::SharedStorage) | serviceMask(Service::SmuglandHttp) |
         serviceMask(Service::CustomerUpdateAuthority) |
-        serviceMask(Service::ProtectedPairingStore) |
         serviceMask(Service::LocalDisplay) | serviceMask(Service::LocalTouch),
 };
 

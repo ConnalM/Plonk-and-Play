@@ -21,6 +21,9 @@ int main() {
   assert(s4::instantiates(s4::kIntegratedManifest, s4::Service::LocalDisplay));
   assert(!s4::instantiates(s4::kIntegratedManifest, s4::Service::TasterLinkListener));
   assert(!s4::instantiates(s4::kIntegratedManifest, s4::Service::TasterLinkClient));
+  assert(!s4::instantiates(s4::kIntegratedManifest,
+                           s4::Service::ProtectedPairingStore));
+  assert(!s4::instantiates(s4::kIntegratedManifest, s4::Service::TasterLocatorStore));
 
   // Core is authoritative but has no presentation hardware service.
   assert(s4::instantiates(s4::kCoreManifest, s4::Service::DetectorInput));
