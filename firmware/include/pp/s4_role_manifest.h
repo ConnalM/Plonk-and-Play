@@ -30,6 +30,9 @@ enum class Service : uint32_t {
   LocalTouch              = 1u << 8,
   ProtectedPairingStore   = 1u << 9,
   TasterLocatorStore      = 1u << 10,
+  CommittedPreferences    = 1u << 11,
+  LocalPresentationPrefs  = 1u << 12,
+  GatedRemoteInteraction  = 1u << 13,
 };
 
 constexpr uint32_t serviceMask(Service service) {
@@ -49,6 +52,8 @@ inline constexpr RoleManifest kIntegratedManifest{
     serviceMask(Service::DetectorInput) | serviceMask(Service::RaceAuthority) |
         serviceMask(Service::SharedStorage) | serviceMask(Service::SmuglandHttp) |
         serviceMask(Service::CustomerUpdateAuthority) |
+        serviceMask(Service::CommittedPreferences) |
+        serviceMask(Service::LocalPresentationPrefs) |
         serviceMask(Service::LocalDisplay) | serviceMask(Service::LocalTouch),
 };
 
@@ -59,6 +64,7 @@ inline constexpr RoleManifest kCoreManifest{
     serviceMask(Service::DetectorInput) | serviceMask(Service::RaceAuthority) |
         serviceMask(Service::SharedStorage) | serviceMask(Service::SmuglandHttp) |
         serviceMask(Service::CustomerUpdateAuthority) |
+        serviceMask(Service::CommittedPreferences) |
         serviceMask(Service::ProtectedPairingStore) |
         serviceMask(Service::TasterLinkListener),
 };
@@ -71,6 +77,8 @@ inline constexpr RoleManifest kTasterManifest{
     RuntimeRole::Taster,
     serviceMask(Service::TasterLinkClient) | serviceMask(Service::LocalDisplay) |
         serviceMask(Service::LocalTouch) |
+        serviceMask(Service::LocalPresentationPrefs) |
+        serviceMask(Service::GatedRemoteInteraction) |
         serviceMask(Service::ProtectedPairingStore) |
         serviceMask(Service::TasterLocatorStore),
 };

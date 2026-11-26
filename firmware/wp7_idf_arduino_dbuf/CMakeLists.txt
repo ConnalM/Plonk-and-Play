@@ -6,9 +6,17 @@ set(PP_S4_BUILD_ROLE "INTEGRATED" CACHE STRING
 set_property(CACHE PP_S4_BUILD_ROLE PROPERTY STRINGS INTEGRATED CORE TASTER)
 set(PP_S4_PRODUCTION_ROLE_DEFINES "" CACHE STRING
     "Future standalone-role definitions checked before ESP-IDF configuration")
+set(PP_S4_COMPONENT_COMPILE_DEFINES "" CACHE STRING
+    "Future transitive component definitions checked before role configuration")
+set(PP_S4_GLOBAL_COMPILE_DEFINES "" CACHE STRING
+    "Future global definitions checked before role configuration")
 pp_s4_select_role("${PP_S4_BUILD_ROLE}" PP_S4_PROFILE)
-pp_s4_validate_production_role_flags("${PP_S4_PROFILE_ROLE}"
-  "${PP_S4_PRODUCTION_ROLE_DEFINES}")
+pp_s4_validate_effective_role_definitions("${PP_S4_PROFILE_ROLE}"
+  "${PP_S4_PRODUCTION_ROLE_DEFINES}"
+  "${PP_S4_COMPONENT_COMPILE_DEFINES}"
+  "${PP_S4_GLOBAL_COMPILE_DEFINES}")
+pp_s4_validate_role_forced_guard("${PP_S4_PROFILE_ROLE}"
+  "${PP_S4_PROFILE_FORCED_GUARD_HEADERS}")
 
 # Core/Taster lists are deliberately non-linkable until approved entry points,
 # board-independent service extraction and board facts exist.  Refuse early:

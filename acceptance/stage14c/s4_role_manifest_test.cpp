@@ -18,9 +18,12 @@ int main() {
   // Integrated remains the declared legacy composition for the accepted
   // firmware; S4b neither starts nor changes it.
   assert(s4::instantiates(s4::kIntegratedManifest, s4::Service::RaceAuthority));
+  assert(s4::instantiates(s4::kIntegratedManifest, s4::Service::CommittedPreferences));
+  assert(s4::instantiates(s4::kIntegratedManifest, s4::Service::LocalPresentationPrefs));
   assert(s4::instantiates(s4::kIntegratedManifest, s4::Service::LocalDisplay));
   assert(!s4::instantiates(s4::kIntegratedManifest, s4::Service::TasterLinkListener));
   assert(!s4::instantiates(s4::kIntegratedManifest, s4::Service::TasterLinkClient));
+  assert(!s4::instantiates(s4::kIntegratedManifest, s4::Service::GatedRemoteInteraction));
   assert(!s4::instantiates(s4::kIntegratedManifest,
                            s4::Service::ProtectedPairingStore));
   assert(!s4::instantiates(s4::kIntegratedManifest, s4::Service::TasterLocatorStore));
@@ -30,6 +33,7 @@ int main() {
   assert(s4::instantiates(s4::kCoreManifest, s4::Service::RaceAuthority));
   assert(s4::instantiates(s4::kCoreManifest, s4::Service::SharedStorage));
   assert(s4::instantiates(s4::kCoreManifest, s4::Service::SmuglandHttp));
+  assert(s4::instantiates(s4::kCoreManifest, s4::Service::CommittedPreferences));
   assert(s4::instantiates(s4::kCoreManifest, s4::Service::ProtectedPairingStore));
   assert(!s4::instantiates(s4::kCoreManifest, s4::Service::LocalDisplay));
   assert(!s4::instantiates(s4::kCoreManifest, s4::Service::LocalTouch));
@@ -38,6 +42,8 @@ int main() {
   assert(s4::instantiates(s4::kTasterManifest, s4::Service::TasterLinkClient));
   assert(s4::instantiates(s4::kTasterManifest, s4::Service::LocalDisplay));
   assert(s4::instantiates(s4::kTasterManifest, s4::Service::LocalTouch));
+  assert(s4::instantiates(s4::kTasterManifest, s4::Service::LocalPresentationPrefs));
+  assert(s4::instantiates(s4::kTasterManifest, s4::Service::GatedRemoteInteraction));
   assert(s4::instantiates(s4::kTasterManifest, s4::Service::ProtectedPairingStore));
   assert(s4::instantiates(s4::kTasterManifest, s4::Service::TasterLocatorStore));
   assert(!s4::instantiates(s4::kTasterManifest, s4::Service::TasterLinkListener));
