@@ -1,4 +1,4 @@
-# WP8 S4b fourth increment — board-neutral role separation
+# WP8 S4b fifth increment — board-neutral startup and service ownership
 
 This document records the S4b fourth-increment inventory and the deliberately
 small extraction made from it. It does not create a Core or Taster firmware,
@@ -21,7 +21,9 @@ display/touch authority. Its current authoritative loop order is:
 
 The existing physical Taster composition is therefore intentionally retained.
 `main.cpp`, its source order and integrated service ordering are not changed by
-this increment.
+this increment. The two new entry-point files are compile-only boundary
+descriptions: they provide neither `app_main`, `setup`, `loop`, board mapping,
+hardware activation, nor substitute sporting services.
 
 ## Ownership map and extraction boundary
 
@@ -32,6 +34,20 @@ this increment.
 | Display, GT911 touch, local gesture/presentation preferences and gated remote requests | Taster | WP7 display/UI and Taster link headers | no display/touch extraction yet |
 | Approval facts, role startup state and one-role event registration policy | Shared | former duplicate declarations in ESP role startup common header | extracted to `taster_link_role_contract.h` |
 | Taster-link transport/crypto/protocol and presentation payload contracts | Shared | existing `taster_link_*` contracts | retained shared; no opposite-role implementation is included by the extracted contract |
+
+The fifth increment adds explicit, board-neutral startup ownership plans. They
+are not a claim that a runnable independent target exists:
+
+| Future role | Ordered startup boundary | Services exclusively required by that boundary |
+| --- | --- | --- |
+| Core | configuration → committed persistent ownership → sporting authority → Browser/remote control → customer-update authority | committed preferences, SD/history/records, detector input, Race Control/Engine/timing, SMUGLAND HTTP/SSE, customer update, Taster-link listener |
+| Taster | configuration → local pairing/locator ownership → gated remote client → local presentation → touch-gated interaction | local presentation preferences, protected pairing/locator material, Taster-link client, display, GT911 touch and gated remote interaction |
+
+The Core plan intentionally contains no display, touch, local presentation
+preferences or Taster-side interaction. The Taster plan intentionally contains
+no Race Engine/timing/detectors, Browser/SMUGLAND HTTP, SD/history/records or
+committed Core preferences. The plans re-use the role manifest only; they do
+not invent an alternate implementation of any current service.
 
 The extraction is intentionally limited to the three genuinely shared,
 board-neutral startup concepts above. Core and Taster startup headers now consume
@@ -67,6 +83,22 @@ Matching is by `NAME`, so `PP_UPDATE_TEST_KEY`,
 production role. This is guard-input validation only: a later real role target
 must validate its effective compiler definitions before role enablement.
 
+The top-level role scaffold now applies the same grammar and forbidden-flag
+check to all three future effective-definition inputs before it could enter
+ESP-IDF: target-local `PP_S4_PRODUCTION_ROLE_DEFINES`, transitive component
+`PP_S4_COMPONENT_COMPILE_DEFINES`, and global
+`PP_S4_GLOBAL_COMPILE_DEFINES`. Each future profile also declares its required
+role definition and a required forced inclusion of
+`include/pp/s4_production_role_guard.h`; the non-linkable scaffold validates
+that guard-coverage declaration.
+
+This is deliberately *host-checkable wiring*, not evidence of effective target
+compiler enforcement. A future approved role target must pass its actual
+target-local, component-transitive and global compiler definitions to this
+validation, define exactly its declared role macro, and force-include the guard
+before any application header. It must be verified from the actual compiler
+commands/dependency graph, not assumed from these profile lists.
+
 These guards are active only when `PP_S4_PRODUCTION_CORE` or
 `PP_S4_PRODUCTION_TASTER` is selected. The accepted integrated composition has
 neither macro, so its existing diagnostic definitions remain valid and
@@ -82,8 +114,10 @@ guard and the configure-time guard.
 
 No approved Core board, detector electrical contract/pins, Core SD topology,
 audio wiring, final partition budget or production provisioning facts exist.
-The next safe slice is an approved board-neutral Core/Taster entry-point design
-that gives the profiles explicit component/dependency control and consumes the
-guard before their first target configuration. Only after that review may an
-isolated role target configuration be considered. Windows response files and
-short workspaces remain a separate target-validation gate.
+No controlled component auto-discovery or Arduino transitive-dependency audit
+has yet been performed. The next validation slice must establish both without
+turning either profile linkable, and must inspect actual future compiler
+commands for the guard and all three definition sources. A Windows
+response-file/short-workspace candidate remains a separate target-validation
+gate. `PP_DIAGNOSTICS` and `PP_WIFI_SCAN_INSTRUMENTATION` policy remains
+unresolved as described above.

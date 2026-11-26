@@ -80,6 +80,34 @@ function(pp_s4_validate_production_role_flags role definitions)
   endforeach()
 endfunction()
 
+# Future role targets must validate every effective definition source before
+# compiling a role source: target-local, transitive component and global. The
+# present profiles are non-linkable, so this is host-checkable guard wiring,
+# not evidence that an ESP target has supplied those inputs yet.
+function(pp_s4_validate_effective_role_definitions role target_definitions
+         component_definitions global_definitions)
+  if(role STREQUAL "INTEGRATED")
+    return()
+  endif()
+  # Validate each source separately. Combining lists here would unescape a
+  # literal semicolon supplied by a malformed definition and could change the
+  # diagnostic from malformed input to a different rejected flag.
+  pp_s4_validate_production_role_flags("${role}" "${target_definitions}")
+  pp_s4_validate_production_role_flags("${role}" "${component_definitions}")
+  pp_s4_validate_production_role_flags("${role}" "${global_definitions}")
+endfunction()
+
+function(pp_s4_validate_role_forced_guard role forced_headers)
+  if(role STREQUAL "INTEGRATED")
+    return()
+  endif()
+  list(FIND forced_headers "include/pp/s4_production_role_guard.h" guard_position)
+  if(guard_position EQUAL -1)
+    message(FATAL_ERROR
+      "S4 role guard coverage missing for ${role}: include/pp/s4_production_role_guard.h")
+  endif()
+endfunction()
+
 function(pp_s4_select_role role prefix)
   string(TOUPPER "${role}" normalized_role)
   pp_s4_role_is_valid("${normalized_role}" valid)
@@ -102,20 +130,24 @@ function(pp_s4_select_role role prefix)
     set(assets
       "assets/wp7_welcome_static_rgb565.bin;assets/wp7_approved/lamp_red.rgb565;assets/wp7_approved/lamp_green.rgb565;assets/wp7_approved/lamp_off.rgb565;assets/wp7_approved/lamp_yellow.rgb565;assets/wp7_approved/header_trapezoid_surround.rgb565;assets/wp7_approved/pp_header_logo.rgb565")
     set(forbidden_defines "")
+    set(forced_guard_headers "")
+    set(required_role_define "")
   elseif(normalized_role STREQUAL "CORE")
     set(linkable FALSE)
     set(identity "core-scaffold-not-linkable")
-    set(sources "src/wp8_core_role_compile_probe.cpp")
+    set(sources "src/s4_core_entrypoint_boundary.cpp;src/wp8_core_role_compile_probe.cpp")
     set(component_dirs "components/arduino")
     set(requires
       "arduino;app_update;esp_http_server;esp_wifi;esp_event;esp_netif;esp_timer;esp_partition;esp_driver_gpio;esp_driver_spi;esp_mm;fatfs;freertos;mbedtls;nvs_flash;sdmmc;spi_flash")
     set(assets "")
     set(forbidden_defines
       "PP_PHASE8B_P1_TEST;PP_WP7_ACCEPTANCE_SIMULATION;PP_SIMULATED_RACING_TEST;PP_UPDATE_TEST_KEY;PP_WP7_PHYSICAL_RACING_TEST")
+    set(forced_guard_headers "include/pp/s4_production_role_guard.h")
+    set(required_role_define "PP_S4_PRODUCTION_CORE")
   else()
     set(linkable FALSE)
     set(identity "taster-scaffold-not-linkable")
-    set(sources "src/wp8_taster_role_compile_probe.cpp")
+    set(sources "src/s4_taster_entrypoint_boundary.cpp;src/wp8_taster_role_compile_probe.cpp")
     set(component_dirs "components/arduino;components/gfx;components/tamc")
     set(requires
       "arduino;gfx;tamc;esp_wifi;esp_event;esp_netif;esp_timer;esp_partition;esp_driver_gpio;esp_driver_i2c;esp_lcd;freertos;mbedtls;nvs_flash;spi_flash")
@@ -123,9 +155,11 @@ function(pp_s4_select_role role prefix)
       "assets/wp7_welcome_static_rgb565.bin;assets/wp7_approved/lamp_red.rgb565;assets/wp7_approved/lamp_green.rgb565;assets/wp7_approved/lamp_off.rgb565;assets/wp7_approved/lamp_yellow.rgb565;assets/wp7_approved/header_trapezoid_surround.rgb565;assets/wp7_approved/pp_header_logo.rgb565")
     set(forbidden_defines
       "PP_PHASE8B_P1_TEST;PP_WP7_ACCEPTANCE_SIMULATION;PP_SIMULATED_RACING_TEST;PP_UPDATE_TEST_KEY;PP_WP7_PHYSICAL_RACING_TEST")
+    set(forced_guard_headers "include/pp/s4_production_role_guard.h")
+    set(required_role_define "PP_S4_PRODUCTION_TASTER")
   endif()
 
-  foreach(field ROLE LINKABLE IDENTITY SOURCES COMPONENT_DIRS REQUIRES ASSETS FORBIDDEN_DEFINES)
+  foreach(field ROLE LINKABLE IDENTITY SOURCES COMPONENT_DIRS REQUIRES ASSETS FORBIDDEN_DEFINES FORCED_GUARD_HEADERS REQUIRED_ROLE_DEFINE)
     string(TOLOWER "${field}" local_name)
     set(${prefix}_${field} "${${local_name}}" PARENT_SCOPE)
   endforeach()

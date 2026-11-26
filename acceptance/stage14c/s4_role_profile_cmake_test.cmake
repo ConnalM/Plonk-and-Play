@@ -59,6 +59,30 @@ function(require_project_result role expected_text)
   endif()
 endfunction()
 
+function(require_project_cache_result role expected_text cache_key cache_value)
+  # Exercise the real top-level role check with one named effective-definition
+  # source.  This is still script-mode only: it must fail before ESP-IDF.
+  string(REPLACE ";" "\\;" role_argument "${role}")
+  string(REPLACE ";" "\\;" value_argument "${cache_value}")
+  set(arguments "-DPP_S4_BUILD_ROLE=${role_argument}")
+  list(APPEND arguments "-D${cache_key}=${value_argument}")
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" ${arguments}
+            -P "${PP_ROOT}/firmware/wp7_idf_arduino_dbuf/CMakeLists.txt"
+    RESULT_VARIABLE project_result
+    OUTPUT_VARIABLE project_stdout
+    ERROR_VARIABLE project_stderr)
+  if(project_result EQUAL 0)
+    message(FATAL_ERROR "S4b role-profile check failed: ${role}/${cache_key} unexpectedly succeeded")
+  endif()
+  set(project_text "${project_stdout}${project_stderr}")
+  string(FIND "${project_text}" "${expected_text}" expected_position)
+  if(expected_position EQUAL -1)
+    message(FATAL_ERROR
+      "S4b role-profile check failed: ${role}/${cache_key} did not report '${expected_text}':\n${project_text}")
+  endif()
+endfunction()
+
 pp_s4_role_is_valid("INTEGRATED" integrated_valid)
 pp_s4_role_is_valid("CORE" core_valid)
 pp_s4_role_is_valid("TASTER" taster_valid)
@@ -103,6 +127,14 @@ require_list_has(core_REQUIRES "fatfs")
 require_list_has(core_REQUIRES "sdmmc")
 require_list_has(taster_COMPONENT_DIRS "components/gfx")
 require_list_has(taster_COMPONENT_DIRS "components/tamc")
+require_list_has(core_SOURCES "src/s4_core_entrypoint_boundary.cpp")
+require_list_has(taster_SOURCES "src/s4_taster_entrypoint_boundary.cpp")
+require_list_has(core_FORCED_GUARD_HEADERS "include/pp/s4_production_role_guard.h")
+require_list_has(taster_FORCED_GUARD_HEADERS "include/pp/s4_production_role_guard.h")
+require(core_REQUIRED_ROLE_DEFINE STREQUAL "PP_S4_PRODUCTION_CORE"
+  "Core role definition is not declared")
+require(taster_REQUIRED_ROLE_DEFINE STREQUAL "PP_S4_PRODUCTION_TASTER"
+  "Taster role definition is not declared")
 
 list(LENGTH core_ASSETS core_asset_count)
 if(NOT core_asset_count EQUAL 0)
@@ -144,6 +176,15 @@ foreach(role CORE TASTER)
   endforeach()
   require_project_result("${role}" "PP_S4_BUILD_ROLE=${role} is an S4b non-linkable scaffold" "GOOD=one;OTHER=two")
   require_project_result("${role}" "S4 role flag rejected: ${role} PP_UPDATE_TEST_KEY" "GOOD=one;PP_UPDATE_TEST_KEY=0")
+  foreach(source PP_S4_COMPONENT_COMPILE_DEFINES PP_S4_GLOBAL_COMPILE_DEFINES)
+    require_project_cache_result("${role}" "S4 role flag rejected: ${role} PP_UPDATE_TEST_KEY"
+      "${source}" "PP_UPDATE_TEST_KEY=0")
+    require_project_cache_result("${role}" "PP_S4_BUILD_ROLE=${role} is an S4b non-linkable scaffold"
+      "${source}" "GOOD=one;OTHER=two")
+  endforeach()
+  require_project_cache_result("${role}"
+    "S4 role guard malformed definition '-DPP_UPDATE_TEST_KEY'"
+    "PP_S4_COMPONENT_COMPILE_DEFINES" "-DPP_UPDATE_TEST_KEY")
 endforeach()
 
 message(STATUS "S4b independent role build-profile contract PASS")
