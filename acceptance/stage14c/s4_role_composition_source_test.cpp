@@ -20,6 +20,8 @@ int main() {
   const auto coreProbe=source("firmware/src/wp8_core_role_compile_probe.cpp");
   const auto tasterProbe=source("firmware/src/wp8_taster_role_compile_probe.cpp");
   const auto cmake=source("firmware/wp7_idf_arduino_dbuf/main/CMakeLists.txt");
+  const auto projectCmake=source("firmware/wp7_idf_arduino_dbuf/CMakeLists.txt");
+  const auto profiles=source("firmware/wp7_idf_arduino_dbuf/cmake/pp_s4_role_profiles.cmake");
   const auto main=source("firmware/src/main.cpp");
 
   // These are source-boundary checks, not ESP target compiler evidence.
@@ -68,6 +70,20 @@ int main() {
   assert(!has(tasterProbe,"taster_link_startup_core_esp.h"));
   assert(has(cmake,"PP_WP8_CORE_ROLE_COMPILE_PROBE"));
   assert(has(cmake,"PP_WP8_TASTER_ROLE_COMPILE_PROBE"));
+  assert(has(projectCmake,"PP_S4_BUILD_ROLE \"INTEGRATED\""));
+  assert(has(projectCmake,"PP_S4_PROFILE_LINKABLE"));
+  assert(has(projectCmake,"PP_S4_FORCE_NINJA_RESPONSE_FILES"));
+  assert(has(projectCmake,"CMAKE_NINJA_FORCE_RESPONSE_FILE"));
+  assert(has(profiles,"core-scaffold-not-linkable"));
+  assert(has(profiles,"taster-scaffold-not-linkable"));
+  assert(has(profiles,"PP_WP7_ACCEPTANCE_SIMULATION"));
+  assert(has(profiles,"PP_SIMULATED_RACING_TEST"));
+  assert(has(profiles,"PP_UPDATE_TEST_KEY"));
+  assert(has(profiles,"PP_WP7_PHYSICAL_RACING_TEST"));
+  assert(has(profiles,"components/gfx"));
+  assert(has(profiles,"components/tamc"));
+  assert(has(profiles,"esp_http_server"));
+  assert(has(profiles,"sdmmc"));
   assert(!has(main,"wp8_core_role_compile_probe"));
   assert(!has(main,"wp8_taster_role_compile_probe"));
 }
