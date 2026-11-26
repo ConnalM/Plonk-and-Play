@@ -24,6 +24,7 @@ on:
       - acceptance/stage14c/s4_role_composition_source_test.cpp
       - acceptance/stage14c/s4_role_profile_cmake_test.cmake
       - acceptance/stage14c/s4_production_role_guard_test.cpp
+      - acceptance/stage14c/s4_role_contract_test.cpp
       - acceptance/stage14c/taster_link_gate_test.cpp
       - .github/workflows/wp8-s4-role-manifest.yml
   workflow_dispatch:
@@ -51,13 +52,26 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-role-guard
           /tmp/pp-s4-role-guard
-          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_PHASE8B_P1_TEST=1 -DPP_S4_GUARD_EXPECT_INTEGRATED=1 acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-integrated-diagnostic
-          for flag in PP_PHASE8B_P1_TEST PP_WP7_ACCEPTANCE_SIMULATION PP_SIMULATED_RACING_TEST PP_UPDATE_TEST_KEY PP_WP7_PHYSICAL_RACING_TEST; do
-            if g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_CORE=1 -D${flag}=1 acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-rejected 2>/tmp/pp-s4-rejected.log; then exit 1; fi
-            grep -F "S4 production role rejects ${flag}" /tmp/pp-s4-rejected.log
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_UPDATE_TEST_KEY=0 -DPP_S4_GUARD_EXPECT_INTEGRATED=1 acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-integrated-diagnostic
+          forbidden=(PP_PHASE8B_P1_TEST PP_WP7_ACCEPTANCE_SIMULATION PP_SIMULATED_RACING_TEST PP_UPDATE_TEST_KEY PP_WP7_PHYSICAL_RACING_TEST PP_WP6_ROLLBACK_ACCEPTANCE PP_ACCEPTANCE PP_VERIFY PP_WP8_NVS_DIAGNOSTIC PP_STAGE8A_TASTER_WOKWI PP_WP7_TOUCH_TEST PP_WP7_READY_TEST PP_STAGE15_PHASE8_SD PP_STAGE2_ACCEPTANCE PP_STAGE3_ACCEPTANCE PP_STAGE4_ACCEPTANCE PP_STAGE5_ACCEPTANCE PP_STAGE6_ACCEPTANCE PP_STAGE6_DEMO PP_STAGE7_ACCEPTANCE PP_STAGE7_DEMO PP_STAGE8_ACCEPTANCE PP_STAGE9_ACCEPTANCE PP_STAGE9_DEMO PP_STAGE10_ACCEPTANCE PP_STAGE10_DEMO PP_STAGE11_ACCEPTANCE PP_STAGE11_DEMO PP_STAGE12_ACCEPTANCE PP_STAGE12_DEMO PP_STAGE13_ACCEPTANCE PP_STAGE13_DEMO PP_STAGE14A_ACCEPTANCE PP_STAGE14A_DEMO PP_STAGE14B_ACCEPTANCE PP_STAGE14B_DEMO PP_STAGE14C_ACCEPTANCE PP_STAGE14C_DEMO)
+          mandatory=(PP_PHASE8B_P1_TEST PP_WP7_ACCEPTANCE_SIMULATION PP_SIMULATED_RACING_TEST PP_UPDATE_TEST_KEY PP_WP7_PHYSICAL_RACING_TEST)
+          for role in CORE TASTER; do
+            g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_${role}=1 -DPP_S4_GUARD_EXPECT_${role}=1 acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-${role,,}-positive
+            for flag in "${forbidden[@]}"; do
+              if g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_${role}=1 -D${flag}=1 acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-rejected 2>/tmp/pp-s4-rejected.log; then exit 1; fi
+              if [[ " ${mandatory[*]} " == *" ${flag} "* ]]; then grep -F "S4 production role rejects ${flag}" /tmp/pp-s4-rejected.log; else grep -F "S4 production role rejects an acceptance, demo or diagnostic fixture flag" /tmp/pp-s4-rejected.log; fi
+            done
+            for assigned in PP_UPDATE_TEST_KEY=1 PP_WP7_PHYSICAL_RACING_TEST=0 PP_STAGE14C_ACCEPTANCE=reviewed; do
+              if g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_${role}=1 -D${assigned} acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-rejected 2>/tmp/pp-s4-rejected.log; then exit 1; fi
+              grep -F "S4 production role rejects" /tmp/pp-s4-rejected.log
+            done
           done
-          if g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_TASTER=1 -DPP_STAGE14C_ACCEPTANCE=1 acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-rejected 2>/tmp/pp-s4-stage.log; then exit 1; fi
-          grep -F "S4 production role rejects an acceptance, demo or diagnostic fixture flag" /tmp/pp-s4-stage.log
+          if g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_CORE=1 -DPP_S4_PRODUCTION_TASTER=1 acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-dual 2>/tmp/pp-s4-dual.log; then exit 1; fi
+          grep -F "S4 production build must select exactly one role" /tmp/pp-s4-dual.log
+      - name: S4 shared role-contract behaviour
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/s4_role_contract_test.cpp -o /tmp/pp-s4-contract
+          /tmp/pp-s4-contract
       - name: S3a command-gate regression
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/taster_link_gate_test.cpp -o /tmp/pp-s3a

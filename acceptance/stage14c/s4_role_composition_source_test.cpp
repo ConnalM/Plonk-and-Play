@@ -87,6 +87,7 @@ int main() {
   assert(has(profiles,"PP_UPDATE_TEST_KEY"));
   assert(has(profiles,"PP_WP7_PHYSICAL_RACING_TEST"));
   assert(has(profiles,"pp_s4_validate_production_role_flags"));
+  assert(has(profiles,"pp_s4_production_forbidden_definitions"));
   assert(has(roleContract,"struct Approval"));
   assert(has(roleContract,"class EventSlot"));
   assert(!has(roleContract,"#include <Arduino"));
@@ -94,6 +95,28 @@ int main() {
   assert(has(productionGuard,"PP_S4_PRODUCTION_CORE"));
   assert(has(productionGuard,"PP_S4_PRODUCTION_TASTER"));
   assert(has(productionGuard,"PP_STAGE14C_ACCEPTANCE"));
+  for(const char* flag : {"PP_PHASE8B_P1_TEST", "PP_WP7_ACCEPTANCE_SIMULATION",
+                          "PP_SIMULATED_RACING_TEST", "PP_UPDATE_TEST_KEY",
+                          "PP_WP7_PHYSICAL_RACING_TEST", "PP_WP6_ROLLBACK_ACCEPTANCE",
+                          "PP_ACCEPTANCE", "PP_VERIFY", "PP_WP8_NVS_DIAGNOSTIC",
+                          "PP_STAGE8A_TASTER_WOKWI", "PP_WP7_TOUCH_TEST",
+                          "PP_WP7_READY_TEST", "PP_STAGE15_PHASE8_SD",
+                          "PP_STAGE2_ACCEPTANCE", "PP_STAGE3_ACCEPTANCE",
+                          "PP_STAGE4_ACCEPTANCE", "PP_STAGE5_ACCEPTANCE",
+                          "PP_STAGE6_ACCEPTANCE", "PP_STAGE6_DEMO",
+                          "PP_STAGE7_ACCEPTANCE", "PP_STAGE7_DEMO",
+                          "PP_STAGE8_ACCEPTANCE", "PP_STAGE9_ACCEPTANCE",
+                          "PP_STAGE9_DEMO", "PP_STAGE10_ACCEPTANCE",
+                          "PP_STAGE10_DEMO", "PP_STAGE11_ACCEPTANCE",
+                          "PP_STAGE11_DEMO", "PP_STAGE12_ACCEPTANCE",
+                          "PP_STAGE12_DEMO", "PP_STAGE13_ACCEPTANCE",
+                          "PP_STAGE13_DEMO", "PP_STAGE14A_ACCEPTANCE",
+                          "PP_STAGE14A_DEMO", "PP_STAGE14B_ACCEPTANCE",
+                          "PP_STAGE14B_DEMO", "PP_STAGE14C_ACCEPTANCE",
+                          "PP_STAGE14C_DEMO"}) {
+    assert(has(profiles, flag));
+    assert(has(productionGuard, flag));
+  }
   assert(has(profiles,"components/gfx"));
   assert(has(profiles,"components/tamc"));
   assert(has(profiles,"esp_http_server"));

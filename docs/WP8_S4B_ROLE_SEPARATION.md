@@ -56,6 +56,16 @@ Stages 2–14C demo/acceptance definitions. The same list is checked before the
 top-level CMake file can reach ESP-IDF when a future Core/Taster profile is
 given `PP_S4_PRODUCTION_ROLE_DEFINES`.
 
+That CMake input has a deliberately narrow grammar: a semicolon-separated list
+of `NAME` or `NAME=value`. `NAME` starts with an ASCII letter or underscore and
+then contains only letters, digits or underscores. `value` is non-empty and
+contains no whitespace, semicolon or further `=`. Empty list elements,
+malformed names, blank/multiple values and compiler-style `-DNAME` forms are
+rejected. Matching is by `NAME`, so `PP_UPDATE_TEST_KEY`,
+`PP_UPDATE_TEST_KEY=1` and `PP_UPDATE_TEST_KEY=0` are all rejected for a
+production role. This is guard-input validation only: a later real role target
+must validate its effective compiler definitions before role enablement.
+
 These guards are active only when `PP_S4_PRODUCTION_CORE` or
 `PP_S4_PRODUCTION_TASTER` is selected. The accepted integrated composition has
 neither macro, so its existing diagnostic definitions remain valid and
