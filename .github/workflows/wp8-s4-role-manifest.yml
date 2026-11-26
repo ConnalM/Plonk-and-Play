@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - firmware/include/pp/s4_role_manifest.h
+      - firmware/include/pp/s4_production_role_guard.h
+      - firmware/include/pp/taster_link_role_contract.h
       - firmware/include/pp/taster_link_platform_core_esp.h
       - firmware/include/pp/taster_link_platform_taster_esp.h
       - firmware/include/pp/taster_link_startup_common_esp.h
@@ -21,6 +23,7 @@ on:
       - acceptance/stage14c/s4_role_manifest_test.cpp
       - acceptance/stage14c/s4_role_composition_source_test.cpp
       - acceptance/stage14c/s4_role_profile_cmake_test.cmake
+      - acceptance/stage14c/s4_production_role_guard_test.cpp
       - acceptance/stage14c/taster_link_gate_test.cpp
       - .github/workflows/wp8-s4-role-manifest.yml
   workflow_dispatch:
@@ -44,6 +47,17 @@ jobs:
           /tmp/pp-s4-composition
       - name: S4 independent role build-profile contract
         run: cmake -P acceptance/stage14c/s4_role_profile_cmake_test.cmake
+      - name: S4 production-role guard contract
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-role-guard
+          /tmp/pp-s4-role-guard
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_PHASE8B_P1_TEST=1 -DPP_S4_GUARD_EXPECT_INTEGRATED=1 acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-integrated-diagnostic
+          for flag in PP_PHASE8B_P1_TEST PP_WP7_ACCEPTANCE_SIMULATION PP_SIMULATED_RACING_TEST PP_UPDATE_TEST_KEY PP_WP7_PHYSICAL_RACING_TEST; do
+            if g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_CORE=1 -D${flag}=1 acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-rejected 2>/tmp/pp-s4-rejected.log; then exit 1; fi
+            grep -F "S4 production role rejects ${flag}" /tmp/pp-s4-rejected.log
+          done
+          if g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_TASTER=1 -DPP_STAGE14C_ACCEPTANCE=1 acceptance/stage14c/s4_production_role_guard_test.cpp -o /tmp/pp-s4-rejected 2>/tmp/pp-s4-stage.log; then exit 1; fi
+          grep -F "S4 production role rejects an acceptance, demo or diagnostic fixture flag" /tmp/pp-s4-stage.log
       - name: S3a command-gate regression
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/taster_link_gate_test.cpp -o /tmp/pp-s3a

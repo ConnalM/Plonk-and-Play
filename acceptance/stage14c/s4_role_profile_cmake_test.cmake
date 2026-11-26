@@ -35,6 +35,9 @@ function(require_project_result role expected_text)
     string(REPLACE ";" "\\;" role_argument "${role}")
     list(APPEND arguments "-DPP_S4_BUILD_ROLE=${role_argument}")
   endif()
+  if(ARGC GREATER 2)
+    list(APPEND arguments "-DPP_S4_PRODUCTION_ROLE_DEFINES=${ARGV2}")
+  endif()
   execute_process(
     COMMAND "${CMAKE_COMMAND}" ${arguments}
             -P "${PP_ROOT}/firmware/wp7_idf_arduino_dbuf/CMakeLists.txt"
@@ -68,6 +71,7 @@ pp_s4_select_role("CORE" core)
 pp_s4_select_role("TASTER" taster)
 
 require(integrated_LINKABLE "integrated profile must remain linkable")
+pp_s4_validate_production_role_flags("INTEGRATED" "PP_PHASE8B_P1_TEST")
 if(core_LINKABLE OR taster_LINKABLE)
   message(FATAL_ERROR "S4b role-profile check failed: future role scaffold became linkable")
 endif()
@@ -116,5 +120,9 @@ require_project_result("INVALID" "PP_S4_BUILD_ROLE must be INTEGRATED, CORE or T
 require_project_result("CORE;TASTER" "PP_S4_BUILD_ROLE must be INTEGRATED, CORE or TASTER; got 'CORE;TASTER'")
 require_project_result("DEFAULT" "PP_ARDUINO_COMPONENT_DIR must point to the Arduino-ESP32 component")
 require_project_result("INTEGRATED" "PP_ARDUINO_COMPONENT_DIR must point to the Arduino-ESP32 component")
+require_project_result("INTEGRATED" "PP_ARDUINO_COMPONENT_DIR must point to the Arduino-ESP32 component" "PP_PHASE8B_P1_TEST")
+foreach(flag PP_PHASE8B_P1_TEST PP_WP7_ACCEPTANCE_SIMULATION PP_SIMULATED_RACING_TEST PP_UPDATE_TEST_KEY PP_WP7_PHYSICAL_RACING_TEST PP_STAGE14C_ACCEPTANCE)
+  require_project_result("CORE" "S4 role flag rejected: CORE ${flag}" "${flag}")
+endforeach()
 
 message(STATUS "S4b independent role build-profile contract PASS")
