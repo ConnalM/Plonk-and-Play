@@ -1,5 +1,20 @@
 cmake_minimum_required(VERSION 3.16)
 
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/pp_s4_role_profiles.cmake)
+set(PP_S4_BUILD_ROLE "INTEGRATED" CACHE STRING
+    "S4b build profile: INTEGRATED, CORE or TASTER")
+set_property(CACHE PP_S4_BUILD_ROLE PROPERTY STRINGS INTEGRATED CORE TASTER)
+pp_s4_select_role("${PP_S4_BUILD_ROLE}" PP_S4_PROFILE)
+
+# Core/Taster lists are deliberately non-linkable until approved entry points,
+# board-independent service extraction and board facts exist.  Refuse early:
+# a future role selection must never fall through to the integrated image.
+if(NOT PP_S4_PROFILE_LINKABLE)
+  message(FATAL_ERROR
+    "PP_S4_BUILD_ROLE=${PP_S4_PROFILE_ROLE} is an S4b non-linkable scaffold; "
+    "approved role entry points and board/service extraction are still required")
+endif()
+
 # Opt-in WP7 experiment: the production PlatformIO/Arduino target remains the
 # recovery path.  This project deliberately uses the full ESP-IDF build so the
 # esp_lcd RGB driver is compiled from source with CONFIG_LCD_RGB_RESTART_IN_VSYNC=n.
@@ -8,10 +23,11 @@ if(NOT IS_DIRECTORY "${PP_ARDUINO_COMPONENT_DIR}")
   message(FATAL_ERROR "PP_ARDUINO_COMPONENT_DIR must point to the Arduino-ESP32 component")
 endif()
 
-set(EXTRA_COMPONENT_DIRS
-    "${CMAKE_CURRENT_LIST_DIR}/components/arduino"
-    "${CMAKE_CURRENT_LIST_DIR}/components/gfx"
-    "${CMAKE_CURRENT_LIST_DIR}/components/tamc")
+set(EXTRA_COMPONENT_DIRS)
+foreach(PP_S4_COMPONENT_DIR IN LISTS PP_S4_PROFILE_COMPONENT_DIRS)
+  list(APPEND EXTRA_COMPONENT_DIRS
+       "${CMAKE_CURRENT_LIST_DIR}/${PP_S4_COMPONENT_DIR}")
+endforeach()
 
 # Keep the target self-contained when invoked through idf.py from a fresh shell.
 set(ENV{IDF_TARGET} esp32s3)

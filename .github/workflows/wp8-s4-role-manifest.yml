@@ -12,12 +12,15 @@ on:
       - firmware/include/pp/taster_link_startup_esp.h
       - firmware/include/pp/taster_link_socket_runtime.h
       - firmware/include/pp/taster_link_gate.h
+      - firmware/wp7_idf_arduino_dbuf/CMakeLists.txt
+      - firmware/wp7_idf_arduino_dbuf/cmake/pp_s4_role_profiles.cmake
       - firmware/src/wp8_role_compile_probe.cpp
       - firmware/src/wp8_core_role_compile_probe.cpp
       - firmware/src/wp8_taster_role_compile_probe.cpp
       - firmware/wp7_idf_arduino_dbuf/main/CMakeLists.txt
       - acceptance/stage14c/s4_role_manifest_test.cpp
       - acceptance/stage14c/s4_role_composition_source_test.cpp
+      - acceptance/stage14c/s4_role_profile_cmake_test.cmake
       - acceptance/stage14c/taster_link_gate_test.cpp
       - .github/workflows/wp8-s4-role-manifest.yml
   workflow_dispatch:
@@ -39,6 +42,8 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror acceptance/stage14c/s4_role_composition_source_test.cpp -o /tmp/pp-s4-composition
           /tmp/pp-s4-composition
+      - name: S4 independent role build-profile contract
+        run: cmake -P acceptance/stage14c/s4_role_profile_cmake_test.cmake
       - name: S3a command-gate regression
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/taster_link_gate_test.cpp -o /tmp/pp-s3a
