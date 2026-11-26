@@ -23,6 +23,35 @@ function(require_list_lacks list_name item)
   endif()
 endfunction()
 
+function(require_project_result role expected_text)
+  # Script mode cannot configure ESP-IDF.  The S4b refusals must occur before
+  # project() for the future roles; the integrated checks must instead reach
+  # the historical Arduino prerequisite with its environment deliberately
+  # absent.  Checking the exact diagnostic rules out unrelated failures.
+  set(arguments)
+  if(NOT role STREQUAL "DEFAULT")
+    # Keep a multi-role attempt as one CMake -D argument rather than allowing
+    # CMake's own list separator to turn it into CORE plus a stray TASTER.
+    string(REPLACE ";" "\\;" role_argument "${role}")
+    list(APPEND arguments "-DPP_S4_BUILD_ROLE=${role_argument}")
+  endif()
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" ${arguments}
+            -P "${PP_ROOT}/firmware/wp7_idf_arduino_dbuf/CMakeLists.txt"
+    RESULT_VARIABLE project_result
+    OUTPUT_VARIABLE project_stdout
+    ERROR_VARIABLE project_stderr)
+  if(project_result EQUAL 0)
+    message(FATAL_ERROR "S4b role-profile check failed: ${role} unexpectedly succeeded")
+  endif()
+  set(project_text "${project_stdout}${project_stderr}")
+  string(FIND "${project_text}" "${expected_text}" expected_position)
+  if(expected_position EQUAL -1)
+    message(FATAL_ERROR
+      "S4b role-profile check failed: ${role} did not report '${expected_text}':\n${project_text}")
+  endif()
+endfunction()
+
 pp_s4_role_is_valid("INTEGRATED" integrated_valid)
 pp_s4_role_is_valid("CORE" core_valid)
 pp_s4_role_is_valid("TASTER" taster_valid)
@@ -41,6 +70,9 @@ pp_s4_select_role("TASTER" taster)
 require(integrated_LINKABLE "integrated profile must remain linkable")
 if(core_LINKABLE OR taster_LINKABLE)
   message(FATAL_ERROR "S4b role-profile check failed: future role scaffold became linkable")
+endif()
+if(NOT integrated_COMPONENT_DIRS STREQUAL "components/arduino;components/gfx;components/tamc")
+  message(FATAL_ERROR "S4b role-profile check failed: integrated component order changed")
 endif()
 if(core_IDENTITY STREQUAL taster_IDENTITY OR
    core_IDENTITY STREQUAL integrated_IDENTITY OR
@@ -69,22 +101,20 @@ if(NOT core_asset_count EQUAL 0)
 endif()
 require_list_has(taster_ASSETS "assets/wp7_approved/pp_header_logo.rgb565")
 foreach(role core taster)
-  foreach(flag PP_WP7_ACCEPTANCE_SIMULATION PP_SIMULATED_RACING_TEST PP_UPDATE_TEST_KEY PP_WP7_PHYSICAL_RACING_TEST)
+  foreach(flag PP_PHASE8B_P1_TEST PP_WP7_ACCEPTANCE_SIMULATION PP_SIMULATED_RACING_TEST PP_UPDATE_TEST_KEY PP_WP7_PHYSICAL_RACING_TEST)
     require_list_has(${role}_FORBIDDEN_DEFINES "${flag}")
   endforeach()
 endforeach()
 
-# A bad selection must fail rather than falling back to the accepted integrated
-# graph.  This is deliberately CMake script mode, not an ESP-IDF configure.
-execute_process(
-  COMMAND "${CMAKE_COMMAND}"
-          "-DPP_S4_PROFILE_FILE=${PP_ROOT}/firmware/wp7_idf_arduino_dbuf/cmake/pp_s4_role_profiles.cmake"
-          -P "${CMAKE_CURRENT_LIST_DIR}/s4_role_profile_invalid_selection.cmake"
-  RESULT_VARIABLE invalid_selection_result
-  OUTPUT_QUIET
-  ERROR_QUIET)
-if(invalid_selection_result EQUAL 0)
-  message(FATAL_ERROR "S4b role-profile check failed: invalid profile selection did not fail")
-endif()
+# Exercise the actual top-level project file, never ESP-IDF configuration.
+# Emptying the inherited path makes both integrated cases prove they reach the
+# unchanged legacy prerequisite rather than any ESP-IDF command.
+set(ENV{PP_ARDUINO_COMPONENT_DIR} "")
+require_project_result("CORE" "PP_S4_BUILD_ROLE=CORE is an S4b non-linkable scaffold")
+require_project_result("TASTER" "PP_S4_BUILD_ROLE=TASTER is an S4b non-linkable scaffold")
+require_project_result("INVALID" "PP_S4_BUILD_ROLE must be INTEGRATED, CORE or TASTER; got 'INVALID'")
+require_project_result("CORE;TASTER" "PP_S4_BUILD_ROLE must be INTEGRATED, CORE or TASTER; got 'CORE;TASTER'")
+require_project_result("DEFAULT" "PP_ARDUINO_COMPONENT_DIR must point to the Arduino-ESP32 component")
+require_project_result("INTEGRATED" "PP_ARDUINO_COMPONENT_DIR must point to the Arduino-ESP32 component")
 
 message(STATUS "S4b independent role build-profile contract PASS")

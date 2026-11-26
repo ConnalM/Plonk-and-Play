@@ -4,8 +4,6 @@ include(${CMAKE_CURRENT_LIST_DIR}/cmake/pp_s4_role_profiles.cmake)
 set(PP_S4_BUILD_ROLE "INTEGRATED" CACHE STRING
     "S4b build profile: INTEGRATED, CORE or TASTER")
 set_property(CACHE PP_S4_BUILD_ROLE PROPERTY STRINGS INTEGRATED CORE TASTER)
-option(PP_S4_FORCE_NINJA_RESPONSE_FILES
-       "Request CMake/Ninja response files for a later disposable role build" OFF)
 pp_s4_select_role("${PP_S4_BUILD_ROLE}" PP_S4_PROFILE)
 
 # Core/Taster lists are deliberately non-linkable until approved entry points,
@@ -15,15 +13,6 @@ if(NOT PP_S4_PROFILE_LINKABLE)
   message(FATAL_ERROR
     "PP_S4_BUILD_ROLE=${PP_S4_PROFILE_ROLE} is an S4b non-linkable scaffold; "
     "approved role entry points and board/service extraction are still required")
-endif()
-
-if(PP_S4_FORCE_NINJA_RESPONSE_FILES)
-  if(NOT CMAKE_GENERATOR MATCHES "Ninja")
-    message(FATAL_ERROR
-      "PP_S4_FORCE_NINJA_RESPONSE_FILES requires the Ninja generator")
-  endif()
-  set(CMAKE_NINJA_FORCE_RESPONSE_FILE ON CACHE BOOL
-      "Use response files for a later disposable role build" FORCE)
 endif()
 
 # Opt-in WP7 experiment: the production PlatformIO/Arduino target remains the

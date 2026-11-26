@@ -21,7 +21,6 @@ on:
       - acceptance/stage14c/s4_role_manifest_test.cpp
       - acceptance/stage14c/s4_role_composition_source_test.cpp
       - acceptance/stage14c/s4_role_profile_cmake_test.cmake
-      - acceptance/stage14c/s4_role_profile_invalid_selection.cmake
       - acceptance/stage14c/taster_link_gate_test.cpp
       - .github/workflows/wp8-s4-role-manifest.yml
   workflow_dispatch:

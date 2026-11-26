@@ -72,12 +72,13 @@ int main() {
   assert(has(cmake,"PP_WP8_TASTER_ROLE_COMPILE_PROBE"));
   assert(has(projectCmake,"PP_S4_BUILD_ROLE \"INTEGRATED\""));
   assert(has(projectCmake,"PP_S4_PROFILE_LINKABLE"));
-  assert(has(projectCmake,"PP_S4_FORCE_NINJA_RESPONSE_FILES"));
-  assert(has(projectCmake,"CMAKE_NINJA_FORCE_RESPONSE_FILE"));
+  assert(!has(projectCmake,"PP_S4_FORCE_NINJA_RESPONSE_FILES"));
+  assert(!has(projectCmake,"CMAKE_NINJA_FORCE_RESPONSE_FILE"));
   assert(has(profiles,"core-scaffold-not-linkable"));
   assert(has(profiles,"taster-scaffold-not-linkable"));
   assert(has(profiles,"PP_WP7_ACCEPTANCE_SIMULATION"));
   assert(has(profiles,"PP_SIMULATED_RACING_TEST"));
+  assert(has(profiles,"PP_PHASE8B_P1_TEST"));
   assert(has(profiles,"PP_UPDATE_TEST_KEY"));
   assert(has(profiles,"PP_WP7_PHYSICAL_RACING_TEST"));
   assert(has(profiles,"components/gfx"));

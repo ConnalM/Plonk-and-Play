@@ -23,9 +23,10 @@ function(pp_s4_select_role role prefix)
       "PP_S4_BUILD_ROLE must be INTEGRATED, CORE or TASTER; got '${role}'")
   endif()
 
-  # Every profile states its source, component and asset ownership.  The two
-  # future-role probe sources are compile-only boundaries, not application
-  # entry points and not substitute sporting services.
+  # Every profile states a provisional source, component and asset declaration.
+  # These declarations are not yet consumed by an independent ESP-IDF target.
+  # The two future-role probe sources are compile-only boundaries, not
+  # application entry points and not substitute sporting services.
   if(normalized_role STREQUAL "INTEGRATED")
     set(linkable TRUE)
     set(identity "integrated-wp7-accepted")
@@ -45,7 +46,7 @@ function(pp_s4_select_role role prefix)
       "arduino;app_update;esp_http_server;esp_wifi;esp_event;esp_netif;esp_timer;esp_partition;esp_driver_gpio;esp_driver_spi;esp_mm;fatfs;freertos;mbedtls;nvs_flash;sdmmc;spi_flash")
     set(assets "")
     set(forbidden_defines
-      "PP_WP7_ACCEPTANCE_SIMULATION;PP_SIMULATED_RACING_TEST;PP_UPDATE_TEST_KEY;PP_WP7_PHYSICAL_RACING_TEST")
+      "PP_PHASE8B_P1_TEST;PP_WP7_ACCEPTANCE_SIMULATION;PP_SIMULATED_RACING_TEST;PP_UPDATE_TEST_KEY;PP_WP7_PHYSICAL_RACING_TEST")
   else()
     set(linkable FALSE)
     set(identity "taster-scaffold-not-linkable")
@@ -56,7 +57,7 @@ function(pp_s4_select_role role prefix)
     set(assets
       "assets/wp7_welcome_static_rgb565.bin;assets/wp7_approved/lamp_red.rgb565;assets/wp7_approved/lamp_green.rgb565;assets/wp7_approved/lamp_off.rgb565;assets/wp7_approved/lamp_yellow.rgb565;assets/wp7_approved/header_trapezoid_surround.rgb565;assets/wp7_approved/pp_header_logo.rgb565")
     set(forbidden_defines
-      "PP_WP7_ACCEPTANCE_SIMULATION;PP_SIMULATED_RACING_TEST;PP_UPDATE_TEST_KEY;PP_WP7_PHYSICAL_RACING_TEST")
+      "PP_PHASE8B_P1_TEST;PP_WP7_ACCEPTANCE_SIMULATION;PP_SIMULATED_RACING_TEST;PP_UPDATE_TEST_KEY;PP_WP7_PHYSICAL_RACING_TEST")
   endif()
 
   foreach(field ROLE LINKABLE IDENTITY SOURCES COMPONENT_DIRS REQUIRES ASSETS FORBIDDEN_DEFINES)
