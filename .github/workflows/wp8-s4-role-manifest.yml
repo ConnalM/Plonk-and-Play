@@ -22,13 +22,15 @@ on:
       - firmware/src/wp8_role_compile_probe.cpp
       - firmware/src/wp8_core_role_compile_probe.cpp
       - firmware/src/wp8_taster_role_compile_probe.cpp
-      - firmware/src/s4_core_entrypoint_boundary.cpp
-      - firmware/src/s4_taster_entrypoint_boundary.cpp
+      - firmware/role_boundaries/s4_core_entrypoint_boundary.cpp
+      - firmware/role_boundaries/s4_taster_entrypoint_boundary.cpp
       - firmware/wp7_idf_arduino_dbuf/main/CMakeLists.txt
+      - firmware/platformio.ini
       - acceptance/stage14c/s4_role_manifest_test.cpp
       - acceptance/stage14c/s4_role_startup_test.cpp
       - acceptance/stage14c/s4_role_composition_source_test.cpp
       - acceptance/stage14c/s4_role_profile_cmake_test.cmake
+      - acceptance/stage14c/s4_role_forced_guard_fixture.cmake
       - acceptance/stage14c/s4_production_role_guard_test.cpp
       - acceptance/stage14c/s4_role_contract_test.cpp
       - acceptance/stage14c/taster_link_gate_test.cpp
@@ -50,13 +52,13 @@ jobs:
           /tmp/pp-s4
       - name: S4 role startup ownership boundary
         run: |
-          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/s4_role_startup_test.cpp firmware/src/s4_core_entrypoint_boundary.cpp firmware/src/s4_taster_entrypoint_boundary.cpp -o /tmp/pp-s4-startup
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/s4_role_startup_test.cpp firmware/role_boundaries/s4_core_entrypoint_boundary.cpp firmware/role_boundaries/s4_taster_entrypoint_boundary.cpp -o /tmp/pp-s4-startup
           /tmp/pp-s4-startup
-          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_CORE -c firmware/src/s4_core_entrypoint_boundary.cpp -o /tmp/pp-s4-core-entrypoint.o
-          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_TASTER -c firmware/src/s4_taster_entrypoint_boundary.cpp -o /tmp/pp-s4-taster-entrypoint.o
-          if g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_TASTER -c firmware/src/s4_core_entrypoint_boundary.cpp -o /tmp/pp-s4-core-wrong-role.o 2>/tmp/pp-s4-core-wrong-role.log; then exit 1; fi
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_CORE -c firmware/role_boundaries/s4_core_entrypoint_boundary.cpp -o /tmp/pp-s4-core-entrypoint.o
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_TASTER -c firmware/role_boundaries/s4_taster_entrypoint_boundary.cpp -o /tmp/pp-s4-taster-entrypoint.o
+          if g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_TASTER -c firmware/role_boundaries/s4_core_entrypoint_boundary.cpp -o /tmp/pp-s4-core-wrong-role.o 2>/tmp/pp-s4-core-wrong-role.log; then exit 1; fi
           grep -F "Core boundary cannot be selected" /tmp/pp-s4-core-wrong-role.log
-          if g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_CORE -c firmware/src/s4_taster_entrypoint_boundary.cpp -o /tmp/pp-s4-taster-wrong-role.o 2>/tmp/pp-s4-taster-wrong-role.log; then exit 1; fi
+          if g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include -DPP_S4_PRODUCTION_CORE -c firmware/role_boundaries/s4_taster_entrypoint_boundary.cpp -o /tmp/pp-s4-taster-wrong-role.o 2>/tmp/pp-s4-taster-wrong-role.log; then exit 1; fi
           grep -F "Taster boundary cannot be selected" /tmp/pp-s4-taster-wrong-role.log
       - name: S4 inactive role-composition boundaries
         run: |

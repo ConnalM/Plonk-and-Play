@@ -19,9 +19,11 @@ int main() {
   // firmware; S4b neither starts nor changes it.
   assert(s4::instantiates(s4::kIntegratedManifest, s4::Service::RaceAuthority));
   assert(s4::instantiates(s4::kIntegratedManifest, s4::Service::CommittedPreferences));
+  assert(s4::instantiates(s4::kIntegratedManifest, s4::Service::LocalPresentationPrefs));
   assert(s4::instantiates(s4::kIntegratedManifest, s4::Service::LocalDisplay));
   assert(!s4::instantiates(s4::kIntegratedManifest, s4::Service::TasterLinkListener));
   assert(!s4::instantiates(s4::kIntegratedManifest, s4::Service::TasterLinkClient));
+  assert(!s4::instantiates(s4::kIntegratedManifest, s4::Service::GatedRemoteInteraction));
   assert(!s4::instantiates(s4::kIntegratedManifest,
                            s4::Service::ProtectedPairingStore));
   assert(!s4::instantiates(s4::kIntegratedManifest, s4::Service::TasterLocatorStore));

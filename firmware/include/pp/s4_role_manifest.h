@@ -54,7 +54,6 @@ inline constexpr RoleManifest kIntegratedManifest{
         serviceMask(Service::CustomerUpdateAuthority) |
         serviceMask(Service::CommittedPreferences) |
         serviceMask(Service::LocalPresentationPrefs) |
-        serviceMask(Service::GatedRemoteInteraction) |
         serviceMask(Service::LocalDisplay) | serviceMask(Service::LocalTouch),
 };
 

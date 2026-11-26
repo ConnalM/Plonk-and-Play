@@ -83,6 +83,26 @@ function(require_project_cache_result role expected_text cache_key cache_value)
   endif()
 endfunction()
 
+function(require_forced_guard_helper_result expected_text forced_headers)
+  string(REPLACE ";" "\\;" headers_argument "${forced_headers}")
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}"
+            "-DPP_S4_TEST_FORCED_GUARD_HEADERS=${headers_argument}"
+            -P "${CMAKE_CURRENT_LIST_DIR}/s4_role_forced_guard_fixture.cmake"
+    RESULT_VARIABLE helper_result
+    OUTPUT_VARIABLE helper_stdout
+    ERROR_VARIABLE helper_stderr)
+  if(helper_result EQUAL 0)
+    message(FATAL_ERROR "S4b role-profile check failed: forced-guard helper unexpectedly succeeded")
+  endif()
+  set(helper_text "${helper_stdout}${helper_stderr}")
+  string(FIND "${helper_text}" "${expected_text}" expected_position)
+  if(expected_position EQUAL -1)
+    message(FATAL_ERROR
+      "S4b role-profile check failed: forced-guard helper did not report '${expected_text}':\n${helper_text}")
+  endif()
+endfunction()
+
 pp_s4_role_is_valid("INTEGRATED" integrated_valid)
 pp_s4_role_is_valid("CORE" core_valid)
 pp_s4_role_is_valid("TASTER" taster_valid)
@@ -127,14 +147,17 @@ require_list_has(core_REQUIRES "fatfs")
 require_list_has(core_REQUIRES "sdmmc")
 require_list_has(taster_COMPONENT_DIRS "components/gfx")
 require_list_has(taster_COMPONENT_DIRS "components/tamc")
-require_list_has(core_SOURCES "src/s4_core_entrypoint_boundary.cpp")
-require_list_has(taster_SOURCES "src/s4_taster_entrypoint_boundary.cpp")
+require_list_has(core_SOURCES "role_boundaries/s4_core_entrypoint_boundary.cpp")
+require_list_has(taster_SOURCES "role_boundaries/s4_taster_entrypoint_boundary.cpp")
 require_list_has(core_FORCED_GUARD_HEADERS "include/pp/s4_production_role_guard.h")
 require_list_has(taster_FORCED_GUARD_HEADERS "include/pp/s4_production_role_guard.h")
 require(core_REQUIRED_ROLE_DEFINE STREQUAL "PP_S4_PRODUCTION_CORE"
   "Core role definition is not declared")
 require(taster_REQUIRED_ROLE_DEFINE STREQUAL "PP_S4_PRODUCTION_TASTER"
   "Taster role definition is not declared")
+pp_s4_validate_role_forced_guard("CORE" "include/pp/s4_production_role_guard.h")
+require_forced_guard_helper_result("S4 role guard coverage missing for CORE"
+  "")
 
 list(LENGTH core_ASSETS core_asset_count)
 if(NOT core_asset_count EQUAL 0)
@@ -185,6 +208,13 @@ foreach(role CORE TASTER)
   require_project_cache_result("${role}"
     "S4 role guard malformed definition '-DPP_UPDATE_TEST_KEY'"
     "PP_S4_COMPONENT_COMPILE_DEFINES" "-DPP_UPDATE_TEST_KEY")
+  foreach(source PP_S4_PRODUCTION_ROLE_DEFINES PP_S4_COMPONENT_COMPILE_DEFINES PP_S4_GLOBAL_COMPILE_DEFINES)
+    foreach(marker PP_S4_PRODUCTION_CORE PP_S4_PRODUCTION_TASTER)
+      require_project_cache_result("${role}"
+        "S4 external role marker rejected: ${role} ${marker}"
+        "${source}" "${marker}=0")
+    endforeach()
+  endforeach()
 endforeach()
 
 message(STATUS "S4b independent role build-profile contract PASS")

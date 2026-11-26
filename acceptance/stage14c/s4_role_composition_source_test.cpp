@@ -20,8 +20,8 @@ int main() {
   const auto combined=source("firmware/src/wp8_role_compile_probe.cpp");
   const auto coreProbe=source("firmware/src/wp8_core_role_compile_probe.cpp");
   const auto tasterProbe=source("firmware/src/wp8_taster_role_compile_probe.cpp");
-  const auto coreEntrypoint=source("firmware/src/s4_core_entrypoint_boundary.cpp");
-  const auto tasterEntrypoint=source("firmware/src/s4_taster_entrypoint_boundary.cpp");
+  const auto coreEntrypoint=source("firmware/role_boundaries/s4_core_entrypoint_boundary.cpp");
+  const auto tasterEntrypoint=source("firmware/role_boundaries/s4_taster_entrypoint_boundary.cpp");
   const auto coreEntrypointHeader=source("firmware/include/pp/s4_core_entrypoint_boundary.h");
   const auto tasterEntrypointHeader=source("firmware/include/pp/s4_taster_entrypoint_boundary.h");
   const auto startup=source("firmware/include/pp/s4_role_startup.h");
@@ -31,6 +31,7 @@ int main() {
   const auto roleContract=source("firmware/include/pp/taster_link_role_contract.h");
   const auto productionGuard=source("firmware/include/pp/s4_production_role_guard.h");
   const auto main=source("firmware/src/main.cpp");
+  const auto platformio=source("firmware/platformio.ini");
 
   // These are source-boundary checks, not ESP target compiler evidence.
   assert(has(core,"taster_link_platform_core_esp.h"));
@@ -89,6 +90,8 @@ int main() {
   assert(!has(tasterEntrypoint,"setup("));
   assert(!has(tasterEntrypoint,"loop("));
   assert(!has(tasterEntrypoint,"s4_core_entrypoint_boundary.h"));
+  assert(!has(platformio,"src_dir"));
+  assert(!has(platformio,"role_boundaries"));
   assert(has(coreEntrypointHeader,"s4_production_role_guard.h"));
   assert(has(tasterEntrypointHeader,"s4_production_role_guard.h"));
   assert(has(startup,"kCoreStartupPlan"));
@@ -114,6 +117,7 @@ int main() {
   assert(has(profiles,"PP_WP7_PHYSICAL_RACING_TEST"));
   assert(has(profiles,"pp_s4_validate_production_role_flags"));
   assert(has(profiles,"pp_s4_validate_effective_role_definitions"));
+  assert(has(profiles,"pp_s4_validate_external_role_markers"));
   assert(has(profiles,"pp_s4_validate_role_forced_guard"));
   assert(has(profiles,"PP_S4_PRODUCTION_CORE"));
   assert(has(profiles,"PP_S4_PRODUCTION_TASTER"));

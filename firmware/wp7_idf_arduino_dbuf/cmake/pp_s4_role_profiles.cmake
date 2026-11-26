@@ -80,6 +80,29 @@ function(pp_s4_validate_production_role_flags role definitions)
   endforeach()
 endfunction()
 
+# Role selection belongs to the selected profile, never to an external
+# definition list. This rejects either marker (including =0) after the common
+# grammar check has established a safe macro name.
+function(pp_s4_validate_external_role_markers role definitions)
+  if(role STREQUAL "INTEGRATED")
+    return()
+  endif()
+  set(reserved_markers PP_S4_PRODUCTION_CORE PP_S4_PRODUCTION_TASTER)
+  foreach(definition IN LISTS definitions)
+    string(FIND "${definition}" "=" equals_position)
+    if(equals_position EQUAL -1)
+      set(macro_name "${definition}")
+    else()
+      string(SUBSTRING "${definition}" 0 ${equals_position} macro_name)
+    endif()
+    list(FIND reserved_markers "${macro_name}" reserved_position)
+    if(NOT reserved_position EQUAL -1)
+      message(FATAL_ERROR
+        "S4 external role marker rejected: ${role} ${macro_name}")
+    endif()
+  endforeach()
+endfunction()
+
 # Future role targets must validate every effective definition source before
 # compiling a role source: target-local, transitive component and global. The
 # present profiles are non-linkable, so this is host-checkable guard wiring,
@@ -95,6 +118,9 @@ function(pp_s4_validate_effective_role_definitions role target_definitions
   pp_s4_validate_production_role_flags("${role}" "${target_definitions}")
   pp_s4_validate_production_role_flags("${role}" "${component_definitions}")
   pp_s4_validate_production_role_flags("${role}" "${global_definitions}")
+  pp_s4_validate_external_role_markers("${role}" "${target_definitions}")
+  pp_s4_validate_external_role_markers("${role}" "${component_definitions}")
+  pp_s4_validate_external_role_markers("${role}" "${global_definitions}")
 endfunction()
 
 function(pp_s4_validate_role_forced_guard role forced_headers)
@@ -135,7 +161,7 @@ function(pp_s4_select_role role prefix)
   elseif(normalized_role STREQUAL "CORE")
     set(linkable FALSE)
     set(identity "core-scaffold-not-linkable")
-    set(sources "src/s4_core_entrypoint_boundary.cpp;src/wp8_core_role_compile_probe.cpp")
+    set(sources "role_boundaries/s4_core_entrypoint_boundary.cpp;src/wp8_core_role_compile_probe.cpp")
     set(component_dirs "components/arduino")
     set(requires
       "arduino;app_update;esp_http_server;esp_wifi;esp_event;esp_netif;esp_timer;esp_partition;esp_driver_gpio;esp_driver_spi;esp_mm;fatfs;freertos;mbedtls;nvs_flash;sdmmc;spi_flash")
@@ -147,7 +173,7 @@ function(pp_s4_select_role role prefix)
   else()
     set(linkable FALSE)
     set(identity "taster-scaffold-not-linkable")
-    set(sources "src/s4_taster_entrypoint_boundary.cpp;src/wp8_taster_role_compile_probe.cpp")
+    set(sources "role_boundaries/s4_taster_entrypoint_boundary.cpp;src/wp8_taster_role_compile_probe.cpp")
     set(component_dirs "components/arduino;components/gfx;components/tamc")
     set(requires
       "arduino;gfx;tamc;esp_wifi;esp_event;esp_netif;esp_timer;esp_partition;esp_driver_gpio;esp_driver_i2c;esp_lcd;freertos;mbedtls;nvs_flash;spi_flash")

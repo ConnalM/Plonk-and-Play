@@ -40,8 +40,18 @@ are not a claim that a runnable independent target exists:
 
 | Future role | Ordered startup boundary | Services exclusively required by that boundary |
 | --- | --- | --- |
-| Core | configuration → committed persistent ownership → sporting authority → Browser/remote control → customer-update authority | committed preferences, SD/history/records, detector input, Race Control/Engine/timing, SMUGLAND HTTP/SSE, customer update, Taster-link listener |
+| Core | configuration → committed persistent ownership → sporting authority → Browser/remote control → customer-update authority | committed preferences, SD/history/records, detector input, Race Control/Engine/timing, SMUGLAND HTTP/SSE, customer update, protected pairing store and Taster-link listener |
 | Taster | configuration → local pairing/locator ownership → gated remote client → local presentation → touch-gated interaction | local presentation preferences, protected pairing/locator material, Taster-link client, display, GT911 touch and gated remote interaction |
+
+`LocalPresentationPrefs` is a real existing, separate Taster-presentation
+record in the integrated firmware; it is not a duplicate of Core committed
+preferences. The accepted integrated image has no active gated remote Taster
+link, so it does not claim the future `GatedRemoteInteraction` service.
+
+`ProtectedPairingStore` is explicit in the Core plan as the prerequisite for
+the optional authenticated Taster link. It is not a readiness dependency for
+independent Core racing or Browser/SMUGLAND startup: unavailable or optional
+Taster provisioning must gate only that link.
 
 The Core plan intentionally contains no display, touch, local presentation
 preferences or Taster-side interaction. The Taster plan intentionally contains
@@ -92,12 +102,22 @@ role definition and a required forced inclusion of
 `include/pp/s4_production_role_guard.h`; the non-linkable scaffold validates
 that guard-coverage declaration.
 
+The two `PP_S4_PRODUCTION_*` marker names are reserved to the profile itself.
+They are rejected from every external definition list, including assigned
+forms such as `=0`; an external list cannot select, override or combine roles.
+
 This is deliberately *host-checkable wiring*, not evidence of effective target
 compiler enforcement. A future approved role target must pass its actual
 target-local, component-transitive and global compiler definitions to this
 validation, define exactly its declared role macro, and force-include the guard
 before any application header. It must be verified from the actual compiler
 commands/dependency graph, not assumed from these profile lists.
+
+The compile-only entry-point translation units live in
+`firmware/role_boundaries/`, outside PlatformIO's historical default `src`
+tree. They are named only by the future Core/Taster profile lists and host
+tests. This avoids changing legacy source selection while not claiming that
+every historical integrated build has been revalidated in this increment.
 
 These guards are active only when `PP_S4_PRODUCTION_CORE` or
 `PP_S4_PRODUCTION_TASTER` is selected. The accepted integrated composition has
