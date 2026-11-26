@@ -42,6 +42,18 @@ int main() {
   assert(!has(corePlatform,"Arduino_GFX"));
   assert(!has(corePlatform,"TAMC"));
   assert(!has(corePlatform,"taster_link_discovery_esp.h"));
+  const auto lwip=corePlatform.find("#include <lwip/inet.h>");
+  const auto push=corePlatform.find("#pragma push_macro(\"INADDR_NONE\")");
+  const auto undef=corePlatform.find("#undef INADDR_NONE");
+  const auto arduino=corePlatform.find("#include <Arduino.h>");
+  const auto wifi=corePlatform.find("#include <WiFi.h>");
+  const auto pop=corePlatform.find("#pragma pop_macro(\"INADDR_NONE\")");
+  const auto platform=corePlatform.find("#include \"taster_link_platform.h\"");
+  const auto lifecycle=corePlatform.find("#include \"taster_link_lifecycle.h\"");
+  const auto discovery=corePlatform.find("#include \"taster_link_discovery.h\"");
+  const auto race=corePlatform.find("#include \"race_control.h\"");
+  assert(lwip<push && push<undef && undef<arduino && arduino<wifi && wifi<pop);
+  assert(pop<platform && platform<lifecycle && lifecycle<discovery && discovery<race);
   assert(has(source("firmware/include/pp/taster_link_startup_common_esp.h"),
              "taster_link_pairing.h"));
   assert(has(combined,"INADDR_NONE"));

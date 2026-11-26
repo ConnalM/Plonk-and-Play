@@ -2,16 +2,19 @@
 #if !defined(ESP_PLATFORM) || !defined(ARDUINO)
 #error "Core connection platform requires ESP-IDF/Arduino"
 #endif
-#include "taster_link_platform.h"
-#include "taster_link_lifecycle.h"
-#include "taster_link_discovery.h"
-#include "race_control.h"
+// lwIP's INADDR_NONE collides with Arduino IPAddress.  This boundary must
+// precede every project include: both the socket platform and RaceControl's
+// storage chain can reach lwIP/Arduino transitively.
 #include <lwip/inet.h>
 #pragma push_macro("INADDR_NONE")
 #undef INADDR_NONE
 #include <Arduino.h>
 #include <WiFi.h>
 #pragma pop_macro("INADDR_NONE")
+#include "taster_link_platform.h"
+#include "taster_link_lifecycle.h"
+#include "taster_link_discovery.h"
+#include "race_control.h"
 #include <esp_netif.h>
 #include <esp_wifi.h>
 
