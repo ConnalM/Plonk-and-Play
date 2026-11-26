@@ -60,8 +60,9 @@ That CMake input has a deliberately narrow grammar: a semicolon-separated list
 of `NAME` or `NAME=value`. `NAME` starts with an ASCII letter or underscore and
 then contains only letters, digits or underscores. `value` is non-empty and
 contains no whitespace, semicolon or further `=`. Empty list elements,
-malformed names, blank/multiple values and compiler-style `-DNAME` forms are
-rejected. Matching is by `NAME`, so `PP_UPDATE_TEST_KEY`,
+malformed names, blank/multiple values, literal semicolons (including escaped
+or bracket-contained forms) and compiler-style `-DNAME` forms are rejected.
+Matching is by `NAME`, so `PP_UPDATE_TEST_KEY`,
 `PP_UPDATE_TEST_KEY=1` and `PP_UPDATE_TEST_KEY=0` are all rejected for a
 production role. This is guard-input validation only: a later real role target
 must validate its effective compiler definitions before role enablement.

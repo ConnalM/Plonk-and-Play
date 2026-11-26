@@ -36,7 +36,11 @@ function(require_project_result role expected_text)
     list(APPEND arguments "-DPP_S4_BUILD_ROLE=${role_argument}")
   endif()
   if(ARGC GREATER 2)
-    list(APPEND arguments "-DPP_S4_PRODUCTION_ROLE_DEFINES=${ARGV2}")
+    # Keep the complete production-definition list in one argv element. The
+    # child CMake process then parses normal semicolons as its list delimiter;
+    # escaped/bracket-contained semicolons remain testable malformed values.
+    string(REPLACE ";" "\\;" definitions_argument "${ARGV2}")
+    list(APPEND arguments "-DPP_S4_PRODUCTION_ROLE_DEFINES=${definitions_argument}")
   endif()
   execute_process(
     COMMAND "${CMAKE_COMMAND}" ${arguments}
@@ -133,6 +137,13 @@ foreach(role CORE TASTER)
   foreach(malformed -DPP_UPDATE_TEST_KEY PP_UPDATE_TEST_KEY= 9INVALID PP_UPDATE_TEST_KEY=has=equals)
     require_project_result("${role}" "S4 role guard malformed definition '${malformed}'" "${malformed}")
   endforeach()
+  set(escaped_semicolon "GOOD=x\\;PP_UPDATE_TEST_KEY")
+  set(bracket_semicolon [=[GOOD=[x;PP_UPDATE_TEST_KEY]=])
+  foreach(malformed "${escaped_semicolon}" "${bracket_semicolon}" ";GOOD=one" "GOOD=one;" "GOOD=one;;OTHER=two")
+    require_project_result("${role}" "S4 role guard malformed" "${malformed}")
+  endforeach()
+  require_project_result("${role}" "PP_S4_BUILD_ROLE=${role} is an S4b non-linkable scaffold" "GOOD=one;OTHER=two")
+  require_project_result("${role}" "S4 role flag rejected: ${role} PP_UPDATE_TEST_KEY" "GOOD=one;PP_UPDATE_TEST_KEY=0")
 endforeach()
 
 message(STATUS "S4b independent role build-profile contract PASS")
