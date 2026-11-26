@@ -4,7 +4,11 @@ include(${CMAKE_CURRENT_LIST_DIR}/cmake/pp_s4_role_profiles.cmake)
 set(PP_S4_BUILD_ROLE "INTEGRATED" CACHE STRING
     "S4b build profile: INTEGRATED, CORE or TASTER")
 set_property(CACHE PP_S4_BUILD_ROLE PROPERTY STRINGS INTEGRATED CORE TASTER)
+set(PP_S4_PRODUCTION_ROLE_DEFINES "" CACHE STRING
+    "Future standalone-role definitions checked before ESP-IDF configuration")
 pp_s4_select_role("${PP_S4_BUILD_ROLE}" PP_S4_PROFILE)
+pp_s4_validate_production_role_flags("${PP_S4_PROFILE_ROLE}"
+  "${PP_S4_PRODUCTION_ROLE_DEFINES}")
 
 # Core/Taster lists are deliberately non-linkable until approved entry points,
 # board-independent service extraction and board facts exist.  Refuse early:

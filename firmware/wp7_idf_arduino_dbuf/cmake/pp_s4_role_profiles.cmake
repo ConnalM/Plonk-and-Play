@@ -15,6 +15,71 @@ function(pp_s4_role_is_valid role result)
   endif()
 endfunction()
 
+# Configure-time counterpart to s4_production_role_guard.h. This is a guard
+# input for future standalone roles, not a mechanism that adds definitions to
+# the accepted integrated image or claims a usable Core/Taster target.
+function(pp_s4_production_forbidden_definitions result)
+  set(${result}
+    PP_PHASE8B_P1_TEST
+    PP_WP7_ACCEPTANCE_SIMULATION
+    PP_SIMULATED_RACING_TEST
+    PP_UPDATE_TEST_KEY
+    PP_WP7_PHYSICAL_RACING_TEST
+    PP_WP6_ROLLBACK_ACCEPTANCE
+    PP_ACCEPTANCE
+    PP_VERIFY
+    PP_WP8_NVS_DIAGNOSTIC
+    PP_STAGE8A_TASTER_WOKWI
+    PP_WP7_TOUCH_TEST
+    PP_WP7_READY_TEST
+    PP_STAGE15_PHASE8_SD
+    PP_STAGE2_ACCEPTANCE PP_STAGE3_ACCEPTANCE PP_STAGE4_ACCEPTANCE
+    PP_STAGE5_ACCEPTANCE PP_STAGE6_ACCEPTANCE PP_STAGE6_DEMO
+    PP_STAGE7_ACCEPTANCE PP_STAGE7_DEMO PP_STAGE8_ACCEPTANCE
+    PP_STAGE9_ACCEPTANCE PP_STAGE9_DEMO PP_STAGE10_ACCEPTANCE PP_STAGE10_DEMO
+    PP_STAGE11_ACCEPTANCE PP_STAGE11_DEMO PP_STAGE12_ACCEPTANCE PP_STAGE12_DEMO
+    PP_STAGE13_ACCEPTANCE PP_STAGE13_DEMO PP_STAGE14A_ACCEPTANCE PP_STAGE14A_DEMO
+    PP_STAGE14B_ACCEPTANCE PP_STAGE14B_DEMO PP_STAGE14C_ACCEPTANCE PP_STAGE14C_DEMO
+    PARENT_SCOPE)
+endfunction()
+
+# Input grammar is a semicolon-separated CMake list of NAME or NAME=value.
+# NAME starts with an ASCII letter/underscore and contains only letters,
+# digits and underscores. VALUE is a non-empty token with no whitespace,
+# semicolon or additional '='. Compiler-style '-DNAME' inputs are rejected.
+function(pp_s4_validate_production_role_flags role definitions)
+  if(role STREQUAL "INTEGRATED")
+    return()
+  endif()
+  if(definitions MATCHES "(^;|;$|;;)")
+    message(FATAL_ERROR "S4 role guard malformed definition list '${definitions}'")
+  endif()
+  pp_s4_production_forbidden_definitions(forbidden)
+  foreach(definition IN LISTS definitions)
+    string(FIND "${definition}" "=" equals_position)
+    if(equals_position EQUAL -1)
+      set(macro_name "${definition}")
+    else()
+      string(SUBSTRING "${definition}" 0 ${equals_position} macro_name)
+      math(EXPR value_start "${equals_position}+1")
+      string(SUBSTRING "${definition}" ${value_start} -1 macro_value)
+      string(FIND "${macro_value}" ";" literal_semicolon)
+      if(macro_value STREQUAL "" OR macro_value MATCHES "[= \t\r\n]" OR
+         NOT literal_semicolon EQUAL -1)
+        message(FATAL_ERROR "S4 role guard malformed definition '${definition}'")
+      endif()
+    endif()
+    if(NOT macro_name MATCHES "^[A-Za-z_][A-Za-z0-9_]*$")
+      message(FATAL_ERROR "S4 role guard malformed definition '${definition}'")
+    endif()
+    list(FIND forbidden "${macro_name}" forbidden_position)
+    if(NOT forbidden_position EQUAL -1)
+      message(FATAL_ERROR
+        "S4 role flag rejected: ${role} ${macro_name}")
+    endif()
+  endforeach()
+endfunction()
+
 function(pp_s4_select_role role prefix)
   string(TOUPPER "${role}" normalized_role)
   pp_s4_role_is_valid("${normalized_role}" valid)
