@@ -2009,6 +2009,7 @@ private:
       const int mappedX = mapClamped(rawX, kMapX1, kMapX2, 0, kPanelWidth - 1);
       const int mappedY = mapClamped(rawY, kMapY1, kMapY2, 0, kPanelHeight - 1);
       if (!touchState_.down) {
+        if (!authority_.beginTouch()) return;
         touchState_.down = true;
         touchState_.downAt = now;
         touchState_.missingSince = 0;
@@ -2078,6 +2079,7 @@ private:
             touchState_.nextAdjustmentAt, touchState_.adjustmentIntervalMs, now);
       }
     } else if (touchState_.down) {
+      authority_.observeReleased();
       if (!touchState_.missingSince) touchState_.missingSince = now;
       // +/- controls need a longer confirmation because the physical trace
       // showed complete empty GT911 samples during a ten-second press.  Do

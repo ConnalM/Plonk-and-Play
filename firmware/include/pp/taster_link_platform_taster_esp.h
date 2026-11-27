@@ -74,7 +74,10 @@ public:
       (void)WiFi.disconnect(false,false);if(!WiFi.mode(WIFI_OFF))fault_=true;
     }
     scan_.reset();selector_=nullptr;epoch_.invalidate();
-    if(WiFi.getMode()!=WIFI_OFF || interrupted)fault_=true;return !fault_;
+    if(WiFi.getMode()!=WIFI_OFF || interrupted) {
+      fault_=true;
+    }
+    return !fault_;
   }
 private:
   bool fault(){fault_=true;return false;}

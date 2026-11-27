@@ -13,7 +13,8 @@ namespace ds=discovery;
 class TasterRoleEvents {
 public:
   static bool install(pf::EspRadio& radio){
-    if(!RoleEventSlot::claim())return false;taster_=&radio;
+    if(!RoleEventSlot::claim()) return false;
+    taster_=&radio;
     (void)WiFi.onEvent([](WiFiEvent_t event,WiFiEventInfo_t){if(taster_)taster_->noteEvent(event);});
     return true;
   }

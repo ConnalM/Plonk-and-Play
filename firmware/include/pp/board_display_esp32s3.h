@@ -4,7 +4,7 @@
 // product authority.  This small adapter only acknowledges boot readiness;
 // P&P state remains authoritative in the existing controller/browser paths.
 
-#if defined(PP_PHASE8B_REAL_SD) || defined(PP_WP7_PHYSICAL_RACING_TEST)
+#if defined(PP_PHASE8B_REAL_SD) || defined(PP_WP7_PHYSICAL_RACING_TEST) || defined(PP_S4_PRODUCTION_TASTER)
 
 #include <Arduino.h>
 #include <Arduino_GFX_Library.h>
@@ -315,9 +315,9 @@ public:
     Serial.println("[DISPLAY] P&P READY FOR WORK");
   }
 
-#if defined(PP_WP7_TOUCH_TEST) || defined(PP_WP7_READY_TEST) || defined(PP_WP7_PHYSICAL_RACING_TEST)
-  // Test-only access for the disposable WP7 touch probe. Production builds do
-  // not expose the framebuffer and retain the existing display boundary.
+#if defined(PP_WP7_TOUCH_TEST) || defined(PP_WP7_READY_TEST) || defined(PP_WP7_PHYSICAL_RACING_TEST) || defined(PP_S4_PRODUCTION_TASTER)
+  // The isolated Taster owns the physical panel while all race state remains
+  // remote.  These drawing operations are unavailable to the Core role.
   Arduino_RGB_Display* touchTestCanvas() { return initialized_ ? display_ : nullptr; }
   void setBacklight(bool enabled) {
     pinMode(kBacklight, OUTPUT);
