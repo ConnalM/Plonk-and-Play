@@ -1,5 +1,6 @@
 #include "pp/core_runtime_contract.h"
 #include "pp/core_runtime_wiring.h"
+#include "pp/firmware_update_api.h"
 #include "pp/race_control.h"
 #include "pp/session_definition.h"
 
@@ -43,6 +44,11 @@ int main() {
   assert(records.lanePb(1) == 0);
   assert(records.trackRecord() == 0);
   assert(!kUnqualifiedBenchSafety.startPermitted());
+
+  // The Core bench has no update endpoint and maintenance remains explicitly
+  // unavailable. The Browser-facing API compiles independently of the
+  // signed-image verifier and exposes the existing failure response.
+  assert(static_cast<unsigned>(MaintenanceApiResult::Failed) == 5u);
 
   // Exercise the production Race Control path, rather than merely checking
   // the detector boundary in isolation.  A valid proposal and an authorised

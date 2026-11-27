@@ -76,15 +76,15 @@ class CoreBenchMaintenance final : public pp::MaintenanceEndpoint {
  public:
   pp::MaintenanceApiResult restart(uint64_t,
                                    const pp::MaintenanceRequestContext&) override {
-    return pp::MaintenanceApiResult::StorageUnavailable;
+    return pp::MaintenanceApiResult::Failed;
   }
   pp::MaintenanceApiResult resetSettings(
       uint64_t, const pp::MaintenanceRequestContext&) override {
-    return pp::MaintenanceApiResult::StorageUnavailable;
+    return pp::MaintenanceApiResult::Failed;
   }
   pp::MaintenanceApiResult eraseEverything(
       uint64_t, const pp::MaintenanceRequestContext&) override {
-    return pp::MaintenanceApiResult::StorageUnavailable;
+    return pp::MaintenanceApiResult::Failed;
   }
   bool consumeRebootRequest() override { return false; }
 };

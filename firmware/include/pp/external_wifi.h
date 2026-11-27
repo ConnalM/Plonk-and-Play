@@ -2,7 +2,9 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#if !defined(PP_CORE_BENCH_DISABLE_MDNS)
 #include <ESPmDNS.h>
+#endif
 #include <esp_wifi.h>
 
 namespace pp {
@@ -463,6 +465,12 @@ private:
   int16_t scanLastResult_ = -2;
 
   void startMdns() {
+#if defined(PP_CORE_BENCH_DISABLE_MDNS)
+    // The isolated AP-only Core bench has no enabled ESP-IDF mDNS component.
+    // Direct SMUGLAND access remains available at the AP IP logged by begin().
+    mdnsStarted_ = false;
+    return;
+#else
     if (mdnsStarted_) return;
     if (!apStarted_ && WiFi.status() != WL_CONNECTED) return;
     if (MDNS.begin("plonk-and-play")) {
@@ -470,6 +478,7 @@ private:
       mdnsStarted_ = true;
       Serial.printf("[WIFI] mDNS STARTED host=%s\n", MdnsHost);
     }
+#endif
   }
 
   bool apStarted_ = false;

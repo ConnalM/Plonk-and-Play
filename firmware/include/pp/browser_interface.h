@@ -15,7 +15,7 @@
 #include "control_lease.h"
 #include "published_control_authority.h"
 #include "external_wifi.h"
-#include "firmware_update.h"
+#include "firmware_update_api.h"
 #include "mug_catalog.h"
 #include "fixture_command_queue.h"
 #include "taster_presentation_preferences.h"

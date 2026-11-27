@@ -10,6 +10,11 @@ static std::string source(const char* path) {
 static bool has(const std::string& text,const char* token) {
   return text.find(token)!=std::string::npos;
 }
+static size_t count(const std::string& text,const char* token) {
+  size_t total=0, offset=0;
+  while((offset=text.find(token,offset))!=std::string::npos){++total;offset+=std::string(token).size();}
+  return total;
+}
 
 int main() {
   const auto core=source("firmware/include/pp/taster_link_startup_core_esp.h");
@@ -35,6 +40,9 @@ int main() {
   const auto coreContract=source("firmware/include/pp/core_runtime_contract.h");
   const auto coreWiring=source("firmware/include/pp/core_runtime_wiring.h");
   const auto browser=source("firmware/include/pp/browser_interface.h");
+  const auto updateApi=source("firmware/include/pp/firmware_update_api.h");
+  const auto updateVerifier=source("firmware/include/pp/firmware_update.h");
+  const auto signedEnvelope=source("firmware/include/pp/signed_update_envelope.h");
   const auto externalWifi=source("firmware/include/pp/external_wifi.h");
   const auto main=source("firmware/src/main.cpp");
   const auto platformio=source("firmware/platformio.ini");
@@ -125,6 +133,8 @@ int main() {
   assert(has(coreRuntime,"core_runtime_wiring.h"));
   assert(has(coreRuntime,"subscribeRuntime("));
   assert(has(coreRuntime,"configuration load route unavailable; Browser remains offline"));
+  assert(has(coreRuntime,"&raceEngine_, nullptr, nullptr, &maintenance_"));
+  assert(has(coreRuntime,"MaintenanceApiResult::Failed"));
   assert(has(coreRuntime,"void setup()"));
   assert(has(coreRuntime,"void loop()"));
   assert(!has(coreRuntime,"SimulatedDetectorProvider"));
@@ -136,7 +146,19 @@ int main() {
   assert(has(coreWiring,"bool subscribeRuntime"));
   assert(has(coreWiring,"subscribed = bus.subscribe"));
   assert(has(coreCmake,"core_runtime_esp32.cpp ../src/system_time.cpp"));
+  assert(has(coreCmake,"PP_CORE_BENCH_DISABLE_MDNS=1"));
+  assert(has(coreCmake,"-Wno-error=misleading-indentation"));
   assert(has(browser,"PP_BROWSER_AP_NETWORK"));
+  assert(has(browser,"#include \"firmware_update_api.h\""));
+  assert(!has(browser,"#include \"firmware_update.h\""));
+  assert(has(updateApi,"class FirmwareUpdateEndpoint"));
+  assert(has(updateApi,"class MaintenanceEndpoint"));
+  assert(has(updateVerifier,"#include \"pp/firmware_update_api.h\""));
+  assert(has(updateVerifier,"#include \"pp/signed_update_envelope.h\""));
+  assert(has(signedEnvelope,"#error \"PP_UPDATE_PUBLIC_KEY_HEX must provide the production P&P verification key\""));
+  // Core injects no update endpoint; every Browser update route checks that
+  // boundary before it can perform an update operation.
+  assert(count(browser,"if (!browser->firmwareUpdate_)")==7);
   assert(has(browser,"network_.beginAccessPointOnly()"));
   assert(has(browser,"#if defined(PP_S4_PRODUCTION_CORE)"));
   assert(has(externalWifi,"void beginAccessPointOnly()"));
@@ -145,6 +167,8 @@ int main() {
   assert(has(externalWifi,"if (accessPointOnly_) return;"));
   assert(has(externalWifi,"bool stationOperationsAllowed() const"));
   assert(has(externalWifi,"if (!stationOperationsAllowed()) return false;"));
+  assert(has(externalWifi,"PP_CORE_BENCH_DISABLE_MDNS"));
+  assert(has(externalWifi,"Direct SMUGLAND access remains available at the AP IP logged by begin()."));
   assert(has(profiles,"taster-scaffold-not-linkable"));
   assert(has(profiles,"PP_WP7_ACCEPTANCE_SIMULATION"));
   assert(has(profiles,"PP_SIMULATED_RACING_TEST"));

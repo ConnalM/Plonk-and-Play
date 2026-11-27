@@ -32,6 +32,13 @@ idf_component_register(
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
   PP_S4_PRODUCTION_CORE=1
   PP_MAX_ENTRIES=2
-  PP_MAX_SSE_CLIENTS=4)
+  PP_MAX_SSE_CLIENTS=4
+  # The recovered Arduino dependency has no configured mDNS responder in the
+  # isolated AP-only bench. Integrated and future production Core builds keep
+  # their normal mDNS policy.
+  PP_CORE_BENCH_DISABLE_MDNS=1)
 target_compile_options(${COMPONENT_LIB} PRIVATE
-  -include "${CMAKE_CURRENT_LIST_DIR}/../include/pp/s4_production_role_guard.h")
+  -include "${CMAKE_CURRENT_LIST_DIR}/../include/pp/s4_production_role_guard.h"
+  # Match the existing integrated target's narrow treatment of legacy Browser
+  # formatting warnings; all other warnings remain errors.
+  -Wno-error=misleading-indentation)
