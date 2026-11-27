@@ -30,6 +30,10 @@ int main() {
   const auto profiles=source("firmware/wp7_idf_arduino_dbuf/cmake/pp_s4_role_profiles.cmake");
   const auto roleContract=source("firmware/include/pp/taster_link_role_contract.h");
   const auto productionGuard=source("firmware/include/pp/s4_production_role_guard.h");
+  const auto coreRuntime=source("firmware/core/core_runtime_esp32.cpp");
+  const auto coreContract=source("firmware/include/pp/core_runtime_contract.h");
+  const auto browser=source("firmware/include/pp/browser_interface.h");
+  const auto externalWifi=source("firmware/include/pp/external_wifi.h");
   const auto main=source("firmware/src/main.cpp");
   const auto platformio=source("firmware/platformio.ini");
 
@@ -101,6 +105,9 @@ int main() {
   assert(!has(startup,"RaceControl"));
   assert(has(cmake,"PP_WP8_CORE_ROLE_COMPILE_PROBE"));
   assert(has(cmake,"PP_WP8_TASTER_ROLE_COMPILE_PROBE"));
+  assert(has(cmake,"PP_S4_BUILD_ROLE STREQUAL \"CORE\""));
+  assert(has(cmake,"REQUIRES core"));
+  assert(has(cmake,"PP_S4_PRODUCTION_CORE=1"));
   assert(has(projectCmake,"PP_S4_BUILD_ROLE \"INTEGRATED\""));
   assert(has(projectCmake,"PP_S4_PROFILE_LINKABLE"));
   assert(has(projectCmake,"PP_S4_PRODUCTION_ROLE_DEFINES"));
@@ -108,7 +115,22 @@ int main() {
   assert(has(projectCmake,"PP_S4_GLOBAL_COMPILE_DEFINES"));
   assert(!has(projectCmake,"PP_S4_FORCE_NINJA_RESPONSE_FILES"));
   assert(!has(projectCmake,"CMAKE_NINJA_FORCE_RESPONSE_FILE"));
-  assert(has(profiles,"core-scaffold-not-linkable"));
+  assert(has(profiles,"core-runtime-pending-target-evidence"));
+  assert(has(profiles,"../core/core_runtime_esp32.cpp"));
+  assert(has(coreRuntime,"UnavailableDetectorProvider"));
+  assert(has(coreRuntime,"UnavailableHistoryStore"));
+  assert(has(coreRuntime,"UnavailableTrackRecordStore"));
+  assert(has(coreRuntime,"void setup()"));
+  assert(has(coreRuntime,"void loop()"));
+  assert(!has(coreRuntime,"SimulatedDetectorProvider"));
+  assert(!has(coreRuntime,"Wp7PhysicalRacingUi"));
+  assert(!has(coreRuntime,"LocalTasterAuthority"));
+  assert(has(coreContract,"startPermitted"));
+  assert(has(browser,"PP_BROWSER_AP_NETWORK"));
+  assert(has(browser,"network_.beginAccessPointOnly()"));
+  assert(has(browser,"#if defined(PP_S4_PRODUCTION_CORE)"));
+  assert(has(externalWifi,"void beginAccessPointOnly()"));
+  assert(has(externalWifi,"WiFi.mode(WIFI_AP)"));
   assert(has(profiles,"taster-scaffold-not-linkable"));
   assert(has(profiles,"PP_WP7_ACCEPTANCE_SIMULATION"));
   assert(has(profiles,"PP_SIMULATED_RACING_TEST"));

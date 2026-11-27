@@ -116,6 +116,25 @@ public:
     }
   }
 
+  // A temporary Core bench must not inspect, reconnect to, replace or erase
+  // remembered station credentials from the touchscreen host. It still uses
+  // the same P&P access point and HTTP service, but is deliberately AP-only.
+  void beginAccessPointOnly() {
+    WiFi.persistent(false);
+    WiFi.mode(WIFI_AP);
+    installEventDiagnostics();
+    apStarted_ = WiFi.softAP(FactoryApSsid);
+    suppressed_ = false;
+    stationConfigured_ = false;
+    staFailure_ = StaFailure::None;
+    staState_ = StaState::Idle;
+    startMdns();
+    Serial.printf("[WIFI] P&P AP %s ssid=%s ip=%s clients=%u (Core bench AP-only)\n",
+                  apStarted_ ? "STARTED" : "FAILED", FactoryApSsid,
+                  WiFi.softAPIP().toString().c_str(),
+                  static_cast<unsigned>(WiFi.softAPgetStationNum()));
+  }
+
   void tick() {
     const uint32_t now = millis();
     if (!apStarted_ && static_cast<uint32_t>(now - lastApAttemptMs_) >= 5000U) {

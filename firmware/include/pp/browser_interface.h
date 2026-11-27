@@ -25,6 +25,9 @@
 #ifndef PP_MAX_SSE_CLIENTS
 #define PP_MAX_SSE_CLIENTS 4
 #endif
+#if defined(PP_PHASE8B_REAL_SD) || defined(PP_S4_PRODUCTION_CORE)
+#define PP_BROWSER_AP_NETWORK 1
+#endif
 namespace pp {
 class PhysicalSdOwner;
 // Browser identity and the retained Master binding are Browser Interface State.
@@ -107,8 +110,12 @@ public:
   }
 
   void begin() {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_BROWSER_AP_NETWORK)
+#if defined(PP_S4_PRODUCTION_CORE)
+    network_.beginAccessPointOnly();
+#else
     network_.begin();
+#endif
     apStarted_ = networkApStarted();
     wifiConnected_ = apStarted_;
     lastWifiAttemptMs_ = millis();
@@ -162,7 +169,7 @@ public:
       }
     }
     if (!started_) return;
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_BROWSER_AP_NETWORK)
     network_.tick();
     apStarted_ = networkApStarted();
     const bool connected = apStarted_;
@@ -180,7 +187,7 @@ public:
       // network; the real S3 retries creation of its local P&P AP.
       if (static_cast<uint32_t>(now - lastWifiAttemptMs_) >= 5000U) {
         ++wifiReconnectAttempts_;
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_BROWSER_AP_NETWORK)
         network_.tick();
         apStarted_ = networkApStarted();
         if (apStarted_) {
@@ -196,7 +203,7 @@ public:
       return;
     }
     wifiConnected_ = true;
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_BROWSER_AP_NETWORK)
     const uint8_t clients = networkClientCount();
     if (clients != apClientCount_) {
       apClientCount_ = clients;
@@ -449,28 +456,28 @@ public:
   bool wifiConnected() const { return wifiConnected_; }
   uint32_t wifiReconnectAttempts() const { return wifiReconnectAttempts_; }
   bool accessPointStarted() const {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_BROWSER_AP_NETWORK)
     return apStarted_;
 #else
     return false;
 #endif
   }
   const char* networkSsid() const {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_BROWSER_AP_NETWORK)
     return Phase8bApSsid;
 #else
     return "Wokwi-GUEST";
 #endif
   }
   String networkAddress() const {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_BROWSER_AP_NETWORK)
     return WiFi.softAPIP().toString();
 #else
     return WiFi.localIP().toString();
 #endif
   }
   uint8_t connectedClientCount() const {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_BROWSER_AP_NETWORK)
     return networkClientCount();
 #else
     return 0;
@@ -478,42 +485,52 @@ public:
   }
   struct NetworkStatus { ExternalWifiManager::Status value; };
   void networkStatus(NetworkStatus& value) const {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_BROWSER_AP_NETWORK)
     network_.status(value.value);
 #else
     value.value = ExternalWifiManager::Status{};
 #endif
   }
   bool networkConnect(const char* ssid, const char* password) {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_S4_PRODUCTION_CORE)
+    (void)ssid; (void)password; return false;
+#elif defined(PP_BROWSER_AP_NETWORK)
     return network_.connect(ssid, password);
 #else
     (void)ssid; (void)password; return false;
 #endif
   }
   bool networkReconnect() {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_S4_PRODUCTION_CORE)
+    return false;
+#elif defined(PP_BROWSER_AP_NETWORK)
     return network_.reconnect();
 #else
     return false;
 #endif
   }
   bool networkDisconnect() {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_S4_PRODUCTION_CORE)
+    return false;
+#elif defined(PP_BROWSER_AP_NETWORK)
     return network_.disconnect();
 #else
     return false;
 #endif
   }
   bool networkForget() {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_S4_PRODUCTION_CORE)
+    return false;
+#elif defined(PP_BROWSER_AP_NETWORK)
     return network_.forget();
 #else
     return false;
 #endif
   }
   bool networkStartScan() {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_S4_PRODUCTION_CORE)
+    return false;
+#elif defined(PP_BROWSER_AP_NETWORK)
     return network_.startScan();
 #else
     return false;
@@ -637,7 +654,7 @@ private:
     }
   }
   bool networkApStarted() const {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_BROWSER_AP_NETWORK)
     ExternalWifiManager::Status status{};
     network_.status(status);
     return status.apStarted;
@@ -646,7 +663,7 @@ private:
 #endif
   }
   uint8_t networkClientCount() const {
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_BROWSER_AP_NETWORK)
     ExternalWifiManager::Status status{};
     network_.status(status);
     return status.apClients;
@@ -733,7 +750,7 @@ private:
   bool contextTracePending_ = false;
   bool contextTraceRequestedByThis_ = false;
   ControlLeaseResult contextTraceResult_ = ControlLeaseResult::NoPending;
-#if defined(PP_PHASE8B_REAL_SD)
+#if defined(PP_BROWSER_AP_NETWORK)
   bool apStarted_ = false;
   uint8_t apClientCount_ = 0;
 #endif
