@@ -10,6 +10,11 @@ static std::string source(const char* path) {
 static bool has(const std::string& text,const char* token) {
   return text.find(token)!=std::string::npos;
 }
+static size_t count(const std::string& text,const char* token) {
+  size_t total=0, offset=0;
+  while((offset=text.find(token,offset))!=std::string::npos){++total;offset+=std::string(token).size();}
+  return total;
+}
 
 int main() {
   const auto core=source("firmware/include/pp/taster_link_startup_core_esp.h");
@@ -26,10 +31,19 @@ int main() {
   const auto tasterEntrypointHeader=source("firmware/include/pp/s4_taster_entrypoint_boundary.h");
   const auto startup=source("firmware/include/pp/s4_role_startup.h");
   const auto cmake=source("firmware/wp7_idf_arduino_dbuf/main/CMakeLists.txt");
+  const auto coreCmake=source("firmware/core/CMakeLists.txt");
   const auto projectCmake=source("firmware/wp7_idf_arduino_dbuf/CMakeLists.txt");
   const auto profiles=source("firmware/wp7_idf_arduino_dbuf/cmake/pp_s4_role_profiles.cmake");
   const auto roleContract=source("firmware/include/pp/taster_link_role_contract.h");
   const auto productionGuard=source("firmware/include/pp/s4_production_role_guard.h");
+  const auto coreRuntime=source("firmware/core/core_runtime_esp32.cpp");
+  const auto coreContract=source("firmware/include/pp/core_runtime_contract.h");
+  const auto coreWiring=source("firmware/include/pp/core_runtime_wiring.h");
+  const auto browser=source("firmware/include/pp/browser_interface.h");
+  const auto updateApi=source("firmware/include/pp/firmware_update_api.h");
+  const auto updateVerifier=source("firmware/include/pp/firmware_update.h");
+  const auto signedEnvelope=source("firmware/include/pp/signed_update_envelope.h");
+  const auto externalWifi=source("firmware/include/pp/external_wifi.h");
   const auto main=source("firmware/src/main.cpp");
   const auto platformio=source("firmware/platformio.ini");
 
@@ -101,6 +115,9 @@ int main() {
   assert(!has(startup,"RaceControl"));
   assert(has(cmake,"PP_WP8_CORE_ROLE_COMPILE_PROBE"));
   assert(has(cmake,"PP_WP8_TASTER_ROLE_COMPILE_PROBE"));
+  assert(has(cmake,"PP_S4_BUILD_ROLE STREQUAL \"CORE\""));
+  assert(has(cmake,"REQUIRES core"));
+  assert(has(cmake,"PP_S4_PRODUCTION_CORE=1"));
   assert(has(projectCmake,"PP_S4_BUILD_ROLE \"INTEGRATED\""));
   assert(has(projectCmake,"PP_S4_PROFILE_LINKABLE"));
   assert(has(projectCmake,"PP_S4_PRODUCTION_ROLE_DEFINES"));
@@ -108,7 +125,50 @@ int main() {
   assert(has(projectCmake,"PP_S4_GLOBAL_COMPILE_DEFINES"));
   assert(!has(projectCmake,"PP_S4_FORCE_NINJA_RESPONSE_FILES"));
   assert(!has(projectCmake,"CMAKE_NINJA_FORCE_RESPONSE_FILE"));
-  assert(has(profiles,"core-scaffold-not-linkable"));
+  assert(has(profiles,"core-runtime-pending-target-evidence"));
+  assert(has(profiles,"core/core_runtime_esp32.cpp;src/system_time.cpp"));
+  assert(has(coreRuntime,"UnavailableDetectorProvider"));
+  assert(has(coreRuntime,"UnavailableHistoryStore"));
+  assert(has(coreRuntime,"UnavailableTrackRecordStore"));
+  assert(has(coreRuntime,"core_runtime_wiring.h"));
+  assert(has(coreRuntime,"subscribeRuntime("));
+  assert(has(coreRuntime,"configuration load route unavailable; Browser remains offline"));
+  assert(has(coreRuntime,"&raceEngine_, nullptr, nullptr, &maintenance_"));
+  assert(has(coreRuntime,"MaintenanceApiResult::Failed"));
+  assert(has(coreRuntime,"void setup()"));
+  assert(has(coreRuntime,"void loop()"));
+  assert(!has(coreRuntime,"SimulatedDetectorProvider"));
+  assert(!has(coreRuntime,"Wp7PhysicalRacingUi"));
+  assert(!has(coreRuntime,"LocalTasterAuthority"));
+  assert(has(coreContract,"startPermitted"));
+  assert(has(coreWiring,"Type::RequestResult"));
+  assert(has(coreWiring,"Type::RaceIntegrityFault"));
+  assert(has(coreWiring,"bool subscribeRuntime"));
+  assert(has(coreWiring,"subscribed = bus.subscribe"));
+  assert(has(coreCmake,"core_runtime_esp32.cpp ../src/system_time.cpp"));
+  assert(has(coreCmake,"PP_CORE_BENCH_DISABLE_MDNS=1"));
+  assert(has(coreCmake,"-Wno-error=misleading-indentation"));
+  assert(has(browser,"PP_BROWSER_AP_NETWORK"));
+  assert(has(browser,"#include \"firmware_update_api.h\""));
+  assert(!has(browser,"#include \"firmware_update.h\""));
+  assert(has(updateApi,"class FirmwareUpdateEndpoint"));
+  assert(has(updateApi,"class MaintenanceEndpoint"));
+  assert(has(updateVerifier,"#include \"pp/firmware_update_api.h\""));
+  assert(has(updateVerifier,"#include \"pp/signed_update_envelope.h\""));
+  assert(has(signedEnvelope,"#error \"PP_UPDATE_PUBLIC_KEY_HEX must provide the production P&P verification key\""));
+  // Core injects no update endpoint; every Browser update route checks that
+  // boundary before it can perform an update operation.
+  assert(count(browser,"if (!browser->firmwareUpdate_)")==7);
+  assert(has(browser,"network_.beginAccessPointOnly()"));
+  assert(has(browser,"#if defined(PP_S4_PRODUCTION_CORE)"));
+  assert(has(externalWifi,"void beginAccessPointOnly()"));
+  assert(has(externalWifi,"WiFi.mode(WIFI_AP)"));
+  assert(has(externalWifi,"staState_ = StaState::Unconfigured"));
+  assert(has(externalWifi,"if (accessPointOnly_) return;"));
+  assert(has(externalWifi,"bool stationOperationsAllowed() const"));
+  assert(has(externalWifi,"if (!stationOperationsAllowed()) return false;"));
+  assert(has(externalWifi,"PP_CORE_BENCH_DISABLE_MDNS"));
+  assert(has(externalWifi,"Direct SMUGLAND access remains available at the AP IP logged by begin()."));
   assert(has(profiles,"taster-scaffold-not-linkable"));
   assert(has(profiles,"PP_WP7_ACCEPTANCE_SIMULATION"));
   assert(has(profiles,"PP_SIMULATED_RACING_TEST"));

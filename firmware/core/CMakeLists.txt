@@ -1,0 +1,44 @@
+# This component is intentionally not selected by the integrated project.
+# A future, separately approved CORE configuration selects it after generated
+# target evidence proves the effective dependency graph and forced guard.
+
+idf_component_register(
+  # The shared timing implementation is non-inline and the integrated main
+  # component is intentionally absent from Core. Keep this as the sole Core
+  # registration of systemTime(); do not duplicate it in a new Core source.
+  SRCS core_runtime_esp32.cpp ../src/system_time.cpp
+  INCLUDE_DIRS ../include
+  REQUIRES
+    arduino
+    app_update
+    esp_http_server
+    esp_wifi
+    esp_event
+    esp_netif
+    esp_timer
+    esp_partition
+    esp_driver_gpio
+    esp_driver_i2c
+    esp_driver_spi
+    fatfs
+    freertos
+    mbedtls
+    nvs_flash
+    sdmmc
+    spi_flash)
+
+# This is source-level wiring only.  A future configure gate must inspect the
+# generated command database and Ninja rules before treating it as proven.
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+  PP_S4_PRODUCTION_CORE=1
+  PP_MAX_ENTRIES=2
+  PP_MAX_SSE_CLIENTS=4
+  # The recovered Arduino dependency has no configured mDNS responder in the
+  # isolated AP-only bench. Integrated and future production Core builds keep
+  # their normal mDNS policy.
+  PP_CORE_BENCH_DISABLE_MDNS=1)
+target_compile_options(${COMPONENT_LIB} PRIVATE
+  -include "${CMAKE_CURRENT_LIST_DIR}/../include/pp/s4_production_role_guard.h"
+  # Match the existing integrated target's narrow treatment of legacy Browser
+  # formatting warnings; all other warnings remain errors.
+  -Wno-error=misleading-indentation)

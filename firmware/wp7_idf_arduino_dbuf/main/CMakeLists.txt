@@ -1,6 +1,21 @@
 set(PP_FIRMWARE_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../")
 set(PP_BUILD_ENVIRONMENT "stage8bp1s3sd-wp7-idf-double-buffer")
 
+# A future Core selection must not accidentally compile the accepted integrated
+# main.cpp.  The top-level role gate remains fail-closed for CORE today, so
+# this branch is intentionally inactive until a separately approved configure
+# gate proves the generated component graph and effective role guard.
+if(PP_S4_BUILD_ROLE STREQUAL "CORE")
+  idf_component_register(
+    SRCS "${PP_FIRMWARE_ROOT}/role_boundaries/s4_core_entrypoint_boundary.cpp"
+    INCLUDE_DIRS "${PP_FIRMWARE_ROOT}/include"
+    REQUIRES core)
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE PP_S4_PRODUCTION_CORE=1)
+  target_compile_options(${COMPONENT_LIB} PRIVATE
+    -include "${PP_FIRMWARE_ROOT}/include/pp/s4_production_role_guard.h")
+  return()
+endif()
+
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated/pp")
 execute_process(
   COMMAND git -C "${PP_FIRMWARE_ROOT}" rev-parse HEAD

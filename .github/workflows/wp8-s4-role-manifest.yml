@@ -8,6 +8,12 @@ on:
       - firmware/include/pp/s4_core_entrypoint_boundary.h
       - firmware/include/pp/s4_taster_entrypoint_boundary.h
       - firmware/include/pp/s4_production_role_guard.h
+      - firmware/include/pp/core_runtime_contract.h
+      - firmware/include/pp/core_runtime_wiring.h
+      - firmware/include/pp/browser_interface.h
+      - firmware/include/pp/external_wifi.h
+      - firmware/core/CMakeLists.txt
+      - firmware/core/core_runtime_esp32.cpp
       - firmware/include/pp/taster_link_role_contract.h
       - firmware/include/pp/taster_link_platform_core_esp.h
       - firmware/include/pp/taster_link_platform_taster_esp.h
@@ -33,6 +39,7 @@ on:
       - acceptance/stage14c/s4_role_forced_guard_fixture.cmake
       - acceptance/stage14c/s4_production_role_guard_test.cpp
       - acceptance/stage14c/s4_role_contract_test.cpp
+      - acceptance/stage14c/s4_core_runtime_test.cpp
       - acceptance/stage14c/taster_link_gate_test.cpp
       - .github/workflows/wp8-s4-role-manifest.yml
   workflow_dispatch:
@@ -90,6 +97,10 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/s4_role_contract_test.cpp -o /tmp/pp-s4-contract
           /tmp/pp-s4-contract
+      - name: S4 Core unavailable-hardware safety contract
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/s4_core_runtime_test.cpp -o /tmp/pp-s4-core-runtime
+          /tmp/pp-s4-core-runtime
       - name: S3a command-gate regression
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include acceptance/stage14c/taster_link_gate_test.cpp -o /tmp/pp-s3a
