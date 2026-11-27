@@ -161,8 +161,11 @@ function(pp_s4_select_role role prefix)
   elseif(normalized_role STREQUAL "CORE")
     set(linkable FALSE)
     set(identity "core-runtime-pending-target-evidence")
-    set(sources "../core/core_runtime_esp32.cpp;role_boundaries/s4_core_entrypoint_boundary.cpp;src/wp8_core_role_compile_probe.cpp")
-    set(component_dirs "components/arduino;../core")
+    # Paths are relative to the firmware root, matching the integrated
+    # profile declaration. The Core component owns its source, with the
+    # existing shared timing implementation registered exactly once.
+    set(sources "core/core_runtime_esp32.cpp;src/system_time.cpp;role_boundaries/s4_core_entrypoint_boundary.cpp;src/wp8_core_role_compile_probe.cpp")
+    set(component_dirs "components/arduino;core")
     set(requires
       "arduino;app_update;esp_http_server;esp_wifi;esp_event;esp_netif;esp_timer;esp_partition;esp_driver_gpio;esp_driver_i2c;esp_driver_spi;fatfs;freertos;mbedtls;nvs_flash;sdmmc;spi_flash")
     set(assets "")

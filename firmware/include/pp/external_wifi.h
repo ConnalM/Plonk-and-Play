@@ -91,6 +91,7 @@ public:
   };
 
   void begin() {
+    accessPointOnly_ = false;
     WiFi.persistent(true);
     WiFi.mode(WIFI_AP_STA);
     installEventDiagnostics();
@@ -120,6 +121,7 @@ public:
   // remembered station credentials from the touchscreen host. It still uses
   // the same P&P access point and HTTP service, but is deliberately AP-only.
   void beginAccessPointOnly() {
+    accessPointOnly_ = true;
     WiFi.persistent(false);
     WiFi.mode(WIFI_AP);
     installEventDiagnostics();
@@ -127,7 +129,10 @@ public:
     suppressed_ = false;
     stationConfigured_ = false;
     staFailure_ = StaFailure::None;
-    staState_ = StaState::Idle;
+    staState_ = StaState::Unconfigured;
+    scanState_ = ScanState::Unavailable;
+    scanDeferred_ = false;
+    scanPauseReconnect_ = false;
     startMdns();
     Serial.printf("[WIFI] P&P AP %s ssid=%s ip=%s clients=%u (Core bench AP-only)\n",
                   apStarted_ ? "STARTED" : "FAILED", FactoryApSsid,
@@ -146,6 +151,10 @@ public:
                     static_cast<unsigned>(WiFi.softAPgetStationNum()));
     }
     if (apStarted_) startMdns();
+    // This policy applies at the manager boundary, rather than relying on
+    // Browser route selection. Direct manager calls must not re-enable STA
+    // reconnect, credential use or scanning on the temporary Core host.
+    if (accessPointOnly_) return;
     // A deferred request has not started a new driver scan yet.  Do not let
     // WiFi.scanComplete() report a stale result from the previous attempt.
     if (!scanDeferred_) refreshScanState();
@@ -169,6 +178,7 @@ public:
   }
 
   bool connect(const char* ssid, const char* password) {
+    if (!stationOperationsAllowed()) return false;
     if (!ssid || !*ssid || strlen(ssid) > 32 || !password || strlen(password) > 64) return false;
     WiFi.persistent(true);
     WiFi.mode(WIFI_AP_STA);
@@ -194,6 +204,7 @@ public:
   // This path deliberately has no SSID/password parameters and never calls
   // WiFi.begin(), so it cannot overwrite the stored credentials.
   bool reconnect() {
+    if (!stationOperationsAllowed()) return false;
     if (!(WiFi.getMode() & WIFI_MODE_STA) || !stationConfigured_) return false;
     WiFi.setAutoReconnect(true);
     suppressed_ = false;
@@ -205,6 +216,7 @@ public:
   }
 
   bool disconnect() {
+    if (!stationOperationsAllowed()) return false;
     if (!(WiFi.getMode() & WIFI_MODE_STA)) return false;
     WiFi.setAutoReconnect(false);
     const bool ok = WiFi.disconnect(false, false);
@@ -217,6 +229,7 @@ public:
   }
 
   bool forget() {
+    if (!stationOperationsAllowed()) return false;
     if (!(WiFi.getMode() & WIFI_MODE_STA)) return false;
     WiFi.setAutoReconnect(false);
     const bool disconnected = WiFi.disconnect(false, true);
@@ -229,6 +242,7 @@ public:
   }
 
   bool startScan() {
+    if (!stationOperationsAllowed()) return false;
     ++scanRequests_;
     if (scanState_ == ScanState::Running) {
       Serial.println("[WIFI] SCAN_ALREADY_RUNNING accepted=true");
@@ -337,6 +351,17 @@ private:
 public:
 
   void status(Status& value) const {
+    if (accessPointOnly_) {
+      value = Status{};
+      value.apStarted = apStarted_;
+      value.mdnsStarted = mdnsStarted_;
+      value.scanState = ScanState::Unavailable;
+      value.scanCount = -2;
+      value.scanLastResult = -2;
+      value.apClients = WiFi.softAPgetStationNum();
+      value.apIp = WiFi.softAPIP().toString();
+      return;
+    }
     const bool connected = WiFi.status() == WL_CONNECTED;
     value.apStarted = apStarted_;
     value.staConfigured = stationConfigured_;
@@ -362,6 +387,8 @@ public:
   }
 
 private:
+  bool stationOperationsAllowed() const { return !accessPointOnly_; }
+
   // WiFi.SSID() reports the currently associated AP only.  The driver-owned
   // configuration is the authoritative persistent store and is available
   // through esp_wifi_get_config before association has begun.
@@ -446,6 +473,7 @@ private:
   }
 
   bool apStarted_ = false;
+  bool accessPointOnly_ = false;
   bool stationConfigured_ = false;
   bool suppressed_ = false;
   bool mdnsStarted_ = false;

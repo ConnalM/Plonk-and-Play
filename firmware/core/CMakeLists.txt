@@ -3,7 +3,10 @@
 # target evidence proves the effective dependency graph and forced guard.
 
 idf_component_register(
-  SRCS core_runtime_esp32.cpp
+  # The shared timing implementation is non-inline and the integrated main
+  # component is intentionally absent from Core. Keep this as the sole Core
+  # registration of systemTime(); do not duplicate it in a new Core source.
+  SRCS core_runtime_esp32.cpp ../src/system_time.cpp
   INCLUDE_DIRS ../include
   REQUIRES
     arduino

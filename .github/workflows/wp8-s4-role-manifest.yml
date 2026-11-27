@@ -9,6 +9,7 @@ on:
       - firmware/include/pp/s4_taster_entrypoint_boundary.h
       - firmware/include/pp/s4_production_role_guard.h
       - firmware/include/pp/core_runtime_contract.h
+      - firmware/include/pp/core_runtime_wiring.h
       - firmware/include/pp/browser_interface.h
       - firmware/include/pp/external_wifi.h
       - firmware/core/CMakeLists.txt

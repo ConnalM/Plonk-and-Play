@@ -1,4 +1,5 @@
 #include "pp/core_runtime_contract.h"
+#include "pp/core_runtime_wiring.h"
 #include "pp/race_control.h"
 #include "pp/session_definition.h"
 
@@ -53,14 +54,20 @@ int main() {
   } controller;
 
   Bus bus;
-  const auto raceControlEndpoint = bus.attach(Role::RaceControl);
-  const auto browserEndpoint = bus.attach(Role::Presentation);
-  assert(bus.subscribe(raceControlEndpoint, Type::StartRequest));
-  assert(bus.subscribe(browserEndpoint, Type::RequestResult));
+  const core_runtime::RuntimeEndpoints endpoints{
+      bus.attach(Role::Lifecycle), bus.attach(Role::Memory), bus.attach(Role::Input),
+      bus.attach(Role::RaceControl), bus.attach(Role::RaceEngine),
+      bus.attach(Role::Presentation)};
+  assert(endpoints.lifecycle.id && endpoints.memory.id && endpoints.input.id &&
+         endpoints.raceControl.id && endpoints.raceEngine.id &&
+         endpoints.presentation.id);
+  // This is the actual subscription list used by CoreRuntime, not a local
+  // approximation of the Race Control and Browser portions of that wiring.
+  assert(core_runtime::subscribeRuntime(bus, endpoints));
   ActiveSessionDefinition active;
-  RaceControlModule raceControl{bus, raceControlEndpoint, active,
+  RaceControlModule raceControl{bus, endpoints.raceControl, active,
                                 &history, &records, &detectors};
-  raceControl.setControllerStartAuthority(browserEndpoint, controller);
+  raceControl.setControllerStartAuthority(endpoints.presentation, controller);
   raceControl.setProposedRaceSetup(setup);
   raceControl.setRequiredCapabilityAvailable(false);
   assert(raceControl.readiness() == StartReadiness::CapabilityUnavailable);
@@ -71,10 +78,10 @@ int main() {
   start.clientContext = ClientContext::RaceDirectorSmug;
   start.controlOwner = 7;
   start.sessionMode = SessionMode::None;
-  assert(bus.publish(browserEndpoint, start) == Delivery::Delivered);
+  assert(bus.publish(endpoints.presentation, start) == Delivery::Delivered);
   raceControl.tick(1000000);
   Message result{};
-  assert(bus.receive(browserEndpoint, result));
+  assert(bus.receive(endpoints.presentation, result));
   assert(result.type == Type::RequestResult);
   assert(result.correlation == start.correlation);
   assert(result.requestResult == RequestResult::Rejected);
@@ -82,6 +89,13 @@ int main() {
   assert(!active.current());
   assert(history.count() == 0);
   assert(records.trackRecord() == 0);
+
+  // The same shared list must also retain the production Input -> Race Engine
+  // integrity route; it is deliberately separate from Browser presentation.
+  Message integrity{};
+  integrity.type = Type::RaceIntegrityFault;
+  assert(bus.publish(endpoints.input, integrity) == Delivery::Delivered);
+  assert(bus.queued(endpoints.raceEngine) == 1);
 
   std::cout << "S4 Core unavailable-hardware safety contract PASS\n";
 }

@@ -9,6 +9,7 @@
 
 #include "pp/browser_interface.h"
 #include "pp/core_runtime_contract.h"
+#include "pp/core_runtime_wiring.h"
 #include "pp/noticeboard.h"
 #include "pp/persistent_storage.h"
 #include "pp/race_control.h"
@@ -116,19 +117,27 @@ class CoreRuntime {
     (void)trackConfiguration_.load(track_);
     browser_.restorePersistedAuthority();
     raceControl_.setControllerStartAuthority(presentationEndpoint_, browser_);
-    subscribe();
+    if (!subscribe()) {
+      Serial.println("[CORE] runtime wiring rejected; Browser remains offline");
+      return;
+    }
     configureProposal(pp::Configuration{});
     // The detector and record boundaries are consciously unavailable.  This
     // is an explicit safety state, not a simulated or default-ready track.
     raceControl_.setRequiredCapabilityAvailable(false);
-    browser_.begin();
     pp::Message load{};
     load.type = pp::Type::LoadConfiguration;
     load.correlation = 1;
-    (void)bus_.publish(lifecycle_, load);
+    if (bus_.publish(lifecycle_, load) != pp::Delivery::Delivered) {
+      Serial.println("[CORE] configuration load route unavailable; Browser remains offline");
+      return;
+    }
+    browser_.begin();
+    initialized_ = true;
   }
 
   void tick() {
+    if (!initialized_) return;
     memoryModule_.tick();
     receiveConfiguration();
     raceControl_.setRequiredCapabilityAvailable(false);
@@ -139,31 +148,10 @@ class CoreRuntime {
   }
 
  private:
-  void subscribe() {
-    (void)bus_.subscribe(memoryEndpoint_, pp::Type::LoadConfiguration);
-    (void)bus_.subscribe(lifecycle_, pp::Type::ConfigurationLoaded);
-    (void)bus_.subscribe(inputEndpoint_, pp::Type::SessionOperation);
-    (void)bus_.subscribe(inputEndpoint_, pp::Type::FinishSettlement);
-    (void)bus_.subscribe(raceControlEndpoint_, pp::Type::StartRequest);
-    (void)bus_.subscribe(raceControlEndpoint_, pp::Type::SetupRequest);
-    (void)bus_.subscribe(raceControlEndpoint_, pp::Type::SessionOperationRequest);
-    (void)bus_.subscribe(raceControlEndpoint_, pp::Type::PauseSettled);
-    (void)bus_.subscribe(raceControlEndpoint_, pp::Type::RaceIntegrityFault);
-    (void)bus_.subscribe(raceControlEndpoint_, pp::Type::CompetitionComplete);
-    (void)bus_.subscribe(raceEngineEndpoint_, pp::Type::InputEvent);
-    (void)bus_.subscribe(raceEngineEndpoint_, pp::Type::GoScheduled);
-    (void)bus_.subscribe(raceEngineEndpoint_, pp::Type::SessionOperation);
-    (void)bus_.subscribe(raceEngineEndpoint_, pp::Type::InputSettlement);
-    (void)bus_.subscribe(raceEngineEndpoint_, pp::Type::FinishSettled);
-    (void)bus_.subscribe(raceEngineEndpoint_, pp::Type::EnduranceExpired);
-    for (const pp::Type type : {pp::Type::NoticeboardChanged, pp::Type::GoScheduled,
-                                pp::Type::LapCompleted, pp::Type::CompetitionComplete,
-                                pp::Type::RequestResult, pp::Type::Paused,
-                                pp::Type::RestartScheduled, pp::Type::Resumed,
-                                pp::Type::FalseStart, pp::Type::HistoryStored,
-                                pp::Type::StorageFault, pp::Type::EnduranceExpired}) {
-      (void)bus_.subscribe(presentationEndpoint_, type);
-    }
+  bool subscribe() {
+    return pp::core_runtime::subscribeRuntime(
+        bus_, {lifecycle_, memoryEndpoint_, inputEndpoint_, raceControlEndpoint_,
+               raceEngineEndpoint_, presentationEndpoint_});
   }
 
   void receiveConfiguration() {
@@ -222,6 +210,7 @@ class CoreRuntime {
   CoreBenchMaintenance maintenance_;
   pp::BrowserInterface browser_;
   pp::MemoryModule memoryModule_;
+  bool initialized_ = false;
 };
 
 CoreRuntime runtime;
