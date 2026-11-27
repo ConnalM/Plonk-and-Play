@@ -1,7 +1,7 @@
 #pragma once
 
 #include "physical_taster_authority.h"
-#include "taster_link_startup_taster_esp.h"
+#include "taster_remote_link_port.h"
 
 namespace pp {
 
@@ -12,7 +12,7 @@ namespace pp {
 // the startup owner remains cold and this adapter stays visibly non-startable.
 class RemoteTasterAuthority final : public PhysicalTasterAuthority {
  public:
-  explicit RemoteTasterAuthority(taster_link::startup::TasterRuntime& runtime)
+  explicit RemoteTasterAuthority(taster_link::RemoteTasterLinkPort& runtime)
       : runtime_(runtime) {}
 
   TasterSnapshot snapshot() const override { refresh(); return snapshot_; }
@@ -43,11 +43,17 @@ class RemoteTasterAuthority final : public PhysicalTasterAuthority {
     }
     return send(correlation, action, taster_link::Mode::None, 0, confirmed);
   }
-  bool result(uint32_t, RequestResult&, RequestRejection&) const override {
-    // The reviewed wire protocol deliberately holds control until a newer
-    // authoritative snapshot. It exposes no local result cache to replay;
-    // surface reconciliation is therefore snapshot-driven.
-    return false;
+  bool result(uint32_t correlation, RequestResult& value,
+              RequestRejection& rejection) const override {
+    if (!correlation || correlation != pendingCorrelation_) return false;
+    taster_link::Status status{};
+    if (!runtime_.takeResult(pendingCommandId_, status)) return false;
+    pendingCorrelation_ = 0;
+    pendingCommandId_ = 0;
+    value = status == taster_link::Status::Accepted
+        ? RequestResult::Accepted : RequestResult::Rejected;
+    rejection = rejectionFor(status);
+    return true;
   }
   NoticeboardState stateAt(Time) const override { refresh(); return snapshot_.state; }
   SessionLifecycle lifecycle() const override { refresh(); return snapshot_.state.lifecycle; }
@@ -57,6 +63,21 @@ class RemoteTasterAuthority final : public PhysicalTasterAuthority {
   void pollResults() override { refresh(); }
   bool beginTouch() override { return runtime_.beginTouch(); }
   void observeReleased() override { runtime_.observeReleased(); }
+  void cancelTouch() override { runtime_.cancelTouch(); }
+  uint64_t interactionRevision() const override { return runtime_.view().interactionRevision; }
+  bool pendingUncertain(uint32_t correlation) override {
+    if (!correlation || correlation != pendingCorrelation_) return false;
+    const auto view = runtime_.view();
+    if (!view.uncertainOutcome &&
+        view.interactionRevision == pendingInteractionRevision_ &&
+        view.state == taster_link::health::State::Fresh) return false;
+    // This only abandons the local waiting indicator.  It never converts an
+    // uncertain command into an accepted or rejected sporting outcome.
+    pendingCorrelation_ = 0;
+    pendingCommandId_ = 0;
+    runtime_.acknowledgeUncertainty();
+    return true;
+  }
 
  private:
   static SessionLifecycle lifecycleFor(taster_link::wire::DisplayLifecycle value) {
@@ -83,11 +104,28 @@ class RemoteTasterAuthority final : public PhysicalTasterAuthority {
            value == R::CapabilityUnavailable ? StartReadiness::CapabilityUnavailable :
            StartReadiness::LifecycleNotStartable;
   }
+  static RequestRejection rejectionFor(taster_link::Status status) {
+    using S = taster_link::Status;
+    switch (status) {
+      case S::Forbidden: return RequestRejection::PermissionDenied;
+      case S::Conflict: return RequestRejection::ProposalRevisionConflict;
+      case S::Invalid: return RequestRejection::InvalidRaceSetup;
+      case S::Expired:
+      case S::Stale:
+      case S::OldId:
+      case S::Busy: return RequestRejection::LifecycleNotStartable;
+      default: return RequestRejection::None;
+    }
+  }
   bool send(uint32_t correlation, taster_link::Action action,
             taster_link::Mode mode = taster_link::Mode::None,
             uint16_t value = 0, bool confirmed = false) {
-    if (!correlation || pendingCorrelation_ || !runtime_.command(action, mode, value, confirmed)) return false;
+    uint64_t commandId = 0;
+    if (!correlation || pendingCorrelation_ ||
+        !runtime_.command(action, mode, value, confirmed, commandId) || !commandId) return false;
     pendingCorrelation_ = correlation;
+    pendingCommandId_ = commandId;
+    pendingInteractionRevision_ = runtime_.view().interactionRevision;
     return true;
   }
   void refresh() const {
@@ -138,10 +176,12 @@ class RemoteTasterAuthority final : public PhysicalTasterAuthority {
           ? TasterCarGraphic::RedEtype : TasterCarGraphic::GreenMgb;
     }
   }
-  taster_link::startup::TasterRuntime& runtime_;
+  taster_link::RemoteTasterLinkPort& runtime_;
   mutable TasterSnapshot snapshot_{};
   mutable TasterPresentationPreferences preferences_{};
   mutable bool preferencesPresent_ = false;
-  uint32_t pendingCorrelation_ = 0;
+  mutable uint32_t pendingCorrelation_ = 0;
+  mutable uint64_t pendingCommandId_ = 0;
+  mutable uint64_t pendingInteractionRevision_ = 0;
 };
 } // namespace pp

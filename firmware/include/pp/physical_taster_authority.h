@@ -17,5 +17,9 @@ public:
   // command without a fresh authoritative remote snapshot.
   virtual bool beginTouch() { return true; }
   virtual void observeReleased() {}
+  virtual void cancelTouch() {}
+  // A remote owner increments this whenever its authority or fresh gesture
+  // context is invalidated.  The integrated authority remains stable.
+  virtual uint64_t interactionRevision() const { return 0; }
 };
 } // namespace pp

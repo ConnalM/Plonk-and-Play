@@ -16,7 +16,7 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
 # grammar is valid; the role definition above still reaches every compilation
 # unit, including the generated asset assembly.
 target_compile_options(${COMPONENT_LIB} PRIVATE
-  "$<$<COMPILE_LANGUAGE:C,CXX>:-include;${CMAKE_CURRENT_LIST_DIR}/../include/pp/s4_production_role_guard.h>")
+  "$<$<COMPILE_LANGUAGE:CXX>:-include;${CMAKE_CURRENT_LIST_DIR}/../include/pp/s4_production_role_guard.h>")
 
 set(PP_TASTER_ASSET_ROOT "${CMAKE_CURRENT_LIST_DIR}/../assets")
 target_add_binary_data(${COMPONENT_LIB}

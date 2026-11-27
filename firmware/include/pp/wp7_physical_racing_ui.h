@@ -308,6 +308,7 @@ private:
     int adjustmentDelta = 0;
     int mappedX = 0;
     int mappedY = 0;
+    uint64_t interactionRevision = 0;
   };
 
   struct LaneAnimation {
@@ -2003,6 +2004,17 @@ private:
     // their cadence between fresh GT911 reports.
     if (!touch_.read()) return;
     const bool isDown = touch_.isTouched;
+    if (touchState_.down &&
+        touchState_.interactionRevision != authority_.interactionRevision()) {
+      // Authority loss/reconnect must never release or commit a stale hold.
+      authority_.cancelTouch();
+      touchState_ = TouchState{};
+      mainPressed_ = false;
+      pauseHoldFeedback_ = false;
+      abandonConfirm_ = false;
+      surface_.cancelInteraction();
+      return;
+    }
     if (isDown) {
       const uint16_t rawX = touch_.points[0].x;
       const uint16_t rawY = touch_.points[0].y;
@@ -2011,6 +2023,7 @@ private:
       if (!touchState_.down) {
         if (!authority_.beginTouch()) return;
         touchState_.down = true;
+        touchState_.interactionRevision = authority_.interactionRevision();
         touchState_.downAt = now;
         touchState_.missingSince = 0;
         touchState_.lifecycle = authority_.lifecycle();
@@ -2078,8 +2091,12 @@ private:
         touchState_.nextAdjustmentAt = adjustmentDeadlineAfter(
             touchState_.nextAdjustmentAt, touchState_.adjustmentIntervalMs, now);
       }
-    } else if (touchState_.down) {
+    } else {
+      // This is a valid GT911 zero-contact sample, including the neutral
+      // sample before any gesture.  It is not synthesized after an I2C or
+      // no-new-data response, which returns above.
       authority_.observeReleased();
+      if (!touchState_.down) return;
       if (!touchState_.missingSince) touchState_.missingSince = now;
       // +/- controls need a longer confirmation because the physical trace
       // showed complete empty GT911 samples during a ten-second press.  Do

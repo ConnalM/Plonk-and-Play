@@ -3,6 +3,18 @@
 
 namespace pp::taster_link::handshake {
 
+// Compare every public-length byte before deciding equality.  The callers
+// supply fixed-size authentication material; null is rejected before any
+// access.  Keep this primitive header-only so its first- and last-byte
+// behaviour is directly covered by the portable link tests as well as the
+// ESP object inspection.
+inline bool constantTimeEqual(const uint8_t* a,const uint8_t* b,size_t n) {
+  if(!a || !b) return false;
+  volatile uint8_t different=0;
+  for(size_t i=0;i<n;++i) different|=static_cast<uint8_t>(a[i]^b[i]);
+  return different==0;
+}
+
 // The reviewed PPTH protocol requests exactly one SHA256 output block.
 // RFC5869 extract = HMAC(salt, IKM), expand = HMAC(PRK, info || 0x01).
 // Keep this narrowly scoped to PPTH rather than enabling a new SDK feature

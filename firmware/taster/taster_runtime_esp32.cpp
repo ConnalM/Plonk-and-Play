@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include "pp/board_display_esp32s3.h"
 #include "pp/system_time.h"
+#include "pp/taster_link_startup_taster_esp.h"
 #include "pp/taster_remote_authority.h"
 #include "pp/wp7_physical_racing_ui.h"
 

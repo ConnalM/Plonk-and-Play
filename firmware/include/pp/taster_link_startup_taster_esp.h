@@ -1,6 +1,7 @@
 #pragma once
 #include "taster_link_startup_common_esp.h"
 #include "taster_link_platform_taster_esp.h"
+#include "taster_remote_link_port.h"
 
 namespace pp::taster_link::startup {
 namespace pf=platform;
@@ -25,7 +26,7 @@ private:
 // Taster composition has no RaceControl, detector, Browser or record service.
 // Renderer integration receives only the gated link surface from this owner;
 // it retains physical touch/hold and confirmation and synthesises nothing.
-class TasterRuntime final {
+class TasterRuntime final : public RemoteTasterLinkPort {
 public:
   static TasterRuntime& bootInstance(tr::EspCrypto::EntropyReady entropy,uint16_t port){
     static TasterRuntime self(entropy,port);return self;
@@ -59,15 +60,22 @@ public:
     else if(owner_->state()==lc::TasterState::Fault)state_=State::Fault;
     else state_=enabled?State::Operating:State::Waiting;
   }
-  health::View view(){return owner_?owner_->view():health::View{};}
+  health::View view() override{return owner_?owner_->view():health::View{};}
   const ds::Selector* selection() const{return owner_?&owner_->selection():nullptr;}
   bool choose(uint64_t token,const ds::Bssid& b){return owner_ && owner_->choose(token,b);}
-  void observeReleased(){if(owner_)owner_->observeReleased();}
-  bool beginTouch(){return owner_ && owner_->beginTouch();}
-  void cancelTouch(){if(owner_)owner_->cancelTouch();}
+  void observeReleased() override{if(owner_)owner_->observeReleased();}
+  bool beginTouch() override{return owner_ && owner_->beginTouch();}
+  void cancelTouch() override{if(owner_)owner_->cancelTouch();}
   bool command(Action a,Mode m=Mode::None,uint16_t value=0,bool confirmed=false){
     return owner_ && owner_->command(a,m,value,confirmed);
   }
+  bool command(Action a,Mode m,uint16_t value,bool confirmed,uint64_t& commandId) override {
+    return owner_ && owner_->command(a,m,value,confirmed,&commandId);
+  }
+  bool takeResult(uint64_t commandId,Status& status) override {
+    return owner_ && owner_->takeResult(commandId,status);
+  }
+  void acknowledgeUncertainty() override {if(owner_)owner_->acknowledgeUncertainty();}
 private:
   TasterRuntime(tr::EspCrypto::EntropyReady entropy,uint16_t port)
     :entropy_(entropy),port_(port),crypto_(entropy),

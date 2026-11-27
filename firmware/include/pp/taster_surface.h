@@ -1,6 +1,7 @@
 #pragma once
 
 #include "noticeboard.h"
+#include <algorithm>
 
 namespace pp {
 
@@ -25,6 +26,9 @@ public:
                                bool confirmed) = 0;
   virtual bool result(uint32_t correlation, RequestResult& value,
                       RequestRejection& rejection) const = 0;
+  // A remote transport can abandon only the local waiting indicator after an
+  // uncertain outcome.  It must not invent a result for the sporting core.
+  virtual bool pendingUncertain(uint32_t) { return false; }
   virtual ~TasterAuthority() = default;
 };
 
@@ -149,7 +153,17 @@ public:
     if (!requestPending_) { sync(); return; }
     RequestResult value = RequestResult::Rejected;
     RequestRejection rejection = RequestRejection::None;
-    if (!authority_.result(pendingCorrelation_, value, rejection)) { sync(); return; }
+    if (!authority_.result(pendingCorrelation_, value, rejection)) {
+      if (authority_.pendingUncertain(pendingCorrelation_)) {
+        // Connection/authority loss leaves the real-world result unknown.
+        // Discard local intent and wait for a new authoritative snapshot;
+        // neither result enum is fabricated here.
+        requestPending_ = false;
+        pendingWasSetup_ = false;
+        desiredPending_ = false;
+      }
+      sync(); return;
+    }
     requestPending_ = false;
     if (value == RequestResult::Rejected && pendingWasSetup_) {
       desiredPending_ = false;
@@ -164,6 +178,18 @@ public:
     }
     if (desiredPending_ && snapshot_.state.lifecycle == SessionLifecycle::Ready &&
         snapshot_.proposalRevision != desiredRevision_) queueSetup();
+  }
+
+  // A physical gesture was invalidated before it was released (for example
+  // authority transfer or a stale link).  Remove local preview state so a
+  // later reconnect cannot commit an old held adjustment.
+  void cancelInteraction() {
+    if (requestPending_) return;
+    desiredPending_ = false;
+    selectedMode_ = snapshot_.proposal.mode;
+    lapValue_ = snapshot_.proposal.lapTarget ? snapshot_.proposal.lapTarget : 10;
+    durationValue_ = clampValue(snapshot_.proposal.durationMinutes, 10);
+    desiredRevision_ = snapshot_.proposalRevision;
   }
 
 private:
