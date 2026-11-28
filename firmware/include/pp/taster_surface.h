@@ -72,18 +72,18 @@ public:
     return value ? value : nextCorrelation_++;
   }
 
-  void toggleMode() {
-    if (snapshot_.state.lifecycle != SessionLifecycle::Ready) return;
-    selectMode(selectedMode_ == SessionMode::Endurance ? SessionMode::LapRace
-                                                        : SessionMode::Endurance);
+  bool toggleMode() {
+    if (snapshot_.state.lifecycle != SessionLifecycle::Ready) return false;
+    return selectMode(selectedMode_ == SessionMode::Endurance ? SessionMode::LapRace
+                                                               : SessionMode::Endurance);
   }
 
-  void selectMode(SessionMode mode) {
+  bool selectMode(SessionMode mode) {
     if (snapshot_.state.lifecycle != SessionLifecycle::Ready ||
-        (mode != SessionMode::LapRace && mode != SessionMode::Endurance)) return;
+        (mode != SessionMode::LapRace && mode != SessionMode::Endurance)) return false;
     selectedMode_ = mode;
     if (selectedMode_ == SessionMode::Endurance) durationValue_ = clampValue(durationValue_, 10);
-    queueSetup();
+    return queueSetup();
   }
 
   void adjust(int delta) {
@@ -118,8 +118,7 @@ public:
   // flight, service() will submit the latest desired value after it resolves.
   bool commitAdjustment() {
     if (!desiredPending_) return false;
-    queueSetup();
-    return true;
+    return queueSetup();
   }
 
   bool start() {
@@ -127,6 +126,7 @@ public:
     pendingWasSetup_ = false;
     pendingCorrelation_ = allocateCorrelation();
     requestPending_ = authority_.submitStart(pendingCorrelation_);
+    if (!requestPending_) pendingCorrelation_ = 0;
     return requestPending_;
   }
 
@@ -135,6 +135,7 @@ public:
     pendingWasSetup_ = false;
     pendingCorrelation_ = allocateCorrelation();
     requestPending_ = authority_.submitOperation(pendingCorrelation_, operation, confirmed);
+    if (!requestPending_) pendingCorrelation_ = 0;
     return requestPending_;
   }
 
@@ -186,6 +187,7 @@ public:
   void cancelInteraction() {
     if (requestPending_) return;
     desiredPending_ = false;
+    pendingWasSetup_ = false;
     selectedMode_ = snapshot_.proposal.mode;
     lapValue_ = snapshot_.proposal.lapTarget ? snapshot_.proposal.lapTarget : 10;
     durationValue_ = clampValue(snapshot_.proposal.durationMinutes, 10);
@@ -213,11 +215,11 @@ private:
                      static_cast<uint32_t>(std::max<int64_t>(1, static_cast<int64_t>(value) + delta));
   }
 
-  void queueSetup() {
+  bool queueSetup() {
     desiredPending_ = true;
     pendingWasSetup_ = true;
     desiredRevision_ = snapshot_.proposalRevision;
-    if (requestPending_) return;
+    if (requestPending_) return false;
     pendingCorrelation_ = allocateCorrelation();
     // Taster's two supported modes use their authoritative P&P finish
     // policies: a LAPS race completes the full configured distance, while a
@@ -236,6 +238,16 @@ private:
                                                                               ? snapshot_.proposal.durationMinutes : 10),
                                               finish,
                                               snapshot_.proposalRevision);
+    if (!requestPending_) {
+      // A rejected local enqueue did not become an authoritative request.
+      // Do not leave a preview or a disabled START button masquerading as a
+      // pending setup; return immediately to the last sampled proposal.
+      pendingCorrelation_ = 0;
+      pendingWasSetup_ = false;
+      desiredPending_ = false;
+      sync();
+    }
+    return requestPending_;
   }
 
   bool proposalMatchesDesired() const {

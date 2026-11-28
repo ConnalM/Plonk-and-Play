@@ -17,7 +17,7 @@ class Link final : public tl::RemoteTasterLinkPort {
   void cancelTouch() override { neutral_ = false; touching_ = false; ++view_.interactionRevision; }
   bool command(tl::Action action, tl::Mode mode, uint16_t value,
                bool confirmed, uint64_t& commandId) override {
-    if (!view_.mayControl || !touching_ ||
+    if (!allowCommand_ || !view_.mayControl || !touching_ ||
         (action == tl::Action::Abandon && !confirmed))
       return false;
     action_ = action; mode_ = mode; value_ = value; confirmed_ = confirmed;
@@ -43,11 +43,13 @@ class Link final : public tl::RemoteTasterLinkPort {
     s.entryCount = 2; s.lanes[0].lane = 1; s.lanes[1].lane = 2;
   }
   void deliver(tl::Status status) { result_ = status; resultId_ = issued_; }
+  bool touching() const { return touching_; }
   tl::health::View view_{};
   tl::Action action_ = tl::Action::Start;
   tl::Mode mode_ = tl::Mode::None;
   uint16_t value_ = 0;
   bool confirmed_ = false;
+  bool allowCommand_ = true;
 
  private:
   bool neutral_ = false, touching_ = false;
@@ -115,5 +117,53 @@ int main() {
   modelLink.fresh();
   modelAuthority.observeReleased(); assert(modelAuthority.beginTouch());
   assert(model.start());
+
+  // The renderer-facing model owns every physical operation, not only
+  // START/setup.  Each takes the normal result route and leaves no remote
+  // command correlation latched when the next gesture begins.
+  modelLink.deliver(tl::Status::Accepted); model.service();
+  assert(!model.setupPending());
+  for (const auto operation : {pp::SessionOperation::Pause,
+                               pp::SessionOperation::Resume,
+                               pp::SessionOperation::EndRace,
+                               pp::SessionOperation::RaceAgain}) {
+    modelAuthority.observeReleased(); assert(modelAuthority.beginTouch());
+    const bool confirmed = operation == pp::SessionOperation::EndRace;
+    assert(model.operation(operation, confirmed));
+    modelLink.deliver(tl::Status::Accepted); model.service();
+    assert(!model.setupPending());
+  }
+
+  // A failed setup enqueue was never a request.  The surface discards its
+  // local preview and the caller retires the unconsumed physical gesture.
+  modelAuthority.observeReleased(); assert(modelAuthority.beginTouch());
+  model.adjustPreview(1); assert(model.selectedValue() == 13);
+  modelLink.allowCommand_ = false;
+  assert(!model.commitAdjustment());
+  assert(!model.setupPending() && model.selectedValue() == 12);
+  assert(modelLink.touching());
+  modelAuthority.cancelTouch();
+  assert(!modelLink.touching());
+  modelLink.allowCommand_ = true;
+
+  // Browser authority transfer and loss retire only local pending UI state;
+  // neither a stale result nor reconnect is treated as a racing result.
+  modelAuthority.observeReleased(); assert(modelAuthority.beginTouch());
+  assert(model.operation(pp::SessionOperation::Pause));
+  ++modelLink.view_.interactionRevision;
+  modelLink.view_.mayControl = false;
+  model.service();
+  assert(!model.setupPending());
+  modelLink.fresh();
+  modelAuthority.observeReleased(); assert(modelAuthority.beginTouch());
+  assert(model.operation(pp::SessionOperation::Resume));
+  modelLink.view_.state = tl::health::State::Stale;
+  model.service();
+  assert(!model.setupPending());
+  modelLink.fresh();
+  modelAuthority.observeReleased(); assert(modelAuthority.beginTouch());
+  assert(model.operation(pp::SessionOperation::EndRace, true));
+  modelLink.deliver(tl::Status::Rejected); model.service();
+  assert(!model.setupPending());
   std::cout << "Remote Taster authority command/result and gesture contract PASS\n";
 }
