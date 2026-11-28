@@ -84,7 +84,7 @@ public:
     if(have_ && fresh.epoch!=last_.session.epoch) {have_=false;last_={};}
     session_=fresh;connected_=true;opened_=now;fresh_=false;clock_.clear();
     mapped_=false;pingPending_=false;token_=0;firstSampleAfter_=0;lastIssued_=0;
-    postResult_=false;postResultAfter_=0;cancelTouch();
+    postResult_=false;postResultAfter_=0;haveResult_=false;result_={};cancelTouch();
     return true;
   }
   void disconnect() { retire(); }
@@ -219,12 +219,22 @@ public:
     // snapshot may be newer than the command's sample yet predate execution.
     // The latest sample cannot exceed this bound (tick checked its age).
     postResult_=true;postResultAfter_=b.upper;
-    if(r.status==Status::Unknown || r.status==Status::WrongSession) forgetPending();
-    else pendingId_=0;
+    if(r.status==Status::Unknown || r.status==Status::WrongSession) {
+      forgetPending();
+    } else {
+      result_=r;haveResult_=true;pendingId_=0;
+    }
     // No mutation of lifecycle, lap count, setup or timing from results.
     cancelTouch();return true;
   }
   bool pending() const {return pendingId_!=0;}
+  // A terminal authenticated result is consumed exactly once by the
+  // presentation adapter.  Unknown/WrongSession outcomes deliberately do
+  // not become a rejection: the command's real-world outcome is uncertain.
+  bool takeResult(uint64_t id, Status& status) {
+    if(!haveResult_ || !id || result_.commandId!=id) return false;
+    status=result_.status;haveResult_=false;result_={};return true;
+  }
   // Adapter acknowledges the indication only after surfacing it; not a race
   // acknowledgement and not a command retransmission.
   void acknowledgeUncertainty() {uncertain_=false;}
@@ -244,15 +254,17 @@ private:
   void retire() {
     forgetPending();cancelTouch();connected_=false;fresh_=false;
     mapped_=false;clock_.clear();pingPending_=false;lastIssued_=0;
-    postResult_=false;postResultAfter_=0;
+    postResult_=false;postResultAfter_=0;haveResult_=false;result_={};
   }
   Session session_{};
   Clock clock_{};
   wire::DisplaySnapshot last_{};
   uint64_t opened_=0,lastNow_=0,token_=0,pingSent_=0,firstSampleAfter_=0,
     pendingId_=0,pendingSince_=0,lastIssued_=0,interactionRevision_=0,postResultAfter_=0;
+  wire::Result result_{};
   bool haveTime_=false,connected_=false,mapped_=false,pingPending_=false,
-    have_=false,fresh_=false,neutral_=false,touch_=false,uncertain_=false,postResult_=false;
+    have_=false,fresh_=false,neutral_=false,touch_=false,uncertain_=false,postResult_=false,
+    haveResult_=false;
 };
 
 } // namespace pp::taster_link::health

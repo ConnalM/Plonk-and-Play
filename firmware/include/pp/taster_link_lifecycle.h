@@ -355,10 +355,13 @@ public:
   void observeReleased(){if(view().mayControl)health_.observeReleased(clock_.now());}
   bool beginTouch(){return view().mayControl && health_.beginTouch(clock_.now());}
   void cancelTouch(){health_.cancelTouch();}
-  bool command(Action a,Mode m=Mode::None,uint16_t value=0,bool confirmed=false){
+  bool command(Action a,Mode m=Mode::None,uint16_t value=0,bool confirmed=false,
+               uint64_t* issuedId=nullptr){
     if(!view().mayControl || !paired_){health_.cancelTouch();return false;}
-    return paired_->command(a,m,value,confirmed);
+    return paired_->command(a,m,value,confirmed,issuedId);
   }
+  bool takeResult(uint64_t commandId,Status& status){return health_.takeResult(commandId,status);}
+  void acknowledgeUncertainty(){health_.acknowledgeUncertainty();}
 private:
   const bs::Admission& admission() const{return *this;}
   bool permitted() const override{

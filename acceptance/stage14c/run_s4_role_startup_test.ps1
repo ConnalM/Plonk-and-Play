@@ -33,3 +33,7 @@ if ($LASTEXITCODE -eq 0 -or $tasterWrongText -notmatch 'Taster boundary cannot b
   throw 'S4 Taster boundary did not reject the Core production role'
 }
 Write-Host 'S4 role startup ownership host contract PASS'
+# Expected negative compiler probes above leave PowerShell's native-command
+# status non-zero.  The probes were asserted successfully, so return success
+# to CI without masking an unexpected compiler invocation (which throws).
+$global:LASTEXITCODE=0

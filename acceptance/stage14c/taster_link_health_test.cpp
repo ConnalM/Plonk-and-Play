@@ -1,4 +1,5 @@
 #include "pp/taster_link_health.h"
+#include "pp/taster_link_crypto_primitives.h"
 #include <cassert>
 #include <iostream>
 
@@ -31,6 +32,18 @@ static void establish(h::Client& c,Session s,uint64_t t) {
   assert(c.view(t+2200).mayControl && !c.view(t+2200).readyForNewTouch);
 }
 int main() {
+  // Equality consumes the full public length: a difference at either end
+  // is rejected, while equal bytes and zero length retain their contracts.
+  const uint8_t equalA[]{0x11,0x22,0x33,0x44};
+  uint8_t equalB[]{0x11,0x22,0x33,0x44};
+  assert(handshake::constantTimeEqual(equalA,equalB,sizeof(equalA)));
+  ++equalB[0];
+  assert(!handshake::constantTimeEqual(equalA,equalB,sizeof(equalA)));
+  equalB[0]=equalA[0];++equalB[sizeof(equalB)-1];
+  assert(!handshake::constantTimeEqual(equalA,equalB,sizeof(equalA)));
+  assert(handshake::constantTimeEqual(equalA,equalB,0));
+  assert(!handshake::constantTimeEqual(nullptr,equalB,sizeof(equalB)));
+
   h::Clock clock;h::Bounds b;
   assert(!clock.at(0,b));
   assert(clock.update(100,2300,1001100,1001300));
@@ -76,6 +89,9 @@ int main() {
   assert(!c.acceptResult(A,{2,Status::Accepted},4200));
   assert(c.acceptResult(A,{1,Status::InFlight},4200) && c.pending());
   assert(c.acceptResult(A,{1,Status::Accepted},4300) && !c.pending());
+  Status terminal{};
+  assert(c.takeResult(1,terminal) && terminal==Status::Accepted);
+  assert(!c.takeResult(1,terminal));
   assert(c.view(4300).snapshot.lifecycle==w::DisplayLifecycle::Ready);
   assert(c.view(4300).awaitingPostResultSnapshot && !c.view(4300).mayControl);
   c.observeReleased(4300);assert(!c.beginTouch(4300));
@@ -118,6 +134,10 @@ int main() {
     auto queued=snapshot(A,3000);
     assert(barrier.acceptSnapshot(queued,3000));
     assert(barrier.acceptResult(A,{1,status},4000) && !barrier.pending());
+    Status observed{};
+    const bool definite=status!=Status::Unknown && status!=Status::WrongSession;
+    assert(barrier.takeResult(1,observed)==definite);
+    if(definite) assert(observed==status);
     const auto bound=barrier.view(4000).coreNow.upper;
     auto blocked=[&](uint64_t t) {
       auto v=barrier.view(t);

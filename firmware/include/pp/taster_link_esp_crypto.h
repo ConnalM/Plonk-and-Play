@@ -7,7 +7,6 @@
 #include "taster_link_transport.h"
 #include <esp_random.h>
 #include <mbedtls/md.h>
-#include <mbedtls/constant_time.h>
 #include <mbedtls/platform_util.h>
 
 namespace pp::taster_link::transport {
@@ -38,7 +37,10 @@ public:
     wipe(out.data(),out.size());return false;
   }
   bool equal(const uint8_t* a,const uint8_t* b,size_t n) const override {
-    return a && b && mbedtls_ct_memcmp(a,b,n)==0;
+    // The recovered production SDK does not link mbedtls_ct_memcmp.  Keep
+    // comparison timing independent of the first differing byte without
+    // weakening authenticated-link verification or adding an SDK dependency.
+    return handshake::constantTimeEqual(a,b,n);
   }
   void wipe(uint8_t* p,size_t n) const override {zero(p,n);}
 private:

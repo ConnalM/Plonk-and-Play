@@ -180,7 +180,8 @@ public:
   // Renderer calls only following its own button-specific validated physical
   // release/hold/confirmation. Health policy still requires actual neutral
   // and fresh touch. True means queued locally, never sporting acceptance.
-  bool command(Action action,Mode mode=Mode::None,uint16_t value=0,bool confirmed=false){
+  bool command(Action action,Mode mode=Mode::None,uint16_t value=0,bool confirmed=false,
+               uint64_t* issuedId=nullptr){
     if(!established() || !client_) return false;
     uint64_t now;
     if(!time(now)) return fail();
@@ -196,6 +197,7 @@ public:
     Command q{c.session,++commandId_,c.authorityGeneration,c.lifecycleRevision,c.raceId,
               c.proposalRevision,expires,action,mode,value,confirmed};
     if(!send(wire::command(q,sendSeq_),now)) return fail();
+    if(issuedId) *issuedId=q.id;
     return true;
   }
 private:

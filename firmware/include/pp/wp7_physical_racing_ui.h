@@ -132,6 +132,7 @@ public:
   void tick(Time now) {
     authority_.pollResults();
     surface_.service();
+    invalidateLostInteraction();
     const uint32_t currentMs = millis();
     if (welcomeActive_) {
       updateWelcome(now, currentMs, false);
@@ -308,6 +309,7 @@ private:
     int adjustmentDelta = 0;
     int mappedX = 0;
     int mappedY = 0;
+    uint64_t interactionRevision = 0;
   };
 
   struct LaneAnimation {
@@ -1980,20 +1982,43 @@ private:
     return TouchNone;
   }
 
-  // Share the model's correlation allocator while preserving the existing
-  // direct physical operation submission behavior.
-  void publishOperation(SessionOperation operation, bool confirmed, const char* name) {
-    const uint32_t correlation = surface_.allocateCorrelation();
-    const bool delivered = authority_.submitOperation(correlation, operation, confirmed);
-    Serial.printf("[WP7 PHYS] %s request=%s correlation=%lu\n", name,
-                  delivered ? "PUBLISHED" : "REJECTED",
-                  static_cast<unsigned long>(correlation));
+  // Operations use the same tracked request/result path as START and setup.
+  // A remote command cannot therefore leave its link correlation latched
+  // after PAUSE, RESUME, ABANDON or RACE AGAIN.
+  bool publishOperation(SessionOperation operation, bool confirmed, const char* name) {
+    const bool delivered = surface_.operation(operation, confirmed);
+    Serial.printf("[WP7 PHYS] %s request=%s\n", name,
+                  delivered ? "PUBLISHED" : "REJECTED");
+    return delivered;
   }
 
-  void publishResume() { publishOperation(SessionOperation::Resume, false, "RESUME"); }
-  void publishAbandon() { publishOperation(SessionOperation::EndRace, true, "ABANDON"); }
-  void publishPause() { publishOperation(SessionOperation::Pause, false, "PAUSE"); }
-  void publishRaceAgain() { publishOperation(SessionOperation::RaceAgain, false, "RACE_AGAIN"); }
+  bool publishResume() { return publishOperation(SessionOperation::Resume, false, "RESUME"); }
+  bool publishAbandon() { return publishOperation(SessionOperation::EndRace, true, "ABANDON"); }
+  bool publishPause() { return publishOperation(SessionOperation::Pause, false, "PAUSE"); }
+  bool publishRaceAgain() { return publishOperation(SessionOperation::RaceAgain, false, "RACE_AGAIN"); }
+
+  void invalidateLostInteraction() {
+    const uint64_t revision = authority_.interactionRevision();
+    if (revision == observedInteractionRevision_) return;
+    // A new authority context invalidates an open confirmation even if the
+    // finger was already lifted.  Cancel a held gesture only when this UI
+    // still owns one; successful link commands have already consumed theirs.
+    if (touchState_.down) authority_.cancelTouch();
+    if (touchState_.down || abandonConfirm_) surface_.cancelInteraction();
+    touchState_ = TouchState{};
+    mainPressed_ = false;
+    pauseHoldFeedback_ = false;
+    abandonConfirm_ = false;
+    observedInteractionRevision_ = authority_.interactionRevision();
+  }
+
+  void retireUnconsumedGesture() {
+    authority_.cancelTouch();
+    // This is a local, completed no-command gesture, not a remote authority
+    // change.  Consume its link revision here so it cannot close a freshly
+    // opened confirmation overlay on the next renderer tick.
+    observedInteractionRevision_ = authority_.interactionRevision();
+  }
 
   void pollTouch(uint32_t now) {
     if (!touchReady_ || static_cast<int32_t>(now - nextPollMs_) < 0) return;
@@ -2003,13 +2028,20 @@ private:
     // their cadence between fresh GT911 reports.
     if (!touch_.read()) return;
     const bool isDown = touch_.isTouched;
+    if (touchState_.down &&
+        touchState_.interactionRevision != authority_.interactionRevision()) {
+      invalidateLostInteraction();
+      return;
+    }
     if (isDown) {
       const uint16_t rawX = touch_.points[0].x;
       const uint16_t rawY = touch_.points[0].y;
       const int mappedX = mapClamped(rawX, kMapX1, kMapX2, 0, kPanelWidth - 1);
       const int mappedY = mapClamped(rawY, kMapY1, kMapY2, 0, kPanelHeight - 1);
       if (!touchState_.down) {
+        if (!authority_.beginTouch()) return;
         touchState_.down = true;
+        touchState_.interactionRevision = authority_.interactionRevision();
         touchState_.downAt = now;
         touchState_.missingSince = 0;
         touchState_.lifecycle = authority_.lifecycle();
@@ -2077,7 +2109,12 @@ private:
         touchState_.nextAdjustmentAt = adjustmentDeadlineAfter(
             touchState_.nextAdjustmentAt, touchState_.adjustmentIntervalMs, now);
       }
-    } else if (touchState_.down) {
+    } else {
+      // This is a valid GT911 zero-contact sample, including the neutral
+      // sample before any gesture.  It is not synthesized after an I2C or
+      // no-new-data response, which returns above.
+      authority_.observeReleased();
+      if (!touchState_.down) return;
       if (!touchState_.missingSince) touchState_.missingSince = now;
       // +/- controls need a longer confirmation because the physical trace
       // showed complete empty GT911 samples during a ten-second press.  Do
@@ -2087,19 +2124,20 @@ private:
           ? adjustmentReleaseConfirmed(touchState_.missingSince, now)
           : now - touchState_.missingSince >= kReleaseDebounceMs;
       if (!releaseConfirmed) return;
+      bool commandConsumed = false;
       const uint32_t heldMs = now - touchState_.downAt;
       const bool hold = touchHoldThresholdReached(heldMs);
       Serial.printf("[WP7 PHYS] TOUCH UP mapped=(%d,%d) held_ms=%lu classification=%s\n",
                     touchState_.mappedX, touchState_.mappedY,
                     static_cast<unsigned long>(heldMs), hold ? "HOLD" : "SHORT");
       if (touchState_.mainTarget) {
-        if (touchState_.lifecycle == SessionLifecycle::Ready) surface_.start();
-        else if (touchState_.lifecycle == SessionLifecycle::Racing && hold) publishPause();
-        else if (touchState_.lifecycle == SessionLifecycle::Finished && !hold) publishRaceAgain();
+        if (touchState_.lifecycle == SessionLifecycle::Ready) commandConsumed = surface_.start();
+        else if (touchState_.lifecycle == SessionLifecycle::Racing && hold) commandConsumed = publishPause();
+        else if (touchState_.lifecycle == SessionLifecycle::Finished && !hold) commandConsumed = publishRaceAgain();
       } else if (touchState_.target == TouchModeLap && !hold) {
-        surface_.selectMode(SessionMode::LapRace);
+        commandConsumed = surface_.selectMode(SessionMode::LapRace);
       } else if (touchState_.target == TouchModeTimed && !hold) {
-        surface_.selectMode(SessionMode::Endurance);
+        commandConsumed = surface_.selectMode(SessionMode::Endurance);
       } else if (touchState_.adjustmentTarget) {
         if (!touchState_.adjustmentRepeated) {
           const uint32_t before = surface_.selectedValue();
@@ -2111,16 +2149,20 @@ private:
         // A complete touch gesture is committed once, after all local repeats
         // have settled.  This keeps the existing A/B storage contract while
         // avoiding one NVS transaction for every repeat tick.
-        surface_.commitAdjustment();
+        commandConsumed = surface_.commitAdjustment();
       } else if (touchState_.target == TouchResume && !hold) {
-        publishResume();
+        commandConsumed = publishResume();
       } else if (touchState_.target == TouchAbandon && !hold) {
         abandonConfirm_ = true;
       } else if (touchState_.target == TouchCancel && !hold) {
         abandonConfirm_ = false;
       } else if (touchState_.target == TouchConfirm && !hold) {
-        publishAbandon();
+        commandConsumed = publishAbandon();
       }
+      // A remote link command consumes the gesture in releaseForCommand().
+      // Every other completed, ignored or failed gesture must explicitly
+      // retire it so a fresh neutral/down sequence can arm the next one.
+      if (!commandConsumed) retireUnconsumedGesture();
       touchState_ = TouchState{};
       mainPressed_ = false;
       pauseHoldFeedback_ = false;
@@ -2143,6 +2185,7 @@ private:
   TasterSurfaceModel surface_;
   TAMC_GT911 touch_;
   TouchState touchState_{};
+  uint64_t observedInteractionRevision_ = 0;
   uint8_t detectedAddress_ = 0;
   uint32_t nextPollMs_ = 0;
   uint32_t nextDrawMs_ = 0;

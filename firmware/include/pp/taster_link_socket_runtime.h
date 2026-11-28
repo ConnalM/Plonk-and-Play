@@ -302,8 +302,9 @@ public:
   }
   // No implicit command queue/retry. Renderer supplies the existing
   // validated release/hold/confirmation and health's fresh touch.
-  bool command(Action a,Mode m=Mode::None,uint16_t value=0,bool confirmed=false) {
-    return peer_ && peer_->command(a,m,value,confirmed);
+  bool command(Action a,Mode m=Mode::None,uint16_t value=0,bool confirmed=false,
+               uint64_t* issuedId=nullptr) {
+    return peer_ && peer_->command(a,m,value,confirmed,issuedId);
   }
 private:
   bool beginPeer(){
